@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 JNIEXPORT jfloatArray
-JNICALL Java_com_dcshub_app_platform_LlamaBridge_embedText(
+JNICALL Java_com_llamatik_app_platform_LlamaBridge_embedText(
         JNIEnv *env, jobject thiz, jstring text);
 
 #ifdef __cplusplus

@@ -9,7 +9,7 @@
         <key>PLIST_VERSION</key>
         <string>1</string>
         <key>BUNDLE_ID</key>
-        <string>com.dcshub.app.ios</string>
+        <string>com.llamatik.app.ios</string>
         <key>PROJECT_ID</key>
         <string>dcs-wold-demo</string>
         <key>STORAGE_BUCKET</key>

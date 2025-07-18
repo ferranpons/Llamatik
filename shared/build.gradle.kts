@@ -238,7 +238,7 @@ kotlin {
                 val defFileName =
                     if (sdkName.contains("Simulator")) "llama_ios_${archName}_simulator.def" else "llama_ios_${archName}.def"
                 defFile("src/commonMain/c_interop/$defFileName")
-                packageName("com.dcshub.app.platform.llama")
+                packageName("com.llamatik.app.platform.llama")
                 includeDirs(
                     "${project.rootDir}/shared/src/commonMain/c_interop/include",
                     "${project.rootDir}/shared/src/commonMain/cpp/",
@@ -356,7 +356,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.dcshub.app"
+    namespace = "com.llamatik.app"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
@@ -384,6 +384,6 @@ android {
 
 compose.resources {
     publicResClass = true
-    packageOfResClass = "com.dcshub.app.resources"
+    packageOfResClass = "com.llamatik.app.resources"
     generateResClass = always
 }

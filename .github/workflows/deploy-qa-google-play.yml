@@ -27,7 +27,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-          packageName: com.dcshub.app.android
+          packageName: com.llamatik.app.android
           releaseFiles: composeApp/release/composeApp-release.aab
           track: internal
           status: draft

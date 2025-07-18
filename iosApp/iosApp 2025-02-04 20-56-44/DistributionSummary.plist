@@ -110,7 +110,7 @@
                 <key>entitlements</key>
                 <dict>
                     <key>application-identifier</key>
-                    <string>Q4JA6W59LT.com.dcshub.app.ios</string>
+                    <string>Q4JA6W59LT.com.llamatik.app.ios</string>
                     <key>com.apple.developer.team-identifier</key>
                     <string>Q4JA6W59LT</string>
                     <key>get-task-allow</key>
@@ -125,7 +125,7 @@
                     <key>dateExpires</key>
                     <string>4/2/26</string>
                     <key>name</key>
-                    <string>iOS Team Provisioning Profile: com.dcshub.app.ios</string>
+                    <string>iOS Team Provisioning Profile: com.llamatik.app.ios</string>
                 </dict>
                 <key>team</key>
                 <dict>

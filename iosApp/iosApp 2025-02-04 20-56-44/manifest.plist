@@ -29,7 +29,7 @@
                 <key>metadata</key>
                 <dict>
                     <key>bundle-identifier</key>
-                    <string>com.dcshub.app.ios</string>
+                    <string>com.llamatik.app.ios</string>
                     <key>bundle-version</key>
                     <string>1.0</string>
                     <key>kind</key>
@@ -43,7 +43,7 @@
                 <array>
                     <dict>
                         <key>bundle-identifier</key>
-                        <string>com.dcshub.app.ios</string>
+                        <string>com.llamatik.app.ios</string>
                         <key>kind</key>
                         <string>software-package</string>
                         <key>url</key>
@@ -924,7 +924,7 @@
                     </dict>
                     <dict>
                         <key>bundle-identifier</key>
-                        <string>com.dcshub.app.ios</string>
+                        <string>com.llamatik.app.ios</string>
                         <key>kind</key>
                         <string>software-package</string>
                         <key>url</key>

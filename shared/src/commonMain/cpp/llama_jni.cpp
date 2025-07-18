@@ -9,7 +9,7 @@ extern "C"
 JNIEXPORT jboolean
 
 JNICALL
-Java_com_dcshub_app_platform_LlamaBridge_initModel(JNIEnv *env, jobject, jstring modelPath) {
+Java_com_llamatik_app_platform_LlamaBridge_initModel(JNIEnv *env, jobject, jstring modelPath) {
     const char *path = env->GetStringUTFChars(modelPath, nullptr);
     bool success = llama_embed_init(path);
     env->ReleaseStringUTFChars(modelPath, path);
@@ -20,7 +20,7 @@ extern "C"
 JNIEXPORT jfloatArray
 
 JNICALL
-Java_com_dcshub_app_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstring input) {
+Java_com_llamatik_app_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstring input) {
     const char *inputStr = env->GetStringUTFChars(input, nullptr);
     float *vec = llama_embed(inputStr);
     __android_log_print(ANDROID_LOG_DEBUG, "LlamaBridge", "Vector: %p", vec);
@@ -46,7 +46,7 @@ extern "C"
 JNIEXPORT jboolean
 
 JNICALL
-Java_com_dcshub_app_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jobject, jstring modelPath) {
+Java_com_llamatik_app_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jobject, jstring modelPath) {
     const char *path = env->GetStringUTFChars(modelPath, nullptr);
     bool success = llama_generate_init(path);
     env->ReleaseStringUTFChars(modelPath, path);
@@ -57,7 +57,7 @@ extern "C"
 JNIEXPORT jstring
 
 JNICALL
-Java_com_dcshub_app_platform_LlamaBridge_generate(JNIEnv *env, jobject, jstring input) {
+Java_com_llamatik_app_platform_LlamaBridge_generate(JNIEnv *env, jobject, jstring input) {
     const char *prompt = env->GetStringUTFChars(input, nullptr);
     char *response = llama_generate(prompt);
     env->ReleaseStringUTFChars(input, prompt);

@@ -1,5 +1,5 @@
 import androidx.compose.runtime.Composable
-import com.dcshub.app.MainApp
+import com.llamatik.app.MainApp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable

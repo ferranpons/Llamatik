@@ -3,4 +3,4 @@ headerFilter = llama_embed_ios.h
 compilerOpts = -Isrc/commonMain/c_interop/include -I../llama.cpp -I/Users/ferran.pons/AndroidStudioProjects/DCS-Hub/llama.cpp/ggml -I/Users/ferran.pons/AndroidStudioProjects/DCS-Hub/llama.cpp/ggml/include
 staticLibraries = libllama_embedIosSimulatorArm64.a
 libraryPaths = build/llama/iPhoneSimulator
-package = com.dcshub.app.platform.llama
+package = com.llamatik.app.platform.llama

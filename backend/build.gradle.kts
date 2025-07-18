@@ -6,7 +6,7 @@ plugins {
 }
 
 application {
-    mainClass.set("com.dcshub.ApplicationKt")
+    mainClass.set("com.llamatik.ApplicationKt")
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")

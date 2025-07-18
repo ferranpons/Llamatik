@@ -127,7 +127,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.dcshub.app.android"
+    namespace = "com.llamatik.app.android"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
@@ -135,7 +135,7 @@ android {
     sourceSets["main"].resources.srcDirs("src/commonMain/resources")
 
     defaultConfig {
-        applicationId = "com.dcshub.app.android"
+        applicationId = "com.llamatik.app.android"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = versionCode()
@@ -208,7 +208,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.dcshub.app"
+            packageName = "com.llamatik.app"
             packageVersion = "$versionMajor.$versionMinor.$versionPatch"
         }
     }
