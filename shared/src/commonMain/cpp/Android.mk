@@ -1,0 +1,5 @@
+include $(CLEAR_VARS)
+LOCAL_MODULE := shared
+LOCAL_SRC_FILES := libllama.so
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
+include $(BUILD_SHARED_LIBRARY)

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="car_array">
+        <item>Buick Century</item>
+        <item>Buick LaSabre</item>
+        <item>Buick Roadmaster</item>
+        <item>Buick Special Riviera</item>
+        <item>Cadillac Couple De Ville</item>
+        <item>Cadillac Eldorado</item>
+        <item>Cadillac Fleetwood</item>
+        <item>Cadillac Series 62</item>
+        <item>Cadillac Seville</item>
+        <item>Ford Fairlane</item>
+        <item>Ford Galaxie 500</item>
+        <item>Ford Mustang</item>
+        <item>Ford Thunderbird</item>
+        <item>GMC Le Mans</item>
+        <item>Plymouth Fury</item>
+        <item>Plymouth GTX</item>
+        <item>Plymouth Roadrunner</item>
+    </string-array>
+</resources>

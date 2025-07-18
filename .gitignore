@@ -1,8 +1,11 @@
-# Gradle files
-.gradle/
-build/
-
-# Local configuration file (sdk path, etc)
+*.iml
+.gradle
+.idea
+.DS_Store
+build
+captures
+.externalNativeBuild
+.cxx
 local.properties
 
 # Log/OS Files
@@ -12,9 +15,8 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
-*.aab
 *.apk
-output-metadata.json
+output.json
 
 # IntelliJ
 *.iml
@@ -32,3 +34,15 @@ google-services.json
 
 # Android Profiling
 *.hprof
+xcuserdata
+
+*.klib
+.kotlin/metadata
+.kotlin/sessions
+
+llama.cpp/
+
+vector_store_export_general.json
+nomic_embed_text_v1_5_Q4_0.gguf
+phi-1_5.Q2_K.gguf
+

@@ -1,0 +1,168 @@
+[versions]
+android-compileSdk = "36"
+android-minSdk = "26"
+android-targetSdk = "36"
+koalaplotCore = "0.9.0"
+kotlin = "2.1.21"
+ktor-client = "2.3.13"
+ktor-server = "2.3.13"
+multiplatform-settings = "1.3.0"
+richeditorCompose = "1.0.0-rc13"
+voyager = "1.1.0-beta03"
+koin = "4.1.0"
+koin-compose = "4.1.0"
+junit = "4.13.2"
+androidGradlePlugin = "8.11.0"
+composeMultiplatform = "1.8.2"
+exposed = "0.61.0"
+skiko = "0.8.18"
+ktlint = "12.3.0"
+detekt = "1.23.8"
+kotlinx-coroutines = "1.10.2"
+androidx-junit = "1.2.1"
+espressoCore = "3.6.1"
+accompanistSystemuicontroller = "0.36.0"
+activityCompose = "1.10.1"
+firebase = "33.16.0"
+touchlab = "2.1.0"
+navigationCommonKtx = "2.9.1"
+xmlutil = "0.90.1"
+bouquet = "1.1.3"
+filekit = "0.10.0-beta04"
+mediaPlayerKMP = "2.0.9"
+urlencoder = "1.6.0"
+kotlinx-io = "0.8.0"
+
+[libraries]
+# Common
+koalaplot-core = { module = "io.github.koalaplot:koalaplot-core", version.ref = "koalaplotCore" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor-client" }
+ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor-client" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor-client" }
+
+multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatform-settings" }
+multiplatform-settings-no-arg = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "multiplatform-settings" }
+multiplatform-settings-serialization = { module = "com.russhwolf:multiplatform-settings-serialization", version.ref = "multiplatform-settings" }
+multiplatform-settings-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "multiplatform-settings" }
+richeditor-compose = { module = "com.mohamedrejeb.richeditor:richeditor-compose", version.ref = "richeditorCompose" }
+skiko = { module = "org.jetbrains.skiko:skiko", version.ref = "skiko" }
+skiko-macos-arm64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-macos-arm64", version.ref = "skiko" }
+ktor-client = { module = "io.ktor:ktor-client-core", version.ref = "ktor-client" }
+kamel = "media.kamel:kamel-image:0.9.5"
+kermit = "co.touchlab:kermit:2.0.6"
+
+kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"
+kotlinx-datetime = "org.jetbrains.kotlinx:kotlinx-datetime:0.7.0"
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-io = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
+
+voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
+voyager-bottom-sheet-navigator = { module = "cafe.adriel.voyager:voyager-bottom-sheet-navigator", version.ref = "voyager" }
+voyager-tab-navigator = { module = "cafe.adriel.voyager:voyager-tab-navigator", version.ref = "voyager" }
+voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", version.ref = "voyager" }
+voyager-koin = { module = "cafe.adriel.voyager:voyager-koin", version.ref = "voyager" }
+
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
+
+xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
+xmlutil-serialization = { module = "io.github.pdvrieze.xmlutil:serialization", version.ref = "xmlutil" }
+
+filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "filekit" }
+filekit-dialogs = { module = "io.github.vinceglb:filekit-dialogs", version.ref = "filekit" }
+filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
+
+youtube-kmp = { module = "io.github.khubaibkhan4:mediaplayer-kmp", version.ref = "mediaPlayerKMP" }
+urlencoder = { module = "net.thauvin.erik.urlencoder:urlencoder-lib", version.ref = "urlencoder" }
+
+
+# Android
+compose-bom = "androidx.compose:compose-bom:2025.06.01"
+koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
+
+androidx-core-ktx = "androidx.core:core-ktx:1.16.0"
+androidx-core-splashscreen = "androidx.core:core-splashscreen:1.0.1"
+androidx-tracing-ktx = "androidx.tracing:tracing-ktx:1.3.0"
+accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase" }
+
+junit = { module = "junit:junit", version.ref = "junit" }
+androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espressoCore" }
+androidx-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-junit" }
+
+androidx-material = { module = "androidx.compose.material:material" }
+androidx-material3 = { module = "androidx.compose.material3:material3" }
+androidx-material3-window-size = { module = "androidx.compose.material3:material3-window-size-class" }
+androidx-ui = { module = "androidx.compose.ui:ui" }
+androidx-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+firebase-analytics-ktx = { module = "com.google.firebase:firebase-analytics-ktx" }
+firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
+firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
+
+xmlutil-serialization-android = { module = "io.github.pdvrieze.xmlutil:serialization-android", version.ref = "xmlutil" }
+bouquet = { module = "io.github.grizzi91:bouquet", version.ref = "bouquet" }
+
+# iOS
+stately-common = { module = "co.touchlab:stately-common", version.ref = "touchlab" }
+
+# Desktop
+koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin-compose" }
+kotlinx-coroutines-swingui = "org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2"
+ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor-client" }
+androidx-compose-ui-util = "androidx.compose.ui:ui-util:1.8.3"
+
+# Backend
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor-server" }
+ktor-server-auth = { module = "io.ktor:ktor-server-auth", version.ref = "ktor-server" }
+ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktor-server" }
+ktor-server-locations = { module = "io.ktor:ktor-server-locations", version.ref = "ktor-server" }
+ktor-server-host-common = { module = "io.ktor:ktor-server-host-common", version.ref = "ktor-server" }
+ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor-server" }
+ktor-server-catching-headers = { module = "io.ktor:ktor-server-caching-headers", version.ref = "ktor-server" }
+ktor-server-compression = { module = "io.ktor:ktor-server-compression", version.ref = "ktor-server" }
+ktor-server-conditional-headers = { module = "io.ktor:ktor-server-conditional-headers", version.ref = "ktor-server" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor-server" }
+ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor-server" }
+ktor-server-metrics = { module = "io.ktor:ktor-server-metrics", version.ref = "ktor-server" }
+ktor-server-sessions = { module = "io.ktor:ktor-server-sessions", version.ref = "ktor-server" }
+ktor-server-html-builder-jvm = { module = "io.ktor:ktor-server-html-builder-jvm", version.ref = "ktor-server" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor-server" }
+ktor-server-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ktor-server" }
+ktor-server-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor-server" }
+ktor-server-tomcat = { module = "io.ktor:ktor-server-tomcat", version.ref = "ktor-server" }
+ktor-server-openapi = { module = "io.ktor:ktor-server-openapi", version.ref = "ktor-server" }
+ktor-server-tests-jvm = { module = "io.ktor:ktor-server-tests-jvm", version.ref = "ktor-server" }
+
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+
+kotlinx-html-jvm = "org.jetbrains.kotlinx:kotlinx-html-jvm:0.12.0"
+logback-classic = "ch.qos.logback:logback-classic:1.5.18"
+postgresql = "org.postgresql:postgresql:42.7.7"
+hikariCP = "com.zaxxer:HikariCP:6.3.0"
+swagger-codegen = "io.swagger.codegen.v3:swagger-codegen-generators:1.0.57"
+
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+androidx-navigation-common-ktx = { group = "androidx.navigation", name = "navigation-common-ktx", version.ref = "navigationCommonKtx" }
+
+[plugins]
+#Common
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+korge = { id = "com.soywiz.korge", version = "6.0.0" }
+
+#Backend
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "kotlin" }
+shadow = { id = "com.github.johnrengelman.shadow", version = "8.1.1" }
+
+[bundles]
+

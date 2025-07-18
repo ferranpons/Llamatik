@@ -1,0 +1,4 @@
+headers = llama.h
+headerFilter = llama.h
+compilerOpts = -Isrc/commonMain/c_interop/include
+linkerOpts = -Lsrc/commonMain/jniLibs/arm64-v8a -lllama

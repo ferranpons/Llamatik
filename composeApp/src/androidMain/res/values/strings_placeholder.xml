@@ -1,0 +1,7 @@
+<resources>
+    <string name="onBoarding_head_placeholder">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec tincidunt vehicula eros.</string>
+    <string name="onBoarding_description_placeholder">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec tincidunt vehicula eros.</string>
+
+    <string name="profile_name_placeholder">John Doe</string>
+    <string name="profile_description_placeholder">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec tincidunt vehicula eros.</string>
+</resources>
