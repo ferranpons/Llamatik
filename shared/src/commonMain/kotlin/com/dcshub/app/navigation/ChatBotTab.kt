@@ -20,7 +20,7 @@ internal object ChatBotTab : Tab {
             return remember {
                 TabOptions(
                     index = 2u,
-                    title = "Gibs AI",
+                    title = "Llamatik AI",
                     icon = icon
                 )
             }

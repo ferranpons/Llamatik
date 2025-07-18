@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import com.dcshub.app.localization.getCurrentLocalization
 import com.dcshub.app.resources.Res
-import com.dcshub.app.resources.gibs
+import com.dcshub.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.dcshub.app.ui.theme.LlamatikTheme
 import com.dcshub.app.ui.theme.Typography
 import org.jetbrains.compose.resources.painterResource
@@ -66,21 +66,21 @@ class ChatbotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                             sizeImage = it.size
                         },
                         contentScale = ContentScale.FillWidth,
-                        painter = painterResource(Res.drawable.gibs),
+                        painter = painterResource(Res.drawable.a_pair_of_llamas_in_a_field_with_clouds_and_mounta),
                         contentDescription = null
                     )
                     Box(modifier = Modifier.matchParentSize().background(gradient))
                 }
                 Text(
                     modifier = Modifier.padding(16.dp),
-                    text = "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F WELCOME TO GIBS AI!",
+                    text = "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F WELCOME TO Llamatik AI!",
                     style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    text = "Gibs AI (Guy In Back Specialist Artificial Intelligence) is an experimental local assistant for DCS World pilots, designed to help you quickly find information from manuals, guides, and community websites — all without needing an internet connection.\n" +
+                    text = "Llamatik AI (Guy In Back Specialist Artificial Intelligence) is an experimental local assistant for DCS World pilots, designed to help you quickly find information from manuals, guides, and community websites — all without needing an internet connection.\n" +
                             "\n" +
                             "It can help you:\n" +
                             "Look up aircraft systems, weapons, procedures, and mission planning tips.\n" +
@@ -94,7 +94,7 @@ class ChatbotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                             "\n" +
                             "This tool is based on publicly available content and is not affiliated with Eagle Dynamics.\n" +
                             "\n" +
-                            "By continuing, you accept that Gibs AI chatbot is provided for educational and informational purposes only, and complies with global privacy laws including GDPR, CCPA, and LGPD.\n" +
+                            "By continuing, you accept that Llamatik AI chatbot is provided for educational and informational purposes only, and complies with global privacy laws including GDPR, CCPA, and LGPD.\n" +
                             "\n",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,

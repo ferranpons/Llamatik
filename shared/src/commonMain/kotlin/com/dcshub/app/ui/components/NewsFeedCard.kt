@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.dcshub.app.data.repositories.FeedItem
 import com.dcshub.app.platform.shimmerLoadingAnimation
 import com.dcshub.app.resources.Res
-import com.dcshub.app.resources.unofficial_dcs_companion_logo
+import com.dcshub.app.resources.llamatik_icon_logo
 import com.dcshub.app.ui.icon.LlamatikIcons
 import com.dcshub.app.ui.theme.Typography
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
@@ -102,7 +102,7 @@ fun NewsFeedCard(
                         .clip(RoundedCornerShape(roundedCornerSize))
                         .height(imageHeight)
                         .background(MaterialTheme.colorScheme.tertiaryContainer),
-                    painter = painterResource(Res.drawable.unofficial_dcs_companion_logo),
+                    painter = painterResource(Res.drawable.llamatik_icon_logo),
                     contentScale = ContentScale.Inside,
                     contentDescription = "",
                 )

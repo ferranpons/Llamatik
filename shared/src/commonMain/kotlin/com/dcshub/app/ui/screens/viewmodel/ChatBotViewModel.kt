@@ -135,7 +135,7 @@ data class ChatUiModel(
         val name: String
     ) {
         companion object {
-            val bot = Author(BOT_ID, "Gibs AI")
+            val bot = Author(BOT_ID, "Llamatik AI")
             val me = Author(MY_ID, "Me")
         }
     }

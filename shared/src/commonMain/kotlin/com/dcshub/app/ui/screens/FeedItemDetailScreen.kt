@@ -36,7 +36,7 @@ import com.dcshub.app.localization.Localization
 import com.dcshub.app.localization.getCurrentLocalization
 import com.dcshub.app.platform.shimmerLoadingAnimation
 import com.dcshub.app.resources.Res
-import com.dcshub.app.resources.unofficial_dcs_companion_logo
+import com.dcshub.app.resources.llamatik_icon_logo
 import com.dcshub.app.ui.components.toRichHtmlString
 import com.dcshub.app.ui.icon.LlamatikIcons
 import com.dcshub.app.ui.screens.viewmodel.FeedItemDetailScreenState
@@ -148,7 +148,7 @@ class FeedItemDetailScreen(private val link: String) : Screen {
                                 .fillMaxWidth()
                                 .height(imageHeight)
                                 .background(MaterialTheme.colorScheme.tertiaryContainer),
-                            painter = painterResource(Res.drawable.unofficial_dcs_companion_logo),
+                            painter = painterResource(Res.drawable.llamatik_icon_logo),
                             contentScale = ContentScale.Inside,
                             contentDescription = null,
                         )

@@ -13,12 +13,11 @@ import com.dcshub.app.localization.getCurrentLocalization
 import com.dcshub.app.resources.Res
 import com.dcshub.app.resources.flying_around_the_world_cuate
 import com.dcshub.app.resources.instruction_manual_pana
-import com.dcshub.app.resources.logo_sky_vector
 import com.dcshub.app.resources.pay_attention_pana
 import com.dcshub.app.ui.components.CarouselItem
 import com.dcshub.app.ui.components.OnboardingComponent
-import com.dcshub.app.ui.theme.LlamatikTheme
 import com.dcshub.app.ui.theme.Fonts
+import com.dcshub.app.ui.theme.LlamatikTheme
 
 class OnboardingScreen : Screen {
 
@@ -126,7 +125,7 @@ class OnboardingScreen : Screen {
                     localization.next
                 ),
                 CarouselItem(
-                    Res.drawable.logo_sky_vector,
+                    Res.drawable.flying_around_the_world_cuate,
                     onboardingPromoTitle3,
                     onboardingPromoLine3,
                     localization.next

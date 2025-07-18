@@ -139,7 +139,7 @@ class ChatBotTabScreen : Screen {
                     TopAppBar(
                         title = {
                             Text(
-                                text = "GIBS AI PREVIEW",
+                                text = "Llamatik AI PREVIEW",
                                 style = Typography.get().titleMedium
                             )
                         },
@@ -154,7 +154,7 @@ class ChatBotTabScreen : Screen {
                             ) {
                                 Icon(
                                     imageVector = LlamatikIcons.Info,
-                                    contentDescription = "Info about Gibs AI"
+                                    contentDescription = "Info about Llamatik AI"
                                 )
                             }
                             IconButton(
@@ -285,7 +285,7 @@ class ChatBotTabScreen : Screen {
             }
             Text(
                 modifier = Modifier.align(if (message.isFromMe) Alignment.End else Alignment.Start),
-                text = if (message.isFromMe) "\uD83D\uDEE9 Me" else "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F Gibs AI",
+                text = if (message.isFromMe) "\uD83D\uDEE9 Me" else "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F Llamatik AI",
                 style = Typography.get().titleSmall,
                 color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
             )

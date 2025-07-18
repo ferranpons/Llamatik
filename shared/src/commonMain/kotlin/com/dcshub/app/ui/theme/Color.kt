@@ -2,63 +2,78 @@ package com.dcshub.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val lightPrimary = Color(0xFFadaeb2)
-val lightOnPrimary = Color(0xFFFFFFFF)
-val lightPrimaryContainer = Color(0xFFf59e0f)
-val lightOnPrimaryContainer = Color(0xFF2A1800)
-val lightSecondary = Color(0xFFf59e0f)
+// ----- LIGHT THEME -----
+val lightPrimary = Color(0xFFF59E0B)            // Vibrant llama orange
+val lightOnPrimary = Color(0xFF3B1D07)          // Llama outline dark
+val lightPrimaryContainer = Color(0xFFFFE0B2)   // Soft peach container
+val lightOnPrimaryContainer = Color(0xFF1A0C00)
+
+val lightSecondary = Color(0xFFD97706)          // Burnt orange
 val lightOnSecondary = Color(0xFFFFFFFF)
-val lightSecondaryContainer = Color(0xFFFFF8EB)
-val lightOnSecondaryContainer = Color(0xFF271904)
-val lightTertiary = Color(0xFF516440)
+val lightSecondaryContainer = Color(0xFFFFF3E0)
+val lightOnSecondaryContainer = Color(0xFF261600)
+
+val lightTertiary = Color(0xFF795548)           // Cocoa brown
 val lightOnTertiary = Color(0xFFFFFFFF)
-val lightTertiaryContainer = Color(0xFF1C1C1C)
-val lightOnTertiaryContainer = Color(0xFFFFFFFF)
-val lightError = Color(0xFFBA1B1B)
+val lightTertiaryContainer = Color(0xFFD7CCC8)
+val lightOnTertiaryContainer = Color(0xFF2B1B17)
+
+val lightError = Color(0xFFD32F2F)
 val lightErrorContainer = Color(0xFFFFDAD4)
 val lightOnError = Color(0xFFFFFFFF)
 val lightOnErrorContainer = Color(0xFF410001)
-val lightBackground = Color(0xFFFCFCFC)
-val lightOnBackground = Color(0xFF1F1B16)
-val lightSurface = Color(0xFFFCFCFC)
-val lightOnSurface = Color(0xFF1F1B16)
-val lightSurfaceVariant = Color(0xFFF0E0CF)
-val lightOnSurfaceVariant = Color(0xFF4F4539)
-val lightOutline = Color(0xFF817567)
-val lightInverseOnSurface = Color(0xFFF9EFE6)
-val lightInverseSurface = Color(0xFF34302A)
-val lightPrimaryInverse = Color(0xFFFFB945)
 
-val darkPrimary = Color(0xFFFFB945)
-val darkOnPrimary = Color(0xFF452B00)
-val darkPrimaryContainer = Color(0xFFf59e0f)
-val darkOnPrimaryContainer = Color(0xFFFFFFFF)
-val darkSecondary = Color(0xFFDDC3A2)
-val darkOnSecondary = Color(0xFF3E2E16)
-val darkSecondaryContainer = Color(0xFF56442B)
-val darkOnSecondaryContainer = Color(0xFFFADEBC)
-val darkTertiary = Color(0xFFB8CEA2)
-val darkOnTertiary = Color(0xFF243516)
-val darkTertiaryContainer = Color(0xFF1C1C1C)
-val darkOnTertiaryContainer = Color(0xFFFFFFFF)
+val lightBackground = Color(0xFFFFFBF5)          // Creamy warm
+val lightOnBackground = Color(0xFF261C0C)
+val lightSurface = Color(0xFFFFFBF5)
+val lightOnSurface = Color(0xFF261C0C)
+
+val lightSurfaceVariant = Color(0xFFF1E0D0)
+val lightOnSurfaceVariant = Color(0xFF5E4636)
+
+val lightOutline = Color(0xFF8D6E63)
+val lightInverseOnSurface = Color(0xFFFFF6EF)
+val lightInverseSurface = Color(0xFF3E2B1C)
+val lightPrimaryInverse = Color(0xFFFFB74D)
+
+// ----- DARK THEME -----
+val darkPrimary = Color(0xFFFFB74D)
+val darkOnPrimary = Color(0xFF3B1D07)
+val darkPrimaryContainer = Color(0xFFF59E0B)
+val darkOnPrimaryContainer = Color(0xFF1A0C00)
+
+val darkSecondary = Color(0xFFFFCC80)
+val darkOnSecondary = Color(0xFF3B1D07)
+val darkSecondaryContainer = Color(0xFFD97706)
+val darkOnSecondaryContainer = Color(0xFFFFFFFF)
+
+val darkTertiary = Color(0xFFD7CCC8)
+val darkOnTertiary = Color(0xFF2B1B17)
+val darkTertiaryContainer = Color(0xFF4E342E)
+val darkOnTertiaryContainer = Color(0xFFFFF6EF)
+
 val darkError = Color(0xFFFFB4A9)
 val darkErrorContainer = Color(0xFF930006)
 val darkOnError = Color(0xFF680003)
 val darkOnErrorContainer = Color(0xFFFFDAD4)
-val darkBackground = Color(0xFF1F1B16)
-val darkOnBackground = Color(0xFFEAE1D9)
-val darkSurface = Color(0xFF1F1B16)
-val darkOnSurface = Color(0xFFEAE1D9)
-val darkSurfaceVariant = Color(0xFF4F4539)
-val darkOnSurfaceVariant = Color(0xFFD3C4B4)
-val darkOutline = Color(0xFF9C8F80)
-val darkInverseOnSurface = Color(0xFF32281A)
-val darkInverseSurface = Color(0xFFEAE1D9)
-val darkPrimaryInverse = Color(0xFF624000)
 
-val successContainer = Color(0xFF017943)
-val errorContainer = Color(0xFFB21229)
-val warningContainer = Color(0xFFD97703)
-val infoContainer = Color(0xFF50595E)
+val darkBackground = Color(0xFF1D1307)
+val darkOnBackground = Color(0xFFF8EBDD)
+val darkSurface = Color(0xFF1D1307)
+val darkOnSurface = Color(0xFFF8EBDD)
+
+val darkSurfaceVariant = Color(0xFF5E4636)
+val darkOnSurfaceVariant = Color(0xFFE6CFC2)
+
+val darkOutline = Color(0xFFBCAAA4)
+val darkInverseOnSurface = Color(0xFF261C0C)
+val darkInverseSurface = Color(0xFFF8EBDD)
+val darkPrimaryInverse = Color(0xFFF59E0B)
+
+// ----- STATIC COLORS -----
+val successContainer = Color(0xFF388E3C)
+val errorContainer = Color(0xFFD32F2F)
+val warningContainer = Color(0xFFF57C00)
+val infoContainer = Color(0xFF1976D2)
 
 val scrimColor = Color(0x80000000)

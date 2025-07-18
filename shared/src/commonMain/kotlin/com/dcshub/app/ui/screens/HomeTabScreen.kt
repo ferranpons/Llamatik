@@ -51,7 +51,7 @@ import com.dcshub.app.localization.SetLanguage
 import com.dcshub.app.localization.getCurrentLanguage
 import com.dcshub.app.localization.getCurrentLocalization
 import com.dcshub.app.resources.Res
-import com.dcshub.app.resources.a_pair_of_mig_21_fishbed_flying_through_the_clouds
+import com.dcshub.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.dcshub.app.resources.air_support_bro
 import com.dcshub.app.ui.components.EmptyLayout
 import com.dcshub.app.ui.components.LlamatikDialog
@@ -203,7 +203,7 @@ class HomeTabScreen : Screen {
                                         sizeImage = it.size
                                     },
                                 contentScale = ContentScale.FillWidth,
-                                painter = painterResource(Res.drawable.a_pair_of_mig_21_fishbed_flying_through_the_clouds),
+                                painter = painterResource(Res.drawable.a_pair_of_llamas_in_a_field_with_clouds_and_mounta),
                                 contentDescription = null
                             )
                             Box(modifier = Modifier.matchParentSize().background(gradient))
