@@ -6,14 +6,14 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 
-private const val DCS_NEWS_RSS_PATH = "https://www.digitalcombatsimulator.com/en/news/rss/"
+private const val NEWS_RSS_PATH = "https://feeds.arstechnica.com/arstechnica/index"
 
 class NewsRepository(private val service: ServiceClient) {
 
     suspend fun getNews(): String {
         return service.httpClient.requestAndCatch(
             {
-                this.get(DCS_NEWS_RSS_PATH).body()
+                this.get(NEWS_RSS_PATH).body()
             },
             {
                 when (response.status) {

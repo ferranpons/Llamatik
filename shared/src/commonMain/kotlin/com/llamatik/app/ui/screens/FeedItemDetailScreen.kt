@@ -2,12 +2,10 @@ package com.llamatik.app.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,31 +18,26 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.lifecycle.LifecycleEffect
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
-import com.llamatik.app.platform.shimmerLoadingAnimation
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.components.toRichHtmlString
-import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.screens.viewmodel.FeedItemDetailScreenState
 import com.llamatik.app.ui.screens.viewmodel.FeedItemDetailViewModel
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
-import io.kamel.image.KamelImage
-import io.kamel.image.asyncPainterResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
@@ -58,11 +51,10 @@ class FeedItemDetailScreen(private val link: String) : Screen {
             parameters = { ParametersHolder(listOf(currentNavigator).toMutableList(), false) }
         )
 
-        LifecycleEffect(
-            onStarted = {
-                viewModel.onStarted(currentNavigator, link)
-            }
-        )
+        DisposableEffect(key) {
+            viewModel.onStarted(currentNavigator, link)
+            onDispose {}
+        }
 
         val state by viewModel.state.collectAsState()
         NewsScreenView(state, localization) {
@@ -106,53 +98,15 @@ class FeedItemDetailScreen(private val link: String) : Screen {
                         .padding(bottom = 80.dp).verticalScroll(scrollState)
                 ) {
                     val imageHeight = 260.dp
-                    val roundedCornerSize = 10.dp
-
-                    if (state.feedItem.enclosure?.url != null) {
-                        KamelImage(
-                            resource = asyncPainterResource(data = state.feedItem.enclosure.url),
-                            contentDescription = "image",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(imageHeight),
-                            onLoading = {
-                                Box(
-                                    modifier = Modifier
-                                        .background(color = MaterialTheme.colorScheme.primaryContainer)
-                                        .height(imageHeight)
-                                        .fillMaxWidth()
-                                        .shimmerLoadingAnimation(isLoadingCompleted = false)
-                                )
-                            },
-                            onFailure = {
-                                Box(
-                                    modifier = Modifier
-                                        .background(color = MaterialTheme.colorScheme.primaryContainer)
-                                        .height(imageHeight)
-                                        .fillMaxWidth(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        modifier = Modifier.size(36.dp),
-                                        imageVector = LlamatikIcons.BrokenImage,
-                                        contentDescription = "image",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                        )
-                    } else {
-                        Image(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(imageHeight)
-                                .background(MaterialTheme.colorScheme.tertiaryContainer),
-                            painter = painterResource(Res.drawable.llamatik_icon_logo),
-                            contentScale = ContentScale.Inside,
-                            contentDescription = null,
-                        )
-                    }
+                    Image(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(imageHeight)
+                            .background(MaterialTheme.colorScheme.tertiaryContainer),
+                        painter = painterResource(Res.drawable.llamatik_icon_logo),
+                        contentScale = ContentScale.Inside,
+                        contentDescription = null,
+                    )
                     Text(
                         modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp),
                         text = state.feedItem.title,

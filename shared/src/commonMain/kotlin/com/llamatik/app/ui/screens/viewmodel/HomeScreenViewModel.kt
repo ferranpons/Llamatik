@@ -6,6 +6,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
+import co.touchlab.kermit.Logger
 import com.llamatik.app.data.repositories.FeedItem
 import com.llamatik.app.data.usecases.GetAllNewsUseCase
 import com.llamatik.app.feature.debugmenu.DebugMenuScreen
@@ -85,6 +86,9 @@ class HomeScreenViewModel(
             getAllNewsUseCase.invoke()
                 .onSuccess {
                     _state.value = _state.value.copy(latestNews = it)
+                }
+                .onFailure { error ->
+                    Logger.e(error.message ?: "Unknown error")
                 }
             _state.value = _state.value.copy(
                 greeting = getGreeting(),

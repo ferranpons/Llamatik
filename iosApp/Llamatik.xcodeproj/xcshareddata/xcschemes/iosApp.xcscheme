@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "7555FF7A242A565900829871"
-               BuildableName = "Unofficial DCS Companion.app"
-               BlueprintName = "Unofficial DCS Companion"
-               ReferencedContainer = "container:DCS Companion.xcodeproj">
+               BuildableName = "Llamatik.app"
+               BlueprintName = "Llamatik"
+               ReferencedContainer = "container:Llamatik.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -44,9 +44,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7555FF7A242A565900829871"
-            BuildableName = "Unofficial DCS Companion.app"
-            BlueprintName = "Unofficial DCS Companion"
-            ReferencedContainer = "container:DCS Companion.xcodeproj">
+            BuildableName = "Llamatik.app"
+            BlueprintName = "Llamatik"
+            ReferencedContainer = "container:Llamatik.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -61,9 +61,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7555FF7A242A565900829871"
-            BuildableName = "Unofficial DCS Companion.app"
-            BlueprintName = "Unofficial DCS Companion"
-            ReferencedContainer = "container:DCS Companion.xcodeproj">
+            BuildableName = "Llamatik.app"
+            BlueprintName = "Llamatik"
+            ReferencedContainer = "container:Llamatik.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

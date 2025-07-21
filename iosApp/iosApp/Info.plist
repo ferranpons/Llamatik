@@ -2,6 +2,8 @@
     "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
     <dict>
+        <key>CADisableMinimumFrameDurationOnPhone</key>
+        <true />
         <key>CFBundleDevelopmentRegion</key>
         <string>$(DEVELOPMENT_LANGUAGE)</string>
         <key>CFBundleExecutable</key>
@@ -15,7 +17,7 @@
         <key>CFBundlePackageType</key>
         <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
         <key>CFBundleShortVersionString</key>
-        <string>1.0.1</string>
+        <string>1.0.0</string>
         <key>CFBundleVersion</key>
         <string>2</string>
         <key>LSRequiresIPhoneOS</key>
@@ -40,8 +42,6 @@
             <string>UIInterfaceOrientationLandscapeLeft</string>
             <string>UIInterfaceOrientationLandscapeRight</string>
         </array>
-        <key>CADisableMinimumFrameDurationOnPhone</key>
-        <true />
         <key>UISupportedInterfaceOrientations~ipad</key>
         <array>
             <string>UIInterfaceOrientationPortrait</string>

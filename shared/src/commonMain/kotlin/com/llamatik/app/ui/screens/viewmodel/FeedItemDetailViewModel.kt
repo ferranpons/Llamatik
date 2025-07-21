@@ -44,7 +44,6 @@ data class FeedItemDetailScreenState(
         title = "",
         link = "",
         description = "",
-        enclosure = null,
         pubDate = ""
     )
 )

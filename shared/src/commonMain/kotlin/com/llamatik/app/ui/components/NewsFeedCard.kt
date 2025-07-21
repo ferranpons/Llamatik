@@ -5,23 +5,19 @@ package com.llamatik.app.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -29,14 +25,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.data.repositories.FeedItem
-import com.llamatik.app.platform.shimmerLoadingAnimation
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
-import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.Typography
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
-import io.kamel.image.KamelImage
-import io.kamel.image.asyncPainterResource
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
@@ -58,6 +50,7 @@ fun NewsFeedCard(
         interactionSource = remember { MutableInteractionSource() }
     ) {
         Column {
+            /*
             if (feedItem.enclosure?.url != null) {
                 KamelImage(
                     resource = asyncPainterResource(data = feedItem.enclosure.url),
@@ -96,6 +89,8 @@ fun NewsFeedCard(
                     }
                 )
             } else {
+
+             */
                 Image(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -123,7 +118,7 @@ fun NewsFeedCard(
                 text = feedItem.description.toRichHtmlString(),
                 style = Typography.get().bodyMedium
             )
-        }
+        //}
     }
 }
 
