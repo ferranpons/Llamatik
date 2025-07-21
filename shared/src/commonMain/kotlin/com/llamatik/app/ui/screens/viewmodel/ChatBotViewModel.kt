@@ -5,9 +5,9 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import com.llamatik.app.ai.VectorStoreData
 import com.llamatik.app.ai.findTopKRelevantDocumentsDebug
 import com.llamatik.app.ai.loadVectorStoreEntries
-import com.llamatik.app.platform.LlamaBridge
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.ui.screens.ChatbotOnboardingScreen
+import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO

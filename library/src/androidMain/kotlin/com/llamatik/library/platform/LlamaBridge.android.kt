@@ -1,4 +1,4 @@
-package com.llamatik.app.platform
+package com.llamatik.library.platform
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext

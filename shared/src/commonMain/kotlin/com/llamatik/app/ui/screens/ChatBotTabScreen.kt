@@ -47,7 +47,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
-import com.llamatik.app.platform.LlamaBridge.getModelPath
 import com.llamatik.app.ui.components.LlamatikDialog
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.screens.viewmodel.ChatBotSideEffects
@@ -55,6 +54,7 @@ import com.llamatik.app.ui.screens.viewmodel.ChatBotViewModel
 import com.llamatik.app.ui.screens.viewmodel.ChatUiModel
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
+import com.llamatik.library.platform.LlamaBridge.getModelPath
 import org.koin.core.parameter.ParametersHolder
 
 class ChatBotTabScreen : Screen {

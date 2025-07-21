@@ -32,6 +32,10 @@ filekit = "0.10.0-beta04"
 mediaPlayerKMP = "2.0.9"
 urlencoder = "1.6.0"
 kotlinx-io = "0.8.0"
+kotlinStdlib = "2.1.21"
+kotlinTest = "2.1.21"
+runner = "1.6.2"
+core = "1.6.1"
 
 [libraries]
 # Common
@@ -148,6 +152,10 @@ swagger-codegen = "io.swagger.codegen.v3:swagger-codegen-generators:1.0.57"
 
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 androidx-navigation-common-ktx = { group = "androidx.navigation", name = "navigation-common-ktx", version.ref = "navigationCommonKtx" }
+kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlinStdlib" }
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlinTest" }
+androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
+androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
 
 [plugins]
 #Common

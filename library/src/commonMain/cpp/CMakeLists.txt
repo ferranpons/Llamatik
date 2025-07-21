@@ -27,7 +27,7 @@ add_library(llama_jni SHARED
 find_library(log-lib log)
 
 target_include_directories(llama_jni PRIVATE
-        .
+        ../../../../library/src/main/res
         ${CMAKE_SOURCE_DIR}/../c_interop/include  # location of llama.h
         ${LLAMA_SOURCES}
 )

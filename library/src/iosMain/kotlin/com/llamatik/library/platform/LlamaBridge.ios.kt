@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalNativeApi::class)
 
-package com.llamatik.app.platform
+package com.llamatik.library.platform
 
 import androidx.compose.runtime.Composable
 import com.llamatik.app.platform.llama.llama_embed
