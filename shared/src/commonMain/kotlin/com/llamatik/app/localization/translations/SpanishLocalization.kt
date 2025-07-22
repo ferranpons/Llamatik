@@ -35,19 +35,22 @@ internal object SpanishLocalization : Localization {
     override val featureNotAvailableMessage =
         "Lo sentimos, pero esta función no está disponible en este momento. Puedes encontrar los manuales y guías en cada módulo de la pestaña de módulos."
 
-    override val onboardingPromoTitle1 = "Aviso legal"
-    override val onboardingPromoTitle2 = "Manuales y Guías"
-    override val onboardingPromoTitle3 = "Videojuego integrado"
-    override val onboardingPromoTitle4 = "¿Eres empleado de Eagle Dynamics?"
+    override val onboardingPromoTitle1 = "Ejecuta LLMs sin conexión"
+    override val onboardingPromoTitle2 = "Privado y sin nube"
+    override val onboardingPromoTitle3 = "Control total local"
+    override val onboardingPromoTitle4 = "Código abierto para devs"
 
     override val onboardingPromoLine1 =
-        "Como habrás notado, esta aplicación no es oficial. Es una aplicación creada por fans. Esto significa que los logotipos e imágenes de 'Digital Combat Simulator (DCS) y Eagle Dynamics' son propiedad de Fighter Collection Ltd y Eagle Dynamics SA. Esta aplicación y su desarrollador no están afiliados ni respaldados por Eagle Dynamics. Solo contiene referencias a recursos públicos disponibles en "
+        "Llamatik lleva IA potente y local a tus apps Kotlin Multiplatform — totalmente offline y respetuosa con tu privacidad."
+
     override val onboardingPromoLine2 =
-        "Esta aplicación incluye accesos directos a los manuales y guías de tus módulos favoritos. También estamos desarrollando nuevas funciones que te ayudarán en tus vuelos de DCS."
+        "Crea asistentes inteligentes y chatbots sin depender de la nube ni sufrir latencia de red."
+
     override val onboardingPromoLine3 =
-        "Nos encantan los videojuegos, especialmente los relacionados con aviones y helicópteros. Por eso hemos incluido un pequeño clon del juego 1942 para que lo disfrutes."
+        "Usa tus propios modelos, controla tus vectores y gestiona toda tu pila LLM directamente desde Kotlin."
+
     override val onboardingPromoLine4 =
-        "Estamos dispuestos a colaborar con ED para brindar a los jugadores de DCS una nueva dimensión para estar más involucrados y conectados con el ecosistema de DCS. \nEsta aplicación y sus funciones son solo la punta del iceberg de lo que se puede lograr.\nSi tienes curiosidad, envía un correo a "
+        "Pensado para desarrolladores. Basado en llama.cpp. Llamatik es open source y está listo para transformar la IA local."
 
     override val feedItemTitle = "Noticia"
     override val loading = "Cargando..."

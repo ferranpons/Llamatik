@@ -55,7 +55,7 @@ class OnboardingScreen : Screen {
                         fontWeight = FontWeight.Bold
                     )
                 ) {
-                    append("digitalcombatsimulator.com")
+                    append("llamatik.com")
                 }
             }
 
