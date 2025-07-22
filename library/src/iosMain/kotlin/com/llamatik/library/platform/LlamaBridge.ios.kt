@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalNativeApi::class)
+@file:OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
 
 package com.llamatik.library.platform
 
@@ -7,12 +7,12 @@ import com.llamatik.app.platform.llama.llama_embed
 import com.llamatik.app.platform.llama.llama_embed_init
 import com.llamatik.app.platform.llama.llama_embedding_size
 import com.llamatik.app.platform.llama.llama_free_embedding
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.get
 import kotlin.experimental.ExperimentalNativeApi
 
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-
 actual object LlamaBridge {
     //private var model: CPointer<llama_model>? = null
     //private var context: CPointer<llama_context>? = null
