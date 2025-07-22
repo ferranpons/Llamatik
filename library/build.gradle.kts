@@ -15,6 +15,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
     id("org.jetbrains.compose")
     id("com.android.library")
+    id("maven-publish")
 }
 
 kotlin {
@@ -236,6 +237,29 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/commonMain/cpp/CMakeLists.txt")
+        }
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("gpr") {
+            from(components["kotlin"])
+
+            groupId = "com.llamatik.library"
+            artifactId = "llamatik"
+            version = "0.1.0"
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/ferranpons/llamatik")
+            credentials {
+                username = project.findProperty("gpr.user") as String? ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") as String? ?: System.getenv("TOKEN")
+            }
         }
     }
 }
