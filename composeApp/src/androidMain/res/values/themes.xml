@@ -1,0 +1,13 @@
+<resources>
+
+    <style name="Theme.Llamatik" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/lightBackground</item>
+        <item name="colorPrimaryDark">@color/lightBackground</item>
+    </style>
+
+    <style name="Theme.SplashScreenApp" parent="Theme.AppCompat.DayNight"></style>
+
+    <style name="SplashScreenTheme" parent="Theme.SplashScreenApp">
+        <item name="android:windowBackground">@drawable/bg_splash</item>
+    </style>
+</resources>

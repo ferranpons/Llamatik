@@ -1,0 +1,6 @@
+headers = llama_embed_ios.h
+headerFilter = llama_embed_ios.h
+compilerOpts = -Isrc/commonMain/c_interop/include -I../llama.cpp -I/Users/ferran.pons/AndroidStudioProjects/llama-kmp/llama.cpp/ggml -I/Users/ferran.pons/AndroidStudioProjects/llama-kmp/llama.cpp/ggml/include
+staticLibraries = libllama_embedIosX64.a
+libraryPaths = build/llama/MacOSX
+package = com.llamatik.app.platform.llama
