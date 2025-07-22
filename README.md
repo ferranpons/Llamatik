@@ -16,7 +16,7 @@
 
 - ✅ Kotlin Multiplatform: shared code across Android, iOS, and desktop
 - ✅ Offline inference via llama.cpp (compiled with Kotlin/Native bindings)
-- ✅ Remote inference via optional HTTP client (e.g. llama-cpp-server)
+- ✅ Remote inference via optional HTTP client (e.g. llamatik-server)
 - ✅ Embeddings and text generation support
 - ✅ Works with GGUF models (e.g. Mistral, Phi, LLaMA)
 - ✅ Lightweight and dependency-free runtime
@@ -34,10 +34,11 @@
 
 ## 🧱 Architecture
 
-Llamatik provides two core modules:
+Llamatik will provide three core modules:
 
 - `llamatik-core`: Native C++ llama.cpp integration via Kotlin/Native
 - `llamatik-client`: Lightweight HTTP client to connect to remote llama.cpp-compatible backends
+- `llamatik-backend`: Lightweight llama.cpp HTTP server
 
 All backed by a shared Kotlin API so you can switch between local and remote seamlessly.
 
@@ -45,7 +46,34 @@ All backed by a shared Kotlin API so you can switch between local and remote sea
 
 ## 📦 Installation
 
-Coming soon — stay tuned for full Gradle instructions and prebuilt binaries.
+- Add to your settings.gradle.kts
+
+```Kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+
+        val gprUser = providers.gradleProperty("GH_USER").orNull
+        val gprKey = providers.gradleProperty("GH_TOKEN").orNull
+        maven {
+            url = uri("https://maven.pkg.github.com/ferranpons/llamatik")
+            credentials {
+                username = gprUser
+                password = gprKey
+            }
+        }
+    }
+}
+```
+
+- Add to your build.gradle.kts
+
+```Kotlin
+commonMain.dependencies {
+    implementation("com.llamatik.library:llamatik:0.1.0")
+}
+```
 
 ---
 
