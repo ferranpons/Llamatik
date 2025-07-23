@@ -4,8 +4,7 @@
     <hr>
     <nav class="navbar" role="navigation" aria-label="main navigation">
         {{ $isHome := .Page.IsHome }}
-        <a role="button" class="navbar-burger" data-target="navMenu" aria-label="menu"
-           aria-expanded="false">
+        <a role="button" class="navbar-burger" data-target="navMenu" aria-label="menu" aria-expanded="false" >
             <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
             <span aria-hidden="true"></span>
@@ -15,7 +14,7 @@
             {{ if .Site.Menus.main }}
             {{ range .Site.Menus.main }}
             {{ if .HasChildren }}
-            <a class="navbar-item" href="{{ .URL }}">
+            <a class="navbar-item"  href="{{ .URL }}">
                 {{ .Pre }}
                 {{ .Name }}
                 {{ .Post }}
@@ -58,8 +57,7 @@
             {{ if eq (os.Stat .File.Dir).Name "projects" }}
             <!-- Now for some cool projects -->
             {{ if $isHome }}
-            <a class="navbar-item" href="{{ printf " #%s" ( .Title | urlize) | relLangURL }}">{{
-            .Title | markdownify }}</a>
+            <a class="navbar-item" href="{{ printf "#%s" ( .Title | urlize) | relLangURL }}">{{ .Title | markdownify }}</a>
             {{ else }}
             {{ $pageIsInProjects := eq $.Page.Section "projects"}}
             {{ if not (and $pageIsInProjects (eq $.Page.Kind "section")) }}
@@ -77,8 +75,7 @@
             {{ else if eq (os.Stat .File.Dir).Name "blog" }}
             <!-- Let`s show some blog posts -->
             {{ if $isHome }}
-            <a class="navbar-item" href="{{ printf " #%s" ( .Title | urlize) | relLangURL }}">{{
-            .Title | markdownify }}</a>
+            <a class="navbar-item" href="{{ printf "#%s" ( .Title | urlize) | relLangURL }}">{{ .Title | markdownify }}</a>
             {{ else }}
             {{ $pageIsInBlog := eq $.Page.Section "blog"}}
             {{ if not (and $pageIsInBlog (eq $.Page.Kind "section")) }}
@@ -92,10 +89,7 @@
             {{ end }}
             {{ end }}
             {{ else }}
-            <a class="navbar-item"
-               href="{{ if $isHome }}#{{ .File.TranslationBaseName }}{{ else }}{{ printf " #%s"
-            (.File.TranslationBaseName | urlize) | relLangURL }}{{ end }}">{{ .Title | markdownify
-            }}</a>
+            <a class="navbar-item" href="{{ if $isHome }}#{{ .File.TranslationBaseName }}{{ else }}{{ printf "#%s" (.File.TranslationBaseName | urlize) | relLangURL }}{{ end }}">{{ .Title | markdownify }}</a>
             {{ end }}
             {{ end }}
             {{ end }}
@@ -103,10 +97,7 @@
 
             {{ with .Site.GetPage "/home" }}
             {{ with .Resources.GetMatch "contact.md" }}
-            <a class="navbar-item"
-               href="{{ if $isHome }}#{{ .File.TranslationBaseName }}{{ else }}{{ printf " #%s"
-            (.File.TranslationBaseName | urlize) | relLangURL }}{{ end }}">{{ .Title | markdownify
-            }}</a>
+            <a class="navbar-item" href="{{ if $isHome }}#{{ .File.TranslationBaseName }}{{ else }}{{ printf "#%s" (.File.TranslationBaseName | urlize) | relLangURL }}{{ end }}">{{ .Title | markdownify }}</a>
             {{ end }}
             {{ end }}
 
@@ -117,8 +108,7 @@
             {{ end }}
 
             {{ if and .Site.Params.showRSSButton }}
-            <a class="navbar-item" href="{{ with .OutputFormats.Get " RSS" }}{{ .RelPermalink }}{{
-            end }}"><i class="fas fa-rss"></i></a>
+            <a class="navbar-item" href="{{ with .OutputFormats.Get "RSS" }}{{ .RelPermalink }}{{ end }}"><i class="fas fa-rss"></i></a>
             {{ end }}
             {{ end }}
         </div>
