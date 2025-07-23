@@ -1,4 +1,4 @@
-package com.llamatik.app.ui.screens
+package com.llamatik.app.feature.chatbot
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -45,13 +45,13 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
+import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
+import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.ui.components.LlamatikDialog
 import com.llamatik.app.ui.icon.LlamatikIcons
-import com.llamatik.app.ui.screens.viewmodel.ChatBotSideEffects
-import com.llamatik.app.ui.screens.viewmodel.ChatBotViewModel
-import com.llamatik.app.ui.screens.viewmodel.ChatUiModel
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import com.llamatik.library.platform.LlamaBridge.getModelPath

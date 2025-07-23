@@ -1,4 +1,4 @@
-package com.llamatik.app.ui.screens.viewmodel
+package com.llamatik.app.feature.webview.viewmodel
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope

@@ -1,6 +1,5 @@
 package com.llamatik.app.data.repositories
 
-import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.ServiceClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.onDownload
@@ -64,7 +63,7 @@ class DownloadFileRepository(private val service: ServiceClient) {
         }
         return response
     }
-
+/*
     suspend fun downloadFileAndSave(url: String, fileName: String): LlamatikTempFile {
         val file = LlamatikTempFile(fileName)
         service.httpClient.prepareGet(url).execute { httpResponse ->
@@ -82,5 +81,5 @@ class DownloadFileRepository(private val service: ServiceClient) {
             println("Download Finished")
         }
         return file
-    }
+    }*/
 }

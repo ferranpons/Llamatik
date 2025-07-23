@@ -1,4 +1,4 @@
-package com.llamatik.app.ui.screens
+package com.llamatik.app.feature.news
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,19 +29,19 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.news.viewmodel.FeedItemDetailScreenState
+import com.llamatik.app.feature.news.viewmodel.FeedItemDetailViewModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.components.toRichHtmlString
-import com.llamatik.app.ui.screens.viewmodel.FeedItemDetailScreenState
-import com.llamatik.app.ui.screens.viewmodel.FeedItemDetailViewModel
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
-class FeedItemDetailScreen(private val link: String) : Screen {
+class NewsFeedDetailScreen(private val link: String) : Screen {
     @Composable
     override fun Content() {
         val currentNavigator = LocalNavigator.currentOrThrow
@@ -94,32 +94,40 @@ class FeedItemDetailScreen(private val link: String) : Screen {
                 }
             ) { paddingValues ->
                 Column(
-                    modifier = Modifier.padding(paddingValues = paddingValues)
+                    modifier = Modifier.Companion.padding(paddingValues = paddingValues)
                         .padding(bottom = 80.dp).verticalScroll(scrollState)
                 ) {
                     val imageHeight = 260.dp
                     Image(
-                        modifier = Modifier
+                        modifier = Modifier.Companion
                             .fillMaxWidth()
                             .height(imageHeight)
                             .background(MaterialTheme.colorScheme.tertiaryContainer),
                         painter = painterResource(Res.drawable.llamatik_icon_logo),
-                        contentScale = ContentScale.Inside,
+                        contentScale = ContentScale.Companion.Inside,
                         contentDescription = null,
                     )
                     Text(
-                        modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp),
+                        modifier = Modifier.Companion.padding(
+                            top = 16.dp,
+                            start = 16.dp,
+                            end = 16.dp
+                        ),
                         text = state.feedItem.title,
                         style = Typography.get().titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Companion.Bold
                     )
                     Text(
-                        modifier = Modifier.padding(top = 4.dp, start = 16.dp, end = 16.dp),
+                        modifier = Modifier.Companion.padding(
+                            top = 4.dp,
+                            start = 16.dp,
+                            end = 16.dp
+                        ),
                         text = state.feedItem.pubDate,
                         style = Typography.get().bodySmall,
                     )
                     Text(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                             .padding(top = 16.dp, start = 16.dp, end = 16.dp),
                         text = state.feedItem.description.toRichHtmlString(),
                         style = Typography.get().bodyMedium

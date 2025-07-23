@@ -1,15 +1,11 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-
-package com.llamatik.app.ui.screens
+package com.llamatik.app.feature.webview
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -99,11 +95,11 @@ class WebViewScreen(
     ) {
         //val state by viewModel.state.collectAsState()
 
-        BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
+        BoxWithConstraints(Modifier.Companion.fillMaxSize(), propagateMinConstraints = true) {
             Scaffold(
                 topBar = {
                     Column(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     ) {
                         TopAppBar(
                             navigationIcon = {

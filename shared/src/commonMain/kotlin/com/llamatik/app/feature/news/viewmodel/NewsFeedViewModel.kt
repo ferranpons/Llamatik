@@ -1,13 +1,13 @@
-package com.llamatik.app.ui.screens.viewmodel
+package com.llamatik.app.feature.news.viewmodel
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
-import com.llamatik.app.data.repositories.FeedItem
-import com.llamatik.app.data.usecases.GetAllNewsUseCase
+import com.llamatik.app.feature.news.NewsFeedDetailScreen
+import com.llamatik.app.feature.news.repositories.FeedItem
+import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.platform.RootNavigatorRepository
-import com.llamatik.app.ui.screens.FeedItemDetailScreen
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,7 +41,7 @@ class NewsFeedViewModel(
     }
 
     fun onOpenFeedItemDetail(link: String) {
-        rootNavigatorRepository.navigator.push(FeedItemDetailScreen(link))
+        rootNavigatorRepository.navigator.push(NewsFeedDetailScreen(link))
     }
 }
 

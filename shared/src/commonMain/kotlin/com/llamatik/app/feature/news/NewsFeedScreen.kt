@@ -1,4 +1,4 @@
-package com.llamatik.app.ui.screens
+package com.llamatik.app.feature.news
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -16,21 +16,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.lifecycle.LifecycleEffect
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.news.viewmodel.NewsFeedViewModel
+import com.llamatik.app.feature.news.viewmodel.NewsScreenState
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.ui.components.EmptyLayout
 import com.llamatik.app.ui.components.NewsFeedCard
-import com.llamatik.app.ui.screens.viewmodel.NewsFeedViewModel
-import com.llamatik.app.ui.screens.viewmodel.NewsScreenState
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import org.koin.core.parameter.ParametersHolder
@@ -45,11 +45,10 @@ class NewsFeedScreen : Screen {
             parameters = { ParametersHolder(listOf(currentNavigator).toMutableList(), false) }
         )
 
-        LifecycleEffect(
-            onStarted = {
-                viewModel.onStarted(currentNavigator)
-            }
-        )
+        DisposableEffect(key) {
+            viewModel.onStarted(currentNavigator)
+            onDispose {}
+        }
 
         val state by viewModel.state.collectAsState()
         NewsScreenView(viewModel, state, localization) {
@@ -103,13 +102,13 @@ class NewsFeedScreen : Screen {
     ) {
         if (state.news.isNotEmpty()) {
             LazyColumn(
-                modifier = Modifier.padding(paddingValues).fillMaxWidth()
+                modifier = Modifier.Companion.padding(paddingValues).fillMaxWidth()
             ) {
                 items(state.news.size) { index ->
                     NewsFeedCard(state.news[index]) {
                         viewModel.onOpenFeedItemDetail(state.news[index].link)
                     }
-                    Spacer(modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.Companion.size(16.dp))
                 }
             }
         } else {

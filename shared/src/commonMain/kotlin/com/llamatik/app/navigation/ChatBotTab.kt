@@ -7,8 +7,8 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import cafe.adriel.voyager.transitions.ScaleTransition
+import com.llamatik.app.feature.chatbot.ChatBotTabScreen
 import com.llamatik.app.ui.icon.LlamatikIcons
-import com.llamatik.app.ui.screens.ChatBotTabScreen
 
 internal object ChatBotTab : Tab {
 

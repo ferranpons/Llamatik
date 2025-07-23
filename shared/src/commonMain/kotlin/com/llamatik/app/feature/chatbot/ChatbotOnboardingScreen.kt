@@ -1,4 +1,4 @@
-package com.llamatik.app.ui.screens
+package com.llamatik.app.feature.chatbot
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

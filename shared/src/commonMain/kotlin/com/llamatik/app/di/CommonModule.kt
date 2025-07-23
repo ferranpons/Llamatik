@@ -4,25 +4,21 @@ import androidx.compose.material3.SnackbarHostState
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import com.llamatik.app.data.repositories.DownloadFileRepository
-import com.llamatik.app.data.repositories.LatestNewsMockRepository
-import com.llamatik.app.data.repositories.NewsRepository
-import com.llamatik.app.data.usecases.GetAllNewsUseCase
-import com.llamatik.app.data.usecases.GetLatestNewsUseCase
-import com.llamatik.app.data.usecases.GetPdfUseCase
+import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.debugmenu.repositories.GlobalAppSettingsRepository
 import com.llamatik.app.feature.debugmenu.viewmodel.DebugMenuViewModel
+import com.llamatik.app.feature.news.repositories.NewsRepository
+import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
+import com.llamatik.app.feature.news.viewmodel.FeedItemDetailViewModel
+import com.llamatik.app.feature.news.viewmodel.NewsFeedViewModel
+import com.llamatik.app.feature.webview.viewmodel.WebViewModel
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikEventTracker
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.platform.RootSnackbarHostStateRepository
 import com.llamatik.app.platform.ServiceClient
-import com.llamatik.app.ui.screens.viewmodel.ChatBotViewModel
-import com.llamatik.app.ui.screens.viewmodel.FeedItemDetailViewModel
 import com.llamatik.app.ui.screens.viewmodel.HomeScreenViewModel
-import com.llamatik.app.ui.screens.viewmodel.NewsFeedViewModel
-import com.llamatik.app.ui.screens.viewmodel.PdfViewModel
 import com.llamatik.app.ui.screens.viewmodel.SettingsViewModel
-import com.llamatik.app.ui.screens.viewmodel.WebViewModel
 import com.russhwolf.settings.Settings
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -47,10 +43,6 @@ val commonModule = module {
         DebugMenuViewModel(get())
     }
 
-    factory { (userManualUrl: String) ->
-        PdfViewModel(userManualUrl, get(), get(), get())
-    }
-
     factory { (url: String) ->
         WebViewModel(url, get(), get())
     }
@@ -73,10 +65,6 @@ val commonModule = module {
 
     singleOf(::GlobalAppSettingsRepository)
     factoryOf(::GetAllNewsUseCase)
-
-    singleOf(::LatestNewsMockRepository)
-    factoryOf(::GetLatestNewsUseCase)
-    factoryOf(::GetPdfUseCase)
 
     singleOf(::NewsRepository)
 

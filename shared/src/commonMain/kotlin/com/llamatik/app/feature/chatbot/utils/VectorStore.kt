@@ -1,4 +1,4 @@
-package com.llamatik.app.ai
+package com.llamatik.app.feature.chatbot.utils
 
 import co.touchlab.kermit.Logger
 import com.llamatik.app.platform.readResourceFile

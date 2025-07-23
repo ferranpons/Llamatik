@@ -1,4 +1,4 @@
-package com.llamatik.app.data.repositories
+package com.llamatik.app.feature.news.repositories
 
 import com.llamatik.app.extensions.requestAndCatch
 import com.llamatik.app.platform.ServiceClient

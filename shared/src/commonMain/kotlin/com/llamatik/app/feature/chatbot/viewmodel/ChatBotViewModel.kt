@@ -1,12 +1,12 @@
-package com.llamatik.app.ui.screens.viewmodel
+package com.llamatik.app.feature.chatbot.viewmodel
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import com.llamatik.app.ai.VectorStoreData
-import com.llamatik.app.ai.findTopKRelevantDocumentsDebug
-import com.llamatik.app.ai.loadVectorStoreEntries
+import com.llamatik.app.feature.chatbot.ChatbotOnboardingScreen
+import com.llamatik.app.feature.chatbot.utils.VectorStoreData
+import com.llamatik.app.feature.chatbot.utils.findTopKRelevantDocumentsDebug
+import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
 import com.llamatik.app.platform.RootNavigatorRepository
-import com.llamatik.app.ui.screens.ChatbotOnboardingScreen
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Dispatchers

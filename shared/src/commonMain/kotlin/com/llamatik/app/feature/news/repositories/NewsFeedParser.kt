@@ -1,4 +1,4 @@
-package com.llamatik.app.data.repositories
+package com.llamatik.app.feature.news.repositories
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -7,7 +7,7 @@ import nl.adaptivity.xmlutil.serialization.XmlElement
 import nl.adaptivity.xmlutil.serialization.XmlOtherAttributes
 import nl.adaptivity.xmlutil.serialization.XmlSerialName
 
-class FeedParser {
+class NewsFeedParser {
     fun parse(xml: String): List<FeedItem> {
         val obj = XML.decodeFromString<ArticlesFeed>(xml)
         return obj.channel.items
