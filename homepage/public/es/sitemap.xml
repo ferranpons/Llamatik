@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>http://localhost:1313/es/projects/photography/</loc>
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/projects/photography/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/projects/photography/" />
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/projects/photography/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/projects/design/</loc>
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/projects/design/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/projects/design/" />
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/projects/design/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/projects/writing/</loc>
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/projects/writing/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/projects/writing/" />
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/projects/writing/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/projects/</loc>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/projects/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/projects/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/projects/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/blog/</loc>
+        <lastmod>2017-11-13T11:58:39-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/blog/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/blog/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/blog/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/blog/hipser-ipsum/</loc>
+        <lastmod>2017-11-13T11:58:39-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/tags/ipsum/</loc>
+        <lastmod>2017-11-13T11:58:39-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/ipsum/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/ipsum/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/</loc>
+        <lastmod>2017-11-13T11:58:39-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/tags/</loc>
+        <lastmod>2017-11-13T11:58:39-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/tags/words/</loc>
+        <lastmod>2017-11-13T11:58:39-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/words/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/words/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/words/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/tags/code/</loc>
+        <lastmod>2017-11-06T12:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/code/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/code/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/code/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/blog/startup-ipsum/</loc>
+        <lastmod>2017-11-06T12:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/blog/startup-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/blog/startup-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/blog/startup-ipsum/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/tags/coffee/</loc>
+        <lastmod>2017-11-01T12:04:16-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/coffee/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/coffee/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/blog/coffee-ipsum/</loc>
+        <lastmod>2017-11-01T12:04:16-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/blog/coffee-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/blog/coffee-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/blog/coffee-ipsum/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/tags/images/</loc>
+        <lastmod>2017-11-01T12:04:16-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/images/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/images/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/images/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/es/series/</loc>
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/series/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/series/" />
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/series/" />
+    </url>
+</urlset>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Markdown on Llamatik</title>
+        <link>http://localhost:1313/tags/markdown/</link>
+        <description>Recent content in Markdown on Llamatik</description>
+        <generator>Hugo</generator>
+        <language>en-us</language>
+        <lastBuildDate>Mon, 06 Nov 2017 12:04:06 -0500</lastBuildDate>
+        <atom:link href="http://localhost:1313/tags/markdown/index.xml" rel="self"
+            type="application/rss+xml" />
+        <item>
+            <title>Markdown Support</title>
+            <link>http://localhost:1313/blog/startup-ipsum/</link>
+            <pubDate>Mon, 06 Nov 2017 12:04:06 -0500</pubDate>
+            <guid>http://localhost:1313/blog/startup-ipsum/</guid>
+            <description>&lt;p&gt;Introduction supports code blocks and syntax highlighting:&lt;/p&gt;&#xA;&lt;div
+                class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code
+                class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$
+                complicated techie code git bash ubuntu&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&amp;gt;&amp;gt;&amp;gt; &lt;span
+                style=&#34;color:#719e07&#34;&gt;return&lt;/span&gt; value init foo&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;You
+                can easily create tables using Markdown, with rows that support readability:&lt;/p&gt;&#xA;&lt;table&gt;&#xA;
+                &lt;thead&gt;&#xA; &lt;tr&gt;&#xA; &lt;th&gt;this&lt;/th&gt;&#xA; &lt;th style=&#34;text-align:
+                right&#34;&gt;is&lt;/th&gt;&#xA; &lt;th&gt;a&lt;/th&gt;&#xA; &lt;th&gt;table&lt;/th&gt;&#xA;
+                &lt;th&gt;!&lt;/th&gt;&#xA; &lt;/tr&gt;&#xA; &lt;/thead&gt;&#xA; &lt;tbody&gt;&#xA;
+                &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA; &lt;td style=&#34;text-align: right&#34;&gt;is&lt;/td&gt;&#xA;
+                &lt;td&gt;the&lt;/td&gt;&#xA; &lt;td&gt;1st&lt;/td&gt;&#xA; &lt;td&gt;row&lt;/td&gt;&#xA;
+                &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA; &lt;td style=&#34;text-align:
+                right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA; &lt;td&gt;2nd&lt;/td&gt;&#xA;
+                &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA;
+                &lt;td style=&#34;text-align: right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA;
+                &lt;td&gt;3rd&lt;/td&gt;&#xA; &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA;
+                &lt;td&gt;edgy&lt;/td&gt;&#xA; &lt;td style=&#34;text-align: right&#34;&gt;jo&lt;/td&gt;&#xA;
+                &lt;td&gt;ke&lt;/td&gt;&#xA; &lt;td&gt;lands&lt;/td&gt;&#xA; &lt;td&gt;here&lt;/td&gt;&#xA;
+                &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA; &lt;td style=&#34;text-align:
+                right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA; &lt;td&gt;5th&lt;/td&gt;&#xA;
+                &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA;
+                &lt;td style=&#34;text-align: right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA;
+                &lt;td&gt;6th&lt;/td&gt;&#xA; &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;/tbody&gt;&#xA;&lt;/table&gt;&#xA;&lt;p&gt;Unordered
+                lists render with high readabiltiy as well!&lt;/p&gt;
+            </description>
+        </item>
+    </channel>
+</rss>

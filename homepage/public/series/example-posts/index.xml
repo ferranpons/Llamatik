@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Example Posts on Llamatik</title>
+        <link>http://localhost:1313/series/example-posts/</link>
+        <description>Recent content in Example Posts on Llamatik</description>
+        <generator>Hugo</generator>
+        <language>en-us</language>
+        <lastBuildDate>Sun, 20 Feb 2022 12:04:16 -0500</lastBuildDate>
+        <atom:link href="http://localhost:1313/series/example-posts/index.xml" rel="self"
+            type="application/rss+xml" />
+        <item>
+            <title>Post with Images Example</title>
+            <link>http://localhost:1313/blog/coffee-ipsum/</link>
+            <pubDate>Sun, 20 Feb 2022 12:04:16 -0500</pubDate>
+            <guid>http://localhost:1313/blog/coffee-ipsum/</guid>
+            <description>&lt;p&gt;Images can be added to posts using Markdown syntax:&lt;/p&gt;&#xA;&lt;div
+                class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code
+                class=&#34;language-md&#34; data-lang=&#34;md&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;![&lt;span
+                style=&#34;color:#268bd2&#34;&gt;Sample image&lt;/span&gt;](workday.jpg)&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Which
+                looks like this:&lt;/p&gt;&#xA;&lt;p&gt;&lt;img src=&#34;http://localhost:1313/blog/coffee-ipsum/workday.jpg&#34;
+                alt=&#34;Sample image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;You can also use Hugo&amp;rsquo;s
+                built-in &lt;a href=&#34;https://gohugo.io/content-management/shortcodes/#figure&#34;&gt;figure
+                shortcode&lt;/a&gt;. This lets you add a caption, and looks like this:&lt;/p&gt;&#xA;&lt;figure&gt;&lt;img
+                src=&#34;http://localhost:1313/blog/coffee-ipsum/workday.jpg&#34;&gt;&lt;figcaption&gt;&#xA;
+                &lt;h4&gt;Black and white work day photo.&lt;/h4&gt;&#xA; &lt;/figcaption&gt;&#xA;&lt;/figure&gt;&#xA;&#xA;&lt;p&gt;Posts
+                with images are great at capturing attention and showcasing your work. Why not try
+                it today?&lt;/p&gt;
+            </description>
+        </item>
+    </channel>
+</rss>

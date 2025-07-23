@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Quickstart on Llamatik</title>
+        <link>http://localhost:1313/series/quickstart/</link>
+        <description>Recent content in Quickstart on Llamatik</description>
+        <generator>Hugo</generator>
+        <language>en-us</language>
+        <lastBuildDate>Mon, 21 Feb 2022 16:04:06 -0500</lastBuildDate>
+        <atom:link href="http://localhost:1313/series/quickstart/index.xml" rel="self"
+            type="application/rss+xml" />
+        <item>
+            <title>Support for Multiple Authors</title>
+            <link>http://localhost:1313/blog/multi-author/</link>
+            <pubDate>Mon, 21 Feb 2022 16:04:06 -0500</pubDate>
+            <guid>http://localhost:1313/blog/multi-author/</guid>
+            <description>&lt;p&gt;Using Introduction, your site can feature multiple authors. Each
+                post displays a byline &amp;ndash; the name of a post&amp;rsquo;s author &amp;ndash;
+                if the &lt;code&gt;author&lt;/code&gt; field is set in the post front matter. For
+                example, here&amp;rsquo;s the front matter for this post:&lt;/p&gt;&#xA;&lt;div
+                class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code
+                class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;---&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;title&lt;/span&gt;:
+                &lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;Support for Multiple Authors&amp;#34;&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;date&lt;/span&gt;:
+                2022-02-20T02:04:06&lt;span style=&#34;color:#2aa198&#34;&gt;-05&lt;/span&gt;:&lt;span
+                style=&#34;color:#2aa198&#34;&gt;00&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;tags&lt;/span&gt;:
+                [&lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;features&amp;#34;&lt;/span&gt;,
+                &lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;blog&amp;#34;&lt;/span&gt;]&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;series&lt;/span&gt;:
+                [&lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;quickstart&amp;#34;&lt;/span&gt;]&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;author&lt;/span&gt;:
+                [&lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;Hugo Contributors&amp;#34;&lt;/span&gt;]&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;---&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;You
+                can list one or more authors. For example, here&amp;rsquo;s a byline with two
+                credits:&lt;/p&gt;
+            </description>
+        </item>
+        <item>
+            <title>**Start Here:** Configuration and Content</title>
+            <link>http://localhost:1313/blog/configuration/</link>
+            <pubDate>Sat, 25 Jul 2020 02:04:06 -0500</pubDate>
+            <guid>http://localhost:1313/blog/configuration/</guid>
+            <description>&lt;p&gt;Here are some helpful tips for setting up this theme.&lt;/p&gt;&#xA;&#xA;&lt;h2
+                id=&#34;configuration&#34; class=&#34;anchor-link&#34;&gt;&lt;a href=&#34;#configuration&#34;&gt;Configuration&lt;/a&gt;&lt;/h2&gt;&#xA;&lt;p&gt;Most
+                of what you&amp;rsquo;ll want to configure is demonstrated in the exampleSite &lt;code&gt;config.toml&lt;/code&gt;.
+                This is &lt;a href=&#34;https://gohugo.io/getting-started/configuration/&#34;&gt;Hugo&amp;rsquo;s
+                configuration file&lt;/a&gt;. You can copy the &lt;code&gt;config.toml&lt;/code&gt;
+                in the &lt;code&gt;exampleSite/&lt;/code&gt; to your site root get started.&lt;/p&gt;&#xA;&lt;details&gt;&lt;summary&gt;Here
+                are all the options included in the (live!) configuration file for this example
+                site!&lt;/summary&gt;&#xA;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34;
+                style=&#34;color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code
+                class=&#34;language-toml&#34; data-lang=&#34;toml&#34;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/details&gt;&#xA;&lt;p&gt;Below
+                are some specific things you might like to configure right away.&lt;/p&gt;
+            </description>
+        </item>
+        <item>
+            <title>Markdown Support</title>
+            <link>http://localhost:1313/blog/startup-ipsum/</link>
+            <pubDate>Mon, 06 Nov 2017 12:04:06 -0500</pubDate>
+            <guid>http://localhost:1313/blog/startup-ipsum/</guid>
+            <description>&lt;p&gt;Introduction supports code blocks and syntax highlighting:&lt;/p&gt;&#xA;&lt;div
+                class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code
+                class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;$
+                complicated techie code git bash ubuntu&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&amp;gt;&amp;gt;&amp;gt; &lt;span
+                style=&#34;color:#719e07&#34;&gt;return&lt;/span&gt; value init foo&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;You
+                can easily create tables using Markdown, with rows that support readability:&lt;/p&gt;&#xA;&lt;table&gt;&#xA;
+                &lt;thead&gt;&#xA; &lt;tr&gt;&#xA; &lt;th&gt;this&lt;/th&gt;&#xA; &lt;th style=&#34;text-align:
+                right&#34;&gt;is&lt;/th&gt;&#xA; &lt;th&gt;a&lt;/th&gt;&#xA; &lt;th&gt;table&lt;/th&gt;&#xA;
+                &lt;th&gt;!&lt;/th&gt;&#xA; &lt;/tr&gt;&#xA; &lt;/thead&gt;&#xA; &lt;tbody&gt;&#xA;
+                &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA; &lt;td style=&#34;text-align: right&#34;&gt;is&lt;/td&gt;&#xA;
+                &lt;td&gt;the&lt;/td&gt;&#xA; &lt;td&gt;1st&lt;/td&gt;&#xA; &lt;td&gt;row&lt;/td&gt;&#xA;
+                &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA; &lt;td style=&#34;text-align:
+                right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA; &lt;td&gt;2nd&lt;/td&gt;&#xA;
+                &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA;
+                &lt;td style=&#34;text-align: right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA;
+                &lt;td&gt;3rd&lt;/td&gt;&#xA; &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA;
+                &lt;td&gt;edgy&lt;/td&gt;&#xA; &lt;td style=&#34;text-align: right&#34;&gt;jo&lt;/td&gt;&#xA;
+                &lt;td&gt;ke&lt;/td&gt;&#xA; &lt;td&gt;lands&lt;/td&gt;&#xA; &lt;td&gt;here&lt;/td&gt;&#xA;
+                &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA; &lt;td style=&#34;text-align:
+                right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA; &lt;td&gt;5th&lt;/td&gt;&#xA;
+                &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;tr&gt;&#xA; &lt;td&gt;this&lt;/td&gt;&#xA;
+                &lt;td style=&#34;text-align: right&#34;&gt;is&lt;/td&gt;&#xA; &lt;td&gt;the&lt;/td&gt;&#xA;
+                &lt;td&gt;6th&lt;/td&gt;&#xA; &lt;td&gt;row&lt;/td&gt;&#xA; &lt;/tr&gt;&#xA; &lt;/tbody&gt;&#xA;&lt;/table&gt;&#xA;&lt;p&gt;Unordered
+                lists render with high readabiltiy as well!&lt;/p&gt;
+            </description>
+        </item>
+    </channel>
+</rss>

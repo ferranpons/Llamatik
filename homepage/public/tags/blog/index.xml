@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Blog on Llamatik</title>
+        <link>http://localhost:1313/tags/blog/</link>
+        <description>Recent content in Blog on Llamatik</description>
+        <generator>Hugo</generator>
+        <language>en-us</language>
+        <lastBuildDate>Mon, 21 Feb 2022 16:04:06 -0500</lastBuildDate>
+        <atom:link href="http://localhost:1313/tags/blog/index.xml" rel="self"
+            type="application/rss+xml" />
+        <item>
+            <title>Support for Multiple Authors</title>
+            <link>http://localhost:1313/blog/multi-author/</link>
+            <pubDate>Mon, 21 Feb 2022 16:04:06 -0500</pubDate>
+            <guid>http://localhost:1313/blog/multi-author/</guid>
+            <description>&lt;p&gt;Using Introduction, your site can feature multiple authors. Each
+                post displays a byline &amp;ndash; the name of a post&amp;rsquo;s author &amp;ndash;
+                if the &lt;code&gt;author&lt;/code&gt; field is set in the post front matter. For
+                example, here&amp;rsquo;s the front matter for this post:&lt;/p&gt;&#xA;&lt;div
+                class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code
+                class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;---&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;title&lt;/span&gt;:
+                &lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;Support for Multiple Authors&amp;#34;&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;date&lt;/span&gt;:
+                2022-02-20T02:04:06&lt;span style=&#34;color:#2aa198&#34;&gt;-05&lt;/span&gt;:&lt;span
+                style=&#34;color:#2aa198&#34;&gt;00&lt;/span&gt;&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;tags&lt;/span&gt;:
+                [&lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;features&amp;#34;&lt;/span&gt;,
+                &lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;blog&amp;#34;&lt;/span&gt;]&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;series&lt;/span&gt;:
+                [&lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;quickstart&amp;#34;&lt;/span&gt;]&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#268bd2&#34;&gt;author&lt;/span&gt;:
+                [&lt;span style=&#34;color:#2aa198&#34;&gt;&amp;#34;Hugo Contributors&amp;#34;&lt;/span&gt;]&#xA;&lt;/span&gt;&lt;/span&gt;&lt;span
+                style=&#34;display:flex;&#34;&gt;&lt;span&gt;---&#xA;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;You
+                can list one or more authors. For example, here&amp;rsquo;s a byline with two
+                credits:&lt;/p&gt;
+            </description>
+        </item>
+        <item>
+            <title>Long Form Writing and Quotes</title>
+            <link>http://localhost:1313/blog/long-form-post/</link>
+            <pubDate>Thu, 30 May 2019 20:18:53 -0500</pubDate>
+            <guid>http://localhost:1313/blog/long-form-post/</guid>
+            <description>&lt;p&gt;Prolific writes rejoice! Introduction beautifully renders long
+                pages of writing and blocks of quoted text. Let the ipsum show you how.&lt;/p&gt;&#xA;&lt;p&gt;Lorem
+                ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
+                ut labore et dolore magna aliqua. Cursus eget nunc scelerisque viverra. Quam
+                vulputate dignissim suspendisse in est ante in nibh mauris. Pharetra magna ac
+                placerat vestibulum lectus mauris. Eget lorem dolor sed viverra ipsum.&lt;/p&gt;&#xA;&#xA;&lt;h2
+                id=&#34;elementum-nisi&#34; class=&#34;anchor-link&#34;&gt;&lt;a href=&#34;#elementum-nisi&#34;&gt;Elementum
+                Nisi&lt;/a&gt;&lt;/h2&gt;&#xA;&lt;p&gt;Quis eleifend quam adipiscing. Aliquet nec
+                ullamcorper sit amet risus. Auctor neque vitae tempus quam pellentesque. Tincidunt
+                lobortis feugiat vivamus at augue. Leo vel orci porta non pulvinar neque laoreet.
+                Non enim praesent elementum facilisis leo vel.&lt;/p&gt;
+            </description>
+        </item>
+    </channel>
+</rss>

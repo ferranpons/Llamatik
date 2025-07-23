@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Coffee on Llamatik</title>
+        <link>http://localhost:1313/es/tags/coffee/</link>
+        <description>Recent content in Coffee on Llamatik</description>
+        <generator>Hugo</generator>
+        <language>es</language>
+        <lastBuildDate>Wed, 01 Nov 2017 12:04:16 -0500</lastBuildDate>
+        <atom:link href="http://localhost:1313/es/tags/coffee/index.xml" rel="self"
+            type="application/rss+xml" />
+        <item>
+            <title>Coffee Ipsum - Español</title>
+            <link>http://localhost:1313/es/blog/coffee-ipsum/</link>
+            <pubDate>Wed, 01 Nov 2017 12:04:16 -0500</pubDate>
+            <guid>http://localhost:1313/es/blog/coffee-ipsum/</guid>
+            <description>&lt;p&gt;Aromatic aroma con panna, crema so coffee robust coffee barista,
+                café au lait trifecta that strong blue mountain cortado aftertaste. Aroma extraction
+                french press, skinny sweet, blue mountain cup roast barista, beans, extra cappuccino
+                mug crema strong. Americano caffeine white, con panna saucer sit, con panna eu,
+                carajillo aftertaste kopi-luwak, body aftertaste cup single origin café au lait
+                saucer. Macchiato java sweet arabica, turkish cup, eu flavour mug extraction white
+                cortado saucer est white brewed instant, rich, barista breve cappuccino barista
+                organic. Barista, beans extraction, barista mocha, roast steamed siphon cup sweet
+                cortado, cinnamon froth milk ristretto cortado galão. Crema, milk extra brewed,
+                lungo dripper, espresso flavour qui, variety, grinder caramelization sit, strong
+                turkish espresso body, filter barista caramelization half and half strong. To go
+                viennese cream to go, flavour, so mocha as, carajillo iced et a siphon froth. Aged,
+                eu, cup, brewed aroma kopi-luwak, coffee, id viennese french press brewed grounds
+                acerbic froth. Decaffeinated acerbic, spoon beans seasonal, french press café au
+                lait mazagran roast chicory, pumpkin spice galão as fair trade, dark irish cup
+                ristretto half and half whipped shop. Latte instant black extra aroma, instant,
+                extra robusta variety skinny shop aged cup ristretto foam cortado. Bar galão skinny
+                saucer est affogato sugar caffeine chicory sugar coffee, seasonal barista french
+                press acerbic in chicory robust.&lt;/p&gt;
+            </description>
+        </item>
+    </channel>
+</rss>

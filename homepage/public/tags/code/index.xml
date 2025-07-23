@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Code on Llamatik</title>
+        <link>http://localhost:1313/tags/code/</link>
+        <description>Recent content in Code on Llamatik</description>
+        <generator>Hugo</generator>
+        <language>en-us</language>
+        <lastBuildDate>Sat, 25 Jul 2020 02:04:06 -0500</lastBuildDate>
+        <atom:link href="http://localhost:1313/tags/code/index.xml" rel="self"
+            type="application/rss+xml" />
+        <item>
+            <title>**Start Here:** Configuration and Content</title>
+            <link>http://localhost:1313/blog/configuration/</link>
+            <pubDate>Sat, 25 Jul 2020 02:04:06 -0500</pubDate>
+            <guid>http://localhost:1313/blog/configuration/</guid>
+            <description>&lt;p&gt;Here are some helpful tips for setting up this theme.&lt;/p&gt;&#xA;&#xA;&lt;h2
+                id=&#34;configuration&#34; class=&#34;anchor-link&#34;&gt;&lt;a href=&#34;#configuration&#34;&gt;Configuration&lt;/a&gt;&lt;/h2&gt;&#xA;&lt;p&gt;Most
+                of what you&amp;rsquo;ll want to configure is demonstrated in the exampleSite &lt;code&gt;config.toml&lt;/code&gt;.
+                This is &lt;a href=&#34;https://gohugo.io/getting-started/configuration/&#34;&gt;Hugo&amp;rsquo;s
+                configuration file&lt;/a&gt;. You can copy the &lt;code&gt;config.toml&lt;/code&gt;
+                in the &lt;code&gt;exampleSite/&lt;/code&gt; to your site root get started.&lt;/p&gt;&#xA;&lt;details&gt;&lt;summary&gt;Here
+                are all the options included in the (live!) configuration file for this example
+                site!&lt;/summary&gt;&#xA;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34;
+                style=&#34;color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code
+                class=&#34;language-toml&#34; data-lang=&#34;toml&#34;&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/details&gt;&#xA;&lt;p&gt;Below
+                are some specific things you might like to configure right away.&lt;/p&gt;
+            </description>
+        </item>
+        <item>
+            <title>Long Form Writing and Quotes</title>
+            <link>http://localhost:1313/blog/long-form-post/</link>
+            <pubDate>Thu, 30 May 2019 20:18:53 -0500</pubDate>
+            <guid>http://localhost:1313/blog/long-form-post/</guid>
+            <description>&lt;p&gt;Prolific writes rejoice! Introduction beautifully renders long
+                pages of writing and blocks of quoted text. Let the ipsum show you how.&lt;/p&gt;&#xA;&lt;p&gt;Lorem
+                ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
+                ut labore et dolore magna aliqua. Cursus eget nunc scelerisque viverra. Quam
+                vulputate dignissim suspendisse in est ante in nibh mauris. Pharetra magna ac
+                placerat vestibulum lectus mauris. Eget lorem dolor sed viverra ipsum.&lt;/p&gt;&#xA;&#xA;&lt;h2
+                id=&#34;elementum-nisi&#34; class=&#34;anchor-link&#34;&gt;&lt;a href=&#34;#elementum-nisi&#34;&gt;Elementum
+                Nisi&lt;/a&gt;&lt;/h2&gt;&#xA;&lt;p&gt;Quis eleifend quam adipiscing. Aliquet nec
+                ullamcorper sit amet risus. Auctor neque vitae tempus quam pellentesque. Tincidunt
+                lobortis feugiat vivamus at augue. Leo vel orci porta non pulvinar neque laoreet.
+                Non enim praesent elementum facilisis leo vel.&lt;/p&gt;
+            </description>
+        </item>
+    </channel>
+</rss>

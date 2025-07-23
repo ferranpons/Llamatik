@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload"
+            data-no-instant defer></script>
+
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <meta name="description"
+          content="Kotlin-first llama.cpp integration for on-device and remote LLM inference.">
+    <title>
+        ** Start Here ** Configuration and Content - Llamatik
+    </title>
+
+
+    <meta property="og:title" content="Start Here: Configuration and Content - Llamatik"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:description"
+          content="Kotlin-first llama.cpp integration for on-device and remote LLM inference."/>
+    <meta property="og:url" content="http://localhost:1313/blog/configuration/"/>
+    <meta property="og:site_name" content="Llamatik"/>
+
+
+    <meta property="og:image" content="http://localhost:1313/home/llamatik-icon-logo.png"/>
+
+    <meta property="og:image" content="http://localhost:1313/home/profile.jpg"/>
+
+
+    <link rel="shortcut icon" href="/img/fav.ico">
+
+
+    <link rel="stylesheet" href="/css/main.css" media="screen">
+
+
+</head>
+<body>
+<section id="top" class="section">
+
+    <div class="container hero  fade-in one ">
+
+
+        <h1 class="bold-title is-1">Blog</h1>
+
+
+    </div>
+
+    <div class="section  fade-in two ">
+
+
+        <div class="container">
+            <hr>
+            <nav class="navbar" role="navigation" aria-label="main navigation">
+
+                <a role="button" class="navbar-burger" data-target="navMenu" aria-label="menu"
+                   aria-expanded="false">
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                </a>
+                <div class="navbar-menu " id="navMenu">
+
+
+                    <a class="navbar-item" href="/">main</a>
+
+
+                    <a class="navbar-item" href="/#about">About</a>
+
+
+                    <a class="navbar-item" href="http://localhost:1313/blog/">
+
+                        Back to Blog
+
+                    </a>
+
+
+                    <a class="navbar-item" href="/#contact">Contact</a>
+
+
+                    <a class="navbar-item" href=""><i class="fas fa-rss"></i></a>
+
+
+                </div>
+            </nav>
+            <hr>
+        </div>
+
+
+        <div class="container">
+            <h2 class="title is-1 top-pad strong-post-title">
+                <a href="http://localhost:1313/blog/configuration/"><strong>Start Here:</strong>
+                    Configuration and Content</a>
+            </h2>
+
+            <div class="post-data">
+                Jul 25, 2020
+
+                |
+                2 minutes read
+
+            </div>
+
+            <div class="blog-share">
+                Share this:
+
+                <a class="twitter-share-button"
+                   href="https://twitter.com/intent/tweet?text=%3cstrong%3eStart%20Here%3a%3c%2fstrong%3e%20Configuration%20and%20Content%20http%3a%2f%2flocalhost%3a1313%2fblog%2fconfiguration%2f"
+                   onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                    <i class="fab fa-twitter"></i>
+                    <span class="hidden">Twitter</span>
+                </a>
+
+
+            </div>
+
+
+            <p>
+                Series:
+
+                <a href="/series/quickstart">
+                    quickstart</a>
+
+            </p>
+
+
+            <p>
+                Tags:
+
+                <a href="/tags/code">
+                    code</a>,
+
+                <a href="/tags/features">
+                    features</a>
+
+            </p>
+
+
+        </div>
+
+        <div class="container markdown top-pad">
+            <p>Here are some helpful tips for setting up this theme.</p>
+
+            <h2 id="configuration" class="anchor-link"><a href="#configuration">Configuration</a>
+            </h2>
+            <p>Most of what you&rsquo;ll want to configure is demonstrated in the exampleSite <code>config.toml</code>.
+                This is <a href="https://gohugo.io/getting-started/configuration/">Hugo&rsquo;s
+                    configuration file</a>. You can copy the <code>config.toml</code> in the <code>exampleSite/</code>
+                to your site root get started.</p>
+            <details>
+                <summary>Here are all the options included in the (live!) configuration file for
+                    this example site!
+                </summary>
+                <div class="highlight">
+                    <pre tabindex="0"
+                         style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code
+                            class="language-toml" data-lang="toml"></code></pre>
+                </div>
+            </details>
+            <p>Below are some specific things you might like to configure right away.</p>
+
+            <h3 id="syntax-highlighting" class="anchor-link"><a href="#syntax-highlighting">Syntax
+                Highlighting</a></h3>
+            <p>Introduction allows the use of Hugo&rsquo;s rich built-in syntax highlighting
+                capabilities. See <a
+                        href="https://gohugo.io/content-management/syntax-highlighting/">Syntax
+                    Highlighting</a> in the Hugo docs.</p>
+            <p>Below is an example configuration for Highlight. See <a
+                    href="https://gohugo.io/getting-started/configuration-markup#highlight">Highlight
+                in the Hugo docs</a> for more.</p>
+            <div class="highlight"><pre tabindex="0"
+                                        style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code
+                    class="language-toml" data-lang="toml"><span style="display:flex;"><span>[markup]
+</span></span><span style="display:flex;"><span>  [markup.highlight]
+</span></span><span style="display:flex;"><span>    codeFences = <span
+                    style="color:#cb4b16">true</span>
+</span></span><span style="display:flex;"><span>    guessSyntax = <span
+                    style="color:#cb4b16">false</span>
+</span></span><span style="display:flex;"><span>    hl_Lines = <span style="color:#2aa198">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    lineNoStart = <span
+                    style="color:#2aa198">1</span>
+</span></span><span style="display:flex;"><span>    lineNos = <span
+                    style="color:#cb4b16">false</span>
+</span></span><span style="display:flex;"><span>    lineNumbersInTable = <span
+                    style="color:#cb4b16">true</span>
+</span></span><span style="display:flex;"><span>    noClasses = <span
+                    style="color:#cb4b16">true</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#586e75"># For styles, see https://xyproto.github.io/splash/docs/longer/all.html</span>
+</span></span><span style="display:flex;"><span>    style = <span style="color:#2aa198">&#34;friendly&#34;</span>
+</span></span><span style="display:flex;"><span>    tabWidth = <span style="color:#2aa198">4</span>
+</span></span></code></pre>
+            </div>
+            <h3 id="shortcodes" class="anchor-link"><a href="#shortcodes">Shortcodes</a></h3>
+            <p><a href="https://gohugo.io/templates/shortcode-templates/">Custom shortcodes</a> can
+                be added to a <code>layouts/shortcodes/</code> directory in your site root. For
+                example, I used a shortcode above to display the current configuration file for this
+                site! You can see the shortcodes in the <a
+                        href="https://github.com/victoriadrake/hugo-theme-introduction/blob/master/exampleSite/content/en/blog/configuration.md">raw
+                    Markdown for this page</a> to understand how they work.</p>
+
+            <h3 id="show-html-in-posts" class="anchor-link"><a href="#show-html-in-posts">Show HTML
+                in Posts</a></h3>
+            <p>To ensure Hugo renders any HTML that your shortcode or other additions like Font
+                Awesome uses in posts, make sure these lines for <a
+                        href="https://gohugo.io/getting-started/configuration-markup">the Goldmark
+                    renderer</a> are in your <code>config.toml</code>:</p>
+            <div class="highlight"><pre tabindex="0"
+                                        style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code
+                    class="language-toml" data-lang="toml"><span style="display:flex;"><span>[markup]
+</span></span><span style="display:flex;"><span>defaultMarkdownHandler = <span
+                    style="color:#2aa198">&#34;goldmark&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[markup.goldmark]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[markup.goldmark.renderer]
+</span></span><span style="display:flex;"><span>unsafe = <span style="color:#cb4b16">true</span>
+</span></span></code></pre>
+            </div>
+            <h2 id="content" class="anchor-link"><a href="#content">Content</a></h2>
+            <p>The easiest way to start adding content to your site is to copy the
+                <code>exampleSite</code> folder to your site&rsquo;s root directory.</p>
+            <p>You can change the existing posts to see how it all works. Add new pages using <a
+                    href="https://gohugo.io/getting-started/quick-start/">the <code>hugo new</code>
+                command</a>.</p>
+            <p>To understand how different pages are rendered by Hugo, read <a
+                    href="https://gohugo.io/content-management/organization/">Content
+                Organization</a> in the Hugo docs.</p>
+
+        </div>
+
+
+        <div class="container">
+            <hr>
+        </div>
+        <div class="container has-text-centered top-pad">
+            <a href="#top">
+                <i class="fa fa-arrow-up"></i>
+            </a>
+        </div>
+
+        <div class="container">
+            <hr>
+        </div>
+
+        <div class="section" id="footer">
+            <div class="container has-text-centered">
+    
+        <span class="footer-text">
+            <a href="https://github.com/victoriadrake/hugo-theme-introduction/"><strong>Introduction</strong></a> theme for <a
+                href="http://gohugo.io/">Hugo</a>. Made with <a href="https://victoria.dev"><i
+                class="fa fa-heart"></i> and <i class="fa fa-coffee"></i></a> by open source contributors.
+        </span>
+
+            </div>
+        </div>
+
+
+    </div>
+</section>
+
+
+<script src="http://localhost:1313/js/bundle.5c23c0437f001a469ca373a465a6f7487203d18e10cdff76d86a60af66d5ee28.js"
+        integrity="sha256-XCPAQ38AGkaco3OkZab3SHID0Y4Qzf922Gpgr2bV7ig="></script>
+
+
+</body>
+</html>

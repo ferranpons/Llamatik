@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>http://localhost:1313/blog/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/blog/llamatik-introduction/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/kotlin/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/llama.cpp/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/llm/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/multiplatform/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/offline-ai/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/</loc>
+    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/series/</loc>
+  </url>
+</urlset>

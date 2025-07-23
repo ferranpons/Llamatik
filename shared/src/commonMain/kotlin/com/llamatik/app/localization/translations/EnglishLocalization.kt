@@ -23,7 +23,7 @@ internal object EnglishLocalization : Localization {
     override val backButton = "back"
     override val search = "Search"
     override val noItemFound = "Item not found"
-    override val homeLastestNews = "Latest News"
+    override val homeLastestNews = "Latest Techcrunch AI News"
 
     override val noResultsTitle = "The are no results right now"
     override val noResultsDescription =

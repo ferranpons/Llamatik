@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload"
+            data-no-instant defer></script>
+
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <meta name="description"
+          content="Kotlin-first llama.cpp integration for on-device and remote LLM inference.">
+    <title>
+        Support for Multiple Authors - Llamatik
+    </title>
+
+
+    <meta property="og:title" content="Support for Multiple Authors - Llamatik"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:description"
+          content="Kotlin-first llama.cpp integration for on-device and remote LLM inference."/>
+    <meta property="og:url" content="http://localhost:1313/blog/multi-author/"/>
+    <meta property="og:site_name" content="Llamatik"/>
+
+
+    <meta property="og:image" content="http://localhost:1313/home/profile.jpg"/>
+
+
+    <link rel="shortcut icon" href="/img/fav.ico">
+
+
+    <link rel="stylesheet" href="/css/main.css" media="screen">
+
+
+</head>
+<body>
+<section id="top" class="section">
+
+    <div class="container hero  fade-in one ">
+
+
+        <h1 class="bold-title is-1">Blog</h1>
+
+
+    </div>
+
+    <div class="section  fade-in two ">
+
+
+        <div class="container">
+            <hr>
+            <nav class="navbar" role="navigation" aria-label="main navigation">
+
+                <a role="button" class="navbar-burger" data-target="navMenu" aria-label="menu"
+                   aria-expanded="false">
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                </a>
+                <div class="navbar-menu " id="navMenu">
+
+
+                    <a class="navbar-item" href="/">main</a>
+
+
+                    <a class="navbar-item" href="/#about">About</a>
+
+
+                    <a class="navbar-item" href="http://localhost:1313/projects/">
+
+
+                        Projects
+
+
+                    </a>
+
+
+                    <a class="navbar-item" href="http://localhost:1313/blog/">
+
+                        Back to Blog
+
+                    </a>
+
+
+                    <a class="navbar-item" href="/#lorem">Lorem Ipsum</a>
+
+
+                    <a class="navbar-item" href="/#contact">Contact</a>
+
+
+                    <a class="navbar-item" href=""><i class="fas fa-rss"></i></a>
+
+
+                </div>
+            </nav>
+            <hr>
+        </div>
+
+
+        <div class="container">
+            <h2 class="title is-1 top-pad strong-post-title">
+                <a href="http://localhost:1313/blog/multi-author/">Support for Multiple Authors</a>
+            </h2>
+
+            <h4 class="title is-4">
+
+                By&nbsp;Hugo Contributors</h4>
+
+            <div class="post-data">
+                Feb 21, 2022
+
+                |
+                1 minute read
+
+            </div>
+
+            <div class="blog-share">
+                Share this:
+
+                <a class="twitter-share-button"
+                   href="https://twitter.com/intent/tweet?text=Support%20for%20Multiple%20Authors%20http%3a%2f%2flocalhost%3a1313%2fblog%2fmulti-author%2f"
+                   onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                    <i class="fab fa-twitter"></i>
+                    <span class="hidden">Twitter</span>
+                </a>
+
+
+            </div>
+
+
+            <p>
+                Series:
+
+                <a href="/series/quickstart">
+                    quickstart</a>
+
+            </p>
+
+
+            <p>
+                Tags:
+
+                <a href="/tags/features">
+                    features</a>,
+
+                <a href="/tags/blog">
+                    blog</a>
+
+            </p>
+
+
+        </div>
+
+        <div class="container markdown top-pad">
+            <p>Using Introduction, your site can feature multiple authors. Each post displays a
+                byline &ndash; the name of a post&rsquo;s author &ndash; if the <code>author</code>
+                field is set in the post front matter. For example, here&rsquo;s the front matter
+                for this post:</p>
+            <div class="highlight"><pre tabindex="0"
+                                        style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code
+                    class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span><span style="color:#268bd2">title</span>: <span
+                    style="color:#2aa198">&#34;Support for Multiple Authors&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#268bd2">date</span>: 2022-02-20T02:04:06<span
+                    style="color:#2aa198">-05</span>:<span style="color:#2aa198">00</span>
+</span></span><span style="display:flex;"><span><span style="color:#268bd2">tags</span>: [<span
+                    style="color:#2aa198">&#34;features&#34;</span>, <span style="color:#2aa198">&#34;blog&#34;</span>]
+</span></span><span style="display:flex;"><span><span style="color:#268bd2">series</span>: [<span
+                    style="color:#2aa198">&#34;quickstart&#34;</span>]
+</span></span><span style="display:flex;"><span><span style="color:#268bd2">author</span>: [<span
+                    style="color:#2aa198">&#34;Hugo Contributors&#34;</span>]
+</span></span><span style="display:flex;"><span>---
+</span></span></code></pre>
+            </div>
+            <p>You can list one or more authors. For example, here&rsquo;s a byline with two
+                credits:</p>
+            <div class="highlight"><pre tabindex="0"
+                                        style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code
+                    class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span
+                    style="color:#268bd2">author</span>: [<span style="color:#2aa198">&#34;Hugo Contributors&#34;</span>, <span
+                    style="color:#2aa198">&#34;Victoria Drake&#34;</span>]
+</span></span></code></pre>
+            </div>
+            <p>Even when there is just one author, ensure you use a list format (<code>[&quot;Name&quot;]</code>)
+                for the <code>author</code> field.</p>
+
+        </div>
+
+
+        <div class="container">
+            <hr>
+        </div>
+        <div class="container has-text-centered top-pad">
+            <a href="#top">
+                <i class="fa fa-arrow-up"></i>
+            </a>
+        </div>
+
+        <div class="container">
+            <hr>
+        </div>
+
+        <div class="section" id="footer">
+            <div class="container has-text-centered">
+    
+        <span class="footer-text">
+            <a href="https://github.com/victoriadrake/hugo-theme-introduction/"><strong>Introduction</strong></a> theme for <a
+                href="http://gohugo.io/">Hugo</a>. Made with <a href="https://victoria.dev"><i
+                class="fa fa-heart"></i> and <i class="fa fa-coffee"></i></a> by open source contributors.
+        </span>
+
+            </div>
+        </div>
+
+
+    </div>
+</section>
+
+
+<script src="http://localhost:1313/js/bundle.5c23c0437f001a469ca373a465a6f7487203d18e10cdff76d86a60af66d5ee28.js"
+        integrity="sha256-XCPAQ38AGkaco3OkZab3SHID0Y4Qzf922Gpgr2bV7ig="></script>
+
+
+</body>
+</html>

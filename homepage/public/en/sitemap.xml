@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>http://localhost:1313/projects/photography/</loc>
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/projects/photography/" />
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/projects/photography/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/projects/photography/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/projects/design/</loc>
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/projects/design/" />
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/projects/design/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/projects/design/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/projects/writing/</loc>
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/projects/writing/" />
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/projects/writing/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/projects/writing/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/projects/</loc>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/projects/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/projects/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/projects/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/blog/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/blog/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/blog/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/blog/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/tags/blog/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/tags/features/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/series/quickstart/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/series/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/series/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/series/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/series/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/blog/multi-author/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/tags/</loc>
+        <lastmod>2022-02-21T16:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/series/example-posts/</loc>
+        <lastmod>2022-02-20T12:04:16-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/tags/images/</loc>
+        <lastmod>2022-02-20T12:04:16-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/images/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/images/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/images/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/blog/coffee-ipsum/</loc>
+        <lastmod>2022-02-20T12:04:16-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/blog/coffee-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/blog/coffee-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/blog/coffee-ipsum/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/blog/configuration/</loc>
+        <lastmod>2020-07-25T02:04:06-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/tags/code/</loc>
+        <lastmod>2020-07-25T02:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/code/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/code/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/code/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/blog/long-form-post/</loc>
+        <lastmod>2019-05-30T20:18:53-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/tags/markdown/</loc>
+        <lastmod>2017-11-06T12:04:06-05:00</lastmod>
+    </url>
+    <url>
+        <loc>http://localhost:1313/blog/startup-ipsum/</loc>
+        <lastmod>2017-11-06T12:04:06-05:00</lastmod>
+        <xhtml:link rel="alternate" hreflang="es"
+            href="http://localhost:1313/es/blog/startup-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="de"
+            href="http://localhost:1313/de/blog/startup-ipsum/" />
+        <xhtml:link rel="alternate" hreflang="en-us"
+            href="http://localhost:1313/blog/startup-ipsum/" />
+    </url>
+    <url>
+        <loc>http://localhost:1313/blog/no-date/</loc>
+    </url>
+    <url>
+        <loc>http://localhost:1313/tags/words/</loc>
+        <xhtml:link rel="alternate" hreflang="es" href="http://localhost:1313/es/tags/words/" />
+        <xhtml:link rel="alternate" hreflang="de" href="http://localhost:1313/de/tags/words/" />
+        <xhtml:link rel="alternate" hreflang="en-us" href="http://localhost:1313/tags/words/" />
+    </url>
+</urlset>

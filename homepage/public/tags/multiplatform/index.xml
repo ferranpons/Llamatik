@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Multiplatform on Llamatik</title>
+    <link>http://localhost:1313/tags/multiplatform/</link>
+    <description>Recent content in Multiplatform on Llamatik</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 22 Jul 2025 09:00:00 -0500</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/multiplatform/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>“Introducing Llamatik Offline LLMs for Kotlin Multiplatform”</title>
+      <link>http://localhost:1313/blog/llamatik-introduction/</link>
+      <pubDate>Tue, 22 Jul 2025 09:00:00 -0500</pubDate>
+      <guid>http://localhost:1313/blog/llamatik-introduction/</guid>
+      <description>&lt;p&gt;🦙 Introducing Llamatik: Offline LLMs for Kotlin Multiplatform&lt;/p&gt;&#xA;&lt;p&gt;We’re thrilled to introduce Llamatik — an open-source Kotlin Multiplatform library that brings local Large Language Models (LLMs) to Android, iOS, desktop, and beyond using the power of llama.cpp.&lt;/p&gt;&#xA;&lt;p&gt;Llamatik makes it simple and efficient to integrate offline, on-device inference and embeddings into your KMP apps, whether you’re building an AI assistant, a RAG chatbot, or an edge intelligence tool.&lt;/p&gt;&#xA;&lt;p&gt;⸻&lt;/p&gt;&#xA;&lt;p&gt;✨ Why Llamatik?&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

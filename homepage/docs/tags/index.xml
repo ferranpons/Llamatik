@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Tags on Introduction</title>
+        <link>http://example.com/tags/</link>
+        <description>Recent content in Tags on Introduction</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <lastBuildDate>Sat, 25 Jul 2020 02:04:06 -0500</lastBuildDate>
+
+        <atom:link href="http://example.com/tags/index.xml" rel="self" type="application/rss+xml" />
+
+
+        <item>
+            <title>code</title>
+            <link>http://example.com/tags/code/</link>
+            <pubDate>Sat, 25 Jul 2020 02:04:06 -0500</pubDate>
+
+            <guid>http://example.com/tags/code/</guid>
+            <description></description>
+        </item>
+
+        <item>
+            <title>blog</title>
+            <link>http://example.com/tags/blog/</link>
+            <pubDate>Sat, 30 May 2020 20:18:53 -0500</pubDate>
+
+            <guid>http://example.com/tags/blog/</guid>
+            <description></description>
+        </item>
+
+        <item>
+            <title>ipsum</title>
+            <link>http://example.com/tags/ipsum/</link>
+            <pubDate>Mon, 13 Nov 2017 11:58:39 -0500</pubDate>
+
+            <guid>http://example.com/tags/ipsum/</guid>
+            <description></description>
+        </item>
+
+        <item>
+            <title>words</title>
+            <link>http://example.com/tags/words/</link>
+            <pubDate>Mon, 13 Nov 2017 11:58:39 -0500</pubDate>
+
+            <guid>http://example.com/tags/words/</guid>
+            <description></description>
+        </item>
+
+        <item>
+            <title>coffee</title>
+            <link>http://example.com/tags/coffee/</link>
+            <pubDate>Wed, 01 Nov 2017 12:04:16 -0500</pubDate>
+
+            <guid>http://example.com/tags/coffee/</guid>
+            <description></description>
+        </item>
+
+        <item>
+            <title>images</title>
+            <link>http://example.com/tags/images/</link>
+            <pubDate>Wed, 01 Nov 2017 12:04:16 -0500</pubDate>
+
+            <guid>http://example.com/tags/images/</guid>
+            <description></description>
+        </item>
+
+    </channel>
+</rss>

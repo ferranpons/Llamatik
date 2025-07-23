@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Projekte on Vorstellung</title>
+        <link>http://localhost:1313/de/projects/</link>
+        <description>Recent content in Projekte on Vorstellung</description>
+        <generator>Hugo</generator>
+        <language>de</language>
+        <atom:link href="http://localhost:1313/de/projects/index.xml" rel="self"
+            type="application/rss+xml" />
+        <item>
+            <title>Fotografie</title>
+            <link>http://localhost:1313/de/projects/photography/</link>
+            <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+            <guid>http://localhost:1313/de/projects/photography/</guid>
+            <description>&lt;h2 id=&#34;machmal-nehme-ich-bilder-auf&#34; class=&#34;anchor-link&#34;&gt;&lt;a
+                href=&#34;#machmal-nehme-ich-bilder-auf&#34;&gt;Machmal nehme ich Bilder auf&lt;/a&gt;&lt;/h2&gt;&#xA;&lt;p&gt;Dieses
+                Projekt ist über die Bilder, die ich aufnehme. Machmal sind das Bilder von Katzen.&lt;/p&gt;
+            </description>
+        </item>
+        <item>
+            <title>Design</title>
+            <link>http://localhost:1313/de/projects/design/</link>
+            <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+            <guid>http://localhost:1313/de/projects/design/</guid>
+            <description>&lt;p&gt;Dieses Theme wurde von &lt;a href=&#34;https://victoria.dev&#34;&gt;Victoria
+                Drake&lt;/a&gt; entwickelt. Guck es dir an! 💪&lt;/p&gt;&#xA;&lt;p&gt;Wenn du es für
+                deine Webseite verwenden willst, guck dir den Abschnitt unten auf der Hauptseite an.
+                👍&lt;/p&gt;
+            </description>
+        </item>
+        <item>
+            <title>Schreiben</title>
+            <link>http://localhost:1313/de/projects/writing/</link>
+            <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+            <guid>http://localhost:1313/de/projects/writing/</guid>
+            <description>&lt;p&gt;Aromatic aroma con panna, crema so coffee robust coffee barista,
+                café au lait trifecta that strong blue mountain cortado aftertaste. Aroma extraction
+                french press, skinny sweet, blue mountain cup roast barista, beans, extra cappuccino
+                mug crema strong.&lt;/p&gt;&#xA;&lt;p&gt;To go viennese cream to go, flavour, so
+                mocha as, carajillo iced et a siphon froth. Aged, eu, cup, brewed aroma kopi-luwak,
+                coffee, id viennese french press brewed grounds acerbic froth. Decaffeinated
+                acerbic, spoon beans seasonal, french press café au lait mazagran roast chicory,
+                pumpkin spice galão as fair trade, dark irish cup ristretto half and half whipped
+                shop. Latte instant black extra aroma, instant, extra robusta variety skinny shop
+                aged cup ristretto foam cortado. Bar galão skinny saucer est affogato sugar caffeine
+                chicory sugar coffee, seasonal barista french press acerbic in chicory robust.&lt;/p&gt;
+            </description>
+        </item>
+    </channel>
+</rss>
