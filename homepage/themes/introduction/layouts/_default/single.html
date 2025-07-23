@@ -1,0 +1,7 @@
+{{ define "main" }}
+<div class="container markdown top-pad">
+    {{ .Content }}
+</div>
+<!-- End post content -->
+{{ partial "comments.html" . }}
+{{ end }}

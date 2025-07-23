@@ -1,0 +1,44 @@
+{{ define "main" }}
+<div class="container markdown top-pad">
+    {{ .Content }}
+</div>
+<div class="container">
+    <div class="section">
+        <div class="columns is-multiline">
+            {{ $numberOfPages := len .Pages}}
+            {{ range .Pages.ByWeight }}
+            {{ $width := "302x" }}
+            {{ $columWidth := "is-one-third" }}
+            {{ if .Site.Params.projects.useTwoColumns }}
+            {{ $columWidth = "is-half" }}
+            {{ $width = "490x" }}
+            {{ end}}
+            <div class="column {{ $columWidth }}">
+                <div class="card">
+                    {{ if .Resources.ByType "image" }}
+                    <div class="card-image">
+                        <figure class="image is-3by2">
+                            <a href="{{ if .Params.external_link }}{{ .Params.external_link }}{{ else }}{{ .Permalink }}{{ end }}">
+                                {{ with .Resources.ByType "image" }}
+                                {{ range first 1 (sort . "Params.weight") }}
+                                {{ $image := .Resize $width }}
+                                <img src="{{ $image.Permalink }}" alt="{{ $image.Name }}">
+                                {{ end }}
+                                {{ end }}
+                            </a>
+                        </figure>
+                    </div>
+                    {{ end }}
+                    <div class="card-content has-text-centered top-pad">
+                        <h1>
+                            <a href="{{ if .Params.external_link }}{{ .Params.external_link }}{{ else }}{{ .Permalink }}{{ end }}">
+                                {{ .Title | markdownify }}
+                            </a></h1>
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+</div>
+{{ end }}

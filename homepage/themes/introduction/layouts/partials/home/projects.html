@@ -1,0 +1,108 @@
+{{ with .Site.GetPage "/projects" }}
+<div class="section" id="{{ .Title | urlize }}">
+    <!-- Begin Projects container -->
+    <div class="container">
+        <h2 class="title is-2 has-text-centered">
+            {{ .Title | markdownify }}
+        </h2>
+        <div class="section">
+            <div class="columns is-multiline">
+                {{ $totalProjects := (len .Pages) }}
+                {{ $numberOfProjectsToShow := .Site.Params.home.numberOfProjectsToShow | default
+                $totalProjects }}
+                {{ range $index, $element := .Pages.ByWeight | first $numberOfProjectsToShow }}
+                {{ $width := "302x" }}
+                {{ $columWidth := "is-one-third" }}
+                {{ if .Site.Params.projects.useTwoColumns }}
+                {{ $columWidth = "is-half" }}
+                {{ $width = "490x" }}
+                {{ end}}
+                <div class="column {{ $columWidth }}">
+                    <div class="card" data-target="#project-{{ $index }}">
+                        {{ if .Resources.ByType "image" }}
+                        <div class="card-image">
+                            <figure class="image is-3by2">
+                                <a {{ if .Params.external_link }} href="{{ .Params.external_link }}"
+                                   {{ end }}>
+                                    {{ with .Resources.ByType "image" }}
+                                    {{ range first 1 (sort . "Params.weight") }}
+                                    {{ $image := .Resize $width }}
+                                    <img class="card-thumbnail" src="{{ $image.Permalink }}"
+                                         alt="{{ $image.Name }}">
+                                    {{ end }}
+                                    {{ end }}
+                                </a>
+                            </figure>
+                        </div>
+                        {{ end }}
+                        <div class="card-content has-text-centered top-pad">
+                            <h1><a {{ if .Params.external_link }} href="{{ .Params.external_link }}"
+                                   {{ end }}>
+                                {{ .Title | markdownify }}
+                            </a></h1>
+                            {{ if .Params.project_timeframe }}
+                            <p class="fa-xs">{{ .Params.project_timeframe }}</p>
+                            {{ end }}
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+        </div>
+        {{ if lt $numberOfProjectsToShow $totalProjects }}
+        <div class="container has-text-centered top-pad">
+            <a href="{{ .Permalink }}">{{ i18n "index_projects_allProjects" . }}</a>
+        </div>
+        {{ end }}
+    </div>
+    <!-- End Projects container -->
+    <!-- Projects modals -->
+    {{ range $index, $element := .Pages.ByWeight | first $numberOfProjectsToShow }}
+    {{ if not .Params.external_link }}
+    <div class="modal" id="project-{{ $index }}">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            {{ with .Title }}
+            <header class="modal-card-header bottom-pad">
+                <h1 class="modal-card-title has-text-centered">{{ . }}</h1>
+            </header>
+            {{ end }}
+            {{ if .Params.project_timeframe }}
+            <p class="fa-xs">{{ .Params.project_timeframe }}</p>
+            {{ end }}
+            <section class="modal-card-body markdown">
+                {{ with .Resources.ByType "image" }}
+                {{ $moreThenOneImage := gt (len .) 1 }}
+                {{ if $moreThenOneImage }}
+                <div class="owl-carousel owl-theme">
+                    {{ end }}
+                    {{ range sort . "Params.weight" }}
+                    {{ $image := .Resize "640x" }}
+                    {{ if $moreThenOneImage }}
+                    <div class="item owl-height">
+                        {{ end }}
+                        <img src="{{ $image.Permalink }}" class="img-responsive"
+                             alt="{{ $image.Name }}">
+                        {{ if $moreThenOneImage }}
+                    </div>
+                    {{ end }}
+                    {{ end }}
+                    {{ if $moreThenOneImage }}
+                </div>
+                {{ end }}
+                {{ end }}
+                {{ .Content }}
+            </section>
+        </div>
+        <button class="modal-close is-large" aria-label="close"
+                data-target="#project-{{ $index }}"></button>
+    </div>
+    {{ end }}
+    {{ end }}
+    {{ partial "top-icon.html" . }}
+</div>
+<!-- End Projects section -->
+<div class="container">
+    <hr>
+</div>
+{{ end }}
