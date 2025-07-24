@@ -1,6 +1,5 @@
 package com.llamatik.repository.product
 
-import com.llamatik.app.common.model.ProductModel
 
 interface ProductsRepository {
     suspend fun addProduct(
@@ -9,7 +8,7 @@ interface ProductsRepository {
         cover: String,
         images: List<String>,
         video: String?,
-        category: ProductCategory,
+        category: String,
         miles: Int,
         released: String,
         modified: String?,
@@ -20,12 +19,12 @@ interface ProductsRepository {
         isSteamCompatible: Boolean,
         isEarlyAccess: Boolean,
         isPrePurchase: Boolean
-    ): ProductModel?
-
+    ): String?
+/*
     suspend fun getProduct(petId: Int): ProductModel
 
     suspend fun getProducts(userId: Int): List<ProductModel>
-
+*/
     suspend fun delete(petId: Int)
 
     suspend fun updateProduct(
@@ -35,7 +34,7 @@ interface ProductsRepository {
         cover: String,
         images: List<String>,
         video: String?,
-        category: ProductCategory,
+        category: String,
         miles: Int,
         released: String,
         modified: String?,
@@ -46,5 +45,5 @@ interface ProductsRepository {
         isSteamCompatible: Boolean,
         isEarlyAccess: Boolean,
         isPrePurchase: Boolean
-    ): ProductModel?
+    ): String?
 }

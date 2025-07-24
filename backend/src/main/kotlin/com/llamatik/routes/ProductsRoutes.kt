@@ -55,7 +55,6 @@ class ProductsDeleteRoute
 fun Route.products(
     productsRepository: ProductsRepository,
     userRepository: UserRepository,
-    productsMockRepository: ProductsMockRepository
 ) {
     authenticate(JWT_CONFIGURATION) {
         post<ProductsCreateRoute> {
@@ -65,7 +64,6 @@ fun Route.products(
             val cover = productParameters["cover"] ?: ""
             val images = emptyList<String>()
             val video = productParameters["video"] ?: ""
-            val category = ProductCategory.entries[productParameters["category"]?.toInt() ?: 0]
             val miles = productParameters["miles"]?.toInt() ?: -1
             val released = productParameters["gender"] ?: ""
             val modified = productParameters["modified"] ?: ""
@@ -95,7 +93,7 @@ fun Route.products(
                     cover = cover,
                     images = images,
                     video = video,
-                    category = category,
+                    category = "",
                     miles = miles,
                     released = released,
                     modified = modified,
@@ -107,9 +105,10 @@ fun Route.products(
                     isEarlyAccess = isEarlyAccess,
                     isPrePurchase = isPrePurchase
                 )
+                /*
                 productModel?.id?.let {
                     call.respond(HttpStatusCode.OK, productModel)
-                }
+                }*/
             } catch (e: Throwable) {
                 this@authenticate.application.log.error("Failed to add Pet", e)
                 call.respond(HttpStatusCode.BadRequest, "Problems Uploading Pet")
@@ -126,8 +125,8 @@ fun Route.products(
                 return@get
             }
             try {
-                val productModel = productsRepository.getProduct(productId)
-                call.respond(productModel)
+                val productModel = productsRepository.toString()
+                //call.respond(productModel)
             } catch (e: Throwable) {
                 this@authenticate.application.log.error("Failed to get Pet", e)
                 call.respond(HttpStatusCode.BadRequest, "Problems getting Pet")
@@ -142,7 +141,7 @@ fun Route.products(
             val cover = productParameters["cover"] ?: ""
             val images = emptyList<String>()
             val video = productParameters["video"] ?: ""
-            val category = ProductCategory.entries[productParameters["category"]?.toInt() ?: 0]
+            //val category = ProductCategory.entries[productParameters["category"]?.toInt() ?: 0]
             val miles = productParameters["miles"]?.toInt() ?: -1
             val released = productParameters["gender"] ?: ""
             val modified = productParameters["modified"] ?: ""
@@ -173,7 +172,7 @@ fun Route.products(
                     cover = cover,
                     images = images,
                     video = video,
-                    category = category,
+                    category = "category",
                     miles = miles,
                     released = released,
                     modified = modified,
@@ -185,10 +184,11 @@ fun Route.products(
                     isEarlyAccess = isEarlyAccess,
                     isPrePurchase = isPrePurchase
                 )
+                /*
                 productModel?.id?.let {
                     call.respond(HttpStatusCode.OK, productModel)
                     return@patch
-                }
+                }*/
             } catch (e: Throwable) {
                 this@authenticate.application.log.error("Failed to update Pet", e)
                 call.respond(HttpStatusCode.BadRequest, "Problems updating Pet")
@@ -221,8 +221,8 @@ fun Route.products(
     get<ProductsListRoute> {
         try {
             //  val products = productsRepository.getProducts(user.userId)
-            val products = productsMockRepository.getProducts()
-            call.respond(products.getOrThrow())
+            //val products = productsMockRepository.getProducts()
+            //call.respond(products.getOrThrow())
         } catch (e: Throwable) {
             // this@authenticate.application.log.error("Failed to get Products", e)
             call.respond(HttpStatusCode.BadRequest, e.message.toString())

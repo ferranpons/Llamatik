@@ -23,7 +23,7 @@ fun Application.configureAuthentication() {
     DatabaseFactory.init()
     val userRepository = UserRepositoryImp()
     val petRepository = ProductsRepositoryImp()
-    val productsMockRepository = ProductsMockRepository()
+    //val productsMockRepository = ProductsMockRepository()
     val profileRepository = ProfileRepositoryImpl()
     val jwtService = JwtService()
     val hashFunction = { s: String -> hash(s) }
@@ -31,7 +31,7 @@ fun Application.configureAuthentication() {
     install(Authentication) {
         jwt(JWT_CONFIGURATION) {
             verifier(jwtService.verifier)
-            realm = "MyProjectName Server"
+            realm = "Llamatik Server"
             validate {
                 val payload = it.payload
                 val claim = payload.getClaim("id")
@@ -44,7 +44,7 @@ fun Application.configureAuthentication() {
 
     routing {
         users(userRepository, jwtService, hashFunction)
-        products(petRepository, userRepository, productsMockRepository)
+        products(petRepository, userRepository)
         profiles(profileRepository, userRepository)
     }
 }

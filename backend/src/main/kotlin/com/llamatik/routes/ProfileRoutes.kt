@@ -1,7 +1,6 @@
 package com.llamatik.routes
 
 import com.llamatik.API_VERSION
-import com.llamatik.app.common.model.PlayerStats
 import com.llamatik.auth.JWT_CONFIGURATION
 import com.llamatik.auth.UserSession
 import com.llamatik.repository.profile.ProfileRepository
@@ -59,7 +58,7 @@ fun Route.profiles(
             val country = profileParameters["country"] ?: ""
             val squadron = profileParameters["squadron"] ?: ""
             val squadronPatch = profileParameters["squadronPatch"] ?: ""
-            val playerStats = PlayerStats()
+
             val medals = emptyList<String>()
 
             val user = call.sessions.get<UserSession>()?.let {
@@ -84,12 +83,12 @@ fun Route.profiles(
                     country = country,
                     squadron = squadron,
                     squadronPatch = squadronPatch,
-                    playerStats = playerStats,
                     medals = medals
                 )
+                /*
                 profile?.id?.let {
                     call.respond(HttpStatusCode.OK, profile)
-                }
+                }*/
             } catch (e: Throwable) {
                 this@authenticate.application.log.error("Failed to add Profile", e)
                 call.respond(HttpStatusCode.BadRequest, "Problems Adding Profile")
@@ -129,7 +128,6 @@ fun Route.profiles(
             val country = profileParameters["country"] ?: ""
             val squadron = profileParameters["squadron"] ?: ""
             val squadronPatch = profileParameters["squadronPatch"] ?: ""
-            val playerStats = PlayerStats()
             val medals = emptyList<String>()
 
             val user = call.sessions.get<UserSession>()?.let {
@@ -154,12 +152,12 @@ fun Route.profiles(
                     country = country,
                     squadron = squadron,
                     squadronPatch = squadronPatch,
-                    playerStats = playerStats,
                     medals = medals
                 )
+                /*
                 profile?.id?.let {
                     call.respond(HttpStatusCode.OK, profile)
-                }
+                }*/
             } catch (e: Throwable) {
                 this@authenticate.application.log.error("Failed to update Profile", e)
                 call.respond(HttpStatusCode.BadRequest, "Problems updating Profile")

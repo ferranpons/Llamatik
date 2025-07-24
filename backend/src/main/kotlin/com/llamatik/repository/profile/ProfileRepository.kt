@@ -1,8 +1,6 @@
 package com.llamatik.repository.profile
 
 import com.llamatik.app.common.model.GeoLocation
-import com.llamatik.app.common.model.PlayerStats
-import com.llamatik.app.common.model.Profile
 
 interface ProfileRepository {
 
@@ -19,11 +17,11 @@ interface ProfileRepository {
         country: String? = null,
         squadron: String? = null,
         squadronPatch: String? = null,
-        playerStats: PlayerStats = PlayerStats(),
+        //playerStats: PlayerStats = PlayerStats(),
         medals: List<String>? = emptyList()
-    ): Profile?
+    ): String?
 
-    suspend fun getProfile(userId: Int): Profile?
+    suspend fun getProfile(userId: Int): String?
 
     suspend fun updateProfile(
         userId: Int,
@@ -38,7 +36,7 @@ interface ProfileRepository {
         country: String? = null,
         squadron: String? = null,
         squadronPatch: String? = null,
-        playerStats: PlayerStats = PlayerStats(),
+        //playerStats: PlayerStats = PlayerStats(),
         medals: List<String>? = emptyList()
-    ): Profile?
+    ): String?
 }

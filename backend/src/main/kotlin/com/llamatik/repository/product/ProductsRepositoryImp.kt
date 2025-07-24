@@ -1,8 +1,6 @@
 package com.llamatik.repository.product
 
-import com.llamatik.app.common.model.ProductModel
 import com.llamatik.repository.DatabaseFactory.dbQuery
-import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
@@ -16,7 +14,7 @@ class ProductsRepositoryImp : ProductsRepository {
         cover: String,
         images: List<String>,
         video: String?,
-        category: ProductCategory,
+        category: String,
         miles: Int,
         released: String,
         modified: String?,
@@ -27,7 +25,7 @@ class ProductsRepositoryImp : ProductsRepository {
         isSteamCompatible: Boolean,
         isEarlyAccess: Boolean,
         isPrePurchase: Boolean
-    ): ProductModel? {
+    ): String? {
         var statement: InsertStatement<Number>? = null
         dbQuery {
             statement = Product.insert {
@@ -36,7 +34,7 @@ class ProductsRepositoryImp : ProductsRepository {
                 it[Product.cover] = cover
                 it[Product.images] = images.joinToString { "|" }
                 it[Product.video] = video ?: ""
-                it[Product.category] = category.toProductCategory()
+                //it[Product.category] = category
                 it[Product.miles] = miles
                 it[Product.released] = released
                 it[Product.modified] = modified ?: ""
@@ -49,9 +47,10 @@ class ProductsRepositoryImp : ProductsRepository {
                 it[Product.isPrePurchase] = isPrePurchase
             }
         }
-        return rowToProductModel(statement?.resultedValues?.get(0))
+        return ""
+        //return rowToProductModel(statement?.resultedValues?.get(0))
     }
-
+/*
     override suspend fun getProducts(productId: Int): List<ProductModel> {
         return dbQuery {
             Product.select(Product.id).where {
@@ -67,7 +66,7 @@ class ProductsRepositoryImp : ProductsRepository {
             }.mapNotNull { rowToProductModel(it) }
         }.first()
     }
-
+*/
     override suspend fun delete(petId: Int) {
         return dbQuery {
             Product.deleteWhere {
@@ -83,7 +82,7 @@ class ProductsRepositoryImp : ProductsRepository {
         cover: String,
         images: List<String>,
         video: String?,
-        category: ProductCategory,
+        category: String,
         miles: Int,
         released: String,
         modified: String?,
@@ -94,7 +93,7 @@ class ProductsRepositoryImp : ProductsRepository {
         isSteamCompatible: Boolean,
         isEarlyAccess: Boolean,
         isPrePurchase: Boolean
-    ): ProductModel? {
+    ): String? {
         return dbQuery {
             Product.select(Product.id).where {
                 Product.id.eq((productId))
@@ -112,13 +111,15 @@ class ProductsRepositoryImp : ProductsRepository {
                     // it[Product.images] = images
                 }
             }
-
+/*
             Product.select(Product.id).where {
                 Product.id.eq((productId))
             }.mapNotNull { rowToProductModel(it) }
-        }.firstOrNull()
-    }
 
+ */
+        }.toString()
+    }
+/*
     private fun rowToProductModel(row: ResultRow?): ProductModel? {
         if (row == null) {
             return null
@@ -130,7 +131,7 @@ class ProductsRepositoryImp : ProductsRepository {
             cover = row[Product.cover],
             images = emptyList(), // row[Product.images],
             video = row[Product.video],
-            category = ProductCategory.HELICOPTER,
+            category = "HELICOPTER",
             miles = row[Product.miles].toInt(),
             versionRequired = row[Product.versionRequired],
             bundle = row[Product.bundle],
@@ -141,4 +142,6 @@ class ProductsRepositoryImp : ProductsRepository {
             isPrePurchase = row[Product.isPrePurchase]
         )
     }
+
+ */
 }

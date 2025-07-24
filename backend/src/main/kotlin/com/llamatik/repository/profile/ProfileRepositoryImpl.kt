@@ -1,8 +1,6 @@
 package com.llamatik.repository.profile
 
 import com.llamatik.app.common.model.GeoLocation
-import com.llamatik.app.common.model.PlayerStats
-import com.llamatik.app.common.model.Profile
 import com.llamatik.repository.DatabaseFactory.dbQuery
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -25,9 +23,8 @@ class ProfileRepositoryImpl : ProfileRepository {
         country: String?,
         squadron: String?,
         squadronPatch: String?,
-        playerStats: PlayerStats,
         medals: List<String>?
-    ): Profile? {
+    ): String? {
         var statement: InsertStatement<Number>? = null
         dbQuery {
             statement = Profiles.insert { profiles ->
@@ -44,12 +41,12 @@ class ProfileRepositoryImpl : ProfileRepository {
         return rowToProfiles(statement?.resultedValues?.get(0))
     }
 
-    override suspend fun getProfile(userId: Int): Profile? {
+    override suspend fun getProfile(userId: Int): String? {
         return dbQuery {
             Profiles.select(Profiles.userId).where {
                 Profiles.userId.eq((userId))
-            }.mapNotNull { rowToProfiles(it) }
-        }.firstOrNull()
+            }.toString()
+        }
     }
 
     override suspend fun updateProfile(
@@ -65,9 +62,8 @@ class ProfileRepositoryImpl : ProfileRepository {
         country: String?,
         squadron: String?,
         squadronPatch: String?,
-        playerStats: PlayerStats,
         medals: List<String>?
-    ): Profile? {
+    ): String? {
         return dbQuery {
             Profiles.select(Profiles.userId).where {
                 Profiles.userId.eq((userId))
@@ -91,23 +87,24 @@ class ProfileRepositoryImpl : ProfileRepository {
 
             Profiles.select(Profiles.userId).where {
                 Profiles.userId.eq((userId))
-            }.mapNotNull { rowToProfiles(it) }
-        }.firstOrNull()
+            }.toString()
+        }
     }
 
-    private fun rowToProfiles(row: ResultRow?): Profile? {
+    private fun rowToProfiles(row: ResultRow?): String? {
         if (row == null) {
             return null
         }
         val geoLocation = getGeoLocationObjectFrom(row[Profiles.location])
-        return Profile(
+        /*return Profile(
             id = row[Profiles.id],
             userId = row[Profiles.userId],
             name = row[Profiles.name],
             description = row[Profiles.description],
             image = row[Profiles.image],
             location = geoLocation
-        )
+        )*/
+        return ""
     }
 
     private fun getGeoLocationObjectFrom(rowText: String): GeoLocation {
