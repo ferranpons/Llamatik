@@ -7,15 +7,13 @@ import com.llamatik.repository.profile.ProfileRepository
 import com.llamatik.repository.user.UserRepository
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
-import io.ktor.server.application.call
+import io.ktor.resources.Resource
 import io.ktor.server.application.log
 import io.ktor.server.auth.authenticate
-import io.ktor.server.locations.KtorExperimentalLocationsAPI
-import io.ktor.server.locations.Location
-import io.ktor.server.locations.get
-import io.ktor.server.locations.patch
-import io.ktor.server.locations.post
 import io.ktor.server.request.receive
+import io.ktor.server.resources.get
+import io.ktor.server.resources.patch
+import io.ktor.server.resources.post
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.application
@@ -26,20 +24,16 @@ const val PROFILE = "$API_VERSION/profile"
 const val PROFILE_CREATE = "$PROFILE/create"
 const val PROFILE_UPDATE = "$PROFILE/update"
 
-@KtorExperimentalLocationsAPI
-@Location(PROFILE)
+@Resource(PROFILE)
 class ProfileRoute
 
-@KtorExperimentalLocationsAPI
-@Location(PROFILE_CREATE)
+@Resource(PROFILE_CREATE)
 class ProfileCreateRoute
 
-@KtorExperimentalLocationsAPI
-@Location(PROFILE_UPDATE)
+@Resource(PROFILE_UPDATE)
 class ProfileUpdateRoute
 
 @Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
-@KtorExperimentalLocationsAPI
 fun Route.profiles(
     profileRepository: ProfileRepository,
     userRepository: UserRepository

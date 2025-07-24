@@ -4,8 +4,8 @@ android-minSdk = "26"
 android-targetSdk = "36"
 koalaplotCore = "0.9.0"
 kotlin = "2.1.21"
-ktor-client = "2.3.13"
-ktor-server = "2.3.13"
+ktor-client = "3.2.2"
+ktor-server = "3.2.2"
 multiplatform-settings = "1.3.0"
 richeditorCompose = "1.0.0-rc13"
 voyager = "1.1.0-beta03"
@@ -122,7 +122,7 @@ androidx-compose-ui-util = "androidx.compose.ui:ui-util:1.8.3"
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor-server" }
 ktor-server-auth = { module = "io.ktor:ktor-server-auth", version.ref = "ktor-server" }
 ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktor-server" }
-ktor-server-locations = { module = "io.ktor:ktor-server-locations", version.ref = "ktor-server" }
+ktor-server-resources = { module = "io.ktor:ktor-server-resources", version.ref = "ktor-server" }
 ktor-server-host-common = { module = "io.ktor:ktor-server-host-common", version.ref = "ktor-server" }
 ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor-server" }
 ktor-server-catching-headers = { module = "io.ktor:ktor-server-caching-headers", version.ref = "ktor-server" }
@@ -138,7 +138,7 @@ ktor-server-serialization-gson = { module = "io.ktor:ktor-serialization-gson", v
 ktor-server-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor-server" }
 ktor-server-tomcat = { module = "io.ktor:ktor-server-tomcat", version.ref = "ktor-server" }
 ktor-server-openapi = { module = "io.ktor:ktor-server-openapi", version.ref = "ktor-server" }
-ktor-server-tests-jvm = { module = "io.ktor:ktor-server-tests-jvm", version.ref = "ktor-server" }
+#ktor-server-tests-jvm = { module = "io.ktor:ktor-server-tests-jvm", version.ref = "ktor-server" }
 
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
 exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }

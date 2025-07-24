@@ -6,12 +6,10 @@ import com.llamatik.auth.UserSession
 import com.llamatik.repository.user.UserRepository
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
-import io.ktor.server.application.call
+import io.ktor.resources.Resource
 import io.ktor.server.application.log
-import io.ktor.server.locations.KtorExperimentalLocationsAPI
-import io.ktor.server.locations.Location
-import io.ktor.server.locations.post
 import io.ktor.server.request.receive
+import io.ktor.server.resources.post
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -26,20 +24,16 @@ const val USER_LOGIN = "$USERS/login"
 const val USER_CREATE = "$USERS/create"
 const val USER_LOGOUT = "$USERS/logout"
 
-@KtorExperimentalLocationsAPI
-@Location(USER_LOGIN)
+@Resource(USER_LOGIN)
 class UserLoginRoute
 
-@KtorExperimentalLocationsAPI
-@Location(USER_CREATE)
+@Resource(USER_CREATE)
 class UserCreateRoute
 
-@KtorExperimentalLocationsAPI
-@Location(USER_LOGOUT)
+@Resource(USER_LOGOUT)
 class UserLogoutRoute
 
 @Suppress("TooGenericExceptionCaught")
-@KtorExperimentalLocationsAPI
 fun Route.users(
     userRepository: UserRepository,
     jwtService: JwtService,

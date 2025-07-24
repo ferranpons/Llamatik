@@ -7,19 +7,17 @@ import com.llamatik.repository.product.ProductsRepository
 import com.llamatik.repository.user.UserRepository
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
-import io.ktor.server.application.call
+import io.ktor.resources.Resource
 import io.ktor.server.application.log
 import io.ktor.server.auth.authenticate
-import io.ktor.server.locations.KtorExperimentalLocationsAPI
-import io.ktor.server.locations.Location
-import io.ktor.server.locations.delete
-import io.ktor.server.locations.get
-import io.ktor.server.locations.patch
-import io.ktor.server.locations.post
 import io.ktor.server.request.receive
+import io.ktor.server.resources.delete
+import io.ktor.server.resources.get
+import io.ktor.server.resources.post
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.application
+import io.ktor.server.routing.patch
 import io.ktor.server.sessions.get
 import io.ktor.server.sessions.sessions
 
@@ -30,28 +28,22 @@ const val PRODUCTS_GET_ONE = "$PRODUCTS/product"
 const val PRODUCTS_UPDATE_ONE = "$PRODUCTS/product/update"
 const val PRODUCTS_DELETE = "$PRODUCTS/delete"
 
-@KtorExperimentalLocationsAPI
-@Location(PRODUCTS_CREATE)
+@Resource(PRODUCTS_CREATE)
 class ProductsCreateRoute
 
-@KtorExperimentalLocationsAPI
-@Location(PRODUCTS_LIST)
+@Resource(PRODUCTS_LIST)
 class ProductsListRoute
 
-@KtorExperimentalLocationsAPI
-@Location(PRODUCTS_GET_ONE)
+@Resource(PRODUCTS_GET_ONE)
 class ProductsGetOneRoute
 
-@KtorExperimentalLocationsAPI
-@Location(PRODUCTS_UPDATE_ONE)
+@Resource(PRODUCTS_UPDATE_ONE)
 class ProductsUpdateOneRoute
 
-@KtorExperimentalLocationsAPI
-@Location(PRODUCTS_DELETE)
+@Resource(PRODUCTS_DELETE)
 class ProductsDeleteRoute
 
 @Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
-@KtorExperimentalLocationsAPI
 fun Route.products(
     productsRepository: ProductsRepository,
     userRepository: UserRepository,

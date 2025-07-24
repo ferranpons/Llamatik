@@ -1,5 +1,3 @@
-@file:OptIn(KtorExperimentalLocationsAPI::class)
-
 package com.llamatik
 
 import com.llamatik.auth.JWT_CONFIGURATION
@@ -16,7 +14,6 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.jwt.jwt
-import io.ktor.server.locations.KtorExperimentalLocationsAPI
 import io.ktor.server.routing.routing
 
 fun Application.configureAuthentication() {
