@@ -13,9 +13,7 @@ application {
 }
 
 dependencies {
-    implementation(project(":shared")) {
-        exclude(group = "cafe.adriel.voyager")
-    }
+    implementation(project(":library"))
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.auth.jwt)

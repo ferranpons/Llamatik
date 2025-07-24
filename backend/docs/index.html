@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>Sample API</title>
+  <title>Llamatik API</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta charset="UTF-8" />
@@ -706,8 +706,11 @@
             <li class="nav-fixed nav-header active" data-group="_"><a href="#api-_">API Summary</a></li>
 
                   <li class="nav-header" data-group="Default"><a href="#api-Default">API Methods - Default</a></li>
-                    <li data-group="Default" data-name="usersGet" class="">
-                      <a href="#api-Default-usersGet">usersGet</a>
+                    <li data-group="Default" data-name="embeddingsGet" class="">
+                      <a href="#api-Default-embeddingsGet">embeddingsGet</a>
+                    </li>
+                    <li data-group="Default" data-name="generationGet" class="">
+                      <a href="#api-Default-generationGet">generationGet</a>
                     </li>
           </ul>
         </nav>
@@ -715,14 +718,14 @@
       <div id="content">
         <div id="project">
           <div class="pull-left">
-            <h1>Sample API</h1>
+            <h1>Llamatik API</h1>
           </div>
           <div class="clearfix"></div>
         </div>
         <div id="header">
           <div id="api-_">
             <h2 id="welcome-to-apidoc">API and SDK Documentation</h2>
-              <div class="app-desc">Version: 0.1.9</div>
+              <div class="app-desc">Version: 0.0.1</div>
             <hr>
             <div>Optional multiline or single-line description in <a href="http://commonmark.org/help/">CommonMark</a> or HTML.</div>
           </div>
@@ -730,44 +733,44 @@
         <div id="sections">
                 <section id="api-Default">
                   <h1>Default</h1>
-                    <div id="api-Default-usersGet">
-                      <article id="api-Default-usersGet-0" data-group="User" data-name="usersGet" data-version="0">
+                    <div id="api-Default-embeddingsGet">
+                      <article id="api-Default-embeddingsGet-0" data-group="User" data-name="embeddingsGet" data-version="0">
                         <div class="pull-left">
-                          <h1>usersGet</h1>
-                          <p>Returns a list of users.</p>
+                          <h1>embeddingsGet</h1>
+                          <p>Returns a list of embeddings.</p>
                         </div>
                         <div class="pull-right"></div>
                         <div class="clearfix"></div>
                         <p></p>
-                        <p class="marked">Optional extended description in CommonMark or HTML.</p>
+                        <p class="marked">Returns a list of embeddings.</p>
                         <p></p>
                         <br />
-                        <pre class="prettyprint language-html prettyprinted" data-type="get"><code><span class="pln">/users</span></code></pre>
+                        <pre class="prettyprint language-html prettyprinted" data-type="get"><code><span class="pln">/embeddings</span></code></pre>
                         <p>
                           <h3>Usage and SDK Samples</h3>
                         </p>
                         <ul class="nav nav-tabs nav-tabs-examples">
-                          <li class="active"><a href="#examples-Default-usersGet-0-curl">Curl</a></li>
-                          <li class=""><a href="#examples-Default-usersGet-0-java">Java</a></li>
-                          <li class=""><a href="#examples-Default-usersGet-0-android">Android</a></li>
-                          <!--<li class=""><a href="#examples-Default-usersGet-0-groovy">Groovy</a></li>-->
-                          <li class=""><a href="#examples-Default-usersGet-0-objc">Obj-C</a></li>
-                          <li class=""><a href="#examples-Default-usersGet-0-javascript">JavaScript</a></li>
-                          <!--<li class=""><a href="#examples-Default-usersGet-0-angular">Angular</a></li>-->
-                          <li class=""><a href="#examples-Default-usersGet-0-csharp">C#</a></li>
-                          <li class=""><a href="#examples-Default-usersGet-0-php">PHP</a></li>
-                          <li class=""><a href="#examples-Default-usersGet-0-perl">Perl</a></li>
-                          <li class=""><a href="#examples-Default-usersGet-0-python">Python</a></li>
+                          <li class="active"><a href="#examples-Default-embeddingsGet-0-curl">Curl</a></li>
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-java">Java</a></li>
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-android">Android</a></li>
+                          <!--<li class=""><a href="#examples-Default-embeddingsGet-0-groovy">Groovy</a></li>-->
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-objc">Obj-C</a></li>
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-javascript">JavaScript</a></li>
+                          <!--<li class=""><a href="#examples-Default-embeddingsGet-0-angular">Angular</a></li>-->
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-csharp">C#</a></li>
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-php">PHP</a></li>
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-perl">Perl</a></li>
+                          <li class=""><a href="#examples-Default-embeddingsGet-0-python">Python</a></li>
                         </ul>
 
                         <div class="tab-content">
-                          <div class="tab-pane active" id="examples-Default-usersGet-0-curl">
+                          <div class="tab-pane active" id="examples-Default-embeddingsGet-0-curl">
                            <pre class="prettyprint"><code class="language-bsh">curl -X GET\
  -H "Authorization: Basic [[basicHash]]"\
 -H "Accept: application/json"\
-"http://api.example.com/v1/users"</code></pre>
+"http://api.llamatik.com/v1/embeddings"</code></pre>
                           </div>
-                          <div class="tab-pane" id="examples-Default-usersGet-0-java">
+                          <div class="tab-pane" id="examples-Default-embeddingsGet-0-java">
                             <pre class="prettyprint"><code class="language-java">import io.swagger.client.*;
 import io.swagger.client.auth.*;
 import io.swagger.client.model.*;
@@ -787,17 +790,16 @@ public class DefaultApiExample {
 
         DefaultApi apiInstance = new DefaultApi();
         try {
-            array['String'] result = apiInstance.usersGet();
-            System.out.println(result);
+            apiInstance.embeddingsGet();
         } catch (ApiException e) {
-            System.err.println("Exception when calling DefaultApi#usersGet");
+            System.err.println("Exception when calling DefaultApi#embeddingsGet");
             e.printStackTrace();
         }
     }
 }</code></pre>
                           </div>
 
-                          <div class="tab-pane" id="examples-Default-usersGet-0-android">
+                          <div class="tab-pane" id="examples-Default-embeddingsGet-0-android">
                             <pre class="prettyprint"><code class="language-java">import io.swagger.client.api.DefaultApi;
 
 public class DefaultApiExample {
@@ -805,20 +807,19 @@ public class DefaultApiExample {
     public static void main(String[] args) {
         DefaultApi apiInstance = new DefaultApi();
         try {
-            array['String'] result = apiInstance.usersGet();
-            System.out.println(result);
+            apiInstance.embeddingsGet();
         } catch (ApiException e) {
-            System.err.println("Exception when calling DefaultApi#usersGet");
+            System.err.println("Exception when calling DefaultApi#embeddingsGet");
             e.printStackTrace();
         }
     }
 }</code></pre>
                           </div>
   <!--
-  <div class="tab-pane" id="examples-Default-usersGet-0-groovy">
+  <div class="tab-pane" id="examples-Default-embeddingsGet-0-groovy">
   <pre class="prettyprint language-json prettyprinted" data-type="json"><code>Coming Soon!</code></pre>
   </div> -->
-                            <div class="tab-pane" id="examples-Default-usersGet-0-objc">
+                            <div class="tab-pane" id="examples-Default-embeddingsGet-0-objc">
                               <pre class="prettyprint"><code class="language-cpp">Configuration *apiConfig = [Configuration sharedConfig];
 // Configure HTTP basic authorization (authentication scheme: BasicAuth)
 [apiConfig setUsername:@"YOUR_USERNAME"];
@@ -826,12 +827,9 @@ public class DefaultApiExample {
 
 DefaultApi *apiInstance = [[DefaultApi alloc] init];
 
-// Returns a list of users.
-[apiInstance usersGetWithCompletionHandler: 
-              ^(array['String'] output, NSError* error) {
-                            if (output) {
-                                NSLog(@"%@", output);
-                            }
+// Returns a list of embeddings.
+[apiInstance embeddingsGetWithCompletionHandler: 
+              ^(NSError* error) {
                             if (error) {
                                 NSLog(@"Error: %@", error);
                             }
@@ -839,30 +837,30 @@ DefaultApi *apiInstance = [[DefaultApi alloc] init];
 </code></pre>
                             </div>
 
-                            <div class="tab-pane" id="examples-Default-usersGet-0-javascript">
-                              <pre class="prettyprint"><code class="language-js">var SampleApi = require('sample_api');
-var defaultClient = SampleApi.ApiClient.instance;
+                            <div class="tab-pane" id="examples-Default-embeddingsGet-0-javascript">
+                              <pre class="prettyprint"><code class="language-js">var LlamatikApi = require('llamatik_api');
+var defaultClient = LlamatikApi.ApiClient.instance;
 // Configure HTTP basic authorization: BasicAuth
 var BasicAuth = defaultClient.authentications['BasicAuth'];
 BasicAuth.username = 'YOUR USERNAME'
 BasicAuth.password = 'YOUR PASSWORD'
 
-var api = new SampleApi.DefaultApi()
+var api = new LlamatikApi.DefaultApi()
 var callback = function(error, data, response) {
   if (error) {
     console.error(error);
   } else {
-    console.log('API called successfully. Returned data: ' + data);
+    console.log('API called successfully.');
   }
 };
-api.usersGet(callback);
+api.embeddingsGet(callback);
 </code></pre>
                             </div>
 
-                            <!--<div class="tab-pane" id="examples-Default-usersGet-0-angular">
+                            <!--<div class="tab-pane" id="examples-Default-embeddingsGet-0-angular">
               <pre class="prettyprint language-json prettyprinted" data-type="json"><code>Coming Soon!</code></pre>
             </div>-->
-                            <div class="tab-pane" id="examples-Default-usersGet-0-csharp">
+                            <div class="tab-pane" id="examples-Default-embeddingsGet-0-csharp">
                               <pre class="prettyprint"><code class="language-cs">using System;
 using System.Diagnostics;
 using IO.Swagger.Api;
@@ -871,7 +869,7 @@ using IO.Swagger.Model;
 
 namespace Example
 {
-    public class usersGetExample
+    public class embeddingsGetExample
     {
         public void main()
         {
@@ -883,13 +881,12 @@ namespace Example
 
             try
             {
-                // Returns a list of users.
-                array['String'] result = apiInstance.usersGet();
-                Debug.WriteLine(result);
+                // Returns a list of embeddings.
+                apiInstance.embeddingsGet();
             }
             catch (Exception e)
             {
-                Debug.Print("Exception when calling DefaultApi.usersGet: " + e.Message );
+                Debug.Print("Exception when calling DefaultApi.embeddingsGet: " + e.Message );
             }
         }
     }
@@ -897,7 +894,7 @@ namespace Example
 </code></pre>
                             </div>
 
-                            <div class="tab-pane" id="examples-Default-usersGet-0-php">
+                            <div class="tab-pane" id="examples-Default-embeddingsGet-0-php">
                               <pre class="prettyprint"><code class="language-php"><&#63;php
 require_once(__DIR__ . '/vendor/autoload.php');
 // Configure HTTP basic authorization: BasicAuth
@@ -907,15 +904,14 @@ Swagger\Client\Configuration::getDefaultConfiguration()->setPassword('YOUR_PASSW
 $api_instance = new Swagger\Client\ApiDefaultApi();
 
 try {
-    $result = $api_instance->usersGet();
-    print_r($result);
+    $api_instance->embeddingsGet();
 } catch (Exception $e) {
-    echo 'Exception when calling DefaultApi->usersGet: ', $e->getMessage(), PHP_EOL;
+    echo 'Exception when calling DefaultApi->embeddingsGet: ', $e->getMessage(), PHP_EOL;
 }
 ?></code></pre>
                             </div>
 
-                            <div class="tab-pane" id="examples-Default-usersGet-0-perl">
+                            <div class="tab-pane" id="examples-Default-embeddingsGet-0-perl">
                               <pre class="prettyprint"><code class="language-perl">use Data::Dumper;
 use WWW::SwaggerClient::Configuration;
 use WWW::SwaggerClient::DefaultApi;
@@ -926,15 +922,14 @@ $WWW::SwaggerClient::Configuration::password = 'YOUR_PASSWORD';
 my $api_instance = WWW::SwaggerClient::DefaultApi->new();
 
 eval { 
-    my $result = $api_instance->usersGet();
-    print Dumper($result);
+    $api_instance->embeddingsGet();
 };
 if ($@) {
-    warn "Exception when calling DefaultApi->usersGet: $@\n";
+    warn "Exception when calling DefaultApi->embeddingsGet: $@\n";
 }</code></pre>
                             </div>
 
-                            <div class="tab-pane" id="examples-Default-usersGet-0-python">
+                            <div class="tab-pane" id="examples-Default-embeddingsGet-0-python">
                               <pre class="prettyprint"><code class="language-python">from __future__ import print_statement
 import time
 import swagger_client
@@ -948,11 +943,10 @@ swagger_client.configuration.password = 'YOUR_PASSWORD'
 api_instance = swagger_client.DefaultApi()
 
 try: 
-    # Returns a list of users.
-    api_response = api_instance.users_get()
-    pprint(api_response)
+    # Returns a list of embeddings.
+    api_instance.embeddings_get()
 except ApiException as e:
-    print("Exception when calling DefaultApi->usersGet: %s\n" % e)</code></pre>
+    print("Exception when calling DefaultApi->embeddingsGet: %s\n" % e)</code></pre>
                             </div>
                           </div>
 
@@ -964,30 +958,27 @@ except ApiException as e:
 
 
                           <h2>Responses</h2>
-                            <h3> Status: 200 - A JSON array of user names </h3>
+                            <h3> Status: 200 - A list of embeddings. </h3>
 
                             <ul class="nav nav-tabs nav-tabs-examples" >
                                 <li class="active">
-                                  <a data-toggle="tab" href="#responses-usersGet-200-schema">Schema</a>
+                                  <a data-toggle="tab" href="#responses-embeddingsGet-200-schema">Schema</a>
                                 </li>
 
                             </ul>
 
                             <div class="tab-content" style='margin-bottom: 10px;'>
-                                <div class="tab-pane active" id="responses-usersGet-200-schema">
-                                  <div id='responses-usersGet-200-schema-200' style="padding: 30px; border-left: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee;">
+                                <div class="tab-pane active" id="responses-embeddingsGet-200-schema">
+                                  <div id='responses-embeddingsGet-200-schema-200' style="padding: 30px; border-left: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee;">
                                     <script>
                                       $(document).ready(function() {
                                         var schemaWrapper = {
-  "description" : "A JSON array of user names",
+  "description" : "A list of embeddings.",
   "content" : {
     "application/json" : {
       "schema" : {
-        "type" : "array",
-        "items" : {
-          "type" : "string"
-        },
-        "x-content-type" : "application/json"
+        "x-content-type" : "application/json",
+        "items" : { }
       }
     }
   }
@@ -1005,14 +996,291 @@ except ApiException as e:
 
                                         //console.log(JSON.stringify(schema));
                                         var view = new JSONSchemaView(schema, 3);
-                                        $('#responses-usersGet-200-schema-data').val(stringify(schema));
-                                        var result = $('#responses-usersGet-200-schema-200');
+                                        $('#responses-embeddingsGet-200-schema-data').val(stringify(schema));
+                                        var result = $('#responses-embeddingsGet-200-schema-200');
                                         result.empty();
                                         result.append(view.render());
                                       });
                                     </script>
                                   </div>
-                                  <input id='responses-usersGet-200-schema-data' type='hidden' value=''></input>
+                                  <input id='responses-embeddingsGet-200-schema-data' type='hidden' value=''></input>
+                                </div>
+                            </div>
+
+                        </article>
+                      </div>
+                      <hr>
+                    <div id="api-Default-generationGet">
+                      <article id="api-Default-generationGet-0" data-group="User" data-name="generationGet" data-version="0">
+                        <div class="pull-left">
+                          <h1>generationGet</h1>
+                          <p>Returns generated string.</p>
+                        </div>
+                        <div class="pull-right"></div>
+                        <div class="clearfix"></div>
+                        <p></p>
+                        <p class="marked">Returns generated string.</p>
+                        <p></p>
+                        <br />
+                        <pre class="prettyprint language-html prettyprinted" data-type="get"><code><span class="pln">/generation</span></code></pre>
+                        <p>
+                          <h3>Usage and SDK Samples</h3>
+                        </p>
+                        <ul class="nav nav-tabs nav-tabs-examples">
+                          <li class="active"><a href="#examples-Default-generationGet-0-curl">Curl</a></li>
+                          <li class=""><a href="#examples-Default-generationGet-0-java">Java</a></li>
+                          <li class=""><a href="#examples-Default-generationGet-0-android">Android</a></li>
+                          <!--<li class=""><a href="#examples-Default-generationGet-0-groovy">Groovy</a></li>-->
+                          <li class=""><a href="#examples-Default-generationGet-0-objc">Obj-C</a></li>
+                          <li class=""><a href="#examples-Default-generationGet-0-javascript">JavaScript</a></li>
+                          <!--<li class=""><a href="#examples-Default-generationGet-0-angular">Angular</a></li>-->
+                          <li class=""><a href="#examples-Default-generationGet-0-csharp">C#</a></li>
+                          <li class=""><a href="#examples-Default-generationGet-0-php">PHP</a></li>
+                          <li class=""><a href="#examples-Default-generationGet-0-perl">Perl</a></li>
+                          <li class=""><a href="#examples-Default-generationGet-0-python">Python</a></li>
+                        </ul>
+
+                        <div class="tab-content">
+                          <div class="tab-pane active" id="examples-Default-generationGet-0-curl">
+                           <pre class="prettyprint"><code class="language-bsh">curl -X GET\
+ -H "Authorization: Basic [[basicHash]]"\
+-H "Accept: application/json"\
+"http://api.llamatik.com/v1/generation"</code></pre>
+                          </div>
+                          <div class="tab-pane" id="examples-Default-generationGet-0-java">
+                            <pre class="prettyprint"><code class="language-java">import io.swagger.client.*;
+import io.swagger.client.auth.*;
+import io.swagger.client.model.*;
+import io.swagger.client.api.DefaultApi;
+
+import java.io.File;
+import java.util.*;
+
+public class DefaultApiExample {
+
+    public static void main(String[] args) {
+        ApiClient defaultClient = Configuration.getDefaultApiClient();
+        // Configure HTTP basic authorization: BasicAuth
+        HttpBasicAuth BasicAuth = (HttpBasicAuth) defaultClient.getAuthentication("BasicAuth");
+        BasicAuth.setUsername("YOUR USERNAME");
+        BasicAuth.setPassword("YOUR PASSWORD");
+
+        DefaultApi apiInstance = new DefaultApi();
+        try {
+            apiInstance.generationGet();
+        } catch (ApiException e) {
+            System.err.println("Exception when calling DefaultApi#generationGet");
+            e.printStackTrace();
+        }
+    }
+}</code></pre>
+                          </div>
+
+                          <div class="tab-pane" id="examples-Default-generationGet-0-android">
+                            <pre class="prettyprint"><code class="language-java">import io.swagger.client.api.DefaultApi;
+
+public class DefaultApiExample {
+
+    public static void main(String[] args) {
+        DefaultApi apiInstance = new DefaultApi();
+        try {
+            apiInstance.generationGet();
+        } catch (ApiException e) {
+            System.err.println("Exception when calling DefaultApi#generationGet");
+            e.printStackTrace();
+        }
+    }
+}</code></pre>
+                          </div>
+  <!--
+  <div class="tab-pane" id="examples-Default-generationGet-0-groovy">
+  <pre class="prettyprint language-json prettyprinted" data-type="json"><code>Coming Soon!</code></pre>
+  </div> -->
+                            <div class="tab-pane" id="examples-Default-generationGet-0-objc">
+                              <pre class="prettyprint"><code class="language-cpp">Configuration *apiConfig = [Configuration sharedConfig];
+// Configure HTTP basic authorization (authentication scheme: BasicAuth)
+[apiConfig setUsername:@"YOUR_USERNAME"];
+[apiConfig setPassword:@"YOUR_PASSWORD"];
+
+DefaultApi *apiInstance = [[DefaultApi alloc] init];
+
+// Returns generated string.
+[apiInstance generationGetWithCompletionHandler: 
+              ^(NSError* error) {
+                            if (error) {
+                                NSLog(@"Error: %@", error);
+                            }
+                        }];
+</code></pre>
+                            </div>
+
+                            <div class="tab-pane" id="examples-Default-generationGet-0-javascript">
+                              <pre class="prettyprint"><code class="language-js">var LlamatikApi = require('llamatik_api');
+var defaultClient = LlamatikApi.ApiClient.instance;
+// Configure HTTP basic authorization: BasicAuth
+var BasicAuth = defaultClient.authentications['BasicAuth'];
+BasicAuth.username = 'YOUR USERNAME'
+BasicAuth.password = 'YOUR PASSWORD'
+
+var api = new LlamatikApi.DefaultApi()
+var callback = function(error, data, response) {
+  if (error) {
+    console.error(error);
+  } else {
+    console.log('API called successfully.');
+  }
+};
+api.generationGet(callback);
+</code></pre>
+                            </div>
+
+                            <!--<div class="tab-pane" id="examples-Default-generationGet-0-angular">
+              <pre class="prettyprint language-json prettyprinted" data-type="json"><code>Coming Soon!</code></pre>
+            </div>-->
+                            <div class="tab-pane" id="examples-Default-generationGet-0-csharp">
+                              <pre class="prettyprint"><code class="language-cs">using System;
+using System.Diagnostics;
+using IO.Swagger.Api;
+using IO.Swagger.Client;
+using IO.Swagger.Model;
+
+namespace Example
+{
+    public class generationGetExample
+    {
+        public void main()
+        {
+            // Configure HTTP basic authorization: BasicAuth
+            Configuration.Default.Username = "YOUR_USERNAME";
+            Configuration.Default.Password = "YOUR_PASSWORD";
+
+            var apiInstance = new DefaultApi();
+
+            try
+            {
+                // Returns generated string.
+                apiInstance.generationGet();
+            }
+            catch (Exception e)
+            {
+                Debug.Print("Exception when calling DefaultApi.generationGet: " + e.Message );
+            }
+        }
+    }
+}
+</code></pre>
+                            </div>
+
+                            <div class="tab-pane" id="examples-Default-generationGet-0-php">
+                              <pre class="prettyprint"><code class="language-php"><&#63;php
+require_once(__DIR__ . '/vendor/autoload.php');
+// Configure HTTP basic authorization: BasicAuth
+Swagger\Client\Configuration::getDefaultConfiguration()->setUsername('YOUR_USERNAME');
+Swagger\Client\Configuration::getDefaultConfiguration()->setPassword('YOUR_PASSWORD');
+
+$api_instance = new Swagger\Client\ApiDefaultApi();
+
+try {
+    $api_instance->generationGet();
+} catch (Exception $e) {
+    echo 'Exception when calling DefaultApi->generationGet: ', $e->getMessage(), PHP_EOL;
+}
+?></code></pre>
+                            </div>
+
+                            <div class="tab-pane" id="examples-Default-generationGet-0-perl">
+                              <pre class="prettyprint"><code class="language-perl">use Data::Dumper;
+use WWW::SwaggerClient::Configuration;
+use WWW::SwaggerClient::DefaultApi;
+# Configure HTTP basic authorization: BasicAuth
+$WWW::SwaggerClient::Configuration::username = 'YOUR_USERNAME';
+$WWW::SwaggerClient::Configuration::password = 'YOUR_PASSWORD';
+
+my $api_instance = WWW::SwaggerClient::DefaultApi->new();
+
+eval { 
+    $api_instance->generationGet();
+};
+if ($@) {
+    warn "Exception when calling DefaultApi->generationGet: $@\n";
+}</code></pre>
+                            </div>
+
+                            <div class="tab-pane" id="examples-Default-generationGet-0-python">
+                              <pre class="prettyprint"><code class="language-python">from __future__ import print_statement
+import time
+import swagger_client
+from swagger_client.rest import ApiException
+from pprint import pprint
+# Configure HTTP basic authorization: BasicAuth
+swagger_client.configuration.username = 'YOUR_USERNAME'
+swagger_client.configuration.password = 'YOUR_PASSWORD'
+
+# create an instance of the API class
+api_instance = swagger_client.DefaultApi()
+
+try: 
+    # Returns generated string.
+    api_instance.generation_get()
+except ApiException as e:
+    print("Exception when calling DefaultApi->generationGet: %s\n" % e)</code></pre>
+                            </div>
+                          </div>
+
+                          <h2>Parameters</h2>
+
+
+
+
+
+
+                          <h2>Responses</h2>
+                            <h3> Status: 200 - Generated string. </h3>
+
+                            <ul class="nav nav-tabs nav-tabs-examples" >
+                                <li class="active">
+                                  <a data-toggle="tab" href="#responses-generationGet-200-schema">Schema</a>
+                                </li>
+
+                            </ul>
+
+                            <div class="tab-content" style='margin-bottom: 10px;'>
+                                <div class="tab-pane active" id="responses-generationGet-200-schema">
+                                  <div id='responses-generationGet-200-schema-200' style="padding: 30px; border-left: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee;">
+                                    <script>
+                                      $(document).ready(function() {
+                                        var schemaWrapper = {
+  "description" : "Generated string.",
+  "content" : {
+    "application/json" : {
+      "schema" : {
+        "x-content-type" : "application/json",
+        "items" : { }
+      }
+    }
+  }
+};
+                                        var schema = schemaWrapper.content["application/json"].schema;
+                                        if (schema.$ref != null) {
+                                          schema = defsParser.$refs.get(schema.$ref);
+                                        } else {
+                                          schemaWrapper.components = {};
+                                          schemaWrapper.components.schemas = Object.assign({}, defs);
+                                          $RefParser.dereference(schemaWrapper).catch(function(err) {
+                                            console.log(err);
+                                          });
+                                        }
+
+                                        //console.log(JSON.stringify(schema));
+                                        var view = new JSONSchemaView(schema, 3);
+                                        $('#responses-generationGet-200-schema-data').val(stringify(schema));
+                                        var result = $('#responses-generationGet-200-schema-200');
+                                        result.empty();
+                                        result.append(view.render());
+                                      });
+                                    </script>
+                                  </div>
+                                  <input id='responses-generationGet-200-schema-data' type='hidden' value=''></input>
                                 </div>
                             </div>
 

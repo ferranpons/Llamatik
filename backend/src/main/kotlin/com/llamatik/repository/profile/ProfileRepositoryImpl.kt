@@ -1,6 +1,5 @@
 package com.llamatik.repository.profile
 
-import com.llamatik.app.common.model.GeoLocation
 import com.llamatik.repository.DatabaseFactory.dbQuery
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -16,7 +15,6 @@ class ProfileRepositoryImpl : ProfileRepository {
         nickname: String,
         description: String?,
         image: String?,
-        location: GeoLocation?,
         preferredLanguage: String?,
         serversList: List<String>?,
         rank: Int?,
@@ -95,8 +93,8 @@ class ProfileRepositoryImpl : ProfileRepository {
         if (row == null) {
             return null
         }
-        val geoLocation = getGeoLocationObjectFrom(row[Profiles.location])
-        /*return Profile(
+        /*val geoLocation = getGeoLocationObjectFrom(row[Profiles.location])
+        return Profile(
             id = row[Profiles.id],
             userId = row[Profiles.userId],
             name = row[Profiles.name],
@@ -106,7 +104,7 @@ class ProfileRepositoryImpl : ProfileRepository {
         )*/
         return ""
     }
-
+/*
     private fun getGeoLocationObjectFrom(rowText: String): GeoLocation {
         val geoLocationText = rowText.split(',')
         return if (geoLocationText.size > 1) {
@@ -115,4 +113,6 @@ class ProfileRepositoryImpl : ProfileRepository {
             GeoLocation(0.0, 0.0)
         }
     }
+
+ */
 }

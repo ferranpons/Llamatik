@@ -19,7 +19,7 @@ fun Application.configureGeneralRouting() {
 
     routing {
         get("/") {
-            call.respondText("Hello World!")
+            call.respondText("Welcome to Llamatik Server!")
         }
 
         openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml") {

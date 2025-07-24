@@ -6,7 +6,7 @@ import com.llamatik.plugins.configureMonitoring
 import com.llamatik.plugins.configureSerialization
 import com.llamatik.plugins.configureTemplating
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.tomcat.Tomcat
+import io.ktor.server.tomcat.jakarta.Tomcat
 
 fun main() {
     embeddedServer(Tomcat, port = 8080, host = "0.0.0.0") {

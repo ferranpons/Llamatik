@@ -70,7 +70,6 @@ fun Route.profiles(
                     nickname = nickname,
                     description = description,
                     image = image,
-                    location = location,
                     preferredLanguage = preferredLanguage,
                     serversList = serversList,
                     rank = rank,

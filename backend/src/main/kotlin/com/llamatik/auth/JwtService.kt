@@ -6,11 +6,11 @@ import com.auth0.jwt.algorithms.Algorithm.HMAC512
 import com.llamatik.models.DatabaseUser
 import java.util.Date
 
-const val JWT_CONFIGURATION = "MyProjectNameJWT"
+const val JWT_CONFIGURATION = "LlamatikJWT"
 
 class JwtService {
 
-    private val issuer = "MyProjectNameServer"
+    private val issuer = "LlamatikServer"
     private val jwtSecret = System.getenv("JWT_SECRET")
     private val algorithm = HMAC512(jwtSecret)
 

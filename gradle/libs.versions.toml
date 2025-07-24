@@ -136,7 +136,7 @@ ktor-server-html-builder-jvm = { module = "io.ktor:ktor-server-html-builder-jvm"
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor-server" }
 ktor-server-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ktor-server" }
 ktor-server-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor-server" }
-ktor-server-tomcat = { module = "io.ktor:ktor-server-tomcat", version.ref = "ktor-server" }
+ktor-server-tomcat = { module = "io.ktor:ktor-server-tomcat-jakarta", version.ref = "ktor-server" }
 ktor-server-openapi = { module = "io.ktor:ktor-server-openapi", version.ref = "ktor-server" }
 #ktor-server-tests-jvm = { module = "io.ktor:ktor-server-tests-jvm", version.ref = "ktor-server" }
 
@@ -147,7 +147,7 @@ exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "e
 kotlinx-html-jvm = "org.jetbrains.kotlinx:kotlinx-html-jvm:0.12.0"
 logback-classic = "ch.qos.logback:logback-classic:1.5.18"
 postgresql = "org.postgresql:postgresql:42.7.7"
-hikariCP = "com.zaxxer:HikariCP:6.3.0"
+hikariCP = "com.zaxxer:HikariCP:6.3.1"
 swagger-codegen = "io.swagger.codegen.v3:swagger-codegen-generators:1.0.57"
 
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }

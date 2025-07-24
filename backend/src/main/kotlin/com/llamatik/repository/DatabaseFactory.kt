@@ -1,6 +1,5 @@
 package com.llamatik.repository
 
-import com.llamatik.repository.product.Product
 import com.llamatik.repository.profile.Profiles
 import com.llamatik.repository.user.Users
 import com.zaxxer.hikari.HikariConfig
@@ -19,7 +18,6 @@ object DatabaseFactory {
 
         transaction {
             SchemaUtils.create(Users)
-            SchemaUtils.create(Product)
             SchemaUtils.create(Profiles)
         }
     }
