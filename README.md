@@ -75,6 +75,33 @@ commonMain.dependencies {
 }
 ```
 
+## 🧑‍💻 Usage
+
+*NOTE:* This is work in progress, and may change during development.
+
+```Kotlin
+
+// Creates a copy for model from a file and returns the path
+// models should be in the "assets" folder (androidMain/assets)
+fun getModelPath(modelFileName: String): String
+
+// Embedding
+
+// Initializes the model from the path
+fun initModel(modelPath: String): Boolean
+
+// Generates embeddings for a given input
+fun embed(input: String): FloatArray
+
+// Text generation
+
+// Initializes the generate model from the path
+fun initGenerateModel(modelPath: String): Boolean
+
+// Generates text for a given prompt
+fun generate(prompt: String): String
+```
+
 ---
 
 ## 🤝 Contributing
