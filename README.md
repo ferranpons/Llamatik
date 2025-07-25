@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ferranpons/llamatik/main/assets/llamatik-logo-transparent.png" alt="Llamatik Logo" width="150"/>
+  <img src="https://raw.githubusercontent.com/ferranpons/llamatik/main/assets/llamatik-icon-logo.png" alt="Llamatik Logo" width="150"/>
 </p>
 
 <h1 align="center">Llamatik</h1>
