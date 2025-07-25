@@ -1,4 +1,4 @@
-package com.llamatik.app.common.model
+package com.llamatik.app.feature.news.model
 
 import kotlinx.serialization.Serializable
 

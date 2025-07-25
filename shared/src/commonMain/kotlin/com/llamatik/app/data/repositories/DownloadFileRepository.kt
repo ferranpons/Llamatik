@@ -9,6 +9,7 @@ import io.ktor.http.contentLength
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.core.isEmpty
 import io.ktor.utils.io.core.readBytes
+import io.ktor.utils.io.readRemaining
 
 private const val DEFAULT_BUFFER_SIZE: Int = 8 * 1024
 

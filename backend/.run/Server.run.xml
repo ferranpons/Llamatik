@@ -1,32 +1,33 @@
 <component name="ProjectRunConfigurationManager">
-    <configuration default="false" name="Server" type="GradleRunConfiguration" factoryName="Gradle">
-        <ExternalSystemSettings>
-            <option name="env">
-                <map>
-                    <entry key="JDBC_DATABASE_URL" value="jdbc:postgresql:habits?user=postgres" />
-                    <entry key="JDBC_DRIVER" value="org.postgresql.Driver" />
-                    <entry key="JWT_SECRET" value="898748674728934843" />
-                    <entry key="SECRET_KEY" value="898748674728934843" />
-                </map>
-            </option>
-            <option name="executionName" />
-            <option name="externalProjectPath" value="$PROJECT_DIR$/backend" />
-            <option name="externalSystemIdString" value="GRADLE" />
-            <option name="scriptParameters" value="--info" />
-            <option name="taskDescriptions">
-                <list />
-            </option>
-            <option name="taskNames">
-                <list>
-                    <option value="run" />
-                </list>
-            </option>
-            <option name="vmOptions" />
-        </ExternalSystemSettings>
-        <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
-        <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
-        <DebugAllEnabled>false</DebugAllEnabled>
-        <RunAsTest>false</RunAsTest>
-        <method v="2" />
-    </configuration>
+  <configuration default="false" name="Server" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="env">
+        <map>
+          <entry key="DEVELOPER_DIR" value="/Applications/Xcode.app/Contents/Developer" />
+          <entry key="JDBC_DATABASE_URL" value="jdbc:postgresql:habits?user=postgres" />
+          <entry key="JDBC_DRIVER" value="org.postgresql.Driver" />
+          <entry key="JWT_SECRET" value="898748674728934843" />
+          <entry key="SECRET_KEY" value="898748674728934843" />
+        </map>
+      </option>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$/backend" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="--info" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="run" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <RunAsTest>false</RunAsTest>
+    <method v="2" />
+  </configuration>
 </component>
