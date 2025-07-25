@@ -1,6 +1,6 @@
-# Multiplatform Kickstarter Service Template
+# Llamatik Server
 
-Basic Service template in ktor
+Lightweight llama.cpp HTTP server
 
 ## How to Run this service
 
@@ -11,16 +11,16 @@ Basic Service template in ktor
 ## How to run it using Docker
 
 ```
-docker build -t multiplatformkickstarter .
-docker run -p 8080:8080 multiplatformkickstarter
+docker build -t llamatik .
+docker run -p 8080:8080 llamatik
 ```
 
-To run MK Service container as a service on Linux with systemd:﻿
-Create a service descriptor file /etc/systemd/system/docker.multiplatformkickstarter.service:
+To run Llamatik container as a service on Linux with systemd:﻿
+Create a service descriptor file /etc/systemd/system/docker.llamatik.service:
 
 ```
 [Unit]
-Description=MK Service
+Description=Llamatik
 After=docker.service
 Requires=docker.service
 
@@ -29,7 +29,7 @@ TimeoutStartSec=0
 Restart=always
 ExecStartPre=-/usr/bin/docker exec %n stop
 ExecStartPre=-/usr/bin/docker rm %n
-ExecStart=/usr/bin/docker run -p 8080:8080 multiplatformkickstarter
+ExecStart=/usr/bin/docker run -p 8080:8080 llamatik
 
 [Install]
 WantedBy=default.target
@@ -38,13 +38,13 @@ WantedBy=default.target
 Enable starting the service on system boot with the following command:
 
 ```
-sudo systemctl enable docker.multiplatformkickstarter
+sudo systemctl enable docker.llamatik
 ```
 
 You can also stop and start the service manually at any moment with the following commands,
 respectively:
 
 ```
-sudo service docker.multiplatformkickstarter stop
-sudo service docker.multiplatformkickstarter start
+sudo service docker.llamatik stop
+sudo service docker.llamatik start
 ```

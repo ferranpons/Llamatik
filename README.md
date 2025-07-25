@@ -44,7 +44,7 @@ All backed by a shared Kotlin API so you can switch between local and remote sea
 
 ---
 
-## 📦 Installation
+## 📦 Library Installation
 
 - Add to your settings.gradle.kts
 
@@ -75,7 +75,7 @@ commonMain.dependencies {
 }
 ```
 
-## 🧑‍💻 Usage
+## 🧑‍💻 Library Usage
 
 *NOTE:* This is work in progress, and may change during development.
 
@@ -101,6 +101,12 @@ fun initGenerateModel(modelPath: String): Boolean
 // Generates text for a given prompt
 fun generate(prompt: String): String
 ```
+
+---
+
+## 🧑‍💻 Backend Usage
+
+Please go to the [Backend README.md](./backend/README.md) for more information.
 
 ---
 
