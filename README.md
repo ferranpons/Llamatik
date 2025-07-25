@@ -73,7 +73,7 @@ dependencyResolutionManagement {
 
 ```Kotlin
 commonMain.dependencies {
-    implementation("com.llamatik.library:llamatik:0.1.0")
+    implementation("com.llamatik.library:llamatik:0.2.0")
 }
 ```
 

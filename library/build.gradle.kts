@@ -29,10 +29,10 @@ kotlin {
         Triple(iosSimulatorArm64(), "arm64", "iPhoneSimulator")
     ).forEach { (arch, archName, sdkName) ->
         val outputDir = buildDir.resolve("llama/$sdkName/")
-        val outputOCompiledFile = outputDir.resolve("llama_embed${arch.name.capitalize()}.o").absolutePath
-        val outputACompiledFile = outputDir.resolve("libllama_embed${arch.name.capitalize()}.a").absolutePath
-        val compileTaskName = "compileLlamaCpp${arch.name.capitalize()}"
-        val archiveTaskName = "archiveLlamaCpp${arch.name.capitalize()}"
+        val outputOCompiledFile = outputDir.resolve("llama_embed${arch.name.replaceFirstChar { it.uppercase() }}.o").absolutePath
+        val outputACompiledFile = outputDir.resolve("libllama_embed${arch.name.replaceFirstChar { it.uppercase() }}.a").absolutePath
+        val compileTaskName = "compileLlamaCpp${arch.name.replaceFirstChar { it.uppercase() }}"
+        val archiveTaskName = "archiveLlamaCpp${arch.name.replaceFirstChar { it.uppercase() }}"
 
         tasks.register(compileTaskName, Exec::class) {
             outputs.dir(outputDir)
@@ -166,7 +166,7 @@ publishing {
             from(components["kotlin"])
             groupId = "com.llamatik.library"
             artifactId = "llamatik"
-            version = "0.1.0"
+            version = "0.2.0"
         }
     }
 
