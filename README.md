@@ -12,6 +12,8 @@
 
 ---
 
+## *WARNING*: THIS LIBRARY IS IN EARLY STAGE OF DEVELOPMENT, SOME THINGS MAY CHANGE
+
 ## 🚀 Features
 
 - ✅ Kotlin Multiplatform: shared code across Android, iOS, and desktop
@@ -107,6 +109,14 @@ fun generate(prompt: String): String
 ## 🧑‍💻 Backend Usage
 
 Please go to the [Backend README.md](./backend/README.md) for more information.
+
+---
+
+## 📝 FAQ
+
+- Why you use Github Packages instead of MavenCentral?
+
+Although it needs authentication it was easier to setup than MavenCentral. But we plan to upload it to MavenCentral when we release the first complete version, or as soon as MC requirements are met.
 
 ---
 
