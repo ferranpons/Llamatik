@@ -3,7 +3,7 @@ android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
 koalaplotCore = "0.9.0"
-kotlin = "2.1.21"
+kotlin = "2.2.0"
 ktor-client = "3.2.2"
 ktor-server = "3.2.2"
 multiplatform-settings = "1.3.0"
@@ -12,7 +12,7 @@ voyager = "1.1.0-beta03"
 koin = "4.1.0"
 koin-compose = "4.1.0"
 junit = "4.13.2"
-androidGradlePlugin = "8.11.0"
+androidGradlePlugin = "8.11.1"
 composeMultiplatform = "1.8.2"
 exposed = "0.61.0"
 skiko = "0.8.18"
@@ -32,8 +32,8 @@ filekit = "0.10.0-beta04"
 mediaPlayerKMP = "2.0.9"
 urlencoder = "1.6.0"
 kotlinx-io = "0.8.0"
-kotlinStdlib = "2.1.21"
-kotlinTest = "2.1.21"
+kotlinStdlib = "2.2.0"
+kotlinTest = "2.2.0"
 runner = "1.6.2"
 core = "1.6.1"
 
@@ -82,7 +82,7 @@ urlencoder = { module = "net.thauvin.erik.urlencoder:urlencoder-lib", version.re
 
 
 # Android
-compose-bom = "androidx.compose:compose-bom:2025.06.01"
+compose-bom = "androidx.compose:compose-bom:2025.07.00"
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 
 androidx-core-ktx = "androidx.core:core-ktx:1.16.0"
@@ -151,11 +151,11 @@ hikariCP = "com.zaxxer:HikariCP:6.3.1"
 swagger-codegen = "io.swagger.codegen.v3:swagger-codegen-generators:1.0.57"
 
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
-androidx-navigation-common-ktx = { group = "androidx.navigation", name = "navigation-common-ktx", version.ref = "navigationCommonKtx" }
+#androidx-navigation-common-ktx = { group = "androidx.navigation", name = "navigation-common-ktx", version.ref = "navigationCommonKtx" }
 kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlinStdlib" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlinTest" }
-androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
-androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
+#androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
+#androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
 
 [plugins]
 #Common
@@ -169,7 +169,7 @@ compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "
 korge = { id = "com.soywiz.korge", version = "6.0.0" }
 
 #Backend
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "kotlin" }
+#kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "kotlin" }
 shadow = { id = "com.github.johnrengelman.shadow", version = "8.1.1" }
 
 [bundles]
