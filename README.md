@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ferranpons/llamatik/main/assets/llamatik-logo.png" alt="Llamatik Logo" width="200"/>
+  <img src="https://raw.githubusercontent.com/ferranpons/llamatik/main/assets/llamatik-logo-transparent.png" alt="Llamatik Logo" width="150"/>
 </p>
 
-<h1 align="center">🦙 Llamatik</h1>
+<h1 align="center">Llamatik</h1>
 
 <p align="center">
   Kotlin-first llama.cpp integration for on-device and remote LLM inference.
