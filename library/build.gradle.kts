@@ -1,15 +1,5 @@
 import java.io.ByteArrayOutputStream
 
-fun Project.execAndGetOutput(command: String): String {
-    val outputStream = ByteArrayOutputStream()
-    exec {
-        commandLine = command.split(" ")
-        standardOutput = outputStream
-        isIgnoreExitValue = true // or false if you want failures
-    }
-    return outputStream.toString().trim()
-}
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.compose.compiler)
@@ -47,10 +37,14 @@ kotlin {
         tasks.register(compileTaskName, Exec::class) {
             outputs.dir(outputDir)
             doFirst {
-                val llamaRoot = layout.projectDirectory.dir("../llama.cpp").asFile
-                val embedCpp = layout.projectDirectory.file("src/commonMain/cpp/llama_embed_ios.cpp").asFile
-                val embedInclude = layout.projectDirectory.dir("src/commonMain/c_interop/include").asFile
-                val sdkPath = execAndGetOutput("xcrun --sdk ${sdkName.lowercase()} --show-sdk-path")
+                val command = "xcrun --sdk ${sdkName.lowercase()} --show-sdk-path"
+                val outputStream = ByteArrayOutputStream()
+                ProcessBuilder(*command.split(" ").toTypedArray())
+                    .redirectErrorStream(true)
+                    .start()
+                    .apply { inputStream.copyTo(outputStream) }
+                    .waitFor()
+                val sdkPath = outputStream.toString().trim()
                 val sdkVersion = 15.6
                 val target = if (sdkName.contains("Simulator"))
                     "$archName-apple-ios${sdkVersion}-simulator"
@@ -58,19 +52,19 @@ kotlin {
                     "$archName-apple-ios${sdkVersion}"
                 commandLine(
                     "clang++", "-c", "-stdlib=libc++", "-std=c++17", "-O3", "-fPIC",
-                    "-I${llamaRoot.absolutePath}",
-                    "-I${llamaRoot.resolve("include")}",
-                    "-I${llamaRoot.resolve("src")}",
-                    "-I${llamaRoot.resolve("ggml")}",
-                    "-I${llamaRoot.resolve("ggml/include")}",
-                    "-I${embedInclude.absolutePath}",
+                    "-I../llama.cpp",
+                    "-I../llama.cpp/include",
+                    "-I../llama.cpp/src",
+                    "-I../llama.cpp/ggml",
+                    "-I../llama.cpp/ggml/include",
+                    "-Isrc/commonMain/c_interop/include",
                     "-DINCLUDE_EXTRA_CMAKELISTS=ON",
                     "-DGGML_OPENMP=OFF",
                     "-DGGML_LLAMAFILE=OFF",
                     "-target", target,
                     "-isysroot", sdkPath,
                     "-o", outputOCompiledFile,
-                    embedCpp.absolutePath
+                    "src/commonMain/cpp/llama_embed_ios.cpp"
                 )
             }
         }
@@ -89,7 +83,6 @@ kotlin {
 
         arch.compilations.getByName("main").cinterops {
             create("llama") {
-                val llamaRoot = layout.projectDirectory.dir("../llama.cpp").asFile
                 val defFileName = if (sdkName.contains("Simulator"))
                     "llama_ios_${archName}_simulator.def"
                 else
@@ -100,10 +93,10 @@ kotlin {
                 includeDirs(
                     "src/commonMain/c_interop/include",
                     "src/commonMain/cpp/",
-                    "${llamaRoot}/ggml",
-                    "${llamaRoot}/ggml/include",
-                    "${llamaRoot}",
-                    "${llamaRoot}/include"
+                    "llama.cpp/ggml",
+                    "llama.cpp/ggml/include",
+                    "llama.cpp",
+                    "llama.cpp/include"
                 )
 
                 tasks.named(interopProcessingTaskName).configure {
