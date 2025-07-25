@@ -13,10 +13,8 @@ import kotlinx.cinterop.get
 actual object LlamaBridge {
     @androidx.compose.runtime.Composable
     actual fun getModelPath(modelFileName: String): String {
-        TODO("Not yet implemented")
+        return modelFileName
     }
-
-    private var embeddingSize = 0
 
     actual fun initModel(modelPath: String): Boolean {
         return llama_embed_init(modelPath)
@@ -31,10 +29,10 @@ actual object LlamaBridge {
     }
 
     actual fun initGenerateModel(modelPath: String): Boolean {
-        TODO("Not yet implemented")
+        return false
     }
 
     actual fun generate(prompt: String): String {
-        TODO("Not yet implemented")
+        return ""
     }
 }
