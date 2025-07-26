@@ -8,6 +8,9 @@ plugins {
     id("maven-publish")
 }
 
+group = "com.llamatik.library"
+version = "0.4.0"
+
 kotlin {
     androidTarget()
     jvm()
@@ -17,7 +20,7 @@ kotlin {
 
     targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
         binaries.framework {
-            baseName = "library"
+            baseName = "llamatik"
             isStatic = true
             linkerOpts("-Wl,-no_implicit_dylibs")
         }
@@ -166,7 +169,7 @@ publishing {
             from(components["kotlin"])
             groupId = "com.llamatik.library"
             artifactId = "llamatik"
-            version = "0.2.0"
+            version = "0.4.0"
         }
     }
 
