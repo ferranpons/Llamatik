@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 3.18)
+project(llama_kmp_bridge)
+
+# Workaround: Force enable Threads when cross-compiling for iOS
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+    set(CMAKE_HAVE_THREADS_LIBRARY 1)
+    set(CMAKE_USE_WIN32_THREADS_INIT 0)
+    set(CMAKE_USE_PTHREADS_INIT 1)
+endif()
+
+# Must appear before add_subdirectory or find_package(Threads)
+find_package(Threads REQUIRED)
+
+# Add original llama.cpp as subdir without modifying it
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp llama-local-build EXCLUDE_FROM_ALL)
+
+# Create your own static lib for interop
+file(GLOB LLAMA_SRC
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/src/llama.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/src/llama-model-loader.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/src/llama-log.cpp"
+        # Add more only if they exist
+)
+
+add_library(llama_static STATIC ${LLAMA_SRC})
+
+target_include_directories(llama_static PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/ggml
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/ggml/include
+)
+
+target_compile_features(llama_static PUBLIC cxx_std_17)
+target_compile_definitions(llama_static PRIVATE GGML_STATIC GGML_NO_ACCELERATE)

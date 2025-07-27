@@ -33,48 +33,89 @@ kotlin {
     ).forEach { (arch, archName, sdkName) ->
         val cmakeBuildDir = buildDir.resolve("llama-cmake/$sdkName/${arch.name}")
         val buildTaskName = "buildLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}"
+        val wrapperObjectFile = cmakeBuildDir.resolve("llama_embed_${arch.name}.o")
+        val wrapperSource = projectDir.resolve("src/commonMain/cpp/llama_embed_ios.cpp")
 
         tasks.register(buildTaskName, Exec::class) {
             doFirst {
-                val command = "xcrun --sdk ${sdkName.lowercase()} --show-sdk-path"
-                val outputStream = ByteArrayOutputStream()
-                ProcessBuilder(*command.split(" ").toTypedArray())
-                    .redirectErrorStream(true)
-                    .start()
-                    .apply { inputStream.copyTo(outputStream) }
-                    .waitFor()
-                val sdkPath = outputStream.toString().trim()
+                val sdk = when {
+                    sdkName == "MacOSX" -> "macosx"
+                    sdkName.contains("Simulator") -> "iphonesimulator"
+                    else -> "iphoneos"
+                }
+                val sdkPath = ByteArrayOutputStream().use { output ->
+                    exec {
+                        commandLine = listOf("xcrun", "--sdk", sdk, "--show-sdk-path")
+                        standardOutput = output
+                    }
+                    output.toString().trim()
+                }
+                val systemName = if (sdk == "macosx") "Darwin" else "iOS"
                 cmakeBuildDir.mkdirs()
                 commandLine = listOf(
                     "cmake",
-                    "-S", "../llama.cpp",
+                    "-S", "cmake/llama-wrapper",
                     "-B", cmakeBuildDir.absolutePath,
-                    "-DCMAKE_SYSTEM_NAME=iOS",
+                    "-DCMAKE_SYSTEM_NAME=$systemName",
                     "-DCMAKE_OSX_ARCHITECTURES=$archName",
                     "-DCMAKE_OSX_SYSROOT=$sdkPath",
                     "-DCMAKE_INSTALL_PREFIX=${cmakeBuildDir.resolve("install")}",
                     "-DCMAKE_IOS_INSTALL_COMBINED=NO",
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
-                    "-DLLAMA_BUILD_EXAMPLES=OFF",
-                    "-DLLAMA_BUILD_TESTS=OFF",
-                    "-DBUILD_TESTING=OFF",
-                    "-DLLAMA_BUILD_TOOLS=OFF",           // ✅ Prevents CLI tools from being built
-                    "-DLLAMA_BUILD_SERVER=OFF",          // ✅ If defined by llama.cpp
-                    "-DGGML_OPENMP=OFF",
                     "-DLLAMA_STATIC=ON",
-                    "-DLLAMA_CURL=OFF",
+                    "-DGGML_OPENMP=OFF",
+                    "-DLLAMA_CURL=OFF"
                 )
             }
         }
 
         val compileTask = tasks.register("compileLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
             dependsOn(buildTaskName)
-            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--config", "Release")
+            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--target", "llama_static")
+        }
+
+        val compileWrapperTask = tasks.register("compileWrapper${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
+            dependsOn(compileTask)
+            doFirst {
+                val sdk = when {
+                    sdkName == "MacOSX" -> "macosx"
+                    sdkName.contains("Simulator") -> "iphonesimulator"
+                    else -> "iphoneos"
+                }
+                val sdkVersion = "15.6"
+                val targetTriple = when (sdk) {
+                    "macosx" -> "x86_64-apple-macosx10.15"
+                    "iphonesimulator" -> "$archName-apple-ios$sdkVersion-simulator"
+                    else -> "$archName-apple-ios$sdkVersion"
+                }
+                val sdkPath = ByteArrayOutputStream().use { out ->
+                    exec {
+                        commandLine = listOf("xcrun", "--sdk", sdk, "--show-sdk-path")
+                        standardOutput = out
+                    }
+                    out.toString().trim()
+                }
+
+                commandLine = listOf(
+                    "clang++", "-c", "-std=c++17", "-O3", "-fPIC",
+                    "-I${rootProject.projectDir}/llama.cpp",
+                    "-I${rootProject.projectDir}/llama.cpp/include",
+                    "-I${rootProject.projectDir}/llama.cpp/ggml",
+                    "-I${rootProject.projectDir}/llama.cpp/ggml/include",
+                    "-I${projectDir}/src/commonMain/c_interop/include",
+                    "-target", targetTriple,
+                    "-isysroot", sdkPath,
+                    "-o", wrapperObjectFile.absolutePath,
+                    wrapperSource.absolutePath
+                )
+                println("[CLANG COMPILE COMMAND]")
+                println(commandLine.joinToString(" \\\n  "))
+            }
         }
 
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
-            dependsOn(compileTask)
+            dependsOn(compileWrapperTask)
         }
 
         arch.compilations.getByName("main").cinterops {
@@ -86,13 +127,17 @@ kotlin {
 
                 defFile("src/commonMain/c_interop/$defFileName")
                 packageName("com.llamatik.app.platform.llama")
-                includeDirs(
-                    "src/commonMain/c_interop/include",
-                    "src/commonMain/cpp/"
+
+                val libPath = cmakeBuildDir.absolutePath
+                compilerOpts("-I${projectDir}/src/commonMain/c_interop/include")
+                linkerOpts(
+                    "-L$libPath",
+                    "-llama_static",
+                    wrapperObjectFile.absolutePath
                 )
 
                 tasks.named(interopProcessingTaskName).configure {
-                    dependsOn(compileTask)
+                    dependsOn(compileWrapperTask)
                 }
             }
         }
@@ -101,8 +146,9 @@ kotlin {
             baseName = "llamatik"
             isStatic = true
             linkerOpts(
-                "-L${cmakeBuildDir.resolve("Release")}",
-                "-lllama",
+                "-L${cmakeBuildDir.absolutePath}",
+                "-llama_static",
+                wrapperObjectFile.absolutePath,
                 "-Wl,-no_implicit_dylibs"
             )
         }
