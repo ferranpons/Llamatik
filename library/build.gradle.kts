@@ -1,5 +1,3 @@
-import java.io.ByteArrayOutputStream
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.compose.compiler)
@@ -43,13 +41,11 @@ kotlin {
                     sdkName.contains("Simulator") -> "iphonesimulator"
                     else -> "iphoneos"
                 }
-                val sdkPath = ByteArrayOutputStream().use { output ->
-                    exec {
-                        commandLine = listOf("xcrun", "--sdk", sdk, "--show-sdk-path")
-                        standardOutput = output
-                    }
-                    output.toString().trim()
-                }
+
+                val sdkPathProvider = providers.exec {
+                    commandLine("xcrun", "--sdk", sdk, "--show-sdk-path")
+                }.standardOutput.asText.map { it.trim() }
+
                 val systemName = if (sdk == "macosx") "Darwin" else "iOS"
                 cmakeBuildDir.mkdirs()
                 commandLine = listOf(
@@ -58,7 +54,7 @@ kotlin {
                     "-B", cmakeBuildDir.absolutePath,
                     "-DCMAKE_SYSTEM_NAME=$systemName",
                     "-DCMAKE_OSX_ARCHITECTURES=$archName",
-                    "-DCMAKE_OSX_SYSROOT=$sdkPath",
+                    "-DCMAKE_OSX_SYSROOT=${sdkPathProvider.get()}",
                     "-DCMAKE_INSTALL_PREFIX=${cmakeBuildDir.resolve("install")}",
                     "-DCMAKE_IOS_INSTALL_COMBINED=NO",
                     "-DCMAKE_BUILD_TYPE=Release",
@@ -89,13 +85,10 @@ kotlin {
                     "iphonesimulator" -> "$archName-apple-ios$sdkVersion-simulator"
                     else -> "$archName-apple-ios$sdkVersion"
                 }
-                val sdkPath = ByteArrayOutputStream().use { out ->
-                    exec {
-                        commandLine = listOf("xcrun", "--sdk", sdk, "--show-sdk-path")
-                        standardOutput = out
-                    }
-                    out.toString().trim()
-                }
+
+                val sdkPathProvider = providers.exec {
+                    commandLine("xcrun", "--sdk", sdk, "--show-sdk-path")
+                }.standardOutput.asText.map { it.trim() }
 
                 commandLine = listOf(
                     "clang++", "-c", "-std=c++17", "-O3", "-fPIC",
@@ -105,12 +98,10 @@ kotlin {
                     "-I${rootProject.projectDir}/llama.cpp/ggml/include",
                     "-I${projectDir}/src/commonMain/c_interop/include",
                     "-target", targetTriple,
-                    "-isysroot", sdkPath,
+                    "-isysroot", sdkPathProvider.get(),
                     "-o", wrapperObjectFile.absolutePath,
                     wrapperSource.absolutePath
                 )
-                println("[CLANG COMPILE COMMAND]")
-                println(commandLine.joinToString(" \\\n  "))
             }
         }
 
