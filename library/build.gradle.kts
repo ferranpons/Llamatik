@@ -31,14 +31,10 @@ kotlin {
         Triple(iosArm64(), "arm64", "iPhoneOS"),
         Triple(iosSimulatorArm64(), "arm64", "iPhoneSimulator")
     ).forEach { (arch, archName, sdkName) ->
-        val outputDir = buildDir.resolve("llama/$sdkName/")
-        val outputOCompiledFile = outputDir.resolve("llama_embed${arch.name.replaceFirstChar { it.uppercase() }}.o").absolutePath
-        val outputACompiledFile = outputDir.resolve("libllama_embed${arch.name.replaceFirstChar { it.uppercase() }}.a").absolutePath
-        val compileTaskName = "compileLlamaCpp${arch.name.replaceFirstChar { it.uppercase() }}"
-        val archiveTaskName = "archiveLlamaCpp${arch.name.replaceFirstChar { it.uppercase() }}"
+        val cmakeBuildDir = buildDir.resolve("llama-cmake/$sdkName/${arch.name}")
+        val buildTaskName = "buildLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}"
 
-        tasks.register(compileTaskName, Exec::class) {
-            outputs.dir(outputDir)
+        tasks.register(buildTaskName, Exec::class) {
             doFirst {
                 val command = "xcrun --sdk ${sdkName.lowercase()} --show-sdk-path"
                 val outputStream = ByteArrayOutputStream()
@@ -48,40 +44,37 @@ kotlin {
                     .apply { inputStream.copyTo(outputStream) }
                     .waitFor()
                 val sdkPath = outputStream.toString().trim()
-                val sdkVersion = 15.6
-                val target = if (sdkName.contains("Simulator"))
-                    "$archName-apple-ios${sdkVersion}-simulator"
-                else
-                    "$archName-apple-ios${sdkVersion}"
-                commandLine(
-                    "clang++", "-c", "-stdlib=libc++", "-std=c++17", "-O3", "-fPIC",
-                    "-I../llama.cpp",
-                    "-I../llama.cpp/include",
-                    "-I../llama.cpp/src",
-                    "-I../llama.cpp/ggml",
-                    "-I../llama.cpp/ggml/include",
-                    "-Isrc/commonMain/c_interop/include",
-                    "-DINCLUDE_EXTRA_CMAKELISTS=ON",
+                cmakeBuildDir.mkdirs()
+                commandLine = listOf(
+                    "cmake",
+                    "-S", "../llama.cpp",
+                    "-B", cmakeBuildDir.absolutePath,
+                    "-DCMAKE_SYSTEM_NAME=iOS",
+                    "-DCMAKE_OSX_ARCHITECTURES=$archName",
+                    "-DCMAKE_OSX_SYSROOT=$sdkPath",
+                    "-DCMAKE_INSTALL_PREFIX=${cmakeBuildDir.resolve("install")}",
+                    "-DCMAKE_IOS_INSTALL_COMBINED=NO",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+                    "-DLLAMA_BUILD_EXAMPLES=OFF",
+                    "-DLLAMA_BUILD_TESTS=OFF",
+                    "-DBUILD_TESTING=OFF",
+                    "-DLLAMA_BUILD_TOOLS=OFF",           // ✅ Prevents CLI tools from being built
+                    "-DLLAMA_BUILD_SERVER=OFF",          // ✅ If defined by llama.cpp
                     "-DGGML_OPENMP=OFF",
-                    "-DGGML_LLAMAFILE=OFF",
-                    "-target", target,
-                    "-isysroot", sdkPath,
-                    "-o", outputOCompiledFile,
-                    "src/commonMain/cpp/llama_embed_ios.cpp"
+                    "-DLLAMA_STATIC=ON",
+                    "-DLLAMA_CURL=OFF",
                 )
             }
         }
 
-        tasks.register(archiveTaskName, Exec::class) {
-            dependsOn(compileTaskName)
-            inputs.file(outputOCompiledFile)
-            outputs.file(outputACompiledFile)
-            commandLine("ar", "rcs", outputACompiledFile, outputOCompiledFile)
+        val compileTask = tasks.register("compileLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
+            dependsOn(buildTaskName)
+            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--config", "Release")
         }
 
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
-            dependsOn(compileTaskName)
-            dependsOn(archiveTaskName)
+            dependsOn(compileTask)
         }
 
         arch.compilations.getByName("main").cinterops {
@@ -95,18 +88,23 @@ kotlin {
                 packageName("com.llamatik.app.platform.llama")
                 includeDirs(
                     "src/commonMain/c_interop/include",
-                    "src/commonMain/cpp/",
-                    "llama.cpp/ggml",
-                    "llama.cpp/ggml/include",
-                    "llama.cpp",
-                    "llama.cpp/include"
+                    "src/commonMain/cpp/"
                 )
 
                 tasks.named(interopProcessingTaskName).configure {
-                    dependsOn(compileTaskName)
-                    dependsOn(archiveTaskName)
+                    dependsOn(compileTask)
                 }
             }
+        }
+
+        arch.binaries.getFramework("DEBUG").apply {
+            baseName = "llamatik"
+            isStatic = true
+            linkerOpts(
+                "-L${cmakeBuildDir.resolve("Release")}",
+                "-lllama",
+                "-Wl,-no_implicit_dylibs"
+            )
         }
     }
 
