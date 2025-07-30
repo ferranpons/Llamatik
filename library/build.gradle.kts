@@ -21,6 +21,7 @@ kotlin {
             baseName = "llamatik"
             isStatic = true
             linkerOpts("-Wl,-no_implicit_dylibs")
+            freeCompilerArgs += listOf("-Xbinary=bundleId=com.llamatik.library")
         }
     }
 
@@ -31,8 +32,6 @@ kotlin {
     ).forEach { (arch, archName, sdkName) ->
         val cmakeBuildDir = buildDir.resolve("llama-cmake/$sdkName/${arch.name}")
         val buildTaskName = "buildLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}"
-        val wrapperObjectFile = cmakeBuildDir.resolve("llama_embed_${arch.name}.o")
-        val wrapperSource = projectDir.resolve("src/commonMain/cpp/llama_embed_ios.cpp")
 
         tasks.register(buildTaskName, Exec::class) {
             doFirst {
@@ -59,7 +58,6 @@ kotlin {
                     "-DCMAKE_IOS_INSTALL_COMBINED=NO",
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
-                    "-DLLAMA_STATIC=ON",
                     "-DGGML_OPENMP=OFF",
                     "-DLLAMA_CURL=OFF"
                 )
@@ -68,45 +66,11 @@ kotlin {
 
         val compileTask = tasks.register("compileLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
             dependsOn(buildTaskName)
-            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--target", "llama_static")
-        }
-
-        val compileWrapperTask = tasks.register("compileWrapper${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
-            dependsOn(compileTask)
-            doFirst {
-                val sdk = when {
-                    sdkName == "MacOSX" -> "macosx"
-                    sdkName.contains("Simulator") -> "iphonesimulator"
-                    else -> "iphoneos"
-                }
-                val sdkVersion = "15.6"
-                val targetTriple = when (sdk) {
-                    "macosx" -> "x86_64-apple-macosx10.15"
-                    "iphonesimulator" -> "$archName-apple-ios$sdkVersion-simulator"
-                    else -> "$archName-apple-ios$sdkVersion"
-                }
-
-                val sdkPathProvider = providers.exec {
-                    commandLine("xcrun", "--sdk", sdk, "--show-sdk-path")
-                }.standardOutput.asText.map { it.trim() }
-
-                commandLine = listOf(
-                    "clang++", "-c", "-std=c++17", "-O3", "-fPIC",
-                    "-I${rootProject.projectDir}/llama.cpp",
-                    "-I${rootProject.projectDir}/llama.cpp/include",
-                    "-I${rootProject.projectDir}/llama.cpp/ggml",
-                    "-I${rootProject.projectDir}/llama.cpp/ggml/include",
-                    "-I${projectDir}/src/commonMain/c_interop/include",
-                    "-target", targetTriple,
-                    "-isysroot", sdkPathProvider.get(),
-                    "-o", wrapperObjectFile.absolutePath,
-                    wrapperSource.absolutePath
-                )
-            }
+            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--target", "llama_static", "--verbose")
         }
 
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
-            dependsOn(compileWrapperTask)
+            dependsOn(compileTask)
         }
 
         arch.compilations.getByName("main").cinterops {
@@ -116,30 +80,35 @@ kotlin {
                 else
                     "llama_ios_${archName}.def"
 
-                defFile("src/commonMain/c_interop/$defFileName")
+                defFile("src/iosMain/c_interop/$defFileName")
                 packageName("com.llamatik.app.platform.llama")
-
-                val libPath = cmakeBuildDir.absolutePath
-                compilerOpts("-I${projectDir}/src/commonMain/c_interop/include")
-                linkerOpts(
-                    "-L$libPath",
-                    "-llama_static",
-                    wrapperObjectFile.absolutePath
-                )
-
+                compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
                 tasks.named(interopProcessingTaskName).configure {
-                    dependsOn(compileWrapperTask)
+                    dependsOn(compileTask)
                 }
             }
         }
 
+        // Required linkerOpts for final framework binary (not inherited from .def!)
+        val libPath = cmakeBuildDir.absolutePath
+        println("Lib path: $libPath")
+        val staticLib = "$libPath/libllama_static.a"
+        println("Static lib: $staticLib")
         arch.binaries.getFramework("DEBUG").apply {
             baseName = "llamatik"
             isStatic = true
             linkerOpts(
-                "-L${cmakeBuildDir.absolutePath}",
-                "-llama_static",
-                wrapperObjectFile.absolutePath,
+                "-L$libPath",
+                "-Wl,-all_load", staticLib,
+                "-Wl,-no_implicit_dylibs"
+            )
+        }
+        arch.binaries.getFramework("RELEASE").apply {
+            baseName = "llamatik"
+            isStatic = true
+            linkerOpts(
+                "-L$libPath",
+                "-Wl,-all_load", staticLib,
                 "-Wl,-no_implicit_dylibs"
             )
         }
@@ -159,18 +128,6 @@ kotlin {
             }
         }
         val androidMain by getting
-        val iosMain by creating {
-            dependsOn(commonMain)
-            iosX64Main.dependencies {
-                dependsOn(this@creating)
-            }
-            iosArm64Main.dependencies {
-                dependsOn(this@creating)
-            }
-            iosSimulatorArm64Main.dependencies {
-                dependsOn(this@creating)
-            }
-        }
     }
 }
 

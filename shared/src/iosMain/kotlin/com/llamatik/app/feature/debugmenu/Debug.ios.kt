@@ -8,5 +8,3 @@ class IOSDebug : Debug {
     override val isDebug: Boolean
         get() = Platform.isDebugBinary
 }
-
-actual fun getDebug(): Debug = IOSDebug()

@@ -4,7 +4,7 @@
 #include <vector>
 #include <__filesystem/operations.h>
 
-#include "../c_interop/include/llama_embed_ios.h"
+#include "../c_interop/include/llama_embed.h"
 #include "llama.h"
 
 static struct llama_model *model = nullptr;

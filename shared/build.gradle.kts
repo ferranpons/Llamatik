@@ -20,14 +20,26 @@ kotlin {
 
     jvm()
 
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach {
-        it.binaries.framework {
+    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
+        target.binaries.framework {
             baseName = "shared"
             isStatic = true
+
+            val arch = target.name
+            val sdk = when {
+                arch.contains("Simulator", ignoreCase = true) -> "iPhoneSimulator"
+                arch.contains("x64", ignoreCase = true) -> "MacOSX"
+                else -> "iPhoneOS"
+            }
+
+            val libPath = project(":library").buildDir.resolve("llama-cmake/$sdk/$arch").absolutePath
+            val staticLib = "$libPath/libllama_static.a"
+
+            linkerOpts(
+                "-L$libPath",
+                "-Wl,-force_load,$staticLib", // <-- REQUIRED
+                "-Wl,-no_implicit_dylibs"
+            )
         }
     }
 
