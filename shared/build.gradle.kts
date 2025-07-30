@@ -37,7 +37,7 @@ kotlin {
 
             linkerOpts(
                 "-L$libPath",
-                "-Wl,-force_load,$staticLib", // <-- REQUIRED
+                "-Wl,-all_load,$staticLib",
                 "-Wl,-no_implicit_dylibs"
             )
         }

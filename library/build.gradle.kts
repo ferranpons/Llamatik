@@ -81,7 +81,7 @@ kotlin {
                     "llama_ios_${archName}.def"
 
                 defFile("src/iosMain/c_interop/$defFileName")
-                packageName("com.llamatik.app.platform.llama")
+                packageName("com.llamatik.library.platform.llama")
                 compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
                 tasks.named(interopProcessingTaskName).configure {
                     dependsOn(compileTask)

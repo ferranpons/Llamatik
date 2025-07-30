@@ -36,3 +36,7 @@ target_include_directories(llama_static PUBLIC
 
 target_compile_features(llama_static PUBLIC cxx_std_17)
 target_compile_definitions(llama_static PRIVATE GGML_STATIC GGML_NO_ACCELERATE)
+
+set_target_properties(llama_static PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)

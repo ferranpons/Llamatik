@@ -11,7 +11,9 @@ static struct llama_model *model = nullptr;
 static struct llama_context *ctx = nullptr;
 static int embedding_size = 0;
 
-extern "C" bool llama_embed_init(const char *model_path) {
+extern "C" {
+
+bool llama_embed_init(const char *model_path) {
     llama_backend_init();
     llama_model_params model_params = llama_model_default_params();
     //model_params.n_ctx = 512; // or your desired context size
@@ -34,7 +36,7 @@ extern "C" bool llama_embed_init(const char *model_path) {
     return true;
 }
 
-extern "C" float *llama_embed(const char *input) {
+float *llama_embed(const char *input) {
     if (!ctx || !model) return nullptr;
 
     // Tokenize
@@ -93,10 +95,12 @@ extern "C" float *llama_embed(const char *input) {
     return out;
 }
 
-extern "C" int llama_embedding_size() {
+int llama_embedding_size() {
     return llama_model_n_embd(model);
 }
 
-extern "C" void llama_free_embedding(float *ptr) {
+void llama_free_embedding(float *ptr) {
     if (ptr) free(ptr);
 }
+
+};

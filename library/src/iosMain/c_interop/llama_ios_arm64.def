@@ -2,4 +2,4 @@ headers = llama_embed.h
 headerFilter = llama_embed.h
 compilerOpts = -I../llama.cpp -I../llama.cpp/ggml -I../llama.cpp/ggml/include -Isrc/iosMain/c_interop/include
 linkerOpts = -Wl,-all_load ../../build/llama-cmake/iPhoneOS/iosArm64/libllama_static.a
-package = com.llamatik.app.platform.llama
+package = com.llamatik.library.platform.llama
