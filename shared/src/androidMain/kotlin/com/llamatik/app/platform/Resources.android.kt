@@ -10,3 +10,13 @@ actual fun readResourceFile(fileName: String): String {
         .getResourceAsStream(fileName)
     return inputStream.bufferedReader().use { it.readText() }
 }
+
+@androidx.compose.runtime.Composable
+actual fun font(
+    name: String,
+    res: String,
+    weight: androidx.compose.ui.text.font.FontWeight,
+    style: androidx.compose.ui.text.font.FontStyle
+): androidx.compose.ui.text.font.Font {
+
+}
