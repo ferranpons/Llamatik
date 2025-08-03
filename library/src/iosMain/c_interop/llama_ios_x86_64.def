@@ -1,5 +1,5 @@
 headers = llama_embed.h
 headerFilter = llama_embed.h
 compilerOpts = -I../llama.cpp -I../llama.cpp/ggml -I../llama.cpp/ggml/include -Isrc/iosMain/c_interop/include
-linkerOpts = -Wl,-all_load ../../build/llama-cmake/MacOSX/iosX64/libllama_static.a
+linkerOpts = -force_load library/build/llama-cmake/MacOSX/iosX64/libllama_static.a
 package = com.llamatik.library.platform.llama

@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.18)
 project(llama_kmp_bridge)
 
-# Force enable Threads when cross-compiling for iOS
+# Ensure llama.cpp is present
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/CMakeLists.txt")
+    message(FATAL_ERROR "llama.cpp not found at expected path.")
+endif()
+
+# Threads for iOS
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
@@ -12,31 +17,48 @@ endif()
 
 find_package(Threads REQUIRED)
 
-# Add llama.cpp as subdir
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp llama-local-build EXCLUDE_FROM_ALL)
+# Add llama.cpp as a subproject
+set(LLAMA_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static llama.a" FORCE)
+add_subdirectory(${LLAMA_CPP_DIR} llama-local-build EXCLUDE_FROM_ALL)
 
-# llama.cpp core sources
-file(GLOB LLAMA_SRC
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/src/llama.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/src/llama-model-loader.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/src/llama-log.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_embed.cpp"
+# Build your wrapper
+add_library(llama_static_wrapper STATIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_embed.cpp
 )
 
-# Create llama_static
-add_library(llama_static STATIC ${LLAMA_SRC})
+target_link_libraries(llama_static_wrapper
+        PRIVATE llama
+        Threads::Threads
+)
 
-target_include_directories(llama_static PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/ggml
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/ggml/include
+target_include_directories(llama_static_wrapper PUBLIC
+        ${LLAMA_CPP_DIR}
+        ${LLAMA_CPP_DIR}/ggml/include
+        ${LLAMA_CPP_DIR}/ggml
+        ${LLAMA_CPP_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/c_interop/include
 )
 
-target_compile_features(llama_static PUBLIC cxx_std_17)
-target_compile_definitions(llama_static PRIVATE GGML_STATIC GGML_NO_ACCELERATE)
+target_compile_features(llama_static_wrapper PUBLIC cxx_std_17)
+target_compile_definitions(llama_static_wrapper PRIVATE GGML_STATIC GGML_NO_ACCELERATE)
 
-set_target_properties(llama_static PROPERTIES
+# Write llama.a to a known path (optional but useful)
+set_target_properties(llama PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/llama-local-build/src"
+        OUTPUT_NAME "llama"
+)
+
+# Make sure llama_static_wrapper archive is placed predictably
+set_target_properties(llama_static_wrapper PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        OUTPUT_NAME llama_static
+)
+
+# Post-build: merge llama.a object files into wrapper's static lib
+add_custom_command(TARGET llama_static_wrapper POST_BUILD
+        COMMAND ${CMAKE_AR} -x $<TARGET_FILE:llama>
+        COMMAND ${CMAKE_AR} rcs $<TARGET_FILE:llama_static_wrapper> *.o
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/llama-local-build/src"
+        COMMENT "Merging libllama.a into libllama_static.a"
 )

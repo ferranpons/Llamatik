@@ -20,10 +20,17 @@ kotlin {
 
     jvm()
 
+    iosArm64()
+    iosSimulatorArm64()
+    iosX64()
+
     listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "shared"
-            isStatic = true
+            isStatic = false
+            //export(project(":library"))
+            embedBitcode("disable")
+            freeCompilerArgs += "-Xbinary=bundleId=com.llamatik.shared"
 
             val arch = target.name
             val sdk = when {
@@ -33,11 +40,15 @@ kotlin {
             }
 
             val libPath = project(":library").buildDir.resolve("llama-cmake/$sdk/$arch").absolutePath
-            val staticLib = "$libPath/libllama_static.a"
+            //val staticLib = project(":library").buildDir.resolve("llama-cmake/iPhoneSimulator/iosSimulatorArm64/libllama_static.a").absolutePath
+            val staticLib = rootProject.projectDir
+                .resolve("library/build/llama-cmake/$sdk/$arch/libllama_static.a")
+                .absolutePath
 
             linkerOpts(
                 "-L$libPath",
-                "-Wl,-all_load,$staticLib",
+                "-Wl,-force_load", staticLib,
+                "-ldl", "-lz",
                 "-Wl,-no_implicit_dylibs"
             )
         }
@@ -52,7 +63,7 @@ kotlin {
             }
         }
         commonMain.dependencies {
-            implementation(project(":library"))
+            api(project(":library"))
             implementation(libs.skiko)
             implementation(compose.ui)
             implementation(compose.foundation)
@@ -101,8 +112,6 @@ kotlin {
 
             implementation(libs.richeditor.compose)
             implementation(libs.koalaplot.core)
-
-            implementation(libs.youtube.kmp)
 
             implementation(libs.filekit.core)
             implementation(libs.filekit.dialogs)

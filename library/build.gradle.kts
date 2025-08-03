@@ -35,6 +35,9 @@ kotlin {
 
         tasks.register(buildTaskName, Exec::class) {
             doFirst {
+                val sourceDir = projectDir.resolve("cmake/llama-wrapper")
+                val buildDir = cmakeBuildDir
+
                 val sdk = when {
                     sdkName == "MacOSX" -> "macosx"
                     sdkName.contains("Simulator") -> "iphonesimulator"
@@ -47,14 +50,15 @@ kotlin {
 
                 val systemName = if (sdk == "macosx") "Darwin" else "iOS"
                 cmakeBuildDir.mkdirs()
+
                 commandLine = listOf(
                     "cmake",
-                    "-S", "cmake/llama-wrapper",
-                    "-B", cmakeBuildDir.absolutePath,
+                    "-S", sourceDir.absolutePath,
+                    "-B", buildDir.absolutePath,
                     "-DCMAKE_SYSTEM_NAME=$systemName",
                     "-DCMAKE_OSX_ARCHITECTURES=$archName",
                     "-DCMAKE_OSX_SYSROOT=${sdkPathProvider.get()}",
-                    "-DCMAKE_INSTALL_PREFIX=${cmakeBuildDir.resolve("install")}",
+                    "-DCMAKE_INSTALL_PREFIX=${buildDir.resolve("install")}",
                     "-DCMAKE_IOS_INSTALL_COMBINED=NO",
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
@@ -66,7 +70,7 @@ kotlin {
 
         val compileTask = tasks.register("compileLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
             dependsOn(buildTaskName)
-            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--target", "llama_static", "--verbose")
+            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--target", "llama_static_wrapper", "--verbose")
         }
 
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
@@ -99,7 +103,7 @@ kotlin {
             isStatic = true
             linkerOpts(
                 "-L$libPath",
-                "-Wl,-all_load", staticLib,
+                //"-Wl,-all_load", staticLib,
                 "-Wl,-no_implicit_dylibs"
             )
         }
@@ -108,7 +112,7 @@ kotlin {
             isStatic = true
             linkerOpts(
                 "-L$libPath",
-                "-Wl,-all_load", staticLib,
+                //"-Wl,-all_load", staticLib,
                 "-Wl,-no_implicit_dylibs"
             )
         }
