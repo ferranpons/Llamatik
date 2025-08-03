@@ -4,4 +4,3 @@ interface Debug {
     val isDebug: Boolean
 }
 
-expect fun getDebug(): Debug
