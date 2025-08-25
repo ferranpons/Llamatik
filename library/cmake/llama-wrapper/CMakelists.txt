@@ -1,12 +1,14 @@
 cmake_minimum_required(VERSION 3.18)
-project(llama_kmp_bridge)
+project(llama_kmp_bridge CXX)
 
-# Ensure llama.cpp is present
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp/CMakeLists.txt")
-    message(FATAL_ERROR "llama.cpp not found at expected path.")
+# ---- iOS defaults (only if not passed in by Gradle) -------------------------
+# Gradle already sends CMAKE_OSX_SYSROOT and ARCH; we add a sane default min OS.
+if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    # Keep this in sync with your Gradle "-mios-*-version-min" (see below)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "17.2" CACHE STRING "Min iOS version" FORCE)
 endif()
 
-# Threads for iOS
+# ---- Threading (iOS needs explicit PThreads settings) -----------------------
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
@@ -14,51 +16,89 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(CMAKE_USE_WIN32_THREADS_INIT 0)
     set(CMAKE_USE_PTHREADS_INIT 1)
 endif()
-
 find_package(Threads REQUIRED)
 
-# Add llama.cpp as a subproject
+# ---- Point to llama.cpp -----------------------------------------------------
+# layout: this file is at library/cmake/llama-wrapper/CMakeLists.txt
+# llama.cpp is at library/../../llama.cpp relative to THIS CMakeLists
 set(LLAMA_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp")
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static llama.a" FORCE)
+
+# Build llama.cpp as static libs (no shared)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build llama as static library" FORCE)
+
+# Add llama.cpp's CMake (builds targets: ggml, ggml-blas, ggml-metal, llama, etc.)
 add_subdirectory(${LLAMA_CPP_DIR} llama-local-build EXCLUDE_FROM_ALL)
 
-# Build your wrapper
+# ---- Your wrapper -----------------------------------------------------------
 add_library(llama_static_wrapper STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_embed.cpp
 )
 
-target_link_libraries(llama_static_wrapper
-        PRIVATE llama
-        Threads::Threads
-)
-
 target_include_directories(llama_static_wrapper PUBLIC
         ${LLAMA_CPP_DIR}
-        ${LLAMA_CPP_DIR}/ggml/include
-        ${LLAMA_CPP_DIR}/ggml
         ${LLAMA_CPP_DIR}/src
+        ${LLAMA_CPP_DIR}/ggml
+        ${LLAMA_CPP_DIR}/ggml/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/c_interop/include
 )
 
+# Prefer standard <filesystem> in your source; avoid <__filesystem/...>
 target_compile_features(llama_static_wrapper PUBLIC cxx_std_17)
-target_compile_definitions(llama_static_wrapper PRIVATE GGML_STATIC GGML_NO_ACCELERATE)
 
-# Write llama.a to a known path (optional but useful)
-set_target_properties(llama PROPERTIES
-        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/llama-local-build/src"
-        OUTPUT_NAME "llama"
+# If you want Accelerate/MPS/Metal, do NOT hard-disable it with GGML_NO_ACCELERATE.
+# Remove the next line unless you specifically want to forbid Accelerate.
+# target_compile_definitions(llama_static_wrapper PRIVATE GGML_NO_ACCELERATE)
+
+# We still link the wrapper "PRIVATE" to llama (for compile defs/includes),
+# but archives do NOT absorb transitive libs. We'll merge archives below.
+target_link_libraries(llama_static_wrapper
+        PRIVATE
+        llama
+        Threads::Threads
 )
 
-# Make sure llama_static_wrapper archive is placed predictably
+# Make sure the wrapper .a lands in the CMake binary dir
 set_target_properties(llama_static_wrapper PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        OUTPUT_NAME llama_static
+        OUTPUT_NAME "llama_static"
 )
 
-# Post-build: merge llama.a object files into wrapper's static lib
-add_custom_command(TARGET llama_static_wrapper POST_BUILD
-        COMMAND ${CMAKE_AR} -x $<TARGET_FILE:llama>
-        COMMAND ${CMAKE_AR} rcs $<TARGET_FILE:llama_static_wrapper> *.o
-        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/llama-local-build/src"
-        COMMENT "Merging libllama.a into libllama_static.a"
+# ---- Merge everything into ONE archive (libllama_merged.a) ------------------
+# This tidies up the Kotlin/Native linker step: just -force_load ONE .a
+
+# Collect the actual archive paths produced by subtargets
+set(WRAPPER_LIB      $<TARGET_FILE:llama_static_wrapper>)
+set(LLAMA_LIB        $<TARGET_FILE:llama>)
+set(GGML_LIB         $<TARGET_FILE:ggml>)
+
+# These may or may not exist depending on your llama.cpp options; guard them:
+set(EXTRA_LIBS)
+if(TARGET ggml-blas)
+    list(APPEND EXTRA_LIBS $<TARGET_FILE:ggml-blas>)
+endif()
+if(TARGET ggml-metal)
+    list(APPEND EXTRA_LIBS $<TARGET_FILE:ggml-metal>)
+endif()
+
+set(MERGED_LIB "${CMAKE_BINARY_DIR}/libllama_merged.a")
+
+add_custom_command(
+        OUTPUT ${MERGED_LIB}
+        COMMAND libtool -static -o ${MERGED_LIB}
+        ${WRAPPER_LIB}
+        ${LLAMA_LIB}
+        ${GGML_LIB}
+        ${EXTRA_LIBS}
+        DEPENDS
+        llama_static_wrapper
+        llama
+        ggml
+        ${EXTRA_LIBS}
+        VERBATIM
 )
+
+# Build the merged lib by default
+add_custom_target(llama_merged ALL DEPENDS ${MERGED_LIB})
+
+# Expose a cache var so Gradle can reference the merged path if needed
+set(LLAMATIK_MERGED_LIB ${MERGED_LIB} CACHE FILEPATH "Path to merged llama archive")

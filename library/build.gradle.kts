@@ -9,7 +9,41 @@ plugins {
 group = "com.llamatik.library"
 version = "0.4.0"
 
+// Choose ONE min iOS version and use it everywhere
+val minIos = "16.6"
+
 kotlin {
+    // Helper to find an executable reliably
+    fun findTool(name: String, extraCandidates: List<String> = emptyList()): String {
+        // 1) env override
+        System.getenv("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
+
+        // 2) common locations
+        val candidates = mutableListOf(
+            "/opt/homebrew/bin/$name",   // Apple Silicon Homebrew
+            "/usr/local/bin/$name",      // Intel Homebrew or manual install
+            "/usr/bin/$name"             // system (libtool lives here)
+        )
+        candidates.addAll(extraCandidates)
+
+        // 3) PATH lookup via `which`
+        try {
+            val out = providers.exec { commandLine("which", name) }
+                .standardOutput.asText.get().trim()
+            if (out.isNotEmpty() && file(out).canExecute()) return out
+        } catch (_: Throwable) {}
+
+        // 4) fallbacks
+        for (p in candidates) if (file(p).canExecute()) return p
+
+        throw GradleException("Cannot find required tool '$name'. " +
+                "Install it (e.g. 'brew install $name') or set ${name.uppercase()}_PATH=/full/path/to/$name")
+    }
+
+    // Resolve tools once
+    val cmakePath = findTool("cmake")
+    val libtoolPath = findTool("libtool") // should be /usr/bin/libtool on macOS
+
     androidTarget()
     jvm()
     iosX64()
@@ -25,8 +59,9 @@ kotlin {
         }
     }
 
+    // ✅ Fix: iosX64 must use the iPhoneSimulator SDK (not MacOSX)
     listOf(
-        Triple(iosX64(), "x86_64", "MacOSX"),
+        Triple(iosX64(), "x86_64", "iPhoneSimulator"),
         Triple(iosArm64(), "arm64", "iPhoneOS"),
         Triple(iosSimulatorArm64(), "arm64", "iPhoneSimulator")
     ).forEach { (arch, archName, sdkName) ->
@@ -38,10 +73,10 @@ kotlin {
                 val sourceDir = projectDir.resolve("cmake/llama-wrapper")
                 val buildDir = cmakeBuildDir
 
-                val sdk = when {
-                    sdkName == "MacOSX" -> "macosx"
-                    sdkName.contains("Simulator") -> "iphonesimulator"
-                    else -> "iphoneos"
+                val sdk = when (sdkName) {
+                    "iPhoneSimulator" -> "iphonesimulator"
+                    "iPhoneOS" -> "iphoneos"
+                    else -> "macosx"
                 }
 
                 val sdkPathProvider = providers.exec {
@@ -51,18 +86,22 @@ kotlin {
                 val systemName = if (sdk == "macosx") "Darwin" else "iOS"
                 cmakeBuildDir.mkdirs()
 
+                environment("PATH", "/opt/homebrew/bin:" + System.getenv("PATH"))
+
                 commandLine = listOf(
-                    "cmake",
+                    cmakePath,
                     "-S", sourceDir.absolutePath,
                     "-B", buildDir.absolutePath,
                     "-DCMAKE_SYSTEM_NAME=$systemName",
                     "-DCMAKE_OSX_ARCHITECTURES=$archName",
                     "-DCMAKE_OSX_SYSROOT=${sdkPathProvider.get()}",
+                    "-DCMAKE_OSX_DEPLOYMENT_TARGET=$minIos",
                     "-DCMAKE_INSTALL_PREFIX=${buildDir.resolve("install")}",
                     "-DCMAKE_IOS_INSTALL_COMBINED=NO",
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
                     "-DGGML_OPENMP=OFF",
+                    //"-DGGML_BLAS=OFF",
                     "-DLLAMA_CURL=OFF"
                 )
             }
@@ -70,17 +109,32 @@ kotlin {
 
         val compileTask = tasks.register("compileLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
             dependsOn(buildTaskName)
-            commandLine = listOf("cmake", "--build", cmakeBuildDir.absolutePath, "--target", "llama_static_wrapper", "--verbose")
+            environment("PATH", "/opt/homebrew/bin:" + System.getenv("PATH"))
+            commandLine = listOf(cmakePath, "--build", cmakeBuildDir.absolutePath, "--target", "llama_static_wrapper", "--verbose")
+        }
+
+        val libPath = cmakeBuildDir.absolutePath
+        val mergeTask = tasks.register("mergeLlamaStatic${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
+            dependsOn(compileTask)
+            commandLine(
+                libtoolPath, "-static",
+                "-o", "$libPath/libllama_merged.a",
+                "$libPath/libllama_static.a",
+                "$libPath/llama-local-build/src/libllama.a",
+                "$libPath/llama-local-build/ggml/src/libggml.a",
+                "$libPath/llama-local-build/ggml/src/ggml-blas/libggml-blas.a",
+                "$libPath/llama-local-build/ggml/src/ggml-metal/libggml-metal.a"
+            )
         }
 
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
-            dependsOn(compileTask)
+            dependsOn(mergeTask)
         }
 
         arch.compilations.getByName("main").cinterops {
             create("llama") {
                 val defFileName = if (sdkName.contains("Simulator"))
-                    "llama_ios_${archName}_simulator.def"
+                    "llama_ios_simulator.def"
                 else
                     "llama_ios_${archName}.def"
 
@@ -93,18 +147,18 @@ kotlin {
             }
         }
 
-        // Required linkerOpts for final framework binary (not inherited from .def!)
-        val libPath = cmakeBuildDir.absolutePath
-        println("Lib path: $libPath")
-        val staticLib = "$libPath/libllama_static.a"
-        println("Static lib: $staticLib")
+        // Final framework linking: force-load the merged archive and add Apple frameworks
+        val merged = "$libPath/libllama_merged.a"
         arch.binaries.getFramework("DEBUG").apply {
             baseName = "llamatik"
             isStatic = true
             linkerOpts(
                 "-L$libPath",
-                //"-Wl,-all_load", staticLib,
-                "-Wl,-no_implicit_dylibs"
+                "-Wl,-force_load", merged,
+                "-framework", "Accelerate",
+                "-framework", "Metal",
+                "-Wl,-no_implicit_dylibs",
+                if (sdkName.contains("Simulator")) "-mios-simulator-version-min=$minIos" else "-mios-version-min=$minIos"
             )
         }
         arch.binaries.getFramework("RELEASE").apply {
@@ -112,8 +166,11 @@ kotlin {
             isStatic = true
             linkerOpts(
                 "-L$libPath",
-                //"-Wl,-all_load", staticLib,
-                "-Wl,-no_implicit_dylibs"
+                "-Wl,-force_load", merged,
+                "-framework", "Accelerate",
+                "-framework", "Metal",
+                "-Wl,-no_implicit_dylibs",
+                if (sdkName.contains("Simulator")) "-mios-simulator-version-min=$minIos" else "-mios-version-min=$minIos"
             )
         }
     }
@@ -151,6 +208,7 @@ android {
     kotlin {
         jvmToolchain(21)
     }
+    // If you’re not building JNI libs, you can comment these out
     sourceSets["main"].jniLibs.srcDirs("src/commonMain/jniLibs")
     externalNativeBuild {
         cmake {
