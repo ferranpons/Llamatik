@@ -12,8 +12,6 @@
 
 ---
 
-## *WARNING*: THIS LIBRARY IS IN EARLY STAGE OF DEVELOPMENT, SOME THINGS MAY CHANGE
-
 ## 🚀 Features
 
 - ✅ Kotlin Multiplatform: shared code across Android, iOS, and desktop
@@ -73,7 +71,7 @@ dependencyResolutionManagement {
 
 ```Kotlin
 commonMain.dependencies {
-    implementation("com.llamatik.library:llamatik:0.4.0")
+    implementation("com.llamatik.library:llamatik:0.5.0")
 }
 ```
 

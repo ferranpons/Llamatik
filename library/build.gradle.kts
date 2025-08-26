@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.llamatik.library"
-version = "0.4.0"
+version = "0.5.0"
 
 // Choose ONE min iOS version and use it everywhere
 val minIos = "16.6"
@@ -221,7 +221,7 @@ publishing {
             from(components["kotlin"])
             groupId = "com.llamatik.library"
             artifactId = "llamatik"
-            version = "0.4.0"
+            version = "0.5.0"
         }
     }
 
