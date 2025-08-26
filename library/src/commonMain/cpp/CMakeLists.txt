@@ -8,6 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8.7-a")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8.7-a")
 
+if(ANDROID)
+    add_link_options("-Wl,-z,max-page-size=16384")
+endif()
+
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--section-start=.note.gnu.build-id=0x4000 -Wl,--no-rosegment")
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/../../../../llama.cpp/" "${CMAKE_BINARY_DIR}/llama")
