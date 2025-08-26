@@ -59,7 +59,6 @@ kotlin {
         }
     }
 
-    // ✅ Fix: iosX64 must use the iPhoneSimulator SDK (not MacOSX)
     listOf(
         Triple(iosX64(), "x86_64", "iPhoneSimulator"),
         Triple(iosArm64(), "arm64", "iPhoneOS"),
@@ -101,7 +100,6 @@ kotlin {
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
                     "-DGGML_OPENMP=OFF",
-                    //"-DGGML_BLAS=OFF",
                     "-DLLAMA_CURL=OFF"
                 )
             }
