@@ -63,7 +63,7 @@ class ChatBotTabScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val localization = getCurrentLocalization()
         val embedFilePath = getModelPath(modelFileName = "nomic_embed_text_v1_5_Q4_0.gguf")
-        val generatorFilePath = getModelPath(modelFileName = "phi-1_5.Q2_K.gguf")
+        val generatorFilePath = getModelPath(modelFileName = "gemma_3_270m_Q8_0.gguf")
         val isLoading = remember { mutableStateOf(false) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(

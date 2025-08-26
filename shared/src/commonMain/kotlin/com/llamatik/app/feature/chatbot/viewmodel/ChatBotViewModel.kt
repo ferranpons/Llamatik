@@ -69,8 +69,7 @@ class ChatBotViewModel(
                         val prompt = buildPrompt(message, searchResults.map { it.first.text })
                         val responseText = LlamaBridge.generate(prompt) // Add generate() in JNI
 
-                        //val contextString = searchResults.joinToString("\n---\n") { it.first.text }
-                        if (responseText.isNullOrEmpty()) {
+                        if (responseText.isEmpty()) {
                             val botResponse =
                                 ChatUiModel.Message(
                                     "There is a problem with the AI",

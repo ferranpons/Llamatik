@@ -197,11 +197,17 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         ndk {
             abiFilters.add("arm64-v8a")
+            abiFilters.add("x86_64")
         }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
     kotlin {
         jvmToolchain(21)

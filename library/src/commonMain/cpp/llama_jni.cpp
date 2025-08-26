@@ -59,11 +59,14 @@ JNIEXPORT jstring
 JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, jstring input) {
     const char *prompt = env->GetStringUTFChars(input, nullptr);
+    __android_log_print(ANDROID_LOG_DEBUG, "LlamaBridge", "Generate Prompt: %s", prompt);
     char *response = llama_generate(prompt);
+    __android_log_print(ANDROID_LOG_DEBUG, "LlamaBridge", "Generate Response: %s", response);
     env->ReleaseStringUTFChars(input, prompt);
     if (!response) return nullptr;
 
     jstring result = env->NewStringUTF(response);
+    __android_log_print(ANDROID_LOG_DEBUG, "LlamaBridge", "Generate Result: %p", result);
     llama_generate_free();
     return result;
 }
