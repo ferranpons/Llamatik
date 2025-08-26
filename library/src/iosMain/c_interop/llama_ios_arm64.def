@@ -1,0 +1,13 @@
+headers = llama_embed.h
+headerFilter = llama_embed.h
+compilerOpts = -I../llama.cpp -I../llama.cpp/ggml -I../llama.cpp/ggml/include -Isrc/iosMain/c_interop/include
+linkerOpts = -Llibrary/build/llama-cmake/iPhoneOS/iosArm64 \
+             -force_load library/build/llama-cmake/iPhoneOS/iosArm64/libllama_static.a \
+             -force_load library/build/llama-cmake/iPhoneOS/iosArm64/llama-local-build/src/libllama.a \
+             -force_load library/build/llama-cmake/iPhoneOS/iosArm64/llama-local-build/ggml/src/libggml.a \
+             -force_load library/build/llama-cmake/iPhoneOS/iosArm64/llama-local-build/ggml/src/libggml-base.a \
+             -force_load library/build/llama-cmake/iPhoneOS/iosArm64/llama-local-build/ggml/src/libggml-cpu.a \
+             -force_load library/build/llama-cmake/iPhoneOS/iosArm64/llama-local-build/ggml/src/ggml-blas/libggml-blas.a \
+             -force_load library/build/llama-cmake/iPhoneOS/iosArm64/llama-local-build/ggml/src/ggml-metal/libggml-metal.a \
+             -framework Accelerate -framework Metal -lc++ -ObjC
+package = com.llamatik.library.platform.llama

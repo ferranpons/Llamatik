@@ -1,5 +1,3 @@
-import java.io.ByteArrayOutputStream
-
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.compose.compiler)
@@ -11,7 +9,41 @@ plugins {
 group = "com.llamatik.library"
 version = "0.4.0"
 
+// Choose ONE min iOS version and use it everywhere
+val minIos = "16.6"
+
 kotlin {
+    // Helper to find an executable reliably
+    fun findTool(name: String, extraCandidates: List<String> = emptyList()): String {
+        // 1) env override
+        System.getenv("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
+
+        // 2) common locations
+        val candidates = mutableListOf(
+            "/opt/homebrew/bin/$name",   // Apple Silicon Homebrew
+            "/usr/local/bin/$name",      // Intel Homebrew or manual install
+            "/usr/bin/$name"             // system (libtool lives here)
+        )
+        candidates.addAll(extraCandidates)
+
+        // 3) PATH lookup via `which`
+        try {
+            val out = providers.exec { commandLine("which", name) }
+                .standardOutput.asText.get().trim()
+            if (out.isNotEmpty() && file(out).canExecute()) return out
+        } catch (_: Throwable) {}
+
+        // 4) fallbacks
+        for (p in candidates) if (file(p).canExecute()) return p
+
+        throw GradleException("Cannot find required tool '$name'. " +
+                "Install it (e.g. 'brew install $name') or set ${name.uppercase()}_PATH=/full/path/to/$name")
+    }
+
+    // Resolve tools once
+    val cmakePath = findTool("cmake")
+    val libtoolPath = findTool("libtool") // should be /usr/bin/libtool on macOS
+
     androidTarget()
     jvm()
     iosX64()
@@ -23,90 +55,121 @@ kotlin {
             baseName = "llamatik"
             isStatic = true
             linkerOpts("-Wl,-no_implicit_dylibs")
+            freeCompilerArgs += listOf("-Xbinary=bundleId=com.llamatik.library")
         }
     }
 
     listOf(
-        Triple(iosX64(), "x86_64", "MacOSX"),
+        Triple(iosX64(), "x86_64", "iPhoneSimulator"),
         Triple(iosArm64(), "arm64", "iPhoneOS"),
         Triple(iosSimulatorArm64(), "arm64", "iPhoneSimulator")
     ).forEach { (arch, archName, sdkName) ->
-        val outputDir = buildDir.resolve("llama/$sdkName/")
-        val outputOCompiledFile = outputDir.resolve("llama_embed${arch.name.replaceFirstChar { it.uppercase() }}.o").absolutePath
-        val outputACompiledFile = outputDir.resolve("libllama_embed${arch.name.replaceFirstChar { it.uppercase() }}.a").absolutePath
-        val compileTaskName = "compileLlamaCpp${arch.name.replaceFirstChar { it.uppercase() }}"
-        val archiveTaskName = "archiveLlamaCpp${arch.name.replaceFirstChar { it.uppercase() }}"
+        val cmakeBuildDir = buildDir.resolve("llama-cmake/$sdkName/${arch.name}")
+        val buildTaskName = "buildLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}"
 
-        tasks.register(compileTaskName, Exec::class) {
-            outputs.dir(outputDir)
+        tasks.register(buildTaskName, Exec::class) {
             doFirst {
-                val command = "xcrun --sdk ${sdkName.lowercase()} --show-sdk-path"
-                val outputStream = ByteArrayOutputStream()
-                ProcessBuilder(*command.split(" ").toTypedArray())
-                    .redirectErrorStream(true)
-                    .start()
-                    .apply { inputStream.copyTo(outputStream) }
-                    .waitFor()
-                val sdkPath = outputStream.toString().trim()
-                val sdkVersion = 15.6
-                val target = if (sdkName.contains("Simulator"))
-                    "$archName-apple-ios${sdkVersion}-simulator"
-                else
-                    "$archName-apple-ios${sdkVersion}"
-                commandLine(
-                    "clang++", "-c", "-stdlib=libc++", "-std=c++17", "-O3", "-fPIC",
-                    "-I../llama.cpp",
-                    "-I../llama.cpp/include",
-                    "-I../llama.cpp/src",
-                    "-I../llama.cpp/ggml",
-                    "-I../llama.cpp/ggml/include",
-                    "-Isrc/commonMain/c_interop/include",
-                    "-DINCLUDE_EXTRA_CMAKELISTS=ON",
+                val sourceDir = projectDir.resolve("cmake/llama-wrapper")
+                val buildDir = cmakeBuildDir
+
+                val sdk = when (sdkName) {
+                    "iPhoneSimulator" -> "iphonesimulator"
+                    "iPhoneOS" -> "iphoneos"
+                    else -> "macosx"
+                }
+
+                val sdkPathProvider = providers.exec {
+                    commandLine("xcrun", "--sdk", sdk, "--show-sdk-path")
+                }.standardOutput.asText.map { it.trim() }
+
+                val systemName = if (sdk == "macosx") "Darwin" else "iOS"
+                cmakeBuildDir.mkdirs()
+
+                environment("PATH", "/opt/homebrew/bin:" + System.getenv("PATH"))
+
+                commandLine = listOf(
+                    cmakePath,
+                    "-S", sourceDir.absolutePath,
+                    "-B", buildDir.absolutePath,
+                    "-DCMAKE_SYSTEM_NAME=$systemName",
+                    "-DCMAKE_OSX_ARCHITECTURES=$archName",
+                    "-DCMAKE_OSX_SYSROOT=${sdkPathProvider.get()}",
+                    "-DCMAKE_OSX_DEPLOYMENT_TARGET=$minIos",
+                    "-DCMAKE_INSTALL_PREFIX=${buildDir.resolve("install")}",
+                    "-DCMAKE_IOS_INSTALL_COMBINED=NO",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
                     "-DGGML_OPENMP=OFF",
-                    "-DGGML_LLAMAFILE=OFF",
-                    "-target", target,
-                    "-isysroot", sdkPath,
-                    "-o", outputOCompiledFile,
-                    "src/commonMain/cpp/llama_embed_ios.cpp"
+                    "-DLLAMA_CURL=OFF"
                 )
             }
         }
 
-        tasks.register(archiveTaskName, Exec::class) {
-            dependsOn(compileTaskName)
-            inputs.file(outputOCompiledFile)
-            outputs.file(outputACompiledFile)
-            commandLine("ar", "rcs", outputACompiledFile, outputOCompiledFile)
+        val compileTask = tasks.register("compileLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
+            dependsOn(buildTaskName)
+            environment("PATH", "/opt/homebrew/bin:" + System.getenv("PATH"))
+            commandLine = listOf(cmakePath, "--build", cmakeBuildDir.absolutePath, "--target", "llama_static_wrapper", "--verbose")
+        }
+
+        val libPath = cmakeBuildDir.absolutePath
+        val mergeTask = tasks.register("mergeLlamaStatic${arch.name.replaceFirstChar { it.uppercase() }}", Exec::class) {
+            dependsOn(compileTask)
+            commandLine(
+                libtoolPath, "-static",
+                "-o", "$libPath/libllama_merged.a",
+                "$libPath/libllama_static.a",
+                "$libPath/llama-local-build/src/libllama.a",
+                "$libPath/llama-local-build/ggml/src/libggml.a",
+                "$libPath/llama-local-build/ggml/src/ggml-blas/libggml-blas.a",
+                "$libPath/llama-local-build/ggml/src/ggml-metal/libggml-metal.a"
+            )
         }
 
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
-            dependsOn(compileTaskName)
-            dependsOn(archiveTaskName)
+            dependsOn(mergeTask)
         }
 
         arch.compilations.getByName("main").cinterops {
             create("llama") {
                 val defFileName = if (sdkName.contains("Simulator"))
-                    "llama_ios_${archName}_simulator.def"
+                    "llama_ios_simulator.def"
                 else
                     "llama_ios_${archName}.def"
 
-                defFile("src/commonMain/c_interop/$defFileName")
-                packageName("com.llamatik.app.platform.llama")
-                includeDirs(
-                    "src/commonMain/c_interop/include",
-                    "src/commonMain/cpp/",
-                    "llama.cpp/ggml",
-                    "llama.cpp/ggml/include",
-                    "llama.cpp",
-                    "llama.cpp/include"
-                )
-
+                defFile("src/iosMain/c_interop/$defFileName")
+                packageName("com.llamatik.library.platform.llama")
+                compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
                 tasks.named(interopProcessingTaskName).configure {
-                    dependsOn(compileTaskName)
-                    dependsOn(archiveTaskName)
+                    dependsOn(compileTask)
                 }
             }
+        }
+
+        // Final framework linking: force-load the merged archive and add Apple frameworks
+        val merged = "$libPath/libllama_merged.a"
+        arch.binaries.getFramework("DEBUG").apply {
+            baseName = "llamatik"
+            isStatic = true
+            linkerOpts(
+                "-L$libPath",
+                "-Wl,-force_load", merged,
+                "-framework", "Accelerate",
+                "-framework", "Metal",
+                "-Wl,-no_implicit_dylibs",
+                if (sdkName.contains("Simulator")) "-mios-simulator-version-min=$minIos" else "-mios-version-min=$minIos"
+            )
+        }
+        arch.binaries.getFramework("RELEASE").apply {
+            baseName = "llamatik"
+            isStatic = true
+            linkerOpts(
+                "-L$libPath",
+                "-Wl,-force_load", merged,
+                "-framework", "Accelerate",
+                "-framework", "Metal",
+                "-Wl,-no_implicit_dylibs",
+                if (sdkName.contains("Simulator")) "-mios-simulator-version-min=$minIos" else "-mios-version-min=$minIos"
+            )
         }
     }
 
@@ -124,18 +187,6 @@ kotlin {
             }
         }
         val androidMain by getting
-        val iosMain by creating {
-            dependsOn(commonMain)
-            iosX64Main.dependencies {
-                dependsOn(this@creating)
-            }
-            iosArm64Main.dependencies {
-                dependsOn(this@creating)
-            }
-            iosSimulatorArm64Main.dependencies {
-                dependsOn(this@creating)
-            }
-        }
     }
 }
 
@@ -155,6 +206,7 @@ android {
     kotlin {
         jvmToolchain(21)
     }
+    // If you’re not building JNI libs, you can comment these out
     sourceSets["main"].jniLibs.srcDirs("src/commonMain/jniLibs")
     externalNativeBuild {
         cmake {

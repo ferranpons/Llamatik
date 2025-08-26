@@ -2,10 +2,10 @@
 
 package com.llamatik.library.platform
 
-import com.llamatik.app.platform.llama.llama_embed
-import com.llamatik.app.platform.llama.llama_embed_init
-import com.llamatik.app.platform.llama.llama_embedding_size
-import com.llamatik.app.platform.llama.llama_free_embedding
+import com.llamatik.library.platform.llama.llama_embed
+import com.llamatik.library.platform.llama.llama_embed_init
+import com.llamatik.library.platform.llama.llama_embedding_size
+import com.llamatik.library.platform.llama.llama_free_embedding
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.get
 
