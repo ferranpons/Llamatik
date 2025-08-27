@@ -1,4 +1,3 @@
-#include "llama_embed.h"
 #include "llama_jni.h" // from prebuilt llama.cpp
 #include "llama.h"
 
