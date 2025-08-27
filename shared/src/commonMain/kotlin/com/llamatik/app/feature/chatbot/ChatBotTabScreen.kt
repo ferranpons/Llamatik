@@ -119,7 +119,9 @@ class ChatBotTabScreen : Screen {
                     isLoading.value = true
                 }
 
-                ChatBotSideEffects.OnNoResults -> {}
+                ChatBotSideEffects.OnNoResults -> {
+                    isLoading.value = false
+                }
             }
         }
     }
