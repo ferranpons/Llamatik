@@ -257,17 +257,31 @@ char *llama_generate(const char *prompt) {
         return nullptr;
     }
 
-    // ---- Sampler ----
+    // ---- Sampler chain (fixed order & params) ----
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.7f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.9f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
     if (!sampler) {
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Failed to create sampler.");
         llama_batch_free(batch);
         return nullptr;
     }
+
+    // Repetition / frequency / presence penalties first
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(
+            /*penalty_last_n=*/128,
+            /*penalty_repeat=*/1.15f,
+            /*penalty_freq=*/0.0f,
+            /*penalty_present=*/0.10f
+    ));
+
+    // Top-k then top-p
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.90f, /*min_keep*/ 1));
+
+    // Temperature near the end
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.70f));
+
+    // RNG source last
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     std::vector<llama_token> output_tokens;
     const int max_new_tokens = 256;
@@ -291,7 +305,7 @@ char *llama_generate(const char *prompt) {
         llama_sampler_accept(sampler, token);
         output_tokens.push_back(token);
 
-        // Avoid context overrun; simple guard (rare with 2k context + small max_new_tokens)
+        // Avoid context overrun
         if (cur_pos >= n_ctx) {
             __android_log_print(ANDROID_LOG_WARN, "llama_jni", "Reached context limit at pos=%d (n_ctx=%d).", cur_pos, n_ctx);
             break;
@@ -299,7 +313,7 @@ char *llama_generate(const char *prompt) {
 
         // feed back one token
         llama_batch gen_batch = llama_batch_init(1, 0, 1);
-        gen_batch.n_tokens     = 1;          // IMPORTANT: set batch length!
+        gen_batch.n_tokens     = 1;
         gen_batch.token[0]     = token;
         gen_batch.pos[0]       = cur_pos++;
         gen_batch.n_seq_id[0]  = 1;

@@ -4,8 +4,9 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.llamatik.app.feature.chatbot.ChatbotOnboardingScreen
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
-import com.llamatik.app.feature.chatbot.utils.findTopKRelevantDocumentsDebug
 import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
+import com.llamatik.app.feature.chatbot.utils.retrieveContext
+import com.llamatik.app.feature.chatbot.utils.tidyAnswer
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
@@ -22,21 +23,29 @@ import kotlinx.coroutines.withContext
 
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 
+/**
+ * ChatBotViewModel
+ *
+ * Changes:
+ * 1) generateWithContext(system, **context**, **question**)  ← fixed arg order
+ * 2) Hard cap context (~480 chars) to stay under bridge's ~600-char limit
+ * 3) Lightweight keyword relevance gate; if not relevant => fallback
+ */
 class ChatBotViewModel(
     private val rootNavigatorRepository: RootNavigatorRepository,
     private val settings: Settings
 ) : ScreenModel {
+
     private val _state = MutableStateFlow(ChatBotState())
     val state = _state.asStateFlow()
+
     private val _sideEffects = Channel<ChatBotSideEffects>()
     val sideEffects: Flow<ChatBotSideEffects> = _sideEffects.receiveAsFlow()
+
     private var vectorStore: VectorStoreData? = null
 
-    private val _conversation = MutableStateFlow(
-        emptyList<ChatUiModel.Message>()
-    )
-    val conversation: StateFlow<List<ChatUiModel.Message>>
-        get() = _conversation
+    private val _conversation = MutableStateFlow(emptyList<ChatUiModel.Message>())
+    val conversation: StateFlow<List<ChatUiModel.Message>> get() = _conversation
 
     init {
         val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
@@ -54,57 +63,118 @@ class ChatBotViewModel(
     }
 
     fun onMessageSend(message: String) {
-        if (message.isNotBlank()) {
-            screenModelScope.launch {
-                val myChat = ChatUiModel.Message(message, ChatUiModel.Author.me)
-                _conversation.value += myChat
-                _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
+        if (message.isBlank()) return
 
-                withContext(Dispatchers.IO) {
-                    val vectorToEmbed = LlamaBridge.embed(message)
-                    vectorStore?.let { store ->
-                        val searchResults =
-                            findTopKRelevantDocumentsDebug(vectorToEmbed.toList(), store, 5)
+        screenModelScope.launch {
+            val myChat = ChatUiModel.Message(message, ChatUiModel.Author.me)
+            _conversation.value += myChat
+            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
 
-                        val prompt = buildPrompt(message, searchResults.map { it.first.text })
-                        val responseText = LlamaBridge.generate(prompt) // Add generate() in JNI
+            withContext(Dispatchers.IO) {
+                val qVec = LlamaBridge.embed(message).toList()
 
-                        if (responseText.isEmpty()) {
-                            val botResponse =
-                                ChatUiModel.Message(
-                                    "There is a problem with the AI",
-                                    ChatUiModel.Author.bot
-                                )
-                            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                            _conversation.value += botResponse
-                        } else {
-                            responseText.let { response ->
-                                val botResponse =
-                                    ChatUiModel.Message(response, ChatUiModel.Author.bot)
-                                _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                _conversation.value += botResponse
-                            }
-                        }
-                    }
+                val store = vectorStore
+                if (store == null) {
+                    emitBot("There is a problem with the AI")
+                    return@withContext
                 }
+
+                // Retrieve top chunks
+                val topItems = retrieveContext(
+                    queryVector = qVec,
+                    questionText = message,
+                    vectorStore = store,
+                    poolSize = 80,
+                    topContext = 3
+                )
+
+                if (topItems.isEmpty()) {
+                    emitBot("I don't have enough information in my sources.")
+                    _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
+                    return@withContext
+                }
+
+                // Build a compact, relevant context (<= ~480 chars for a 600-char total cap)
+                val rawContext = topItems.joinToString("\n") { it.text }
+                val compact = buildCompactContext(rawContext, message, hardLimit = 480)
+
+                // Relevance gate: if very low lexical overlap, bail out
+                if (!isLikelyRelevant(compact, message)) {
+                    emitBot("I don't have enough information in my sources.")
+                    _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
+                    return@withContext
+                }
+
+                val systemPrompt =
+                    "Answer ONLY from the provided context. If insufficient, reply exactly: \"I don't have enough information in my sources.\""
+
+                // IMPORTANT: bridge expects (system, context, question)
+                val responseText = try {
+                    LlamaBridge.generateWithContext(
+                        systemPrompt,
+                        compact,              // context (goes under CONTEXT:)
+                        message.trim()        // user question (goes under USER:)
+                    )
+                } catch (t: Throwable) {
+                    t.printStackTrace()
+                    null
+                }
+
+                val finalText = if (responseText.isNullOrBlank()) {
+                    "There is a problem with the AI"
+                } else {
+                    tidyAnswer(responseText)
+                }
+
+                emitBot(finalText)
+                _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
             }
         }
     }
 
-    fun buildPrompt(question: String, contextChunks: List<String>): String {
-        val context = contextChunks.joinToString("\n- ") { it }
-        return """
-        Instruction: $question
-        Context: 
-        - $context
-        Response:
-    """.trimIndent()
+    private suspend fun emitBot(text: String) {
+        _conversation.value += ChatUiModel.Message(text, ChatUiModel.Author.bot)
+    }
+
+    /** Keep context short and focused on the user’s words */
+    private fun buildCompactContext(source: String, question: String, hardLimit: Int): String {
+        val qTokens = question.lowercase()
+            .split(Regex("[^a-z0-9]+"))
+            .filter { it.length >= 3 }
+            .toSet()
+
+        // Split into sentences; keep those that share tokens with the question
+        val sentences = source
+            .replace("\\s+".toRegex(), " ")
+            .split(Regex("(?<=[.!?])\\s+"))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+        val hits = sentences.filter { s ->
+            val lower = s.lowercase()
+            qTokens.any { lower.contains(it) }
+        }
+
+        val chosen = (if (hits.isNotEmpty()) hits else sentences.take(3))
+            .joinToString(" ")
+
+        // Final guard: trim to hardLimit
+        return if (chosen.length <= hardLimit) chosen else chosen.take(hardLimit)
+    }
+
+    /** Quick lexical overlap check to avoid obvious hallucinations */
+    private fun isLikelyRelevant(context: String, question: String): Boolean {
+        val qTokens = question.lowercase()
+            .split(Regex("[^a-z0-9]+"))
+            .filter { it.length >= 3 }
+            .toSet()
+        val ctx = context.lowercase()
+        val hits = qTokens.count { ctx.contains(it) }
+        return hits >= 2 // tweak threshold as needed
     }
 
     fun onClearConversation() {
-        screenModelScope.launch {
-            _conversation.emit(emptyList())
-        }
+        screenModelScope.launch { _conversation.emit(emptyList()) }
     }
 
     fun onShowPrivacyScreen() {
@@ -125,8 +195,7 @@ data class ChatUiModel(
         val text: String,
         val author: Author,
     ) {
-        val isFromMe: Boolean
-            get() = author.id == MY_ID
+        val isFromMe: Boolean get() = author.id == MY_ID
     }
 
     data class Author(
@@ -145,9 +214,7 @@ data class ChatUiModel(
     }
 }
 
-data class ChatBotState(
-    val isPrivacyMessageDisplayed: Boolean = false
-)
+data class ChatBotState(val isPrivacyMessageDisplayed: Boolean = false)
 
 sealed class ChatBotSideEffects {
     data object Initial : ChatBotSideEffects()
@@ -157,5 +224,3 @@ sealed class ChatBotSideEffects {
     data object OnNoResults : ChatBotSideEffects()
     data object OnLoadError : ChatBotSideEffects()
 }
-
-

@@ -11,4 +11,5 @@ expect object LlamaBridge {
     fun embed(input: String): FloatArray
     fun initGenerateModel(modelPath: String): Boolean
     fun generate(prompt: String): String
+    fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
 }
