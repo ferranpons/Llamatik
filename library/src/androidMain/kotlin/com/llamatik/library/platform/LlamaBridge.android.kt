@@ -32,4 +32,5 @@ actual object LlamaBridge {
     actual external fun initGenerateModel(modelPath: String): Boolean
     actual external fun generate(prompt: String): String
     actual external fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
+    actual external fun shutdown()
 }

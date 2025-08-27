@@ -12,4 +12,5 @@ expect object LlamaBridge {
     fun initGenerateModel(modelPath: String): Boolean
     fun generate(prompt: String): String
     fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
+    fun shutdown()
 }

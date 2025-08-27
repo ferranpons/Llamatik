@@ -6,6 +6,9 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <cstring>   // std::strlen
+#include <cctype>    // std::tolower
+#include <cstdlib>   // std::free
 
 // Log tags
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "LlamaBridge", __VA_ARGS__)
@@ -24,10 +27,12 @@ static inline std::string to_lower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return (char)std::tolower(c); });
     return s;
 }
+static inline bool starts_with(const std::string &s, const char *pfx) {
+    const size_t n = std::strlen(pfx);
+    return s.size() >= n && std::memcmp(s.data(), pfx, n) == 0;
+}
 
-// ---------- Output sanitization ----------
-// Remove stray headers, clip on stops, prefer content after assistant header,
-// and if the model echoed the user block (CONTEXT/QUESTION), extract answer or fall back.
+// ---------- Output sanitization (conservative) ----------
 static std::string sanitize_generation(std::string s) {
     if (s.empty()) return s;
 
@@ -38,8 +43,11 @@ static std::string sanitize_generation(std::string s) {
         if (p != std::string::npos) { s = s.substr(0, p); break; }
     }
 
-    // Prefer content after assistant header if present
-    const char* asst_headers[] = {"<start_of_turn>model", "<|start_header_id|>assistant<|end_header_id|>"};
+    // Prefer content after assistant header if present (keep conservative)
+    const char* asst_headers[] = {
+            "<start_of_turn>model",
+            "<|start_header_id|>assistant<|end_header_id|>"
+    };
     for (const char* ah : asst_headers) {
         size_t p = s.rfind(ah);
         if (p != std::string::npos) {
@@ -49,7 +57,7 @@ static std::string sanitize_generation(std::string s) {
         }
     }
 
-    // Drop any leading user/system headers that slipped in
+    // If the whole thing begins with noisy user/system headers, trim only at the very start
     const char* noisy_prefixes[] = {
             "<start_of_turn>user", "<start_of_turn>system",
             "<|start_header_id|>user<|end_header_id|>",
@@ -59,7 +67,7 @@ static std::string sanitize_generation(std::string s) {
     while (stripped) {
         stripped = false;
         for (const char* pr : noisy_prefixes) {
-            if (s.compare(0, std::strlen(pr), pr) == 0) {
+            if (starts_with(s, pr)) {
                 size_t nl = s.find('\n');
                 s = (nl != std::string::npos) ? s.substr(nl + 1) : std::string();
                 stripped = true;
@@ -67,44 +75,10 @@ static std::string sanitize_generation(std::string s) {
         }
     }
 
-    // If the model echoed the user block, try to extract answer after "QUESTION:"
-    // e.g. "CONTEXT:\n...\n\nQUESTION:\n<answer>"
-    std::string low = to_lower(s);
-    size_t qpos = low.find("question:");
-    if (qpos != std::string::npos) {
-        size_t nl = s.find('\n', qpos);
-        if (nl != std::string::npos) {
-            s = s.substr(nl + 1);
-        } else {
-            s = s.substr(qpos + std::string("question:").size());
-        }
-    }
-
-    // Remove any residual explicit markers from the echo
-    const char* residuals[] = {"CONTEXT:", "Context:", "QUESTION:", "Question:", "<end_of_turn>user"};
-    for (const char* r : residuals) {
-        // If the whole thing is just the residuals+echoed text, strip lines starting with them
-        size_t start = 0;
-        while (true) {
-            size_t line_start = s.find(r, start);
-            if (line_start == std::string::npos) break;
-            // only strip if at line start
-            size_t prev_nl = (line_start == 0) ? 0 : s.rfind('\n', line_start - 1);
-            if (line_start == 0 || (prev_nl != std::string::npos && prev_nl + 1 == line_start)) {
-                size_t next_nl = s.find('\n', line_start);
-                if (next_nl == std::string::npos) {
-                    s.erase(line_start);
-                } else {
-                    s.erase(line_start, next_nl - line_start + 1);
-                }
-                start = 0; // restart scan after mutation
-            } else {
-                start = line_start + 1;
-            }
-        }
-    }
-
+    // Final tidy
     s = trim(s);
+
+    // If it's still basically empty or just repeated headers, leave as-is; outer layer will decide fallback.
     return s;
 }
 
@@ -137,8 +111,10 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_initModel(JNIEnv *env, jobject, jstring modelPath) {
     const char *path = env->GetStringUTFChars(modelPath, nullptr);
+    LOGI("initModel (embed): %s", path ? path : "(null)");
     bool success = llama_embed_init(path);
     env->ReleaseStringUTFChars(modelPath, path);
+    LOGI("initModel (embed) -> %s", success ? "ok" : "FAIL");
     return success ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -147,22 +123,22 @@ JNIEXPORT jfloatArray JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstring input) {
     const char *inputStr = env->GetStringUTFChars(input, nullptr);
     if (!inputStr) { LOGE("embed: inputStr is null"); return nullptr; }
+    LOGD("embed() text (first 256 chars): %.256s", inputStr);
+
     float *vec = llama_embed(inputStr);
-    LOGD("Vector: %p", vec);
-    if (!vec) { LOGE("embed: llama_embed returned null"); env->ReleaseStringUTFChars(input, inputStr); return nullptr; }
-    LOGD("Input: %s", inputStr);
     env->ReleaseStringUTFChars(input, inputStr);
 
+    if (!vec) { LOGE("embed: llama_embed returned null"); return nullptr; }
+
     int size = llama_embedding_size();
-    LOGD("Size: %d", size);
     if (size <= 0) { LOGE("embed: invalid embedding size %d", size); llama_free_embedding(vec); return nullptr; }
 
     jfloatArray result = env->NewFloatArray(size);
-    LOGD("Result: %p", result);
     if (!result) { LOGE("embed: failed to allocate jfloatArray"); llama_free_embedding(vec); return nullptr; }
 
     env->SetFloatArrayRegion(result, 0, size, vec);
     llama_free_embedding(vec);
+    LOGD("embed() -> %d dims", size);
     return result;
 }
 
@@ -174,8 +150,10 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jobject, jstring modelPath) {
     const char *path = env->GetStringUTFChars(modelPath, nullptr);
+    LOGI("initGenerateModel: %s", path ? path : "(null)");
     bool success = llama_generate_init(path);
     env->ReleaseStringUTFChars(modelPath, path);
+    LOGI("initGenerateModel -> %s", success ? "ok" : "FAIL");
     return success ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -184,29 +162,24 @@ JNIEXPORT jstring JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, jstring input) {
     const char *prompt = env->GetStringUTFChars(input, nullptr);
     if (!prompt) { LOGE("generate: prompt is null"); return nullptr; }
-    const int max_log = 600;
-    size_t plen = strlen(prompt);
-    LOGD("Generate Prompt (<=%d chars): %.*s", max_log, (int)std::min(plen, (size_t)max_log), prompt);
+
+    const int max_log = 900;
+    size_t plen = std::strlen(prompt);
+    LOGD("Generate() prompt (<=%d chars): %.*s", max_log, (int)std::min(plen, (size_t)max_log), prompt);
 
     char *raw = llama_generate(prompt);
     env->ReleaseStringUTFChars(input, prompt);
+
     if (!raw) { LOGE("generate: llama_generate returned null"); return nullptr; }
 
     std::string out = sanitize_generation(raw);
-    llama_generate_free();
+    std::free(raw);                 // <<< DO NOT tear down the model here
+    // llama_generate_free();       // <<< removed (keeps model loaded between turns)
 
     const std::string fallback = "I don't have enough information in my sources.";
-    // If it still looks like an echo or is empty/very short, fall back.
-    std::string low = to_lower(out);
-    if (out.empty() ||
-            low.find("context:") == 0 ||
-            low.find("<start_of_turn>") != std::string::npos ||
-            low.find("<end_of_turn>user") != std::string::npos) {
-        out = fallback;
-    }
-    if (to_lower(out).find(to_lower(fallback)) != std::string::npos) out = fallback;
+    if (trim(out).empty()) out = fallback;
 
-    LOGD("Generate Cleaned: %s", out.c_str());
+    LOGD("Generate() cleaned: %.400s", out.c_str());
     return env->NewStringUTF(out.c_str());
 }
 
@@ -232,7 +205,6 @@ Java_com_llamatik_library_platform_LlamaBridge_generateWithContext(
     if (jContext) env->ReleaseStringUTFChars(jContext, pctx);
     if (jUser)    env->ReleaseStringUTFChars(jUser,    pusr);
 
-    // Strong, single source of truth for RAG behavior:
     std::string strict_system =
             (trim(system).empty()
                     ? "You are a careful assistant. Answer ONLY from the provided context. "
@@ -245,28 +217,21 @@ Java_com_llamatik_library_platform_LlamaBridge_generateWithContext(
     std::string user_turn = build_user_with_context(ctx, user);
     std::string prompt = build_chat_prompt_gemma(strict_system, user_turn);
 
-    const int max_log = 600;
-    LOGD("Generate Prompt (<=%d chars): %.*s",
+    LOGD("GenerateWithContext() ctx_len=%d, user_len=%d", (int)ctx.size(), (int)user.size());
+    const int max_log = 900;
+    LOGD("GWC prompt (<=%d chars): %.*s",
             max_log, (int)std::min(prompt.size(), (size_t)max_log), prompt.c_str());
 
     char *raw = llama_generate(prompt.c_str());
     if (!raw) { LOGE("generateWithContext: llama_generate returned null"); return nullptr; }
 
     std::string out = sanitize_generation(raw);
-    llama_generate_free();
+    std::free(raw);                 // <<< keep model loaded
+    // llama_generate_free();       // <<< removed
 
     const std::string fallback = "I don't have enough information in my sources.";
+    if (trim(out).empty()) out = fallback;
 
-    // If the model still echoed user content or left only headers, fall back.
-    std::string low = to_lower(out);
-    if (out.empty() ||
-            low.find("context:") == 0 ||
-            low.find("<start_of_turn>") != std::string::npos ||
-            low.find("<end_of_turn>user") != std::string::npos) {
-        out = fallback;
-    }
-    if (low.find(to_lower(fallback)) != std::string::npos) out = fallback;
-
-    LOGD("GenerateWithContext Cleaned: %s", out.c_str());
+    LOGD("GenerateWithContext() cleaned: %.400s", out.c_str());
     return env->NewStringUTF(out.c_str());
 }

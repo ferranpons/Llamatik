@@ -74,7 +74,9 @@ class ChatBotTabScreen : Screen {
 
         DisposableEffect(key) {
             viewModel.onStarted(embedFilePath, generatorFilePath)
-            onDispose {}
+            onDispose {
+                viewModel.onDispose()
+            }
         }
 
         val state by viewModel.state.collectAsState()

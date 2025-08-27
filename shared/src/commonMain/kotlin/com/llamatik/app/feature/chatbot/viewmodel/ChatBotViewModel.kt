@@ -2,6 +2,7 @@ package com.llamatik.app.feature.chatbot.viewmodel
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.ChatbotOnboardingScreen
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
 import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
@@ -26,10 +27,10 @@ private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 /**
  * ChatBotViewModel
  *
- * Changes:
- * 1) generateWithContext(system, **context**, **question**)  ← fixed arg order
- * 2) Hard cap context (~480 chars) to stay under bridge's ~600-char limit
- * 3) Lightweight keyword relevance gate; if not relevant => fallback
+ * Fixes:
+ * - Do NOT free the generation model after each call (fixed in JNI).
+ * - Keep context a bit larger; conservative lexical gate.
+ * - Extra debug logs around retrieval and prompt build.
  */
 class ChatBotViewModel(
     private val rootNavigatorRepository: RootNavigatorRepository,
@@ -62,6 +63,10 @@ class ChatBotViewModel(
         }
     }
 
+    override fun onDispose() {
+        LlamaBridge.shutdown()
+    }
+
     fun onMessageSend(message: String) {
         if (message.isBlank()) return
 
@@ -71,63 +76,68 @@ class ChatBotViewModel(
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
 
             withContext(Dispatchers.IO) {
-                val qVec = LlamaBridge.embed(message).toList()
+                try {
+                    val qVec = LlamaBridge.embed(message).toList()
+                    val store = vectorStore
+                    if (store == null) {
+                        emitBot("There is a problem with the AI")
+                        return@withContext
+                    }
 
-                val store = vectorStore
-                if (store == null) {
-                    emitBot("There is a problem with the AI")
-                    return@withContext
-                }
-
-                // Retrieve top chunks
-                val topItems = retrieveContext(
-                    queryVector = qVec,
-                    questionText = message,
-                    vectorStore = store,
-                    poolSize = 80,
-                    topContext = 3
-                )
-
-                if (topItems.isEmpty()) {
-                    emitBot("I don't have enough information in my sources.")
-                    _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
-                    return@withContext
-                }
-
-                // Build a compact, relevant context (<= ~480 chars for a 600-char total cap)
-                val rawContext = topItems.joinToString("\n") { it.text }
-                val compact = buildCompactContext(rawContext, message, hardLimit = 480)
-
-                // Relevance gate: if very low lexical overlap, bail out
-                if (!isLikelyRelevant(compact, message)) {
-                    emitBot("I don't have enough information in my sources.")
-                    _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
-                    return@withContext
-                }
-
-                val systemPrompt =
-                    "Answer ONLY from the provided context. If insufficient, reply exactly: \"I don't have enough information in my sources.\""
-
-                // IMPORTANT: bridge expects (system, context, question)
-                val responseText = try {
-                    LlamaBridge.generateWithContext(
-                        systemPrompt,
-                        compact,              // context (goes under CONTEXT:)
-                        message.trim()        // user question (goes under USER:)
+                    // Retrieve top chunks
+                    val topItems = retrieveContext(
+                        queryVector = qVec,
+                        questionText = message,
+                        vectorStore = store,
+                        poolSize = 80,
+                        topContext = 3
                     )
+
+                    Logger.d("LlamaVM - retrieveContext -> ${topItems.size} items")
+                    if (topItems.isEmpty()) {
+                        emitBot("I don't have enough information in my sources.")
+                        _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
+                        return@withContext
+                    }
+
+                    // Build a compact, relevant context
+                    val rawContext = topItems.joinToString("\n") { it.text }
+                    val compact = buildCompactContext(rawContext, message, hardLimit = 1200)
+                    Logger.d("LlamaVM - Context length=${compact.length}")
+
+                    if (!isLikelyRelevant(compact, message)) {
+                        emitBot("I don't have enough information in my sources.")
+                        _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
+                        return@withContext
+                    }
+
+                    val systemPrompt =
+                        "Answer ONLY from the provided context. If insufficient, reply exactly: \"I don't have enough information in my sources.\""
+
+                    val responseText = try {
+                        LlamaBridge.generateWithContext(
+                            systemPrompt,
+                            compact,
+                            message.trim()
+                        )
+                    } catch (t: Throwable) {
+                        t.printStackTrace()
+                        null
+                    }
+
+                    val finalText = if (responseText.isNullOrBlank()) {
+                        "There is a problem with the AI"
+                    } else {
+                        tidyAnswer(responseText)
+                    }
+
+                    emitBot(finalText)
+                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                 } catch (t: Throwable) {
                     t.printStackTrace()
-                    null
+                    emitBot("There is a problem with the AI")
+                    _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                 }
-
-                val finalText = if (responseText.isNullOrBlank()) {
-                    "There is a problem with the AI"
-                } else {
-                    tidyAnswer(responseText)
-                }
-
-                emitBot(finalText)
-                _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
             }
         }
     }
@@ -143,7 +153,6 @@ class ChatBotViewModel(
             .filter { it.length >= 3 }
             .toSet()
 
-        // Split into sentences; keep those that share tokens with the question
         val sentences = source
             .replace("\\s+".toRegex(), " ")
             .split(Regex("(?<=[.!?])\\s+"))
@@ -155,11 +164,11 @@ class ChatBotViewModel(
             qTokens.any { lower.contains(it) }
         }
 
-        val chosen = (if (hits.isNotEmpty()) hits else sentences.take(3))
+        val chosen = (if (hits.isNotEmpty()) hits else sentences.take(6))
             .joinToString(" ")
 
-        // Final guard: trim to hardLimit
-        return if (chosen.length <= hardLimit) chosen else chosen.take(hardLimit)
+        val clipped = if (chosen.length <= hardLimit) chosen else chosen.take(hardLimit)
+        return clipped
     }
 
     /** Quick lexical overlap check to avoid obvious hallucinations */
@@ -170,7 +179,8 @@ class ChatBotViewModel(
             .toSet()
         val ctx = context.lowercase()
         val hits = qTokens.count { ctx.contains(it) }
-        return hits >= 2 // tweak threshold as needed
+        Logger.d("LlamaVM - relevance hits=$hits tokens=${qTokens.size}")
+        return hits >= 2
     }
 
     fun onClearConversation() {
