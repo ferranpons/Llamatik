@@ -43,5 +43,6 @@ xcuserdata
 vector_store_export_general.json
 nomic_embed_text_v1_5_Q4_0.gguf
 phi-1_5.Q2_K.gguf
+gemma_3_270m_Q8_0.gguf
 
 iosApp/iosApp/GoogleService-Info.plist

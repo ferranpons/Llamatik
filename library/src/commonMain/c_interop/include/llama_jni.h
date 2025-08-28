@@ -9,6 +9,7 @@ void llama_free_embedding(float *embedding);
 bool llama_generate_init(const char *model_path);
 char *llama_generate(const char *prompt);
 void llama_generate_free();
+void llama_free_cstr(char *p);
 
 #ifdef __cplusplus
 }

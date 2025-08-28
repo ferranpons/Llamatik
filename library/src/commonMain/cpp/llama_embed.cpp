@@ -1,380 +1,352 @@
-#include "llama_embed.h"
 #include "llama_jni.h" // from prebuilt llama.cpp
 #include "llama.h"
 
 #include <cstring>
 #include <cstdlib>
 #include <vector>
+#include <string>
 #include <android/log.h>
-#include <__filesystem/operations.h>
+#include <filesystem>
 
-static struct llama_model *model = nullptr;
-static struct llama_context *ctx = nullptr;
-static int embedding_size = 0;
+static struct llama_model  *model     = nullptr;
+static struct llama_context*ctx       = nullptr;
+static int embedding_size             = 0;
 
 // Generation model state
-static struct llama_model *gen_model = nullptr;
-static struct llama_context *gen_ctx = nullptr;
+static struct llama_model  *gen_model = nullptr;
+static struct llama_context*gen_ctx   = nullptr;
+
+// Track whether backend was initialized
+static bool g_backend_inited = false;
+
+static int tokenize_with_retry(const llama_vocab *vocab,
+        const char *text,
+        std::vector<llama_token> &tokens,
+        bool add_bos,
+        bool parse_special) {
+    if (!text) return 0;
+    const int text_len = (int) std::strlen(text);
+    int n = llama_tokenize(vocab, text, text_len,
+            tokens.data(),
+            (int) tokens.size(),
+            add_bos, parse_special);
+    if (n < 0) {
+        const int need = -n;
+        if (need > 0) {
+            tokens.resize(need);
+            n = llama_tokenize(vocab, text, text_len,
+                    tokens.data(),
+                    (int) tokens.size(),
+                    add_bos, parse_special);
+        }
+    }
+    return n;
+}
+
+static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int reserve_tail) {
+    if ((int)tokens.size() <= n_ctx - reserve_tail) return;
+    const int keep = n_ctx - reserve_tail;
+    // keep tail (system+user are at the end), drop head
+    std::vector<llama_token> out;
+    out.reserve(keep);
+    out.insert(out.end(), tokens.end() - keep, tokens.end());
+    tokens.swap(out);
+}
+
+extern "C" {
+
+// ================= Embeddings =================
 
 bool llama_embed_init(const char *model_path) {
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Initializing llama...");
-    llama_backend_init();
-    //llama_numa_init(GGML_NUMA_STRATEGY_DISABLED);
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Initializing llama (embeddings)...");
+    if (!g_backend_inited) {
+        llama_backend_init();
+        g_backend_inited = true;
+    }
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Model loading...");
     llama_model_params model_params = llama_model_default_params();
-    //model_params.n_ctx = 512; // or your desired context size
-    //model_params.main_gpu = -1; // Disable GPU use
-    //model_params.n_gpu_layers = 0; // Disable GPU layers
-    //model_params.devices = nullptr; // Disable devices
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "File Path: %s", model_path);
+
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed file: %s", model_path);
     if (std::filesystem::exists(model_path)) {
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Model file exists: %s", model_path);
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Model file size: %ju",
-                std::filesystem::file_size(model_path));
+        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Exists, size: %ju",
+                (uintmax_t)std::filesystem::file_size(model_path));
     }
 
     model = llama_model_load_from_file(model_path, model_params);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Model file size: %s",
-            "Model finished loading.");
     if (!model) return false;
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Model loaded successfully.");
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Context creating...");
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = true;
+    ctx_params.n_ctx      = 2048;
 
     ctx = llama_init_from_model(model, ctx_params);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embeddings enabled: %d",
-            ctx_params.embeddings);
+    if (!ctx) {
+        llama_model_free(model);
+        model = nullptr;
+        return false;
+    }
 
-    if (!ctx) return false;
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Context created successfully.");
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed context created.");
 
     embedding_size = llama_model_n_embd(model);
-
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed dim: %d", embedding_size);
     return true;
 }
 
-/*
 float *llama_embed(const char *input) {
-    if (!ctx) return nullptr;
+    if (!ctx || !model || !input) return nullptr;
 
-    std::vector<llama_token> tokens(128);
-    auto embd_inp = ::llama_tokenize(llama_model_get_vocab(model), input, 128, tokens.data(),
-                                     tokens.size(), true, false);
+    std::vector<llama_token> tokens(1024);
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing for embeddings...");
 
-    //lama_eval(ctx, tokens.data(), n_tokens, 0, 1);
-
-    llama_batch batch = llama_batch_init(llama_n_ctx(ctx), 0, 1);
-    // prepare batch
-    {
-        batch.n_tokens = 128;
-        for (int i = 0; i < batch.n_tokens; i++) {
-            batch.token[i] = embd_inp;
-            batch.pos[i] = i;
-            batch.n_seq_id[i] = 1;
-            batch.seq_id[i][0] = 0;
-            batch.logits[i] = i == batch.n_tokens - 1;
-        }
-    }
-
-    llama_decode(ctx, batch);
-    const float *embedding = llama_get_embeddings(ctx);
-
-    //int dim = llama_n_embd(model);
-    auto *out = new float[embedding_size];
-    memcpy(out, embedding, sizeof(float) * embedding_size);
-    return out;
-}
-*/
-
-float *llama_embed(const char *input) {
-    if (!ctx || !model) return nullptr;
-
-    // Tokenize
-    std::vector <llama_token> tokens(512);
-
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing...");
-
-    int tokenSize = static_cast<int>(tokens.size());
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Token Vector Size: %du", tokenSize);
-
-    int n_tokens = ::llama_tokenize(
-            llama_model_get_vocab(model),            // llama_model *
-            input,            // input string
-            128,
-            tokens.data(),    // output token buffer
-            tokenSize,    // max number of tokens
-            true,             // add_bos
-            false             // allow special tokens
-    );
+    int n_tokens = tokenize_with_retry(
+            llama_model_get_vocab(model),
+            input,
+            tokens,
+            /*add_bos*/ true,
+            /*parse_special*/ false);
 
     if (n_tokens <= 0 || n_tokens > llama_n_ctx(ctx)) {
-        fprintf(stderr, "Tokenization failed or too many tokens\n");
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenization failed or too many tokens.");
+        __android_log_print(ANDROID_LOG_WARN, "llama_jni",
+                "Embedding tokenize fail/too long. n=%d ctx=%d", n_tokens, llama_n_ctx(ctx));
         return nullptr;
     }
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenization successful.");
     tokens.resize(n_tokens);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokens size: %d", n_tokens);
 
-    // Create batch
     llama_batch batch = llama_batch_init(n_tokens, 0, 1);
     batch.n_tokens = n_tokens;
     for (int i = 0; i < n_tokens; i++) {
-        batch.token[i] = tokens[i];
-        batch.pos[i] = i;
-        batch.n_seq_id[i] = 1;
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
         batch.seq_id[i][0] = 0;
-        batch.logits[i] = false;
+        batch.logits[i]    = false;
     }
 
-    // Decode
     if (llama_decode(ctx, batch) != 0) {
-        fprintf(stderr, "llama_decode failed\n");
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_decode failed.");
+        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_decode() for embeddings failed");
         llama_batch_free(batch);
         return nullptr;
     }
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_decode successful.");
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Context Embeddings: %f", llama_get_embeddings(ctx));
-
-    int dim = llama_model_n_embd(model);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Model Embedding Size: %d", dim);
-
-    // Get embedding
     const float *embedding = llama_get_embeddings_seq(ctx, 0);
     if (!embedding) {
-        fprintf(stderr, "llama_get_embeddings returned null\n");
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_get_embeddings returned null.");
+        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_get_embeddings_seq returned null");
         llama_batch_free(batch);
         return nullptr;
     }
 
-    auto *out = new float[dim];
-    memcpy(out, embedding, sizeof(float) * dim);
+    const int dim = llama_model_n_embd(model);
+    float *out = (float *) std::malloc(sizeof(float) * (size_t)dim);
+    if (!out) {
+        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "malloc failed for embedding");
+        llama_batch_free(batch);
+        return nullptr;
+    }
+    std::memcpy(out, embedding, sizeof(float) * (size_t)dim);
 
     llama_batch_free(batch);
     return out;
 }
 
-int llama_embedding_size() {
-    return llama_model_n_embd(model);
-}
-
-void llama_free_embedding(float *ptr) {
-    if (ptr) free(ptr);
-}
+int llama_embedding_size() { return llama_model_n_embd(model); }
+void llama_free_embedding(float *ptr) { if (ptr) std::free(ptr); }
 
 void llama_embed_free() {
-    if (ctx) llama_free(ctx);
+    if (ctx)   llama_free(ctx);
     if (model) llama_model_free(model);
-    llama_backend_free();
+    ctx   = nullptr;
+    model = nullptr;
+
+    if (!gen_ctx && !gen_model && g_backend_inited) {
+        llama_backend_free();
+        g_backend_inited = false;
+    }
 }
 
+// ================= Text Generation =================
+
 bool llama_generate_init(const char *model_path) {
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_generate_init starts");
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_generate_init...");
+    if (!g_backend_inited) {
+        llama_backend_init();
+        g_backend_inited = true;
+    }
+
     llama_model_params model_params = llama_model_default_params();
     gen_model = llama_model_load_from_file(model_path, model_params);
     if (!gen_model) return false;
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generate model loaded from file successfully.");
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Gen model loaded.");
 
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.embeddings = false; // not needed for generation
+    ctx_params.embeddings = false;
+    ctx_params.n_ctx      = 4096;
 
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generate context created successfully.");
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generate context: %p", gen_ctx);
-    return gen_ctx != nullptr;
+    if (!gen_ctx) {
+        llama_model_free(gen_model);
+        gen_model = nullptr;
+        return false;
+    }
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Gen context created.");
+    return true;
 }
 
 char *llama_generate(const char *prompt) {
-    if (!gen_ctx || !gen_model) return nullptr;
+    if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
-    // Tokenize the prompt
-    int max_prompt_tokens = 512;
-    std::vector <llama_token> tokens(max_prompt_tokens);
+    llama_kv_self_clear(gen_ctx);
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Cleared KV cache for new generation turn");
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing Generator...");
+    std::vector<llama_token> tokens(2048);
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing (gen)...");
 
-    int tokenSize = static_cast<int>(tokens.size());
-    int n_tokens = ::llama_tokenize(
+    int n_tokens = tokenize_with_retry(
             llama_model_get_vocab(gen_model),
             prompt,
-            max_prompt_tokens,
-            tokens.data(),
-            tokenSize,
-            true,  // add_bos
-            false  // no special tokens
-    );
+            tokens,
+            /*add_bos*/ true,
+            /*parse_special*/ true);  // allow Gemma chat special tokens
 
-    if (n_tokens <= 0 || n_tokens > llama_n_ctx(gen_ctx)) {
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenization failed or too many tokens.");
+    if (n_tokens <= 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Tokenization failed. n=%d", n_tokens);
         return nullptr;
     }
-
     tokens.resize(n_tokens);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenization successful. Tokens: %d", n_tokens);
 
-    // Prepare prompt evaluation batch
-    llama_batch batch = llama_batch_init(n_tokens, 0, 1);
-    batch.n_tokens = n_tokens;
-    for (int i = 0; i < n_tokens; ++i) {
-        batch.token[i] = tokens[i];
-        batch.pos[i] = i;
-        batch.n_seq_id[i] = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i] = false;  // only last token produces logits
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Token[%d] = %d", i, tokens[i]);
+    const unsigned int n_ctx = llama_n_ctx(gen_ctx);
+    if (n_tokens > n_ctx - 8) {
+        __android_log_print(ANDROID_LOG_WARN, "llama_jni",
+                "Prompt too long (%d) for ctx (%d). Truncating tail-keep.", n_tokens, n_ctx);
+        truncate_to_ctx(tokens, n_ctx, 8);
     }
-    batch.logits[n_tokens - 1] = true;
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Calling llama_decode for prompt...");
+    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
+    batch.n_tokens = (int)tokens.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;       // start at 0 each turn
+        batch.n_seq_id[i]  = 1;
+        batch.seq_id[i][0] = 0;       // single sequence id = 0
+        batch.logits[i]    = (i == batch.n_tokens - 1);
+    }
+
     if (llama_decode(gen_ctx, batch) != 0) {
         llama_batch_free(batch);
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_decode failed on prompt.");
+        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_decode failed on prompt.");
         return nullptr;
     }
 
-    const float *logits = llama_get_logits(gen_ctx);
-    if (!logits) {
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Logits are NULL even after decode.");
-        return nullptr;
-    }
-
-    // Create sampler
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Calling llama_sampler_chain_init...");
-    llama_sampler_chain_params samplerChainDefaultParams = llama_sampler_chain_default_params();
-    llama_sampler *sampler = llama_sampler_chain_init(samplerChainDefaultParams);
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.9f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.7f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-
+    // Sampler
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
+        llama_batch_free(batch);
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Failed to create sampler.");
         return nullptr;
     }
 
-    std::vector <llama_token> output_tokens;
-    int max_new_tokens = 256;
-    int cur_pos = n_tokens;
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    uint ctx_size = llama_n_ctx(gen_ctx);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Model context size: %d", ctx_size);
+    std::vector<llama_token> output_tokens;
+    const int max_new_tokens = 640;
+    int cur_pos = batch.n_tokens;
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Starting llama_sampler_sample...");
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generation loop start. n_ctx=%d", n_ctx);
+
     for (int i = 0; i < max_new_tokens; ++i) {
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Calling Sampler...");
-        int n_vocab = llama_vocab_n_tokens(llama_model_get_vocab(gen_model));
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "n_vocab: %d", n_vocab);
-        std::vector <llama_token_data> candidates(n_vocab);
+        llama_token token = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (token < 0) break;
+        if (token == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
 
-        for (int j = 0; j < n_vocab; ++j) {
-            candidates[j] = {j, logits[j], 0.0f};
-        }
-        llama_token_data_array cur_p = {candidates.data(), candidates.size(), false};
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "cur_p: %p", &cur_p);
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "cur_p.data: %p", cur_p.data);
-
-        if (cur_p.size == 0) {
-            __android_log_print(ANDROID_LOG_WARN, "llama_jni", "No candidates: breaking sampling loop at step %d", i);
-            break;
-        }
-
-        llama_sampler_apply(sampler, &cur_p);
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Starting llama_sampler_sample");
-
-        llama_token token;
-        int retries = 0;
-        do {
-            llama_sampler_apply(sampler, &cur_p);
-            token = llama_sampler_sample(sampler, gen_ctx, -1);
-            retries++;
-        } while ((token == 0 || token >= n_vocab) && retries < 5);
-
-        if (token <= 0 || token >= n_vocab) {
-            __android_log_print(ANDROID_LOG_WARN, "llama_jni", "Sampling failed after retries.");
-            break;
-        }
-
-        if (token == llama_vocab_eos(llama_model_get_vocab(gen_model))) {
-            __android_log_print(ANDROID_LOG_INFO, "llama_jni", "EOS token received. Ending generation.");
-            break;
+        // Early stop on chat EOT special tokens
+        {
+            char piece_buf[64];
+            int nn = llama_token_to_piece(
+                    llama_model_get_vocab(gen_model),
+                    token,
+                    piece_buf,
+                    (int)sizeof(piece_buf),
+                    /* lstrip = */ 0,
+                    /* special = */ 0);
+            if (nn > 0) {
+                if (nn >= (int)sizeof(piece_buf)) {
+                    piece_buf[sizeof(piece_buf) - 1] = '\0';
+                } else {
+                    piece_buf[nn] = '\0';
+                }
+                if (std::strcmp(piece_buf, "<end_of_turn>") == 0 ||
+                        std::strcmp(piece_buf, "<|eot_id|>") == 0) {
+                    break;
+                }
+            }
         }
 
         llama_sampler_accept(sampler, token);
-
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Finished llama_sampler_sample. Token: %d", i);
-        if (token == n_vocab) break;
         output_tokens.push_back(token);
 
-        // Feed token back
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Calling llama_batch_init...");
+        if (cur_pos >= n_ctx) break;
+
         llama_batch gen_batch = llama_batch_init(1, 0, 1);
+        gen_batch.n_tokens = 1;
         gen_batch.token[0] = token;
-        gen_batch.pos[0] = cur_pos++;
-        gen_batch.n_seq_id[0] = 1;
+        gen_batch.pos[0]   = cur_pos;
+        gen_batch.n_seq_id[0]  = 1;
         gen_batch.seq_id[0][0] = 0;
-        gen_batch.logits[0] = true;
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Finished llama_batch_init.");
+        gen_batch.logits[0]    = true;
 
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Calling llama_decode...");
         if (llama_decode(gen_ctx, gen_batch) != 0) {
-            llama_batch_free(gen_batch);
-            __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_decode failed during generation.");
-            break;
-        }
-
-        logits = llama_get_logits(gen_ctx);
-        if (!logits) {
-            __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Logits NULL after decode in loop.");
+            __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_decode failed in loop.");
             llama_batch_free(gen_batch);
             break;
         }
-
+        cur_pos++;
         llama_batch_free(gen_batch);
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Finished llama_decode.");
     }
 
     llama_batch_free(batch);
     llama_sampler_free(sampler);
 
-    // Convert tokens to text
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Converting tokens to text...");
     std::string output;
-    char buf[8 * 1024];
-    for (llama_token tok: output_tokens) {
+    char buf[8192];
+    for (llama_token tok : output_tokens) {
         int n = llama_token_to_piece(
                 llama_model_get_vocab(gen_model),
                 tok,
                 buf,
-                sizeof(buf),
-                sizeof(buf),
-                false
+                (int)sizeof(buf),
+                /* lstrip = */ 0,
+                /* special = */ false
         );
         if (n > 0) {
             output.append(buf, n);
         }
     }
 
-    // Final C string allocation
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Final C string allocation...");
-    char *result = (char *) malloc(output.size() + 1);
+    char *result = (char *) std::malloc(
+            output.size() + 1 /* null */);
     if (!result) {
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "malloc failed.");
+        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "malloc failed for result C string.");
         return nullptr;
     }
-    strcpy(result, output.c_str());
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Result: %s", result);
+    std::memcpy(result, output.c_str(), output.size() + 1);
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generation done. bytes=%zu", output.size());
     return result;
 }
 
 void llama_generate_free() {
-    if (gen_ctx) llama_free(gen_ctx);
+    if (gen_ctx)   llama_free(gen_ctx);
     if (gen_model) llama_model_free(gen_model);
-    gen_ctx = nullptr;
+    gen_ctx   = nullptr;
     gen_model = nullptr;
+
+    if (!ctx && !model && g_backend_inited) {
+        llama_backend_free();
+        g_backend_inited = false;
+    }
 }
+
+} // extern "C"
