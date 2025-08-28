@@ -26,7 +26,7 @@ private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 
 class ChatBotViewModel(
     private val rootNavigatorRepository: RootNavigatorRepository,
-    private val settings: Settings
+    private val settings: Settings,
 ) : ScreenModel {
 
     private val _state = MutableStateFlow(ChatBotState())
@@ -81,18 +81,13 @@ class ChatBotViewModel(
                         questionText = message,
                         vectorStore = store,
                         poolSize = 80,
-                        topContext = 3
+                        topContext = 4
                     )
 
                     Logger.d("LlamaVM - retrieveContext -> ${topItems.size} items")
-                    if (topItems.isEmpty()) {
-                        emitBot("I don't have enough information in my sources.")
-                        _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
-                        return@withContext
-                    }
 
                     val rawContext = topItems.joinToString("\n") { it.text }
-                    val compact = buildCompactContext(rawContext, message, hardLimit = 1200)
+                    val compact = buildCompactContext(rawContext, message, hardLimit = 1800)
                     Logger.d("LlamaVM - Context length=${compact.length}")
 
                     if (!isLikelyRelevant(compact, message)) {
@@ -116,10 +111,8 @@ class ChatBotViewModel(
                     }
 
                     val finalText = if (responseText.isNullOrBlank()) {
-                        "There is a problem with the AI"
-                    } else {
-                        tidyAnswer(responseText)
-                    }
+                        "I don't have enough information in my sources."
+                    } else tidyAnswer(responseText)
 
                     emitBot(finalText)
                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
@@ -150,7 +143,7 @@ class ChatBotViewModel(
 
         val hits = sentences.filter { s ->
             val lower = s.lowercase()
-            qTokens.any { lower.contains(it) }
+            qTokens.count { t -> lower.contains(t) } >= 1
         }
 
         val chosen = (if (hits.isNotEmpty()) hits else sentences.take(6))
