@@ -24,14 +24,6 @@ import kotlinx.coroutines.withContext
 
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 
-/**
- * ChatBotViewModel
- *
- * Fixes:
- * - Do NOT free the generation model after each call (fixed in JNI).
- * - Keep context a bit larger; conservative lexical gate.
- * - Extra debug logs around retrieval and prompt build.
- */
 class ChatBotViewModel(
     private val rootNavigatorRepository: RootNavigatorRepository,
     private val settings: Settings
@@ -84,7 +76,6 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    // Retrieve top chunks
                     val topItems = retrieveContext(
                         queryVector = qVec,
                         questionText = message,
@@ -100,7 +91,6 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    // Build a compact, relevant context
                     val rawContext = topItems.joinToString("\n") { it.text }
                     val compact = buildCompactContext(rawContext, message, hardLimit = 1200)
                     Logger.d("LlamaVM - Context length=${compact.length}")
@@ -111,8 +101,8 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    val systemPrompt =
-                        "Answer ONLY from the provided context. If insufficient, reply exactly: \"I don't have enough information in my sources.\""
+                    // Let JNI supply strict RAG rules to avoid echo
+                    val systemPrompt = ""
 
                     val responseText = try {
                         LlamaBridge.generateWithContext(
@@ -146,7 +136,6 @@ class ChatBotViewModel(
         _conversation.value += ChatUiModel.Message(text, ChatUiModel.Author.bot)
     }
 
-    /** Keep context short and focused on the user’s words */
     private fun buildCompactContext(source: String, question: String, hardLimit: Int): String {
         val qTokens = question.lowercase()
             .split(Regex("[^a-z0-9]+"))
@@ -171,7 +160,6 @@ class ChatBotViewModel(
         return clipped
     }
 
-    /** Quick lexical overlap check to avoid obvious hallucinations */
     private fun isLikelyRelevant(context: String, question: String): Boolean {
         val qTokens = question.lowercase()
             .split(Regex("[^a-z0-9]+"))

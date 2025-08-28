@@ -6,11 +6,11 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include <cstring>   // std::strlen
-#include <cctype>    // std::tolower
-#include <cstdlib>   // std::free
+#include <cstring>   // strlen
+#include <cctype>    // tolower, isalpha, isdigit
+#include <cstdlib>   // free
+#include <string_view>
 
-// Log tags
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "LlamaBridge", __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "LlamaBridge", __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  "LlamaBridge", __VA_ARGS__)
@@ -32,74 +32,172 @@ static inline bool starts_with(const std::string &s, const char *pfx) {
     return s.size() >= n && std::memcmp(s.data(), pfx, n) == 0;
 }
 
-// ---------- Output sanitization (conservative) ----------
+// ---------- Sanitizer (strong) ----------
+static void drop_lines_with_prefix(std::string &s, const char *prefix_lc) {
+    std::string out; out.reserve(s.size());
+    size_t i = 0, line_start = 0;
+    while (i <= s.size()) {
+        if (i == s.size() || s[i] == '\n') {
+            std::string_view line(s.data() + line_start, i - line_start);
+            std::string line_lc = to_lower(std::string(line));
+            if (!(line_lc.rfind(prefix_lc, 0) == 0)) {
+                out.append(s.data() + line_start, i - line_start);
+                if (i != s.size()) out.push_back('\n');
+            }
+            line_start = i + 1;
+        }
+        ++i;
+    }
+    s.swap(out);
+}
+
+// returns cleaned answer; fallback if too short or no alpha
 static std::string sanitize_generation(std::string s) {
     if (s.empty()) return s;
 
-    // Clip on common stop markers
-    const char* stops[] = {"<end_of_turn>", "<|eot_id|>", "</s>"};
-    for (const char* stop : stops) {
+    // 1) Remove known stop markers and any model/chat headers
+    for (const char* stop : { "<end_of_turn>", "<|eot_id|>", "</s>" }) {
         size_t p = s.find(stop);
-        if (p != std::string::npos) { s = s.substr(0, p); break; }
+        if (p != std::string::npos) { s = s.substr(0, p); }
+    }
+    drop_lines_with_prefix(s, "<start_of_turn>");
+    drop_lines_with_prefix(s, "<|start_header_id|>");
+    drop_lines_with_prefix(s, "<|end_header_id|>");
+
+    // 2) If the model echoed sections, cut them off
+    {
+        std::string sl = to_lower(s);
+        size_t qpos = sl.find("question:");
+        if (qpos != std::string::npos) s = s.substr(0, qpos);
+    }
+    {
+        std::string sl = to_lower(s);
+        size_t cpos = sl.find("context:");
+        if (cpos != std::string::npos) s = s.substr(0, cpos);
     }
 
-    // Prefer content after assistant header if present (keep conservative)
-    const char* asst_headers[] = {
-            "<start_of_turn>model",
-            "<|start_header_id|>assistant<|end_header_id|>"
-    };
-    for (const char* ah : asst_headers) {
-        size_t p = s.rfind(ah);
+    // 3) Prefer content after "ANSWER:" or "FINAL_ANSWER:"
+    auto slice_after_tag = [&](const char* tag) -> bool {
+        std::string low = to_lower(s);
+        std::string t = to_lower(std::string(tag));
+        size_t p = low.find(t);
         if (p != std::string::npos) {
-            size_t nl = s.find('\n', p);
-            s = (nl != std::string::npos) ? s.substr(nl + 1) : s.substr(p + std::strlen(ah));
-            break;
+            s = s.substr(p + std::strlen(tag));
+            s = trim(s);
+            return true;
         }
+        return false;
+    };
+    (void)(slice_after_tag("ANSWER:") || slice_after_tag("FINAL_ANSWER:"));
+
+    // 4) Trim and strip leading list markers / numbering / stray punctuation
+    s = trim(s);
+    auto strip_leading_noise = [](std::string &t) {
+        auto ltrim_str = [&](const char* prefix) -> bool {
+            size_t n = std::strlen(prefix);
+            if (t.size() >= n && std::memcmp(t.data(), prefix, n) == 0) {
+                t.erase(0, n);
+                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
+                return true;
+            }
+            return false;
+        };
+
+        bool changed = true;
+        while (changed) {
+            changed = false;
+
+            changed |= ltrim_str("• ");
+            changed |= ltrim_str("- ");
+            changed |= ltrim_str("* ");
+            changed |= ltrim_str("> ");
+            changed |= ltrim_str(u8"—");
+            changed |= ltrim_str(u8"–");
+
+            if (!t.empty() && (t[0] == ':' || t[0] == '-')) {
+                t.erase(0, 1);
+                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
+                changed = true;
+            }
+
+            if (t.size() >= 2 && std::isdigit(static_cast<unsigned char>(t[0])) &&
+                    (t[1] == '.' || t[1] == ')')) {
+                t.erase(0, 2);
+                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
+                changed = true;
+            } else if (t.size() >= 2 && std::isalpha(static_cast<unsigned char>(t[0])) &&
+                    (t[1] == '.' || t[1] == ')')) {
+                t.erase(0, 2);
+                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
+                changed = true;
+            }
+        }
+
+        size_t k = 0;
+        while (k < t.size() && !std::isalnum(static_cast<unsigned char>(t[k]))) ++k;
+        if (k > 0 && k < t.size()) t.erase(0, k);
+    };
+    strip_leading_noise(s);
+    s = trim(s);
+
+    // 5) If it's still basically empty or non-alpha (e.g., "4"), fallback
+    bool has_alpha = std::any_of(s.begin(), s.end(), [](unsigned char c){ return std::isalpha(c); });
+    if (!has_alpha || s.size() < 12) {
+        return "I don't have enough information in my sources.";
     }
 
-    // If the whole thing begins with noisy user/system headers, trim only at the very start
-    const char* noisy_prefixes[] = {
-            "<start_of_turn>user", "<start_of_turn>system",
-            "<|start_header_id|>user<|end_header_id|>",
-            "<|start_header_id|>system<|end_header_id|>"
-    };
-    bool stripped = true;
-    while (stripped) {
-        stripped = false;
-        for (const char* pr : noisy_prefixes) {
-            if (starts_with(s, pr)) {
-                size_t nl = s.find('\n');
-                s = (nl != std::string::npos) ? s.substr(nl + 1) : std::string();
-                stripped = true;
+    // 6) Remove any residual instruction echoes mid-string
+    {
+        std::string low = to_lower(s);
+        const char* fragments[] = {
+                "answer only from the provided context",
+                "do not repeat the context",
+                "respond exactly: \"i don't have enough information in my sources",
+                "instructions:",
+                "begin your answer",
+                "start your response",
+                "do not include anything else",
+                "reply with only the answer text"
+        };
+        for (const char* f : fragments) {
+            size_t p = low.find(f);
+            if (p != std::string::npos) {
+                s = trim(s.substr(0, p));
+                break;
             }
         }
     }
 
-    // Final tidy
-    s = trim(s);
-
-    // If it's still basically empty or just repeated headers, leave as-is; outer layer will decide fallback.
     return s;
 }
 
 // ---------- Chat templating ----------
-static std::string build_chat_prompt_gemma(const std::string &system_msg,
-        const std::string &user_msg) {
+static std::string build_user_with_context(const std::string &context_block,
+        const std::string &user_question) {
+    auto t = [](const std::string& x){ return trim(x); };
+    if (t(context_block).empty()) return "QUESTION:\n" + user_question;
     std::ostringstream oss;
-    oss << "<start_of_turn>system\n"
-        << (system_msg.empty() ? "You are a helpful assistant." : system_msg)
-        << "\n<end_of_turn>\n"
-        << "<start_of_turn>user\n" << user_msg << "\n<end_of_turn>\n"
-        // Anchor the model to answer, and not re-open a user turn.
-        << "<start_of_turn>model\n";
+    oss << "CONTEXT:\n" << context_block << "\n\nQUESTION:\n" << user_question;
     return oss.str();
 }
 
-static std::string build_user_with_context(const std::string &context_block,
-        const std::string &user_question) {
-    if (trim(context_block).empty()) return "QUESTION:\n" + user_question;
+static std::string build_chat_prompt_gemma(const std::string &system_msg,
+        const std::string &user_msg) {
     std::ostringstream oss;
-    oss << "CONTEXT:\n" << context_block << "\n\nQUESTION:\n" << user_question;
+    const std::string sys = (system_msg.empty()
+            ? "You are a careful assistant. Answer ONLY from the provided context. "
+              "If the context is insufficient, respond exactly: \"I don't have enough information in my sources.\" "
+              "Write 2–5 short sentences in plain text. Do not use bullets or numbering."
+            : system_msg + " Write 2–5 short sentences in plain text. Do not use bullets or numbering.");
+
+    oss << "<start_of_turn>system\n"
+        << sys
+        << "\n<end_of_turn>\n"
+        << "<start_of_turn>user\n"
+        << user_msg
+        << "\n<end_of_turn>\n"
+        << "<start_of_turn>model\n"
+        << "ANSWER: ";
     return oss.str();
 }
 
@@ -163,29 +261,16 @@ Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, js
     const char *prompt = env->GetStringUTFChars(input, nullptr);
     if (!prompt) { LOGE("generate: prompt is null"); return nullptr; }
 
-    const int max_log = 900;
-    size_t plen = std::strlen(prompt);
-    LOGD("Generate() prompt (<=%d chars): %.*s", max_log, (int)std::min(plen, (size_t)max_log), prompt);
-
     char *raw = llama_generate(prompt);
     env->ReleaseStringUTFChars(input, prompt);
 
     if (!raw) { LOGE("generate: llama_generate returned null"); return nullptr; }
 
     std::string out = sanitize_generation(raw);
-    std::free(raw);                 // <<< DO NOT tear down the model here
-    // llama_generate_free();       // <<< removed (keeps model loaded between turns)
+    std::free(raw);
 
-    const std::string fallback = "I don't have enough information in my sources.";
-    if (trim(out).empty()) out = fallback;
-
-    LOGD("Generate() cleaned: %.400s", out.c_str());
     return env->NewStringUTF(out.c_str());
 }
-
-// =======================================================
-// === Chat-style overload with strict RAG instructions ===
-// =======================================================
 
 extern "C"
 JNIEXPORT jstring JNICALL
@@ -205,33 +290,25 @@ Java_com_llamatik_library_platform_LlamaBridge_generateWithContext(
     if (jContext) env->ReleaseStringUTFChars(jContext, pctx);
     if (jUser)    env->ReleaseStringUTFChars(jUser,    pusr);
 
-    std::string strict_system =
-            (trim(system).empty()
-                    ? "You are a careful assistant. Answer ONLY from the provided context. "
-                      "If the context is insufficient, answer exactly: \"I don't have enough information in my sources.\" "
-                      "Do NOT repeat the context or any headers; provide only the answer."
-                    : system + "\n\nAnswer ONLY from the provided context. "
-                               "If the context is insufficient, answer exactly: \"I don't have enough information in my sources.\" "
-                               "Do NOT repeat the context or any headers; provide only the answer.");
+    if (trim(system).empty()) {
+        system = "You are a careful assistant. Answer ONLY from the provided context. "
+                 "If the context is insufficient, respond exactly: \"I don't have enough information in my sources.\" "
+                 "Write 2–5 short sentences in plain text. Do not use bullets or numbering.";
+    }
 
     std::string user_turn = build_user_with_context(ctx, user);
-    std::string prompt = build_chat_prompt_gemma(strict_system, user_turn);
-
-    LOGD("GenerateWithContext() ctx_len=%d, user_len=%d", (int)ctx.size(), (int)user.size());
-    const int max_log = 900;
-    LOGD("GWC prompt (<=%d chars): %.*s",
-            max_log, (int)std::min(prompt.size(), (size_t)max_log), prompt.c_str());
+    std::string prompt = build_chat_prompt_gemma(system, user_turn);
 
     char *raw = llama_generate(prompt.c_str());
     if (!raw) { LOGE("generateWithContext: llama_generate returned null"); return nullptr; }
 
     std::string out = sanitize_generation(raw);
-    std::free(raw);                 // <<< keep model loaded
-    // llama_generate_free();       // <<< removed
+    std::free(raw);
 
-    const std::string fallback = "I don't have enough information in my sources.";
-    if (trim(out).empty()) out = fallback;
-
-    LOGD("GenerateWithContext() cleaned: %.400s", out.c_str());
     return env->NewStringUTF(out.c_str());
+}
+
+extern "C"
+void llama_free_cstr(char *p) {
+    if (p) std::free(p);
 }
