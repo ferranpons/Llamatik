@@ -195,6 +195,9 @@ bool llama_generate_init(const char *model_path) {
 char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
+    llama_kv_self_clear(gen_ctx);
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Cleared KV cache for new generation turn");
+
     std::vector<llama_token> tokens(2048);
     __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing (gen)...");
 
@@ -203,7 +206,7 @@ char *llama_generate(const char *prompt) {
             prompt,
             tokens,
             /*add_bos*/ true,
-            /*parse_special*/ true);  // IMPORTANT: allow Gemma chat special tokens
+            /*parse_special*/ true);  // allow Gemma chat special tokens
 
     if (n_tokens <= 0) {
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Tokenization failed. n=%d", n_tokens);
@@ -211,7 +214,7 @@ char *llama_generate(const char *prompt) {
     }
     tokens.resize(n_tokens);
 
-    const int n_ctx = llama_n_ctx(gen_ctx);
+    const unsigned int n_ctx = llama_n_ctx(gen_ctx);
     if (n_tokens > n_ctx - 8) {
         __android_log_print(ANDROID_LOG_WARN, "llama_jni",
                 "Prompt too long (%d) for ctx (%d). Truncating tail-keep.", n_tokens, n_ctx);
@@ -222,9 +225,9 @@ char *llama_generate(const char *prompt) {
     batch.n_tokens = (int)tokens.size();
     for (int i = 0; i < batch.n_tokens; ++i) {
         batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
+        batch.pos[i]       = i;       // start at 0 each turn
         batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
+        batch.seq_id[i][0] = 0;       // single sequence id = 0
         batch.logits[i]    = (i == batch.n_tokens - 1);
     }
 
@@ -234,7 +237,7 @@ char *llama_generate(const char *prompt) {
         return nullptr;
     }
 
-    // Sampler: more deterministic to avoid listy/digit starts
+    // Sampler
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
         llama_batch_free(batch);
