@@ -67,6 +67,7 @@ kotlin {
             implementation(libs.skiko)
             implementation(compose.ui)
             implementation(compose.foundation)
+            implementation(compose.components.resources)
             implementation(compose.material)
             implementation(compose.material3)
             implementation(compose.animation)
@@ -126,6 +127,7 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
             implementation(libs.stately.common)
+            implementation(compose.components.resources)
         }
 
         jvmMain.dependencies {
@@ -139,6 +141,10 @@ kotlin {
             implementation(libs.multiplatform.settings.test)
         }
     }
+}
+
+compose.resources {
+    publicResClass = true
 }
 
 android {

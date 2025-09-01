@@ -179,6 +179,8 @@ kotlin {
                 implementation(libs.kotlin.stdlib)
                 implementation(compose.ui)
                 implementation(compose.foundation)
+                implementation(compose.components.resources)
+                resources.srcDir("src/commonMain/resources")
             }
         }
         val commonTest by getting {
@@ -188,6 +190,10 @@ kotlin {
         }
         val androidMain by getting
     }
+}
+
+compose.resources {
+    publicResClass = true
 }
 
 android {

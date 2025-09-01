@@ -1,26 +1,21 @@
-#include <cstdint>
+#include "llama.h"
+
 #include <cstring>
 #include <cstdlib>
 #include <vector>
 #include <string>
 #include <filesystem>
-#include <cstdio>
 
-#include "../c_interop/include/llama_embed.h"
-#include "llama.h"
+static struct llama_model  *model     = nullptr;
+static struct llama_context*ctx       = nullptr;
+static int embedding_size             = 0;
 
-// ============== Shared state ==============
+// Generation model state
+static struct llama_model  *gen_model = nullptr;
+static struct llama_context*gen_ctx   = nullptr;
 
-static struct llama_model   *model      = nullptr;
-static struct llama_context *ctx        = nullptr;
-static int embedding_size               = 0;
-
-static struct llama_model   *gen_model  = nullptr;
-static struct llama_context *gen_ctx    = nullptr;
-
+// Track whether backend was initialized
 static bool g_backend_inited = false;
-
-// ============== Utils ==============
 
 static int tokenize_with_retry(const llama_vocab *vocab,
         const char *text,
@@ -49,27 +44,18 @@ static int tokenize_with_retry(const llama_vocab *vocab,
 static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int reserve_tail) {
     if ((int)tokens.size() <= n_ctx - reserve_tail) return;
     const int keep = n_ctx - reserve_tail;
+    // keep tail (system+user are at the end), drop head
     std::vector<llama_token> out;
     out.reserve(keep);
     out.insert(out.end(), tokens.end() - keep, tokens.end());
     tokens.swap(out);
 }
 
-static char *dup_cstr(const std::string &s) {
-    char *p = (char *) std::malloc(s.size() + 1);
-    if (!p) return nullptr;
-    std::memcpy(p, s.c_str(), s.size() + 1);
-    return p;
-}
-
-// ============== C API ==============
-
 extern "C" {
 
-// -------- Embeddings --------
+// ================= Embeddings =================
 
 bool llama_embed_init(const char *model_path) {
-    std::fprintf(stderr, "[llama_embed] init\n");
     if (!g_backend_inited) {
         llama_backend_init();
         g_backend_inited = true;
@@ -77,18 +63,8 @@ bool llama_embed_init(const char *model_path) {
 
     llama_model_params model_params = llama_model_default_params();
 
-    if (model_path && std::filesystem::exists(model_path)) {
-        std::error_code ec;
-        auto sz = std::filesystem::file_size(model_path, ec);
-        std::fprintf(stderr, "[llama_embed] model: %s size=%ju\n",
-                model_path, (uintmax_t)(ec ? 0 : sz));
-    }
-
     model = llama_model_load_from_file(model_path, model_params);
-    if (!model) {
-        std::fprintf(stderr, "[llama_embed] load failed\n");
-        return false;
-    }
+    if (!model) return false;
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = true;
@@ -96,14 +72,12 @@ bool llama_embed_init(const char *model_path) {
 
     ctx = llama_init_from_model(model, ctx_params);
     if (!ctx) {
-        std::fprintf(stderr, "[llama_embed] ctx failed\n");
         llama_model_free(model);
         model = nullptr;
         return false;
     }
 
     embedding_size = llama_model_n_embd(model);
-    std::fprintf(stderr, "[llama_embed] ready dim=%d\n", embedding_size);
     return true;
 }
 
@@ -111,23 +85,22 @@ float *llama_embed(const char *input) {
     if (!ctx || !model || !input) return nullptr;
 
     std::vector<llama_token> tokens(1024);
+
     int n_tokens = tokenize_with_retry(
             llama_model_get_vocab(model),
             input,
             tokens,
             /*add_bos*/ true,
-            /*parse_special*/ false
-    );
+            /*parse_special*/ false);
+
     if (n_tokens <= 0 || n_tokens > llama_n_ctx(ctx)) {
-        std::fprintf(stderr, "[llama_embed] tokenize fail/too long n=%d ctx=%d\n",
-                n_tokens, llama_n_ctx(ctx));
         return nullptr;
     }
     tokens.resize(n_tokens);
 
     llama_batch batch = llama_batch_init(n_tokens, 0, 1);
     batch.n_tokens = n_tokens;
-    for (int i = 0; i < n_tokens; ++i) {
+    for (int i = 0; i < n_tokens; i++) {
         batch.token[i]     = tokens[i];
         batch.pos[i]       = i;
         batch.n_seq_id[i]  = 1;
@@ -136,14 +109,12 @@ float *llama_embed(const char *input) {
     }
 
     if (llama_decode(ctx, batch) != 0) {
-        std::fprintf(stderr, "[llama_embed] decode failed\n");
         llama_batch_free(batch);
         return nullptr;
     }
 
     const float *embedding = llama_get_embeddings_seq(ctx, 0);
     if (!embedding) {
-        std::fprintf(stderr, "[llama_embed] get_embeddings null\n");
         llama_batch_free(batch);
         return nullptr;
     }
@@ -151,7 +122,6 @@ float *llama_embed(const char *input) {
     const int dim = llama_model_n_embd(model);
     float *out = (float *) std::malloc(sizeof(float) * (size_t)dim);
     if (!out) {
-        std::fprintf(stderr, "[llama_embed] malloc fail\n");
         llama_batch_free(batch);
         return nullptr;
     }
@@ -161,14 +131,13 @@ float *llama_embed(const char *input) {
     return out;
 }
 
-int llama_embedding_size(void) { return llama_model_n_embd(model); }
-
+int llama_embedding_size() { return llama_model_n_embd(model); }
 void llama_free_embedding(float *ptr) { if (ptr) std::free(ptr); }
 
-void llama_embed_free(void) {
+void llama_embed_free() {
     if (ctx)   llama_free(ctx);
     if (model) llama_model_free(model);
-    ctx = nullptr;
+    ctx   = nullptr;
     model = nullptr;
 
     if (!gen_ctx && !gen_model && g_backend_inited) {
@@ -177,10 +146,9 @@ void llama_embed_free(void) {
     }
 }
 
-// -------- Generation --------
+// ================= Text Generation =================
 
 bool llama_generate_init(const char *model_path) {
-    std::fprintf(stderr, "[llama_gen] init\n");
     if (!g_backend_inited) {
         llama_backend_init();
         g_backend_inited = true;
@@ -188,10 +156,7 @@ bool llama_generate_init(const char *model_path) {
 
     llama_model_params model_params = llama_model_default_params();
     gen_model = llama_model_load_from_file(model_path, model_params);
-    if (!gen_model) {
-        std::fprintf(stderr, "[llama_gen] load failed\n");
-        return false;
-    }
+    if (!gen_model) return false;
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = false;
@@ -199,7 +164,6 @@ bool llama_generate_init(const char *model_path) {
 
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
-        std::fprintf(stderr, "[llama_gen] ctx failed\n");
         llama_model_free(gen_model);
         gen_model = nullptr;
         return false;
@@ -207,26 +171,26 @@ bool llama_generate_init(const char *model_path) {
     return true;
 }
 
-static char *generate_from_prompt(const char *prompt) {
+char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
     llama_kv_self_clear(gen_ctx);
 
     std::vector<llama_token> tokens(2048);
+
     int n_tokens = tokenize_with_retry(
             llama_model_get_vocab(gen_model),
             prompt,
             tokens,
             /*add_bos*/ true,
-            /*parse_special*/ true
-    );
+            /*parse_special*/ true);  // allow Gemma chat special tokens
+
     if (n_tokens <= 0) {
-        std::fprintf(stderr, "[llama_gen] tokenize failed n=%d\n", n_tokens);
         return nullptr;
     }
     tokens.resize(n_tokens);
 
-    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    const unsigned int n_ctx = llama_n_ctx(gen_ctx);
     if (n_tokens > n_ctx - 8) {
         truncate_to_ctx(tokens, n_ctx, 8);
     }
@@ -235,107 +199,112 @@ static char *generate_from_prompt(const char *prompt) {
     batch.n_tokens = (int)tokens.size();
     for (int i = 0; i < batch.n_tokens; ++i) {
         batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
+        batch.pos[i]       = i;       // start at 0 each turn
         batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
+        batch.seq_id[i][0] = 0;       // single sequence id = 0
         batch.logits[i]    = (i == batch.n_tokens - 1);
     }
 
     if (llama_decode(gen_ctx, batch) != 0) {
-        std::fprintf(stderr, "[llama_gen] decode failed on prompt\n");
         llama_batch_free(batch);
         return nullptr;
     }
 
+    // Sampler
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
         llama_batch_free(batch);
         return nullptr;
     }
+
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    std::vector<llama_token> out_tokens;
+    std::vector<llama_token> output_tokens;
     const int max_new_tokens = 640;
     int cur_pos = batch.n_tokens;
 
     for (int i = 0; i < max_new_tokens; ++i) {
-        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
-        if (tok < 0) break;
-        if (tok == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
+        llama_token token = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (token < 0) break;
+        if (token == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
 
-        // Early stop on some common chat EOT markers
-        char piece[64];
-        int nn = llama_token_to_piece(
-                llama_model_get_vocab(gen_model), tok, piece, (int)sizeof(piece), 0, 0);
-        if (nn > 0) {
-            if (nn >= (int)sizeof(piece)) piece[sizeof(piece) - 1] = '\0';
-            else                          piece[nn] = '\0';
-            if (std::strcmp(piece, "<end_of_turn>") == 0 ||
-                    std::strcmp(piece, "<|eot_id|>") == 0) {
-                break;
+        // Early stop on chat EOT special tokens
+        {
+            char piece_buf[64];
+            int nn = llama_token_to_piece(
+                    llama_model_get_vocab(gen_model),
+                    token,
+                    piece_buf,
+                    (int)sizeof(piece_buf),
+                    /* lstrip = */ 0,
+                    /* special = */ 0);
+            if (nn > 0) {
+                if (nn >= (int)sizeof(piece_buf)) {
+                    piece_buf[sizeof(piece_buf) - 1] = '\0';
+                } else {
+                    piece_buf[nn] = '\0';
+                }
+                if (std::strcmp(piece_buf, "<end_of_turn>") == 0 ||
+                        std::strcmp(piece_buf, "<|eot_id|>") == 0) {
+                    break;
+                }
             }
         }
 
-        llama_sampler_accept(sampler, tok);
-        out_tokens.push_back(tok);
+        llama_sampler_accept(sampler, token);
+        output_tokens.push_back(token);
 
         if (cur_pos >= n_ctx) break;
 
-        llama_batch step = llama_batch_init(1, 0, 1);
-        step.n_tokens = 1;
-        step.token[0] = tok;
-        step.pos[0]   = cur_pos++;
-        step.n_seq_id[0]  = 1;
-        step.seq_id[0][0] = 0;
-        step.logits[0]    = true;
+        llama_batch gen_batch = llama_batch_init(1, 0, 1);
+        gen_batch.n_tokens = 1;
+        gen_batch.token[0] = token;
+        gen_batch.pos[0]   = cur_pos;
+        gen_batch.n_seq_id[0]  = 1;
+        gen_batch.seq_id[0][0] = 0;
+        gen_batch.logits[0]    = true;
 
-        if (llama_decode(gen_ctx, step) != 0) {
-            llama_batch_free(step);
+        if (llama_decode(gen_ctx, gen_batch) != 0) {
+            llama_batch_free(gen_batch);
             break;
         }
-        llama_batch_free(step);
+        cur_pos++;
+        llama_batch_free(gen_batch);
     }
 
     llama_batch_free(batch);
     llama_sampler_free(sampler);
 
-    std::string text;
-    text.reserve(out_tokens.size() * 4);
+    std::string output;
     char buf[8192];
-    for (llama_token t : out_tokens) {
+    for (llama_token tok : output_tokens) {
         int n = llama_token_to_piece(
-                llama_model_get_vocab(gen_model), t, buf, (int)sizeof(buf), 0, false);
-        if (n > 0) text.append(buf, n);
+                llama_model_get_vocab(gen_model),
+                tok,
+                buf,
+                (int)sizeof(buf),
+                /* lstrip = */ 0,
+                /* special = */ false
+        );
+        if (n > 0) {
+            output.append(buf, n);
+        }
     }
-    return dup_cstr(text);
+
+    char *result = (char *) std::malloc(
+            output.size() + 1 /* null */);
+    if (!result) {
+        return nullptr;
+    }
+    std::memcpy(result, output.c_str(), output.size() + 1);
+    return result;
 }
 
-char *llama_generate(const char *prompt) {
-    return generate_from_prompt(prompt);
-}
-
-char *llama_generate_with_context(const char *system_prompt,
-        const char *context_block,
-        const char *user_prompt) {
-    // Simple concatenation; adjust to your chat template if needed.
-    std::string prompt;
-    if (system_prompt && *system_prompt) {
-        prompt += system_prompt;
-        prompt += "\n";
-    }
-    if (context_block && *context_block) {
-        prompt += context_block;
-        prompt += "\n";
-    }
-    if (user_prompt) prompt += user_prompt;
-    return generate_from_prompt(prompt.c_str());
-}
-
-void llama_generate_free(void) {
+void llama_generate_free() {
     if (gen_ctx)   llama_free(gen_ctx);
     if (gen_model) llama_model_free(gen_model);
     gen_ctx   = nullptr;
@@ -345,16 +314,6 @@ void llama_generate_free(void) {
         llama_backend_free();
         g_backend_inited = false;
     }
-}
-
-// -------- Common / shutdown --------
-
-void llama_free_cstr(char *p) { if (p) std::free(p); }
-
-void llama_shutdown(void) {
-    // Free gen first, then embed; embed_free will release backend if both are null.
-    llama_generate_free();
-    llama_embed_free();
 }
 
 } // extern "C"

@@ -25,4 +25,15 @@ actual object LlamaBridge {
     actual fun generate(prompt: String): String {
         return ""
     }
+
+    actual fun generateWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String
+    ): String {
+        TODO("Not yet implemented")
+    }
+
+    actual fun shutdown() {
+    }
 }
