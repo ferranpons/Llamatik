@@ -6,6 +6,12 @@
 #include <string>
 #include <filesystem>
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#else
+#define TARGET_OS_SIMULATOR 0
+#endif
+
 static struct llama_model  *model     = nullptr;
 static struct llama_context*ctx       = nullptr;
 static int embedding_size             = 0;
@@ -51,6 +57,30 @@ static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int res
     tokens.swap(out);
 }
 
+// Load helper that applies Simulator-safe defaults and retries with safer flags if needed
+static llama_model *load_model_with_fallback(const char *path) {
+    llama_model_params mp = llama_model_default_params();
+
+#if TARGET_OS_SIMULATOR
+    // Simulator: avoid mmap/mlock and any GPU offload to prevent issues
+    mp.use_mmap     = false;
+    mp.use_mlock    = false;
+    mp.n_gpu_layers = 0;
+    mp.split_mode   = LLAMA_SPLIT_MODE_NONE;
+#endif
+
+    llama_model *m = llama_model_load_from_file(path, mp);
+    if (m) return m;
+
+    // Fallback: force the safest settings
+    mp.use_mmap     = false;
+    mp.use_mlock    = false;
+    mp.n_gpu_layers = 0;
+    mp.split_mode   = LLAMA_SPLIT_MODE_NONE;
+
+    return llama_model_load_from_file(path, mp);
+}
+
 extern "C" {
 
 // ================= Embeddings =================
@@ -61,14 +91,14 @@ bool llama_embed_init(const char *model_path) {
         g_backend_inited = true;
     }
 
-    llama_model_params model_params = llama_model_default_params();
-
-    model = llama_model_load_from_file(model_path, model_params);
+    model = load_model_with_fallback(model_path);
     if (!model) return false;
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = true;
     ctx_params.n_ctx      = 2048;
+    // If you need pooling, set it here for newer llama.cpp versions:
+    // ctx_params.pooling_type = LLAMA_POOLING_TYPE_CLS; // only if supported by your headers
 
     ctx = llama_init_from_model(model, ctx_params);
     if (!ctx) {
@@ -154,8 +184,7 @@ bool llama_generate_init(const char *model_path) {
         g_backend_inited = true;
     }
 
-    llama_model_params model_params = llama_model_default_params();
-    gen_model = llama_model_load_from_file(model_path, model_params);
+    gen_model = load_model_with_fallback(model_path);
     if (!gen_model) return false;
 
     llama_context_params ctx_params = llama_context_default_params();
@@ -183,7 +212,7 @@ char *llama_generate(const char *prompt) {
             prompt,
             tokens,
             /*add_bos*/ true,
-            /*parse_special*/ true);  // allow Gemma chat special tokens
+            /*parse_special*/ true);  // allow chat special tokens
 
     if (n_tokens <= 0) {
         return nullptr;
@@ -258,7 +287,7 @@ char *llama_generate(const char *prompt) {
         llama_sampler_accept(sampler, token);
         output_tokens.push_back(token);
 
-        if (cur_pos >= n_ctx) break;
+        if (cur_pos >= (int)n_ctx) break;
 
         llama_batch gen_batch = llama_batch_init(1, 0, 1);
         gen_batch.n_tokens = 1;

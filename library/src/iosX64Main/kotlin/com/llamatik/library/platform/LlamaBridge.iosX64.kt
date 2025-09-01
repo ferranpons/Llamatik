@@ -110,7 +110,20 @@ actual object LlamaBridge {
             fileName to ""
     }
 
-    actual fun initModel(modelPath: String): Boolean = llama_embed_init(modelPath)
+    actual fun initModel(modelPath: String): Boolean {
+        val ok = llama_embed_init(modelPath)
+        if (!ok) {
+            println("❌ [embed_init] Failed for $modelPath")
+        } else {
+            val dim = llama_embedding_size()
+            println("✅ [embed_init] Ready (dim=$dim)")
+            if (dim <= 0) {
+                println("⚠️ [embed_init] embedding_size() <= 0 — native init likely wrong path")
+                return false
+            }
+        }
+        return ok
+    }
 
     actual fun embed(input: String): FloatArray {
         val raw = llama_embed(input) ?: return FloatArray(0)

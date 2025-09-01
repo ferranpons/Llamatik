@@ -100,7 +100,9 @@ kotlin {
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
                     "-DGGML_OPENMP=OFF",
-                    "-DLLAMA_CURL=OFF"
+                    "-DLLAMA_CURL=OFF",
+                    if (sdk == "iphonesimulator") "-DLLAMA_BUILD_BERT=ON" else "-DLLAMA_BUILD_BERT=OFF",
+                    if (sdk == "iphonesimulator") "-DLLAMA_BUILD_EMBEDDERS=ON" else "-DLLAMA_BUILD_EMBEDDERS=OFF",
                 )
             }
         }
