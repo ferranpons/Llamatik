@@ -54,6 +54,13 @@ bool llama_generate_init(const char *model_path);
 char *llama_generate(const char *prompt);
 
 /**
+ * Generate text from a given prompt.
+ * Returns a newly allocated null-terminated C string,
+ * or NULL on error. Free with free().
+ */
+char *llama_generate_chat(const char *system_prompt, const char *context_block, const char *user_prompt);
+
+/**
  * Free all text generation-related resources.
  */
 void llama_generate_free(void);

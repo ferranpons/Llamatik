@@ -9,6 +9,7 @@ import com.llamatik.library.platform.llama.llama_embed_init
 import com.llamatik.library.platform.llama.llama_embedding_size
 import com.llamatik.library.platform.llama.llama_free_embedding
 import com.llamatik.library.platform.llama.llama_generate
+import com.llamatik.library.platform.llama.llama_generate_chat
 import com.llamatik.library.platform.llama.llama_generate_free
 import com.llamatik.library.platform.llama.llama_generate_init
 import kotlinx.cinterop.BetaInteropApi
@@ -145,7 +146,10 @@ actual object LlamaBridge {
     }
 
     actual fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String {
-        return generate(userPrompt)
+        val c = llama_generate_chat(systemPrompt, contextBlock, userPrompt) ?: return ""
+        val out = c.toKString()
+        llama_generate_free()
+        return out
     }
 
     actual fun shutdown() {
