@@ -309,6 +309,15 @@ Java_com_llamatik_library_platform_LlamaBridge_generateWithContext(
 }
 
 extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_shutdown(
+        JNIEnv *env, jobject
+        ) {
+    llama_backend_free();
+    llama_generate_free();
+}
+
+extern "C"
 void llama_free_cstr(char *p) {
     if (p) std::free(p);
 }

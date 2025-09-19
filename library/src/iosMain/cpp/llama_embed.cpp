@@ -402,6 +402,44 @@ char *llama_generate(const char *prompt) {
     return result;
 }
 
+static std::string build_clean_prompt(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt) {
+    std::string sys = (system_prompt && *system_prompt) ? system_prompt : "You are a helpful assistant. Answer in plain text.";
+    std::string ctx = (context_block && *context_block) ? context_block : "";
+    std::string usr = (user_prompt && *user_prompt) ? user_prompt : "";
+
+    // NO angle-bracket placeholders, NO meta-instructions inline.
+    // Finish with "Assistant:" so generation starts there.
+    std::string p;
+    p.reserve(sys.size() + ctx.size() + usr.size() + 128);
+    p += "System: ";   p += sys; p += "\n\n";
+    if (!ctx.empty()) {
+        p += "Context:\n"; p += ctx; p += "\n\n";
+    }
+    p += "User: "; p += usr; p += "\n";
+    p += "Assistant:";
+    return p;
+}
+
+char *llama_generate_chat(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt) {
+    std::string prompt = build_clean_prompt(system_prompt, context_block, user_prompt);
+
+    // OPTIONAL: add lightweight post-stop to avoid the model continuing back into a new "User:" cue.
+    // If your lower-level generate() supports stop strings, pass e.g. ["\nUser:", "\nSystem:", "\nContext:"] there.
+    char *out = llama_generate(prompt.c_str());
+    if (!out) return nullptr;
+
+    // Trim any trailing scaffolding if the model produced it (belt & suspenders)
+    // e.g., cut at "\nUser:" if it appears in output.
+    const char *stop1 = strstr(out, "\nUser:");
+    if (stop1) *const_cast<char*>(stop1) = '\0';
+
+    return out;
+}
+
 void llama_generate_free() {
     if (gen_ctx)   llama_free(gen_ctx);
     if (gen_model) llama_model_free(gen_model);

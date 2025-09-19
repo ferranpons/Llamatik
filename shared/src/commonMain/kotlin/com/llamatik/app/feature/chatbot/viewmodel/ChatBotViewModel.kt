@@ -59,6 +59,19 @@ class ChatBotViewModel(
         LlamaBridge.shutdown()
     }
 
+    private fun sanitizeForRag(s: String): String {
+        // drop obvious Q/A boilerplate
+        val noQa = s.replace(Regex("(?mi)^\\s*(User|Question|Assistant|Answer)\\s*:\\s*.*$"), "")
+        // downrank/remove single short title lines
+        val lines = noQa.lines().filterNot { line ->
+            val w = line.trim().split(Regex("\\s+")).size
+            // very short, Title Case-ish and not a sentence → likely a heading
+            w in 2..8 && !line.contains('.') && line == line.split(' ')
+                .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
+        }
+        return lines.joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
+    }
+
     fun onMessageSend(message: String) {
         if (message.isBlank()) return
 
@@ -70,25 +83,13 @@ class ChatBotViewModel(
             withContext(Dispatchers.IO) {
                 try {
                     val qVec = LlamaBridge.embed(message).toList()
-                    val store = vectorStore
-                    if (store == null) {
-                        emitBot("There is a problem with the AI")
-                        return@withContext
+                    val store = vectorStore ?: return@withContext emitBot("There is a problem with the AI")
+
+                    val topItems = retrieveContext(qVec, message, store, poolSize = 80, topContext = 4)
+                    val rawContext = topItems.joinToString("\n\n") {
+                        sanitizeForRag(it.text)
                     }
-
-                    val topItems = retrieveContext(
-                        queryVector = qVec,
-                        questionText = message,
-                        vectorStore = store,
-                        poolSize = 80,
-                        topContext = 4
-                    )
-
-                    Logger.d("LlamaVM - retrieveContext -> ${topItems.size} items")
-
-                    val rawContext = topItems.joinToString("\n") { it.text }
                     val compact = buildCompactContext(rawContext, message, hardLimit = 1800)
-                    Logger.d("LlamaVM - Context length=${compact.length}")
 
                     if (!isLikelyRelevant(compact, message)) {
                         emitBot("I don't have enough information in my sources.")
@@ -96,24 +97,26 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    // Let JNI supply strict RAG rules to avoid echo
-                    val systemPrompt = ""
+                    val systemPrompt = """
+                        You are a helpful technical assistant. 
+                        Rules: no echoing the question; no titles-only answers; use only CONTEXT; if insufficient, say so; prefer numbered, step-by-step instructions.
+                    """.trimIndent()
 
-                    val responseText = try {
-                        LlamaBridge.generateWithContext(
+                    var responseText = LlamaBridge.generateWithContext(systemPrompt, compact, message)?.trim().orEmpty()
+
+                    if (responseText.length < 120 || responseText.lines().firstOrNull()?.contains(':') == true) {
+                        responseText = LlamaBridge.generateWithContext(
                             systemPrompt,
-                            compact,
-                            message.trim()
-                        )
-                    } catch (t: Throwable) {
-                        t.printStackTrace()
-                        null
+                            "$compact\n\nWrite a complete, numbered setup guide the user can follow end-to-end.",
+                            message
+                        ).trim()
                     }
 
-                    val finalText = if (responseText.isNullOrBlank()) {
+                    val finalText = if (responseText.isBlank()) {
                         "I don't have enough information in my sources."
-                    } else tidyAnswer(responseText)
-
+                    } else {
+                        tidyAnswer(responseText)
+                    }
                     emitBot(finalText)
                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                 } catch (t: Throwable) {
@@ -125,7 +128,7 @@ class ChatBotViewModel(
         }
     }
 
-    private suspend fun emitBot(text: String) {
+    private fun emitBot(text: String) {
         _conversation.value += ChatUiModel.Message(text, ChatUiModel.Author.bot)
     }
 
@@ -146,7 +149,7 @@ class ChatBotViewModel(
             qTokens.count { t -> lower.contains(t) } >= 1
         }
 
-        val chosen = (if (hits.isNotEmpty()) hits else sentences.take(6))
+        val chosen = (hits.ifEmpty { sentences.take(6) })
             .joinToString(" ")
 
         val clipped = if (chosen.length <= hardLimit) chosen else chosen.take(hardLimit)
