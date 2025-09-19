@@ -75,6 +75,7 @@ class ChatBotViewModel(
             val myChat = ChatUiModel.Message(message, ChatUiModel.Author.me)
             _conversation.value += myChat
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
+            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom) // scroll after user sends
 
             withContext(Dispatchers.IO) {
                 try {
@@ -88,6 +89,7 @@ class ChatBotViewModel(
                     if (!isLikelyRelevant(compact, message)) {
                         emitBot("I don't have enough information in my sources.")
                         _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         return@withContext
                     }
 
@@ -109,14 +111,17 @@ class ChatBotViewModel(
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(sb.toString(), ChatUiModel.Author.bot)
                             }
+                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         },
                         onDone = {
                             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         },
                         onError = { err ->
                             _conversation.value = _conversation.value.dropLast(1) +
                                     ChatUiModel.Message("There is a problem with the AI: $err", ChatUiModel.Author.bot)
                             _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         }
                     )
 
@@ -124,22 +129,9 @@ class ChatBotViewModel(
                     t.printStackTrace()
                     emitBot("There is a problem with the AI")
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                    _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                 }
             }
-        }
-    }
-
-    private fun appendEmptyBot(): Int {
-        val idx = _conversation.value.size
-        _conversation.value = _conversation.value + ChatUiModel.Message("", ChatUiModel.Author.bot)
-        return idx
-    }
-
-    private fun replaceBotText(index: Int, text: String) {
-        val list = _conversation.value.toMutableList()
-        if (index in list.indices) {
-            list[index] = list[index].copy(text = text)
-            _conversation.value = list
         }
     }
 
@@ -225,4 +217,5 @@ sealed class ChatBotSideEffects {
     data object OnMessageLoaded : ChatBotSideEffects()
     data object OnNoResults : ChatBotSideEffects()
     data object OnLoadError : ChatBotSideEffects()
+    data object ScrollToBottom : ChatBotSideEffects()
 }

@@ -116,14 +116,13 @@ class ChatBotTabScreen : Screen {
                 ChatBotSideEffects.OnMessageLoaded -> {
                     isLoading.value = false
                 }
-
                 ChatBotSideEffects.OnMessageLoading -> {
                     isLoading.value = true
                 }
-
                 ChatBotSideEffects.OnNoResults -> {
                     isLoading.value = false
                 }
+                ChatBotSideEffects.ScrollToBottom -> {}
             }
         }
     }
