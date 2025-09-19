@@ -32,5 +32,55 @@ actual object LlamaBridge {
     actual external fun initGenerateModel(modelPath: String): Boolean
     actual external fun generate(prompt: String): String
     actual external fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
+    private external fun nativeGenerateStream(prompt: String, callback: GenStream)
+    private external fun nativeGenerateWithContextStream(system: String, context: String, user: String, callback: GenStream)
+
+    actual fun generateStream(prompt: String, callback: GenStream) {
+        nativeGenerateStream(prompt, callback)
+    }
+
+    // Compose the same chat prompt you use on native. This mirrors your Gemma-style tags
+    // and matches the EOT checks we added in C++ (<start_of_turn>, <end_of_turn>, <|eot_id|>).
+    private fun buildChatPrompt(systemPrompt: String, contextBlock: String, userPrompt: String): String {
+        return buildString {
+            append("<start_of_turn>system\n")
+            append(systemPrompt.trim())
+            append("\n<end_of_turn>\n")
+            append("<start_of_turn>user\n")
+            append("CONTEXT:\n")
+            append(contextBlock.trim())
+            append("\n\nQUESTION:\n")
+            append(userPrompt.trim())
+            append("\n<end_of_turn>\n")
+            append("<start_of_turn>assistant\n")
+        }
+    }
+
+    actual fun generateStreamWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        callback: GenStream
+    ) {
+        val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
+        generateStream(prompt, callback)
+    }
+
+    actual fun generateWithContextStream(
+        system: String,
+        context: String,
+        user: String,
+        onDelta: (String) -> Unit,
+        onDone: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val cb = object : GenStream {
+            override fun onDelta(text: String) = onDelta(text)
+            override fun onComplete() = onDone()
+            override fun onError(message: String) = onError(message)
+        }
+        nativeGenerateWithContextStream(system, context, user, cb)
+    }
+
     actual external fun shutdown()
 }

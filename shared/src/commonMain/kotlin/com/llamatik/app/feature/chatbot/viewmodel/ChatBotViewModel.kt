@@ -7,7 +7,6 @@ import com.llamatik.app.feature.chatbot.ChatbotOnboardingScreen
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
 import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
 import com.llamatik.app.feature.chatbot.utils.retrieveContext
-import com.llamatik.app.feature.chatbot.utils.tidyAnswer
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
@@ -60,12 +59,9 @@ class ChatBotViewModel(
     }
 
     private fun sanitizeForRag(s: String): String {
-        // drop obvious Q/A boilerplate
         val noQa = s.replace(Regex("(?mi)^\\s*(User|Question|Assistant|Answer)\\s*:\\s*.*$"), "")
-        // downrank/remove single short title lines
         val lines = noQa.lines().filterNot { line ->
             val w = line.trim().split(Regex("\\s+")).size
-            // very short, Title Case-ish and not a sentence → likely a heading
             w in 2..8 && !line.contains('.') && line == line.split(' ')
                 .joinToString(" ") { it.replaceFirstChar(Char::titlecase) }
         }
@@ -86,9 +82,7 @@ class ChatBotViewModel(
                     val store = vectorStore ?: return@withContext emitBot("There is a problem with the AI")
 
                     val topItems = retrieveContext(qVec, message, store, poolSize = 80, topContext = 4)
-                    val rawContext = topItems.joinToString("\n\n") {
-                        sanitizeForRag(it.text)
-                    }
+                    val rawContext = topItems.joinToString("\n\n") { sanitizeForRag(it.text) }
                     val compact = buildCompactContext(rawContext, message, hardLimit = 1800)
 
                     if (!isLikelyRelevant(compact, message)) {
@@ -102,23 +96,30 @@ class ChatBotViewModel(
                         Rules: no echoing the question; no titles-only answers; use only CONTEXT; if insufficient, say so; prefer numbered, step-by-step instructions.
                     """.trimIndent()
 
-                    var responseText = LlamaBridge.generateWithContext(systemPrompt, compact, message)?.trim().orEmpty()
+                    val sb = StringBuilder()
+                    _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
-                    if (responseText.length < 120 || responseText.lines().firstOrNull()?.contains(':') == true) {
-                        responseText = LlamaBridge.generateWithContext(
-                            systemPrompt,
-                            "$compact\n\nWrite a complete, numbered setup guide the user can follow end-to-end.",
-                            message
-                        ).trim()
-                    }
+                    LlamaBridge.generateWithContextStream(
+                        systemPrompt,
+                        compact,
+                        message,
+                        onDelta = { chunk ->
+                            if (chunk.isNotEmpty()) {
+                                sb.append(chunk)
+                                _conversation.value = _conversation.value.dropLast(1) +
+                                        ChatUiModel.Message(sb.toString(), ChatUiModel.Author.bot)
+                            }
+                        },
+                        onDone = {
+                            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        },
+                        onError = { err ->
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                    ChatUiModel.Message("There is a problem with the AI: $err", ChatUiModel.Author.bot)
+                            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                        }
+                    )
 
-                    val finalText = if (responseText.isBlank()) {
-                        "I don't have enough information in my sources."
-                    } else {
-                        tidyAnswer(responseText)
-                    }
-                    emitBot(finalText)
-                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                 } catch (t: Throwable) {
                     t.printStackTrace()
                     emitBot("There is a problem with the AI")
@@ -128,18 +129,29 @@ class ChatBotViewModel(
         }
     }
 
+    private fun appendEmptyBot(): Int {
+        val idx = _conversation.value.size
+        _conversation.value = _conversation.value + ChatUiModel.Message("", ChatUiModel.Author.bot)
+        return idx
+    }
+
+    private fun replaceBotText(index: Int, text: String) {
+        val list = _conversation.value.toMutableList()
+        if (index in list.indices) {
+            list[index] = list[index].copy(text = text)
+            _conversation.value = list
+        }
+    }
+
     private fun emitBot(text: String) {
         _conversation.value += ChatUiModel.Message(text, ChatUiModel.Author.bot)
     }
 
     private fun buildCompactContext(source: String, question: String, hardLimit: Int): String {
         val qTokens = question.lowercase()
-            .split(Regex("[^a-z0-9]+"))
-            .filter { it.length >= 3 }
-            .toSet()
+            .split(Regex("[^a-z0-9]+")).filter { it.length >= 3 }.toSet()
 
-        val sentences = source
-            .replace("\\s+".toRegex(), " ")
+        val sentences = source.replace("\\s+".toRegex(), " ")
             .split(Regex("(?<=[.!?])\\s+"))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
@@ -149,18 +161,14 @@ class ChatBotViewModel(
             qTokens.count { t -> lower.contains(t) } >= 1
         }
 
-        val chosen = (hits.ifEmpty { sentences.take(6) })
-            .joinToString(" ")
-
+        val chosen = (hits.ifEmpty { sentences.take(6) }).joinToString(" ")
         val clipped = if (chosen.length <= hardLimit) chosen else chosen.take(hardLimit)
         return clipped
     }
 
     private fun isLikelyRelevant(context: String, question: String): Boolean {
         val qTokens = question.lowercase()
-            .split(Regex("[^a-z0-9]+"))
-            .filter { it.length >= 3 }
-            .toSet()
+            .split(Regex("[^a-z0-9]+")).filter { it.length >= 3 }.toSet()
         val ctx = context.lowercase()
         val hits = qTokens.count { ctx.contains(it) }
         Logger.d("LlamaVM - relevance hits=$hits tokens=${qTokens.size}")
