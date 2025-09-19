@@ -7,6 +7,7 @@
 #include <string>
 #include <android/log.h>
 #include <filesystem>
+#include <algorithm>
 
 static struct llama_model  *model     = nullptr;
 static struct llama_context*ctx       = nullptr;
@@ -51,6 +52,32 @@ static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int res
     out.reserve(keep);
     out.insert(out.end(), tokens.end() - keep, tokens.end());
     tokens.swap(out);
+}
+
+// ---------- helpers for sanitization ----------
+static std::string to_lower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+            [](unsigned char c){ return (char)std::tolower(c); });
+    return s;
+}
+
+static void cut_after_assistant_turn(std::string &s) {
+    // If a next-turn marker leaked into the output, cut before it.
+    const char* cuts[] = {
+            "<start_of_turn>",    // next role block
+            "<|eot_id|>",         // some models emit this too
+            "QUESTION:",          // generic safety
+            "USER:"               // generic safety
+    };
+    std::string sl = to_lower(s);
+    for (auto *c : cuts) {
+        std::string cl = to_lower(std::string(c));
+        size_t pos = sl.find(cl);
+        if (pos != std::string::npos) {
+            s = s.substr(0, pos);
+            return;
+        }
+    }
 }
 
 extern "C" {
@@ -206,7 +233,7 @@ char *llama_generate(const char *prompt) {
             prompt,
             tokens,
             /*add_bos*/ true,
-            /*parse_special*/ true);  // allow Gemma chat special tokens
+            /*parse_special*/ true);  // allow chat special tokens
 
     if (n_tokens <= 0) {
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Tokenization failed. n=%d", n_tokens);
@@ -262,7 +289,7 @@ char *llama_generate(const char *prompt) {
         if (token < 0) break;
         if (token == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
 
-        // Early stop on chat EOT special tokens
+        // Early stop on chat EOT / next-turn special tokens
         {
             char piece_buf[64];
             int nn = llama_token_to_piece(
@@ -271,7 +298,7 @@ char *llama_generate(const char *prompt) {
                     piece_buf,
                     (int)sizeof(piece_buf),
                     /* lstrip = */ 0,
-                    /* special = */ 0);
+                    /* special = */ true); // recognize special tokens
             if (nn > 0) {
                 if (nn >= (int)sizeof(piece_buf)) {
                     piece_buf[sizeof(piece_buf) - 1] = '\0';
@@ -279,7 +306,8 @@ char *llama_generate(const char *prompt) {
                     piece_buf[nn] = '\0';
                 }
                 if (std::strcmp(piece_buf, "<end_of_turn>") == 0 ||
-                        std::strcmp(piece_buf, "<|eot_id|>") == 0) {
+                        std::strcmp(piece_buf, "<|eot_id|>")  == 0 ||
+                        std::strcmp(piece_buf, "<start_of_turn>") == 0) { // don't roll into next turn
                     break;
                 }
             }
@@ -288,7 +316,7 @@ char *llama_generate(const char *prompt) {
         llama_sampler_accept(sampler, token);
         output_tokens.push_back(token);
 
-        if (cur_pos >= n_ctx) break;
+        if (cur_pos >= (int)n_ctx) break;
 
         llama_batch gen_batch = llama_batch_init(1, 0, 1);
         gen_batch.n_tokens = 1;
@@ -319,12 +347,15 @@ char *llama_generate(const char *prompt) {
                 buf,
                 (int)sizeof(buf),
                 /* lstrip = */ 0,
-                /* special = */ false
+                /* special = */ false  // decode final text without special tokens
         );
         if (n > 0) {
             output.append(buf, n);
         }
     }
+
+    // Belt-and-suspenders sanitization: cut before any leaked next-turn markers
+    cut_after_assistant_turn(output);
 
     char *result = (char *) std::malloc(
             output.size() + 1 /* null */);
