@@ -8,6 +8,7 @@
 #include <android/log.h>
 #include <filesystem>
 #include <algorithm>
+#include <cctype>
 
 static struct llama_model  *model     = nullptr;
 static struct llama_context*ctx       = nullptr;
@@ -62,7 +63,6 @@ static std::string to_lower(std::string s) {
 }
 
 static void cut_after_assistant_turn(std::string &s) {
-    // If a next-turn marker leaked into the output, cut before it.
     const char* cuts[] = {
             "<start_of_turn>",    // next role block
             "<|eot_id|>",         // some models emit this too
@@ -164,7 +164,7 @@ float *llama_embed(const char *input) {
     }
 
     const int dim = llama_model_n_embd(model);
-    float *out = (float *) std::malloc(sizeof(float) * (size_t)dim);
+    auto *out = (float *) std::malloc(sizeof(float) * (size_t)dim);
     if (!out) {
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "malloc failed for embedding");
         llama_batch_free(batch);
@@ -207,7 +207,7 @@ bool llama_generate_init(const char *model_path) {
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = false;
-    ctx_params.n_ctx      = 4096;
+    ctx_params.n_ctx      = 8192;
 
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
@@ -215,7 +215,7 @@ bool llama_generate_init(const char *model_path) {
         gen_model = nullptr;
         return false;
     }
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Gen context created.");
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Gen context created. n_ctx=%d", ctx_params.n_ctx);
     return true;
 }
 
@@ -245,7 +245,7 @@ char *llama_generate(const char *prompt) {
     if (n_tokens > n_ctx - 8) {
         __android_log_print(ANDROID_LOG_WARN, "llama_jni",
                 "Prompt too long (%d) for ctx (%d). Truncating tail-keep.", n_tokens, n_ctx);
-        truncate_to_ctx(tokens, n_ctx, 8);
+        truncate_to_ctx(tokens, (int)n_ctx, 8);
     }
 
     llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
@@ -279,10 +279,17 @@ char *llama_generate(const char *prompt) {
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     std::vector<llama_token> output_tokens;
-    const int max_new_tokens = 640;
-    int cur_pos = batch.n_tokens;
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generation loop start. n_ctx=%d", n_ctx);
+    int cur_pos = batch.n_tokens;
+    const int safety = 16;
+    int remaining_ctx = (int)n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+
+    int max_new_tokens = std::max(remaining_ctx, 2048);
+
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni",
+            "Generation loop start. n_ctx=%d, cur_pos=%d, max_new_tokens=%d",
+            n_ctx, cur_pos, max_new_tokens);
 
     for (int i = 0; i < max_new_tokens; ++i) {
         llama_token token = llama_sampler_sample(sampler, gen_ctx, -1);
