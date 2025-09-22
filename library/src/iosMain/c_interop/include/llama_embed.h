@@ -38,7 +38,7 @@ void llama_free_embedding(float *ptr);
  */
 void llama_embed_free(void);
 
-// ================= Text Generation =================
+// ================= Text Generation (blocking) =================
 
 /**
  * Initialize the generation model from a given file path.
@@ -50,20 +50,66 @@ bool llama_generate_init(const char *model_path);
  * Generate text from a given prompt.
  * Returns a newly allocated null-terminated C string,
  * or NULL on error. Free with free().
+ *
+ * NOTE: This function is synchronous / blocking.
  */
 char *llama_generate(const char *prompt);
 
 /**
- * Generate text from a given prompt.
+ * Generate text from a (system, context, user) triplet.
  * Returns a newly allocated null-terminated C string,
  * or NULL on error. Free with free().
+ *
+ * NOTE: This function is synchronous / blocking.
  */
-char *llama_generate_chat(const char *system_prompt, const char *context_block, const char *user_prompt);
+char *llama_generate_chat(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt);
 
 /**
  * Free all text generation-related resources.
  */
 void llama_generate_free(void);
+
+// ================= Text Generation (streaming) =================
+//
+// These APIs stream tokens/deltas via callbacks and block until completion.
+// Call from a background thread/queue.
+
+// Callback signatures
+typedef void (*llm_on_delta)(const char *utf8, void *user);  // Called with each chunk (UTF-8)
+typedef void (*llm_on_done)(void *user);                     // Called once when streaming finishes
+typedef void (*llm_on_error)(const char *utf8, void *user);  // Called on error with message
+
+/**
+ * Stream generation from a single prompt.
+ * - on_delta: receives incremental UTF-8 chunks (may be short tokens or small pieces)
+ * - on_done:  called exactly once on successful completion
+ * - on_error: called exactly once on failure (on_done will NOT be called)
+ * - user:     opaque pointer passed back to each callback
+ *
+ * NOTE: This call is synchronous/blocking; invoke off the main thread.
+ */
+void llama_generate_stream(const char *prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user);
+
+/**
+ * Stream generation from (system, context, user) inputs.
+ * Semantics are identical to llama_generate_stream but the prompt is constructed
+ * from the three parts in a chat-style format.
+ *
+ * NOTE: This call is synchronous/blocking; invoke off the main thread.
+ */
+void llama_generate_chat_stream(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user);
 
 #ifdef __cplusplus
 } // extern "C"

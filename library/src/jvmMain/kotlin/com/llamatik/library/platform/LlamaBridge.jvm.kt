@@ -36,4 +36,25 @@ actual object LlamaBridge {
 
     actual fun shutdown() {
     }
+
+    actual fun generateStream(prompt: String, callback: GenStream) {
+    }
+
+    actual fun generateStreamWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        callback: GenStream
+    ) {
+    }
+
+    actual fun generateWithContextStream(
+        system: String,
+        context: String,
+        user: String,
+        onDelta: (String) -> Unit,
+        onDone: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+    }
 }

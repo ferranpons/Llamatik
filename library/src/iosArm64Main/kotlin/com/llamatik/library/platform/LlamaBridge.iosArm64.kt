@@ -10,10 +10,19 @@ import com.llamatik.library.platform.llama.llama_embedding_size
 import com.llamatik.library.platform.llama.llama_free_embedding
 import com.llamatik.library.platform.llama.llama_generate
 import com.llamatik.library.platform.llama.llama_generate_chat
+import com.llamatik.library.platform.llama.llama_generate_chat_stream
 import com.llamatik.library.platform.llama.llama_generate_free
 import com.llamatik.library.platform.llama.llama_generate_init
+import com.llamatik.library.platform.llama.llama_generate_stream
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.COpaquePointer
+import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.StableRef
+import kotlinx.cinterop.asStableRef
 import kotlinx.cinterop.get
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toKString
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import platform.Foundation.NSBundle
@@ -42,21 +51,26 @@ actual object LlamaBridge {
         if (!fm.fileExistsAtPath(dstUrl.path!!)) {
             val (name, ext) = splitNameAndExt(modelFileName)
 
-            // 1) Try main bundle under "models/" (your intended location)
+            fun urlFor(bundle: NSBundle, n: String, e: String?, subdir: String?): NSURL? {
+                val url = bundle.URLForResource(n, e, subdir)
+                if (url != null && fm.fileExistsAtPath(url.path!!)) return url
+                return null
+            }
+
             val candidates = mutableListOf<Pair<String, NSURL?>>()
-            candidates += "main: models/" to urlFor(NSBundle.mainBundle, name, ext, "models")
 
-            // 2) Try main bundle root (in case the folder got flattened)
-            candidates += "main: <root>" to urlFor(NSBundle.mainBundle, name, ext, null)
-
+            // 1) /models in main bundle
+            candidates += "main bundle models/" to urlFor(NSBundle.mainBundle, name, ext, "models")
+            // 2) root of main bundle
+            candidates += "main bundle <root>" to urlFor(NSBundle.mainBundle, name, ext, null)
             // 3) Try every loaded bundle/framework (resources sometimes land there)
-            (NSBundle.allBundles() as? List<*>)?.forEach { b ->
+            NSBundle.allBundles().forEach { b ->
                 (b as? NSBundle)?.let { bundle ->
                     candidates += "${bundle.bundlePath}: models/" to urlFor(bundle, name, ext, "models")
                     candidates += "${bundle.bundlePath}: <root>" to urlFor(bundle, name, ext, null)
                 }
             }
-            (NSBundle.allFrameworks() as? List<*>)?.forEach { b ->
+            NSBundle.allFrameworks().forEach { b ->
                 (b as? NSBundle)?.let { bundle ->
                     candidates += "framework ${bundle.bundlePath}: models/" to urlFor(bundle, name, ext, "models")
                     candidates += "framework ${bundle.bundlePath}: <root>" to urlFor(bundle, name, ext, null)
@@ -82,61 +96,35 @@ actual object LlamaBridge {
             """.trimIndent()
             }
 
-            val data = requireNotNull(NSData.create(contentsOfURL = resUrl)) {
-                "Failed to read bundled resource: $modelFileName (url=$resUrl)"
-            }
-
+            val data = NSData.create(contentsOfURL = resUrl)
+            requireNotNull(data) { "Couldn't read model from bundle url=$resUrl" }
             val ok = data.writeToURL(dstUrl, true)
-            require(ok) { "Failed to copy $modelFileName to ${dstUrl.path}" }
-            println("📂 [getModelPath] Copied $modelFileName to cache path: ${dstUrl.path}")
+            require(ok) { "Failed to copy model to caches dir: ${dstUrl.path}" }
+            println("📥 [getModelPath] Copied to caches: ${dstUrl.path}")
         } else {
-            println("📂 [getModelPath] Using cached file: ${dstUrl.path}")
+            println("✅ [getModelPath] Already in caches: ${dstUrl.path}")
         }
 
         return dstUrl.path!!
     }
 
-    private fun urlFor(bundle: NSBundle, name: String, ext: String, subdirectory: String?): NSURL? {
-        return if (ext.isNotEmpty())
-            bundle.URLForResource(name, ext, subdirectory = subdirectory)
-        else
-            bundle.URLForResource(name, withExtension = null, subdirectory = subdirectory)
+    private fun splitNameAndExt(fileName: String): Pair<String, String?> {
+        val dot = fileName.lastIndexOf('.')
+        if (dot <= 0 || dot == fileName.length - 1) return fileName to null
+        return fileName.substring(0, dot) to fileName.substring(dot + 1)
     }
 
-    private fun splitNameAndExt(fileName: String): Pair<String, String> {
-        val i = fileName.lastIndexOf('.')
-        return if (i > 0 && i < fileName.length - 1)
-            fileName.substring(0, i) to fileName.substring(i + 1)
-        else
-            fileName to ""
-    }
-
-    actual fun initModel(modelPath: String): Boolean {
-        val ok = llama_embed_init(modelPath)
-        if (!ok) {
-            println("❌ [embed_init] Failed for $modelPath")
-        } else {
-            val dim = llama_embedding_size()
-            println("✅ [embed_init] Ready (dim=$dim)")
-            if (dim <= 0) {
-                println("⚠️ [embed_init] embedding_size() <= 0 — native init likely wrong path")
-                return false
-            }
-        }
-        return ok
-    }
-
+    actual fun initModel(modelPath: String): Boolean = llama_embed_init(modelPath)
     actual fun embed(input: String): FloatArray {
-        val raw = llama_embed(input) ?: return FloatArray(0)
-        val size = llama_embedding_size()
-        return try {
-            FloatArray(size) { i -> raw[i] }
-        } finally {
-            llama_free_embedding(raw)
-        }
+        val ptr = llama_embed(input) ?: return FloatArray(0)
+        val dim = llama_embedding_size()
+        val out = FloatArray(dim)
+        for (i in 0 until dim) out[i] = ptr[i]
+        llama_free_embedding(ptr)
+        return out
     }
 
-    actual fun initGenerateModel(modelPath: String) = llama_generate_init(modelPath)
+    actual fun initGenerateModel(modelPath: String): Boolean = llama_generate_init(modelPath)
 
     actual fun generate(prompt: String): String {
         val c = llama_generate(prompt) ?: return ""
@@ -155,5 +143,88 @@ actual object LlamaBridge {
     actual fun shutdown() {
         llama_embed_free()
         llama_generate_free()
+    }
+
+    // --------- Streaming (iOS via C callbacks) ---------
+
+    actual fun generateStream(prompt: String, callback: GenStream) {
+        memScoped {
+            val ref = StableRef.create(callback)
+            val onDelta = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val s = cstr?.toKString() ?: return@staticCFunction
+                cb.onDelta(s)
+            }
+            val onDone = staticCFunction { ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                cb.onComplete()
+            }
+            val onError = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val msg = cstr?.toKString() ?: "unknown error"
+                cb.onError(msg)
+            }
+            try {
+                // NOTE: This call blocks until completion; call from a background dispatcher.
+                llama_generate_stream(prompt, onDelta, onDone, onError, ref.asCPointer())
+            } finally {
+                ref.dispose()
+            }
+        }
+    }
+
+    actual fun generateStreamWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        callback: GenStream
+    ) {
+        memScoped {
+            val ref = StableRef.create(callback)
+            val onDelta = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val s = cstr?.toKString() ?: return@staticCFunction
+                cb.onDelta(s)
+            }
+            val onDone = staticCFunction { ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                cb.onComplete()
+            }
+            val onError = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val msg = cstr?.toKString() ?: "unknown error"
+                cb.onError(msg)
+            }
+            try {
+                // Same: synchronous; make sure to call off the main thread.
+                llama_generate_chat_stream(
+                    systemPrompt,
+                    contextBlock,
+                    userPrompt,
+                    onDelta,
+                    onDone,
+                    onError,
+                    ref.asCPointer()
+                )
+            } finally {
+                ref.dispose()
+            }
+        }
+    }
+
+    actual fun generateWithContextStream(
+        system: String,
+        context: String,
+        user: String,
+        onDelta: (String) -> Unit,
+        onDone: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val proxy = object : GenStream {
+            override fun onDelta(text: String) = onDelta(text)
+            override fun onComplete() = onDone()
+            override fun onError(message: String) = onError(message)
+        }
+        generateStreamWithContext(system, context, user, proxy)
     }
 }
