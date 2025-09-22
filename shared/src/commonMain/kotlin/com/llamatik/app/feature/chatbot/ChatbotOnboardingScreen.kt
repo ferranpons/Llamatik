@@ -80,19 +80,19 @@ class ChatbotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                 )
                 Text(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    text = "Llamatik AI (Guy In Back Specialist Artificial Intelligence) is an experimental local assistant for DCS World pilots, designed to help you quickly find information from manuals, guides, and community websites — all without needing an internet connection.\n" +
+                    text = "Llamatik AI is an experimental local assistant, designed to help you quickly find information — all without needing an internet connection.\n" +
                             "\n" +
                             "It can help you:\n" +
-                            "Look up aircraft systems, weapons, procedures, and mission planning tips.\n" +
-                            "Summarize complex documentation.\n" +
-                            "Answer common questions from DCS World reference materials.\n" +
+                            "---\n" +
+                            "---\n" +
+                            "---\n" +
                             "\n" +
                             "\uD83D\uDD10 Privacy Notice\n\n" +
                             "Your privacy is fully protected. The chatbot runs entirely on your device.\n" +
                             "It does not collect, store, or share any personal data.\n" +
                             "No information is sent to external servers.\n" +
                             "\n" +
-                            "This tool is based on publicly available content and is not affiliated with Eagle Dynamics.\n" +
+                            "---\n" +
                             "\n" +
                             "By continuing, you accept that Llamatik AI chatbot is provided for educational and informational purposes only, and complies with global privacy laws including GDPR, CCPA, and LGPD.\n" +
                             "\n",

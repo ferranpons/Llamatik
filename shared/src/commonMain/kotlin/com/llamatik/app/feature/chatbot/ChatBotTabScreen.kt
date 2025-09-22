@@ -229,9 +229,7 @@ class ChatBotTabScreen : Screen {
                         modifier = Modifier.padding(horizontal = 16.dp),
                         text = "Here are some hints:\n" +
                                 "\n" +
-                                "How can I start Viggen?\n" +
-                                "Describe the F-18 system weapons.\n" +
-                                "Can I use Mavericks on the F-16?\n" +
+                                "---\n" +
                                 "\n",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
