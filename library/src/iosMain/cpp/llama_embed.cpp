@@ -7,6 +7,7 @@
 #include <string>
 #include <cstdint>
 #include <algorithm>
+#include <cctype>   // tolower, isalpha
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -104,29 +105,205 @@ static llama_model *load_model_with_fallback(const char *path) {
     return llama_model_load_from_file(path, mp);
 }
 
-// ----- lightweight "plain chat" prompt (fallback if no chat template present) -----
+// ===================== Prompt builders =====================
+//
+// IMPORTANT: We DO NOT include system instructions verbatim in the prompt text.
+// We just structure the task as Context + Question + "Answer:" cue so the model
+// finishes the answer without echoing roles.
 
-static std::string build_plain_chat_prompt(const std::string &system_msg,
-        const std::string &context_block,
+static std::string build_plain_prompt(const std::string &context_block,
         const std::string &user_msg) {
     std::string p;
-    p.reserve(system_msg.size() + context_block.size() + user_msg.size() + 128);
-    p += "System: ";   p += system_msg; p += "\n\n";
-    if (!context_block.empty()) { p += "Context:\n"; p += context_block; p += "\n\n"; }
-    p += "User: ";     p += user_msg;   p += "\n";
-    p += "Assistant:";
+    p.reserve(context_block.size() + user_msg.size() + 128);
+    if (!context_block.empty()) {
+        p += "Context:\n";
+        p += context_block;
+        p += "\n\n";
+    }
+    p += "Question:\n";
+    p += user_msg;
+    p += "\n\nAnswer:\n";
     return p;
 }
 
-// Try to use chat template (if model has it). If used, return true and fill `wrapped` with the prompt.
-// If no template available, return false.
+// No chat template path in this build; keep stub for future wiring.
 static bool apply_chat_template_if_available(const char *system_msg,
         const char *user_msg,
         std::string &wrapped) {
-    // For simplicity here we always return false; in your setup you may have
-    // llama_chat_apply_template available to format roles for chatty models.
-    (void)system_msg; (void)user_msg;
+    (void)system_msg; (void)user_msg; (void)wrapped;
     return false;
+}
+
+// ===================== Text sanitation =====================
+
+static inline std::string trim_ios(std::string s) {
+    auto b = s.find_first_not_of(" \t\r\n");
+    if (b == std::string::npos) return "";
+    auto e = s.find_last_not_of(" \t\r\n");
+    return s.substr(b, e - b + 1);
+}
+static inline std::string to_lower_ios(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+            [](unsigned char c){ return char(std::tolower(c)); });
+    return s;
+}
+
+static void drop_lines_with_prefix_ci(std::string &s, const char *prefix_ci) {
+    std::string out; out.reserve(s.size());
+    size_t i = 0, line_start = 0;
+    const std::string pfx = to_lower_ios(prefix_ci);
+    while (i <= s.size()) {
+        if (i == s.size() || s[i] == '\n') {
+            std::string line(s.data()+line_start, i - line_start);
+            std::string lc = to_lower_ios(line);
+            if (!(lc.rfind(pfx, 0) == 0)) {
+                out.append(line);
+                if (i != s.size()) out.push_back('\n');
+            }
+            line_start = i + 1;
+        }
+        ++i;
+    }
+    s.swap(out);
+}
+
+static void drop_lines_containing_ci(std::string &s, const char *needle_ci) {
+    std::string out; out.reserve(s.size());
+    const std::string ndl = to_lower_ios(needle_ci);
+    size_t i = 0, line_start = 0;
+    while (i <= s.size()) {
+        if (i == s.size() || s[i] == '\n') {
+            std::string line(s.data()+line_start, i - line_start);
+            std::string lc = to_lower_ios(line);
+            if (lc.find(ndl) == std::string::npos) {
+                out.append(line);
+                if (i != s.size()) out.push_back('\n');
+            }
+            line_start = i + 1;
+        }
+        ++i;
+    }
+    s.swap(out);
+}
+
+static std::string sanitize_generation_ios(std::string s) {
+    if (s.empty()) return s;
+
+    // 1) cut at common EOT / next-turn markers
+    for (const char* stop : { "<end_of_turn>", "<|eot_id|>", "</s>", "<start_of_turn>" }) {
+        size_t p = s.find(stop);
+        if (p != std::string::npos) { s = s.substr(0, p); }
+    }
+
+    // 2) remove leaked role headers and common labels
+    for (const char* pfx : { "assistant:", "user:", "system:", "answer:" }) {
+        drop_lines_with_prefix_ci(s, pfx);
+    }
+
+    // 3) strip any accidental copies of your system guidance
+    for (const char* sub : {
+            "you are a helpful technical assistant",
+            "answer in plain text",
+            "do not echo the question",
+            "never write role labels"
+    }) {
+        drop_lines_containing_ci(s, sub);
+    }
+
+    // 4) if we still see a lone "Answer:" cue, remove that cue only
+    {
+        std::string low = to_lower_ios(s);
+        size_t p = low.find("answer:");
+        if (p != std::string::npos) {
+            // delete "Answer:" and any immediate single space
+            size_t end = p + 7;
+            if (end < s.size() && s[end] == ' ') ++end;
+            s.erase(p, end - p);
+        }
+    }
+
+    // 5) trim
+    s = trim_ios(s);
+    return s;
+}
+
+// === Streaming: robust gate so we don't show partial headers or "Answer:" ===
+
+// Return the index where real content starts, or npos if we should wait for more chars.
+static size_t find_stream_start(const std::string &s) {
+    size_t i = 0;
+
+    auto is_space = [](char c){ return c==' '||c=='\t'||c=='\r'||c=='\n'; };
+    auto starts_ci = [&](size_t pos, const char* w)->bool{
+        size_t n = std::strlen(w);
+        if (pos + n > s.size()) return false;
+        for (size_t k = 0; k < n; ++k) {
+            char a = std::tolower((unsigned char)s[pos+k]);
+            char b = std::tolower((unsigned char)w[k]);
+            if (a != b) return false;
+        }
+        return true;
+    };
+    auto is_prefix_ci = [&](size_t pos, const char* w)->bool{
+        size_t n = std::strlen(w);
+        size_t len = std::min(n, s.size() - pos);
+        for (size_t k = 0; k < len; ++k) {
+            char a = std::tolower((unsigned char)s[pos+k]);
+            char b = std::tolower((unsigned char)w[k]);
+            if (a != b) return false;
+        }
+        return true; // s[pos..] matches the prefix of w
+    };
+
+    // skip leading whitespace
+    while (i < s.size() && is_space(s[i])) ++i;
+
+    while (i < s.size()) {
+        // Incomplete or complete tag line: wait until '>' then skip it (and trailing spaces/newline)
+        if (s[i] == '<') {
+            size_t gt = s.find('>', i + 1);
+            size_t nl = s.find('\n', i);
+            if (gt == std::string::npos || (nl != std::string::npos && nl < gt)) {
+                return std::string::npos; // incomplete tag line
+            }
+            i = gt + 1;
+            while (i < s.size() && is_space(s[i])) ++i;
+            continue;
+        }
+
+        // Handle role labels (assistant|user|system|answer), even if partial
+        if (is_prefix_ci(i, "assistant") || is_prefix_ci(i, "user") ||
+                is_prefix_ci(i, "system") || is_prefix_ci(i, "answer")) {
+            // If we don't yet have the full word, wait.
+            if (!(starts_ci(i, "assistant") || starts_ci(i, "user") ||
+                    starts_ci(i, "system") || starts_ci(i, "answer"))) {
+                return std::string::npos; // partial like "Assis" or "Ans"
+            }
+            // We have the full word; if colon not here yet, wait one more char.
+            size_t j = i;
+            while (j < s.size() && std::isalpha((unsigned char)s[j])) ++j;
+            if (j >= s.size()) return std::string::npos; // need more to see ':' or content
+
+            if (s[j] == ':') {
+                // Skip "Label:" + spaces and an optional newline, then continue scanning
+                ++j;
+                while (j < s.size() && (s[j] == ' ' || s[j] == '\t')) ++j;
+                if (j < s.size() && s[j] == '\n') {
+                    ++j;
+                    while (j < s.size() && is_space(s[j])) ++j;
+                }
+                i = j;
+                continue; // drop the label and keep looking
+            }
+            // Full word but no colon: treat as normal content (rare)
+            return i;
+        }
+
+        // Otherwise, content starts here.
+        return i;
+    }
+
+    return std::string::npos;
 }
 
 // ===================== Embeddings =====================
@@ -238,7 +415,7 @@ bool llama_generate_init(const char *model_path) {
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = false;
-    ctx_params.n_ctx      = 8192;   // <- larger context (was 4096)
+    ctx_params.n_ctx      = 8192;   // larger context
 
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
@@ -255,17 +432,10 @@ char *llama_generate(const char *prompt) {
 
     llama_kv_self_clear(gen_ctx);
 
-    // 1) Build the right prompt
+    // We treat `prompt` we receive as the *Question* and build our wrapper.
     std::string wrapped;
-    if (!apply_chat_template_if_available(
-            "You are a helpful assistant. Answer in plain text. Do NOT output XML/HTML-like tags such as <admin>, <help>, <info>.",
-            prompt,
-            wrapped)) {
-        wrapped = build_plain_chat_prompt(
-                "You are a helpful assistant. Answer in plain text. Do NOT output XML/HTML-like tags such as <admin>, <help>, <info>.",
-                "",
-                prompt);
-        DBG("generate: using plain prompt");
+    if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
+        wrapped = build_plain_prompt(/*context=*/"", /*question=*/prompt);
     }
 
     // 2) Tokenize + prompt decode
@@ -297,7 +467,7 @@ char *llama_generate(const char *prompt) {
         return nullptr;
     }
 
-    // Sampler: light defaults
+    // Sampler
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
         llama_batch_free(batch);
@@ -379,17 +549,8 @@ char *llama_generate(const char *prompt) {
         }
     }
 
-    // Trim leading lines like "<foo>\n" if any slipped through (best-effort)
-    if (!text.empty()) {
-        size_t i = 0;
-        while (i + 3 < text.size() && text[i] == '<') {
-            size_t nl = text.find('\n', i);
-            if (nl == std::string::npos) break;
-            if (nl - i <= 20 && text[nl - 1] == '>') i = nl + 1;
-            else break;
-        }
-        if (i > 0) text.erase(0, i);
-    }
+    // Strong sanitize (remove any leaked labels / system echoes)
+    text = sanitize_generation_ios(std::move(text));
 
     char *result = (char *) std::malloc(text.size() + 1);
     if (!result) return nullptr;
@@ -401,29 +562,18 @@ char *llama_generate(const char *prompt) {
 static std::string build_clean_prompt(const char *system_prompt,
         const char *context_block,
         const char *user_prompt) {
-    std::string sys = system_prompt ? system_prompt : "";
+    (void)system_prompt; // not injected into text; we keep only a simple structure
     std::string ctx = context_block ? context_block : "";
     std::string usr = user_prompt   ? user_prompt   : "";
-    std::string p;
-    p.reserve(sys.size() + ctx.size() + usr.size() + 128);
-    p += "System: ";   p += sys; p += "\n\n";
-    if (!ctx.empty()) {
-        p += "Context:\n"; p += ctx; p += "\n\n";
-    }
-    p += "User: "; p += usr; p += "\n";
-    p += "Assistant:";
-    return p;
+    return build_plain_prompt(ctx, usr);
 }
 
 char *llama_generate_chat(const char *system_prompt,
         const char *context_block,
         const char *user_prompt) {
     std::string prompt = build_clean_prompt(system_prompt, context_block, user_prompt);
-
-    // OPTIONAL: add lightweight post-stop to avoid the model continuing back into a new "User:" cue.
-    const llama_vocab *v = llama_model_get_vocab(gen_model);
-    (void)v; // not used here; kept for parity
-    return llama_generate(prompt.c_str());
+    char *raw = llama_generate(prompt.c_str());
+    return raw; // already sanitized inside llama_generate
 }
 
 // ===================== Streaming APIs (iOS) =====================
@@ -431,17 +581,6 @@ char *llama_generate_chat(const char *system_prompt,
 typedef void (*llm_on_delta)(const char *utf8, void *user);
 typedef void (*llm_on_done)(void *user);
 typedef void (*llm_on_error)(const char *utf8, void *user);
-
-static void emit_piece(const llama_vocab *v, llama_token tok, bool allow_special, std::string &accum, llm_on_delta on_delta, void *user) {
-    char buf[256];
-    int n = llama_token_to_piece(v, tok, buf, (int)sizeof(buf), 0, allow_special);
-    if (n > 0) {
-        if (n >= (int)sizeof(buf)) buf[sizeof(buf)-1] = '\0';
-        else buf[n] = '\0';
-        accum.append(buf);
-        if (on_delta) on_delta(buf, user);
-    }
-}
 
 void llama_generate_stream(const char *prompt,
         llm_on_delta on_delta,
@@ -452,15 +591,10 @@ void llama_generate_stream(const char *prompt,
 
     llama_kv_self_clear(gen_ctx);
 
+    // Wrap incoming prompt as Question only (no system echo)
     std::string wrapped;
-    if (!apply_chat_template_if_available(
-            "You are a helpful assistant. Answer in plain text. Do NOT output XML/HTML-like tags such as <admin>, <help>, <info>.",
-            prompt,
-            wrapped)) {
-        wrapped = build_plain_chat_prompt(
-                "You are a helpful assistant. Answer in plain text. Do NOT output XML/HTML-like tags such as <admin>, <help>, <info>.",
-                "",
-                prompt);
+    if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
+        wrapped = build_plain_prompt(/*context=*/"", /*question=*/prompt);
     }
 
     std::vector<llama_token> tokens(2048);
@@ -511,7 +645,10 @@ void llama_generate_stream(const char *prompt,
     if (remaining_ctx < 0) remaining_ctx = 0;
     int max_new_tokens = std::max(remaining_ctx, 2048);
 
-    std::string assembled;
+    std::string assembled;            // raw accumulation from tokens (no specials)
+    size_t start_idx = std::string::npos; // where real content begins
+    size_t sent_from_start = 0;           // how many chars emitted from [start_idx..)
+
     assembled.reserve(4096);
 
     for (int i = 0; i < max_new_tokens; ++i) {
@@ -519,21 +656,42 @@ void llama_generate_stream(const char *prompt,
         if (tok < 0) break;
         if (llama_vocab_is_eog(v, tok)) break;
 
-        char piece[64];
-        int nn = llama_token_to_piece(v, tok, piece, (int)sizeof(piece), 0, /*special*/ true);
+        // Early stop on common “end” pieces (including turn tags)
+        char spiece[64];
+        int nn = llama_token_to_piece(v, tok, spiece, (int)sizeof(spiece), 0, /*special*/ true);
         if (nn > 0) {
-            if (nn >= (int)sizeof(piece)) piece[sizeof(piece)-1] = '\0';
-            else piece[nn] = '\0';
-            if (std::strcmp(piece, "<|eot_id|>") == 0 ||
-                    std::strcmp(piece, "<end_of_turn>") == 0 ||
-                    std::strcmp(piece, "</s>") == 0 ||
-                    std::strcmp(piece, "<start_of_turn>") == 0) {
+            if (nn >= (int)sizeof(spiece)) spiece[sizeof(spiece)-1] = '\0';
+            else spiece[nn] = '\0';
+            if (std::strcmp(spiece, "<|eot_id|>") == 0 ||
+                    std::strcmp(spiece, "<end_of_turn>") == 0 ||
+                    std::strcmp(spiece, "</s>") == 0 ||
+                    std::strcmp(spiece, "<start_of_turn>") == 0) {
                 break;
             }
         }
 
         llama_sampler_accept(sampler, tok);
-        emit_piece(v, tok, /*allow_special*/ false, assembled, on_delta, user);
+
+        // Append normal text piece (no specials) to assembled buffer
+        char piece[256];
+        int nout = llama_token_to_piece(v, tok, piece, (int)sizeof(piece), 0, /*special*/ false);
+        if (nout > 0) {
+            if (nout >= (int)sizeof(piece)) piece[sizeof(piece)-1] = '\0';
+            assembled.append(piece, nout);
+
+            // Try to find a safe start (skip role labels / "Answer:" / tags)
+            if (start_idx == std::string::npos) {
+                start_idx = find_stream_start(assembled);
+            }
+
+            // If we have a safe start, emit only the *new* tail from that point.
+            if (start_idx != std::string::npos && assembled.size() > start_idx + sent_from_start) {
+                const std::string_view delta(assembled.data() + start_idx + sent_from_start,
+                        assembled.size() - (start_idx + sent_from_start));
+                if (on_delta && !delta.empty()) on_delta(std::string(delta).c_str(), user);
+                sent_from_start += delta.size();
+            }
+        }
 
         if (cur_pos >= (int)n_ctx) break;
 
@@ -554,11 +712,6 @@ void llama_generate_stream(const char *prompt,
 
     llama_batch_free(batch);
     llama_sampler_free(sampler);
-
-    size_t p;
-    if ((p = assembled.find("<start_of_turn>")) != std::string::npos) assembled.resize(p);
-    if ((p = assembled.find("QUESTION:"))       != std::string::npos) assembled.resize(p);
-    if ((p = assembled.find("USER:"))           != std::string::npos) assembled.resize(p);
 
     if (on_done) on_done(user);
 }
