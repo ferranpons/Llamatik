@@ -99,3 +99,24 @@
 -dontwarn javax.swing.SwingUtilities
 -dontwarn javax.swing.Timer
 -dontwarn org.slf4j.impl.StaticLoggerBinder
+
+# Ktor & Kamel related
+-keep class io.ktor.utils.io.core.CloseableJVMKt { *; }
+-dontwarn io.ktor.utils.io.core.CloseableJVMKt
+
+# Ktor Java HTTP Client Engine related (if you use it explicitly or a library does)
+# These are needed if your minSdk is below 26 and Ktor attempts to use the Java 11+ HTTP client
+-keep class java.net.http.HttpHeaders { *; }
+-keep class java.net.http.WebSocketHandshakeException { *; }
+-dontwarn java.net.http.**
+
+# General Ktor rules (often helpful)
+-keep class io.ktor.** { *; }
+-keepnames class io.ktor.**
+-dontwarn io.ktor.**
+
+# Kamel (if not covered by general Ktor rules, add more specific ones if needed)
+-keep class io.kamel.core.** { *; }
+-keepnames class io.kamel.core.**
+-dontwarn io.kamel.core.**
+
