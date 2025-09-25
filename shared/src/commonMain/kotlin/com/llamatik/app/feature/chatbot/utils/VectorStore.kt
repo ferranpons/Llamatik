@@ -61,13 +61,50 @@ fun tidyAnswer(s: String): String = s
 
 // --- Query keyword extraction & filtering ---
 private val STOPWORDS = setOf(
-    "the","a","an","and","or","of","to","for","in","on","at","by","is","are","was","were",
-    "be","with","as","that","this","it","from","your","you","we","our","us","can","could",
-    "should","would","how","what","why","when","where","which","who","whom"
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "of",
+    "to",
+    "for",
+    "in",
+    "on",
+    "at",
+    "by",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "with",
+    "as",
+    "that",
+    "this",
+    "it",
+    "from",
+    "your",
+    "you",
+    "we",
+    "our",
+    "us",
+    "can",
+    "could",
+    "should",
+    "would",
+    "how",
+    "what",
+    "why",
+    "when",
+    "where",
+    "which",
+    "who",
+    "whom"
 )
 
 fun extractKeywords(s: String, minLen: Int = 3): Set<String> =
-    Regex("[A-Za-z0-9][A-Za-z0-9_-]{${minLen-1},}")
+    Regex("[A-Za-z0-9][A-Za-z0-9_-]{${minLen - 1},}")
         .findAll(s.lowercase())
         .map { it.value }
         .filterNot { it in STOPWORDS }
@@ -85,11 +122,14 @@ fun metaString(meta: Map<String, kotlinx.serialization.json.JsonElement>?, key: 
 
 // --- Cosine over List<Float> returning Double (good for MMR math) ---
 fun cosineD(a: List<Float>, b: List<Float>): Double {
-    var dot = 0.0; var na = 0.0; var nb = 0.0
+    var dot = 0.0;
+    var na = 0.0;
+    var nb = 0.0
     val n = minOf(a.size, b.size)
     var i = 0
     while (i < n) {
-        val x = a[i].toDouble(); val y = b[i].toDouble()
+        val x = a[i].toDouble();
+        val y = b[i].toDouble()
         dot += x * y; na += x * x; nb += y * y
         i++
     }
@@ -120,7 +160,9 @@ fun mmr(
                 cosineD(c.item.vector, s.item.vector)
             }
             val score = lambda * rel - (1 - lambda) * div
-            if (score > bestScore) { bestScore = score; bestIdx = i }
+            if (score > bestScore) {
+                bestScore = score; bestIdx = i
+            }
         }
         selected += remaining.removeAt(bestIdx)
     }

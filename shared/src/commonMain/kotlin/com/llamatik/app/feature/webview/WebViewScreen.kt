@@ -89,7 +89,7 @@ class WebViewScreen(
     */
     @Composable
     fun WebViewScreenLayout(
-        //viewModel: WebViewModel,
+        // viewModel: WebViewModel,
         localization: Localization,
         onClose: () -> Unit
     ) {

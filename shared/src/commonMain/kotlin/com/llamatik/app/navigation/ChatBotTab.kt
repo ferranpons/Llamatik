@@ -11,7 +11,6 @@ import com.llamatik.app.feature.chatbot.ChatBotTabScreen
 import com.llamatik.app.ui.icon.LlamatikIcons
 
 internal object ChatBotTab : Tab {
-
     override val options: TabOptions
         @Composable
         get() {
@@ -21,7 +20,7 @@ internal object ChatBotTab : Tab {
                 TabOptions(
                     index = 2u,
                     title = "Llamatik AI",
-                    icon = icon
+                    icon = icon,
                 )
             }
         }

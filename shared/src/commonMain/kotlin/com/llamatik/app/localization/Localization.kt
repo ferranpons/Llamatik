@@ -18,7 +18,6 @@ interface Localization {
     val previous: String
     val welcome: String
 
-
     val backLabel: String
     val topAppBarActionIconDescription: String
     val home: String
@@ -55,7 +54,6 @@ interface Localization {
     val onboardingPromoLine4: String
 
     val feedItemTitle: String
-
 
     val loading: String
     val profileImageDescription: String

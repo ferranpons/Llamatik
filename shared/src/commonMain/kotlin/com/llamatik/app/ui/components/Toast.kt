@@ -31,7 +31,7 @@ sealed interface ToastState {
 
 @Composable
 fun Toast(
-    state: MutableState<ToastState>
+    state: MutableState<ToastState>,
 ) {
     val value = state.value
     if (value is ToastState.Shown) {

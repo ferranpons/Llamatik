@@ -20,123 +20,130 @@ import com.llamatik.app.ui.theme.Fonts
 import com.llamatik.app.ui.theme.LlamatikTheme
 
 class OnboardingScreen : Screen {
-
     @Composable
     override fun Content() {
         val localization = getCurrentLocalization()
         val navigator = LocalNavigator.currentOrThrow
         LlamatikTheme {
-            val onboardingPromoTitle1 = buildAnnotatedString {
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = Fonts.poppinsFamily(),
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    append(localization.onboardingPromoTitle1)
+            val onboardingPromoTitle1 =
+                buildAnnotatedString {
+                    withStyle(
+                        style = SpanStyle(
+                            fontFamily = Fonts.poppinsFamily(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append(localization.onboardingPromoTitle1)
+                    }
                 }
-            }
-            val onboardingPromoLine1 = buildAnnotatedString {
-                append("Welcome to the ")
-                appendLine()
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = Fonts.poppinsFamily(),
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    append("Llamatik App")
+            val onboardingPromoLine1 =
+                buildAnnotatedString {
+                    append("Welcome to the ")
+                    appendLine()
+                    withStyle(
+                        style = SpanStyle(
+                            fontFamily = Fonts.poppinsFamily(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append("Llamatik App")
+                    }
+                    appendLine()
+                    append(localization.onboardingPromoLine1)
+                    withStyle(
+                        style = SpanStyle(
+                            fontFamily = Fonts.poppinsFamily(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append("llamatik.com")
+                    }
                 }
-                appendLine()
-                append(localization.onboardingPromoLine1)
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = Fonts.poppinsFamily(),
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    append("llamatik.com")
-                }
-            }
 
-            val onboardingPromoTitle2 = buildAnnotatedString {
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = Fonts.poppinsFamily(),
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    append(localization.onboardingPromoTitle2)
+            val onboardingPromoTitle2 =
+                buildAnnotatedString {
+                    withStyle(
+                        style = SpanStyle(
+                            fontFamily = Fonts.poppinsFamily(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append(localization.onboardingPromoTitle2)
+                    }
                 }
-            }
 
-            val onboardingPromoTitle3 = buildAnnotatedString {
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = Fonts.poppinsFamily(),
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    append(localization.onboardingPromoTitle3)
+            val onboardingPromoTitle3 =
+                buildAnnotatedString {
+                    withStyle(
+                        style = SpanStyle(
+                            fontFamily = Fonts.poppinsFamily(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append(localization.onboardingPromoTitle3)
+                    }
                 }
-            }
 
-            val onboardingPromoTitle4 = buildAnnotatedString {
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = Fonts.poppinsFamily(),
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    append(localization.onboardingPromoTitle4)
+            val onboardingPromoTitle4 =
+                buildAnnotatedString {
+                    withStyle(
+                        style = SpanStyle(
+                            fontFamily = Fonts.poppinsFamily(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append(localization.onboardingPromoTitle4)
+                    }
                 }
-            }
 
-            val onboardingPromoLine3 = buildAnnotatedString {
-                append(localization.onboardingPromoLine3)
-                /*withStyle(style = SpanStyle(fontFamily = Fonts.poppinsFamily(), fontWeight = FontWeight.Bold)) {
-                    append("multiplatformkickstarter.com")
-                }*/
-            }
-
-            val onboardingPromoLine4 = buildAnnotatedString {
-                append(localization.onboardingPromoLine4)
-                withStyle(
-                    style = SpanStyle(
-                        fontFamily = Fonts.poppinsFamily(),
-                        fontWeight = FontWeight.Bold
-                    )
-                ) {
-                    append("hello@multiplatformkickstarter.com")
+            val onboardingPromoLine3 =
+                buildAnnotatedString {
+                    append(localization.onboardingPromoLine3)
+                    /*withStyle(style = SpanStyle(fontFamily = Fonts.poppinsFamily(), fontWeight = FontWeight.Bold)) {
+                        append("multiplatformkickstarter.com")
+                    }*/
                 }
-            }
 
-            val carouselItems: List<CarouselItem> = listOf(
-                CarouselItem(
-                    Res.drawable.pay_attention_pana,
-                    onboardingPromoTitle1,
-                    onboardingPromoLine1,
-                    localization.next
-                ),
-                CarouselItem(
-                    Res.drawable.instruction_manual_pana,
-                    onboardingPromoTitle2,
-                    localization.onboardingPromoLine2.toAnnotatedString(),
-                    localization.next
-                ),
-                CarouselItem(
-                    Res.drawable.flying_around_the_world_cuate,
-                    onboardingPromoTitle3,
-                    onboardingPromoLine3,
-                    localization.next
-                ),
-                CarouselItem(
-                    Res.drawable.flying_around_the_world_cuate,
-                    onboardingPromoTitle4,
-                    onboardingPromoLine4,
-                    localization.close
-                ) { navigator.pop() }
-            )
+            val onboardingPromoLine4 =
+                buildAnnotatedString {
+                    append(localization.onboardingPromoLine4)
+                    withStyle(
+                        style = SpanStyle(
+                            fontFamily = Fonts.poppinsFamily(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
+                        append("hello@multiplatformkickstarter.com")
+                    }
+                }
+
+            val carouselItems: List<CarouselItem> =
+                listOf(
+                    CarouselItem(
+                        Res.drawable.pay_attention_pana,
+                        onboardingPromoTitle1,
+                        onboardingPromoLine1,
+                        localization.next
+                    ),
+                    CarouselItem(
+                        Res.drawable.instruction_manual_pana,
+                        onboardingPromoTitle2,
+                        localization.onboardingPromoLine2.toAnnotatedString(),
+                        localization.next
+                    ),
+                    CarouselItem(
+                        Res.drawable.flying_around_the_world_cuate,
+                        onboardingPromoTitle3,
+                        onboardingPromoLine3,
+                        localization.next
+                    ),
+                    CarouselItem(
+                        Res.drawable.flying_around_the_world_cuate,
+                        onboardingPromoTitle4,
+                        onboardingPromoLine4,
+                        localization.close
+                    ) { navigator.pop() }
+                )
             val onboardingComponent = OnboardingComponent(carouselItems)
             onboardingComponent.DrawCarousel()
         }

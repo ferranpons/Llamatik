@@ -30,14 +30,15 @@ import com.llamatik.app.ui.theme.Typography
 fun Picker(
     modifier: Modifier,
     pickerModel: PickerModel,
-    onClose: () -> Unit
+    onClose: () -> Unit,
 ) {
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.scrim)
-            .clickable { onClose.invoke() },
-        contentAlignment = Alignment.BottomCenter
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.scrim)
+                .clickable { onClose.invoke() },
+        contentAlignment = Alignment.BottomCenter,
     ) {
         PickerScaffold(pickerModel.title, pickerModel.description, pickerModel.options, onClose)
     }

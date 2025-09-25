@@ -110,5 +110,6 @@ object LlamatikIcons {
  */
 sealed class Icon {
     data class ImageVectorIcon(val imageVector: ImageVector) : Icon()
+
     data class DrawableResourceIcon(val id: Int) : Icon()
 }

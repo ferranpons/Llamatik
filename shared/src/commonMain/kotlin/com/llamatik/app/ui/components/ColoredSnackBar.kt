@@ -38,12 +38,12 @@ fun ColoredSnackBarHost(
             modifier = Modifier.padding(8.dp),
             containerColor = color.first,
             contentColor = color.second,
-            action = action
+            action = action,
         ) {
             hostState.currentSnackbarData?.let {
                 Text(
                     text = message.message,
-                    style = Typography.get().bodyMedium
+                    style = Typography.get().bodyMedium,
                 )
             }
         }
@@ -55,19 +55,19 @@ suspend fun SnackbarHostState.showSnackbar(
     message: String,
     actionLabel: String? = null,
     withDismissAction: Boolean = false,
-    duration: SnackbarDuration = SnackbarDuration.Short
+    duration: SnackbarDuration = SnackbarDuration.Short,
 ): SnackbarResult {
     return showSnackbar(
         SnackbarMessage(type, message).toString(),
         actionLabel,
         withDismissAction,
-        duration
+        duration,
     )
 }
 
 private data class SnackbarMessage(
     val type: SnackbarType,
-    val message: String
+    val message: String,
 ) {
     override fun toString(): String {
         return "$type$DELIMITER$message"
@@ -79,7 +79,7 @@ private data class SnackbarMessage(
 
             return SnackbarMessage(
                 type = SnackbarType.valueOf(type),
-                message = message
+                message = message,
             )
         }
     }
@@ -90,5 +90,8 @@ private fun SnackbarData.getSnackbarMessage(): SnackbarMessage {
 }
 
 enum class SnackbarType {
-    SUCCESS, ERROR, INFO, WARNING
+    SUCCESS,
+    ERROR,
+    INFO,
+    WARNING
 }

@@ -43,20 +43,23 @@ import org.jetbrains.compose.resources.painterResource
 private val defaultAction = {}
 
 class OnboardingComponent(
-    private val carouselItems: List<CarouselItem>
+    private val carouselItems: List<CarouselItem>,
 ) {
     @Composable
     fun DrawCarousel() {
         val coroutineScope = rememberCoroutineScope()
-        val state = rememberPagerState(
-            initialPage = 0,
-            initialPageOffsetFraction = 0f,
-            pageCount = { carouselItems.size }
-        )
+        val state =
+            rememberPagerState(
+                initialPage = 0,
+                initialPageOffsetFraction = 0f,
+                pageCount = { carouselItems.size },
+            )
 
         Column(
-            modifier = Modifier.fillMaxSize()
-                .background(MaterialTheme.colorScheme.tertiaryContainer)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.tertiaryContainer)
         ) {
             Box(
                 modifier = Modifier.weight(1f)

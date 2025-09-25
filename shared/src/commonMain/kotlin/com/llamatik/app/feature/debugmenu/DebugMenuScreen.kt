@@ -142,26 +142,27 @@ class DebugMenuScreen : Screen {
                             )
                         },
                         colors = TopAppBarDefaults.mediumTopAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.background
+                            containerColor = MaterialTheme.colorScheme.background,
                         ),
                         navigationIcon = {
                             IconButton(onClick = { onClose.invoke() }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Go back"
+                                    contentDescription = "Go back",
                                 )
                             }
-                        }
+                        },
                     )
-                }
+                },
             ) {
                 val scrollState = rememberScrollState()
 
                 Column(
-                    modifier = Modifier
-                        .padding(it).padding(bottom = 46.dp)
-                        .background(MaterialTheme.colorScheme.background)
-                        .verticalScroll(scrollState)
+                    modifier =
+                        Modifier
+                            .padding(it).padding(bottom = 46.dp)
+                            .background(MaterialTheme.colorScheme.background)
+                            .verticalScroll(scrollState)
                 ) {
                     /*
                     Row(

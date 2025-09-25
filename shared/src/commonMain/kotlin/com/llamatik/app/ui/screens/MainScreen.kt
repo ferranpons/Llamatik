@@ -44,7 +44,7 @@ fun MainScreenView() {
     val rootNavigator = LocalNavigator.currentOrThrow
     TabNavigator(
         HomeTab,
-        disposeNestedNavigators = false
+        disposeNestedNavigators = false,
     ) { _ ->
         val rootNavigatorRepository = setupRootNavigator(rootNavigator, LocalTabNavigator.current)
         val rootSnackbarHostStateRepository = setupRootSnackbarHostState(snackbarHostState)
@@ -59,19 +59,18 @@ fun MainScreenView() {
                     TabNavigationItem(HomeTab, rootNavigatorRepository)
                     TabNavigationItem(ChatBotTab, rootNavigatorRepository)
                 }
-            }
+            },
         ) {
             SlideTransition(LocalNavigator.currentOrThrow) { screen ->
                 screen.Content()
             }
         }
     }
-
 }
 
 fun setupRootNavigator(
     rootNavigator: Navigator,
-    tabNavigator: TabNavigator
+    tabNavigator: TabNavigator,
 ): RootNavigatorRepository {
     val koin = KoinPlatform.getKoin()
     return koin.get(
@@ -81,7 +80,8 @@ fun setupRootNavigator(
                 listOf(rootNavigator, tabNavigator).toMutableList(),
                 false
             )
-        })
+        }
+    )
 }
 
 fun setupRootSnackbarHostState(snackbarHostState: SnackbarHostState): RootSnackbarHostStateRepository {

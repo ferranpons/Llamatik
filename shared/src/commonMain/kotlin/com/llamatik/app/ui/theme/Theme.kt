@@ -94,11 +94,11 @@ val LightDefaultGradientColors = GradientColors(
 @Composable
 fun LlamatikTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) = LlamatikTheme(
     darkTheme = darkTheme,
     disableDynamicTheming = false,
-    content = content
+    content = content,
 )
 
 /**
@@ -115,7 +115,7 @@ fun LlamatikTheme(
 internal fun LlamatikTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     disableDynamicTheming: Boolean,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) DarkDefaultColorScheme else LightDefaultColorScheme
 
@@ -128,17 +128,17 @@ internal fun LlamatikTheme(
 
     val defaultBackgroundTheme = BackgroundTheme(
         color = colorScheme.surface,
-        tonalElevation = 2.dp
+        tonalElevation = 2.dp,
     )
 
     CompositionLocalProvider(
         LocalGradientColors provides gradientColors,
-        LocalBackgroundTheme provides defaultBackgroundTheme
+        LocalBackgroundTheme provides defaultBackgroundTheme,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography.get(),
-            content = content
+            content = content,
         )
     }
 }

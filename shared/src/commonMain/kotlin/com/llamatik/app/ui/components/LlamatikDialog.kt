@@ -36,10 +36,11 @@ fun LlamatikDialog(
     Dialog(onDismissRequest = { onDismissRequest() }) {
         val cardHeight = if (message.length > 70) 280.dp else 180.dp
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(cardHeight)
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(cardHeight)
+                    .padding(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.onBackground
@@ -57,8 +58,7 @@ fun LlamatikDialog(
                         painter = painter,
                         contentDescription = imageDescription,
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .height(160.dp)
+                        modifier = Modifier.height(160.dp)
                     )
                 }
                 Text(
@@ -69,8 +69,7 @@ fun LlamatikDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(
@@ -83,13 +82,6 @@ fun LlamatikDialog(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    /*
-                    TextButton(
-                        onClick = { onConfirmation() },
-                        modifier = Modifier.padding(8.dp),
-                    ) {
-                        Text("Confirm")
-                    }*/
                 }
             }
 

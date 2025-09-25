@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 
 class FeedItemDetailViewModel(
     private var navigator: Navigator,
-    private val getAllNewsUseCase: GetAllNewsUseCase
+    private val getAllNewsUseCase: GetAllNewsUseCase,
 ) : ScreenModel {
     private val _state = MutableStateFlow(FeedItemDetailScreenState())
     val state = _state.asStateFlow()
