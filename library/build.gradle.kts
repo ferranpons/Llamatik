@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.llamatik.library"
-version = "0.5.0"
+version = "0.6.0"
 
 // Choose ONE min iOS version and use it everywhere
 val minIos = "16.6"
@@ -183,6 +183,7 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.components.resources)
                 resources.srcDir("src/commonMain/resources")
+                resources.exclude("**/*.gguf")
             }
         }
         val commonTest by getting {
@@ -235,7 +236,7 @@ publishing {
             from(components["kotlin"])
             groupId = "com.llamatik.library"
             artifactId = "llamatik"
-            version = "0.5.0"
+            version = "0.6.0"
         }
     }
 
