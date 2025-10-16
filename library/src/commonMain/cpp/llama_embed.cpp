@@ -222,7 +222,7 @@ bool llama_generate_init(const char *model_path) {
 char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
-    llama_kv_self_clear(gen_ctx);
+    llama_memory_clear(llama_get_memory(gen_ctx), false);
     __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Cleared KV cache for new generation turn");
 
     std::vector<llama_token> tokens(2048);

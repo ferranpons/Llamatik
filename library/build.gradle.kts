@@ -4,10 +4,11 @@ plugins {
     id("org.jetbrains.compose")
     id("com.android.library")
     id("maven-publish")
+    id("signing")
 }
 
-group = "com.llamatik.library"
-version = "0.6.0"
+group = "com.llamatik"
+version = (System.getenv("RELEASE_VERSION") ?: "0.0.0-SNAPSHOT")
 
 // Choose ONE min iOS version and use it everywhere
 val minIos = "16.6"
@@ -231,12 +232,29 @@ android {
 }
 
 publishing {
-    publications {
-        create<MavenPublication>("gpr") {
-            from(components["kotlin"])
-            groupId = "com.llamatik.library"
-            artifactId = "llamatik"
-            version = "0.6.0"
+    publications.withType<MavenPublication>().configureEach {
+        pom {
+            name.set("Llamatik")
+            description.set("Kotlin Multiplatform library for LLaMA/LLM inference.")
+            url.set("https://github.com/ferranpons/llamatik")
+            licenses {
+                license {
+                    name.set("Apache-2.0")
+                    url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                }
+            }
+            developers {
+                developer {
+                    id.set("ferranpons")
+                    name.set("Ferran Pons")
+                    url.set("https://github.com/ferranpons")
+                }
+            }
+            scm {
+                url.set("https://github.com/ferranpons/llamatik")
+                connection.set("scm:git:git://github.com/ferranpons/llamatik.git")
+                developerConnection.set("scm:git:ssh://github.com/ferranpons/llamatik.git")
+            }
         }
     }
 
@@ -250,6 +268,15 @@ publishing {
             }
         }
     }
+}
+
+signing {
+    // in-memory key from env/gradle.properties (set in CI)
+    useInMemoryPgpKeys(
+        (findProperty("signingInMemoryKey") as String?) ?: System.getenv("SIGNING_KEY"),
+        (findProperty("signingInMemoryKeyPassword") as String?) ?: System.getenv("SIGNING_PASSWORD")
+    )
+    sign(publishing.publications)
 }
 
 // Ensure all iOS frameworks are built before publishing

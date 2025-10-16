@@ -382,7 +382,7 @@ const char *prompt = env->GetStringUTFChars(input, nullptr);
 if (!prompt) { LOGE("generate: prompt null"); return nullptr; }
 
 // ---- one-shot generate using the same loop as streaming but buffering output ----
-llama_kv_self_clear(gen_ctx);
+llama_memory_clear(llama_get_memory(gen_ctx), false);
 
 std::vector<llama_token> tokens(2048);
 int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),
@@ -521,7 +521,7 @@ env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("model not initializ
 return;
 }
 
-llama_kv_self_clear(gen_ctx);
+llama_memory_clear(llama_get_memory(gen_ctx), false);
 
 std::vector<llama_token> tokens(2048);
 int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),

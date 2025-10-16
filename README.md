@@ -48,23 +48,15 @@ All backed by a shared Kotlin API so you can switch between local and remote sea
 
 ## 📦 Library Installation
 
-- Add to your `settings.gradle.kts`:
+Llamatik is published on **Maven Central**.
+
+- Add to your **`settings.gradle.kts`**:
 
 ```kotlin
 dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-
-        val gprUser = providers.gradleProperty("GH_USER").orNull
-        val gprKey = providers.gradleProperty("GH_TOKEN").orNull
-        maven {
-            url = uri("https://maven.pkg.github.com/ferranpons/llamatik")
-            credentials {
-                username = gprUser
-                password = gprKey
-            }
-        }
     }
 }
 ```
@@ -73,7 +65,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 commonMain.dependencies {
-    implementation("com.llamatik.library:llamatik:0.6.0")
+    implementation("com.llamatik:llamatik:0.7.0")
 }
 ```
 
