@@ -16,6 +16,12 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+      - name: Debug tree
+        run: |
+          git submodule status --recursive || true
+          ls -la
+          ls -la llama.cpp || true
+          find . -maxdepth 3 -type d -name "llama.cpp" -print
 
       - name: Select Xcode
         run: |
