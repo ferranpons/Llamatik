@@ -201,7 +201,7 @@ compose.resources {
 }
 
 android {
-    namespace = "com.llamatik.library"
+    namespace = "com.llamatik"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
