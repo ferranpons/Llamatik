@@ -6,13 +6,24 @@ on:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Install tools
+        run: |
+          brew update
+          brew install cmake # if your native build expects it
+          cmake --version
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -27,7 +38,6 @@ jobs:
       - name: Compute version from tag
         id: v
         run: |
-          # e.g., tag "v0.6.1" -> "0.6.1"
           RAW_REF="${GITHUB_REF_NAME}"
           VERSION="${RAW_REF#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
