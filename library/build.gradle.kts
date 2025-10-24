@@ -232,10 +232,18 @@ android {
     }
 }
 
-tasks.register<Jar>("javadocJar") {
+val dokkaPubHtml = tasks.named("dokkaGeneratePublicationHtml").orNull
+val dokkaAllHtml = tasks.named("dokkaGenerateHtml").orNull
+
+val dokkaHtmlDir =
+    if (dokkaPubHtml != null) layout.buildDirectory.dir("dokka/htmlPublication")
+    else                      layout.buildDirectory.dir("dokka/html")
+
+val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     archiveClassifier.set("javadoc")
-    from(tasks.dokkaHtml) // generate HTML docs and pack them
+    if (dokkaPubHtml != null) dependsOn(dokkaPubHtml) else dependsOn(dokkaAllHtml)
+    from(dokkaHtmlDir)
 }
 
 publishing {
@@ -263,7 +271,7 @@ publishing {
                 developerConnection.set("scm:git:ssh://github.com/ferranpons/llamatik.git")
             }
         }
-        artifact(tasks["javadocJar"])
+        artifact(javadocJar)
     }
 
     repositories {
