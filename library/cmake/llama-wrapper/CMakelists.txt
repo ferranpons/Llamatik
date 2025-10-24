@@ -5,7 +5,7 @@ project(llama_kmp_bridge CXX)
 # Gradle already sends CMAKE_OSX_SYSROOT and ARCH; we add a sane default min OS.
 if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
     # Keep this in sync with your Gradle "-mios-*-version-min" (see below)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "17.2" CACHE STRING "Min iOS version" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "16.6" CACHE STRING "Min iOS version" FORCE)
 endif()
 
 # ---- Threading (iOS needs explicit PThreads settings) -----------------------
