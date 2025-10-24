@@ -15,7 +15,6 @@ junit = "4.13.2"
 androidGradlePlugin = "8.13.0"
 composeMultiplatform = "1.9.1"
 exposed = "0.61.0"
-skiko = "0.8.18"
 ktlint = "13.1.0"
 detekt = "1.23.8"
 kotlinx-coroutines = "1.10.2"
@@ -48,8 +47,6 @@ multiplatform-settings-no-arg = { module = "com.russhwolf:multiplatform-settings
 multiplatform-settings-serialization = { module = "com.russhwolf:multiplatform-settings-serialization", version.ref = "multiplatform-settings" }
 multiplatform-settings-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "multiplatform-settings" }
 richeditor-compose = { module = "com.mohamedrejeb.richeditor:richeditor-compose", version.ref = "richeditorCompose" }
-skiko = { module = "org.jetbrains.skiko:skiko", version.ref = "skiko" }
-skiko-macos-arm64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-macos-arm64", version.ref = "skiko" }
 ktor-client = { module = "io.ktor:ktor-client-core", version.ref = "ktor-client" }
 kamel = "media.kamel:kamel-image:1.0.8"
 kermit = "co.touchlab:kermit:2.0.8"
@@ -114,6 +111,7 @@ koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin-com
 kotlinx-coroutines-swingui = "org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2"
 ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor-client" }
 androidx-compose-ui-util = "androidx.compose.ui:ui-util:1.9.4"
+jetbrains-compose-ui-util = "org.jetbrains.compose.ui:ui-util:1.9.1"
 
 # Backend
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor-server" }

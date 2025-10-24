@@ -61,10 +61,8 @@ kotlin {
         }
 
         commonMain.dependencies {
-            // IMPORTANT: depend on :library
             api(project(":library"))
 
-            implementation(libs.skiko)
             implementation(compose.ui)
             implementation(compose.foundation)
             implementation(compose.components.resources)
