@@ -236,8 +236,11 @@ val dokkaPubHtml = tasks.named("dokkaGeneratePublicationHtml").orNull
 val dokkaAllHtml = tasks.named("dokkaGenerateHtml").orNull
 
 val dokkaHtmlDir =
-    if (dokkaPubHtml != null) layout.buildDirectory.dir("dokka/htmlPublication")
-    else                      layout.buildDirectory.dir("dokka/html")
+    if (dokkaPubHtml != null) {
+        layout.buildDirectory.dir("dokka/htmlPublication")
+    } else {
+        layout.buildDirectory.dir("dokka/html")
+    }
 
 val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
@@ -271,7 +274,9 @@ publishing {
                 developerConnection.set("scm:git:ssh://github.com/ferranpons/llamatik.git")
             }
         }
-        artifact(javadocJar)
+        if (name == "jvm") {
+            artifact(javadocJar)
+        }
     }
 
     repositories {
