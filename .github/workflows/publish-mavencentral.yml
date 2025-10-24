@@ -61,11 +61,5 @@ jobs:
         run: |
           ./gradlew \
             -Pversion=${RELEASE_VERSION} \
-            publishToSonatype
-
-      - name: Close & Release
-        env:
-          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-        run: |
-          ./gradlew closeAndReleaseSonatypeStagingRepository
+            publishToSonatype \
+            closeAndReleaseSonatypeStagingRepository
