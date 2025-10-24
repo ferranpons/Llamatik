@@ -2,7 +2,7 @@ package com.llamatik.app.android.core.di
 
 import android.content.Context
 import androidx.annotation.VisibleForTesting
-import com.google.firebase.ktx.BuildConfig
+import com.google.firebase.BuildConfig
 import com.llamatik.app.di.appModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger

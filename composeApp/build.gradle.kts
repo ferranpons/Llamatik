@@ -184,7 +184,6 @@ android {
         implementation(libs.koin.android)
 
         implementation(platform(libs.firebase.bom))
-        implementation(libs.firebase.analytics.ktx)
         implementation(libs.firebase.crashlytics)
         implementation(libs.firebase.analytics)
 
