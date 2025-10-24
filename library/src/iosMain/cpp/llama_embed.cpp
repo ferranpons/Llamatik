@@ -430,7 +430,7 @@ bool llama_generate_init(const char *model_path) {
 char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
-    llama_kv_self_clear(gen_ctx);
+    llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     // We treat `prompt` we receive as the *Question* and build our wrapper.
     std::string wrapped;
@@ -589,7 +589,7 @@ void llama_generate_stream(const char *prompt,
         void *user) {
     if (!gen_ctx || !gen_model || !prompt) { if (on_error) on_error("generator not ready", user); return; }
 
-    llama_kv_self_clear(gen_ctx);
+    llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     // Wrap incoming prompt as Question only (no system echo)
     std::string wrapped;

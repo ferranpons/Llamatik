@@ -1,6 +1,6 @@
 headers = llama_embed.h
 headerFilter = llama_embed.h
-compilerOpts = -I../llama.cpp -I../llama.cpp/ggml -I../llama.cpp/ggml/include -Isrc/iosMain/c_interop/include
+compilerOpts = -I$PROJECT_DIR/../llama.cpp -I$PROJECT_DIR/../llama.cpp/ggml -I$PROJECT_DIR/../llama.cpp/ggml/include -Isrc/iosMain/c_interop/include
 linkerOpts = -Llibrary/build/llama-cmake/iPhoneSimulator/iosX64 \
              -force_load library/build/llama-cmake/iPhoneSimulator/iosX64/libllama_static.a \
              -force_load library/build/llama-cmake/iPhoneSimulator/iosX64/llama-local-build/src/libllama.a \

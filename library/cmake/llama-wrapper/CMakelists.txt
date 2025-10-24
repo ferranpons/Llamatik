@@ -21,18 +21,13 @@ find_package(Threads REQUIRED)
 # ---- Point to llama.cpp -----------------------------------------------------
 # layout: this file is at library/cmake/llama-wrapper/CMakeLists.txt
 # llama.cpp is at library/../../llama.cpp relative to THIS CMakeLists
-set(LLAMA_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../llama.cpp")
+set(LLAMA_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../llama.cpp")
 
 # Build llama.cpp as static libs (no shared)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build llama as static library" FORCE)
 
-include(FetchContent)
-FetchContent_Declare(
-        llama_cpp
-        GIT_REPOSITORY https://github.com/ggml-org/llama.cpp.git
-        GIT_TAG 0bf47a1dbba4d36f2aff4e8c34b06210ba34e688
-)
-FetchContent_MakeAvailable(llama_cpp)
+# Add llama.cpp's CMake (builds targets: ggml, ggml-blas, ggml-metal, llama, etc.)
+add_subdirectory(${LLAMA_CPP_DIR} llama-local-build EXCLUDE_FROM_ALL)
 
 # ---- Your wrapper -----------------------------------------------------------
 add_library(llama_static_wrapper STATIC

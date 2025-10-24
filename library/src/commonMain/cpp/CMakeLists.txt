@@ -20,13 +20,7 @@ set(CMAKE_SHARED_LINKER_FLAGS
 option(GGML_CPU_ARM_USE_DOTPROD "Enable ARM dot product" OFF)
 option(GGML_CPU_ARM_USE_I8MM    "Enable ARM i8mm"       OFF)
 
-include(FetchContent)
-FetchContent_Declare(
-        llama_cpp
-        GIT_REPOSITORY https://github.com/ggml-org/llama.cpp.git
-        GIT_TAG 0bf47a1dbba4d36f2aff4e8c34b06210ba34e688
-)
-FetchContent_MakeAvailable(llama_cpp)
+add_subdirectory("${CMAKE_SOURCE_DIR}/../../../../llama.cpp/" "${CMAKE_BINARY_DIR}/llama")
 
 add_library(llama_jni SHARED
         llama_jni.cpp
