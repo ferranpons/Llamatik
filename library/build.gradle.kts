@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
     id("org.jetbrains.compose")
     id("com.android.library")
+    id("org.jetbrains.dokka") version "2.1.0"
     id("maven-publish")
     id("signing")
 }
@@ -231,6 +232,12 @@ android {
     }
 }
 
+tasks.register<Jar>("javadocJar") {
+    group = JavaBasePlugin.DOCUMENTATION_GROUP
+    archiveClassifier.set("javadoc")
+    from(tasks.dokkaHtml) // generate HTML docs and pack them
+}
+
 publishing {
     publications.withType<MavenPublication>().configureEach {
         pom {
@@ -256,6 +263,7 @@ publishing {
                 developerConnection.set("scm:git:ssh://github.com/ferranpons/llamatik.git")
             }
         }
+        artifact(tasks["javadocJar"])
     }
 
     repositories {
