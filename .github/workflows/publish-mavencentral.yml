@@ -10,12 +10,14 @@ jobs:
     permissions:
       contents: read
       packages: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
+
       - name: Debug tree
         run: |
           git submodule status --recursive || true
@@ -31,7 +33,7 @@ jobs:
       - name: Install tools
         run: |
           brew update
-          brew install cmake # if your native build expects it
+          brew install cmake
           cmake --version
 
       - name: Set up JDK
@@ -51,7 +53,39 @@ jobs:
           VERSION="${RAW_REF#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Publish to Sonatype (staging)
+      # ---------- Build Android release AAR and inspect it BEFORE publishing ----------
+      - name: Assemble Android Release (:library)
+        run: ./gradlew :library:assembleRelease
+
+      - name: Inspect :library AAR (classes / JNI / assets)
+        run: |
+          AAR=$(ls -1 library/build/outputs/aar/*-release.aar | head -n1)
+          echo "AAR=$AAR"
+          test -f "$AAR" || (echo "AAR not found for :library" && exit 1)
+          mkdir -p /tmp/aar && cd /tmp/aar
+          unzip -q "$AAR"
+
+          echo "== AAR tree (top) =="
+          find . -maxdepth 2 -type d -print
+
+          echo "== classes.jar (first 200 entries) =="
+          jar tf classes.jar | sed -n '1,200p'
+
+          echo "== JNI libs (if any) =="
+          find jni -maxdepth 3 -type f || true
+
+          echo "== Sanity checks =="
+          jar tf classes.jar | grep -E "com/llamatik/.*(platform|library)" >/dev/null \
+            || (echo "ERROR: Android classes missing in AAR (androidMain not published)" && exit 1)
+
+          # Optional: enforce arm64 .so presence if you ship JNI
+          if test -d jni; then
+            find jni -type f | grep arm64-v8a >/dev/null \
+              || (echo "ERROR: arm64-v8a .so missing in AAR" && exit 1)
+          fi
+
+      # ---------- Publish to Sonatype ----------
+      - name: Publish to Sonatype (staging + release)
         env:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}

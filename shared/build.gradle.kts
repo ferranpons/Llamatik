@@ -27,7 +27,6 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
-    // One framework per iOS target (do NOT export :library – it contains a cinterop)
     listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "shared"
@@ -36,7 +35,7 @@ kotlin {
             // We used to re-export :library, but Kotlin/Native can't export a cinterop klib.
             // The :library framework is static and force-loads its merged archive already,
             // so symbols are included transitively without export().
-            // export(project(":library"))  <-- REMOVED to fix "can't be exported" error
+            // export(project(":library"))  <-- keep removed
 
             // Give it a bundle id to keep Xcode happy
             freeCompilerArgs += "-Xbinary=bundleId=com.llamatik.shared"
@@ -44,10 +43,6 @@ kotlin {
             // NOTE:
             // We deliberately do NOT add custom linkerOpts here.
             // The native bits (llama/ggml) are linked & force-loaded in :library already.
-            // The iOS Deployment Target should be set in the Xcode app that embeds this framework.
-            // If you still hit a min-version mismatch, set it in Xcode, or (less ideal)
-            // pass ld-style flags here: "-ios_version_min", "15.6" (device) or
-            // "-ios_simulator_version_min", "15.6" (sim), not the clang-style -mios* flags.
         }
     }
 
@@ -151,7 +146,7 @@ android {
 
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
-        // If you use NDK, configure it here
+        // If you use NDK here, configure ABI filters accordingly.
         // ndk { abiFilters.add("arm64-v8a") }
     }
 
@@ -164,11 +159,9 @@ android {
         jvmToolchain(21)
     }
 
-    // If you’re not building JNI here, keep this commented
+    // If you’re not building JNI in :shared, keep these disabled.
     // sourceSets["main"].jniLibs.srcDirs("src/commonMain/jniLibs")
-    // externalNativeBuild {
-    //     cmake { path = file("src/commonMain/cpp/CMakeLists.txt") }
-    // }
+    // externalNativeBuild { cmake { path = file("src/commonMain/cpp/CMakeLists.txt") } }
 }
 
 compose.resources {
