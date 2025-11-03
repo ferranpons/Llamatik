@@ -1,10 +1,13 @@
 package com.llamatik.app.feature.chatbot
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,26 +36,36 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
+import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.resources.Res
+import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.llamatik.app.ui.components.LlamatikDialog
+import com.llamatik.app.ui.components.NewsCardSmall
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import com.llamatik.library.platform.LlamaBridge.getModelPath
+import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
 class ChatBotTabScreen : Screen {
@@ -86,6 +100,7 @@ class ChatBotTabScreen : Screen {
                 isDialogOpen,
                 conversation.value,
                 isLoading,
+                state
             )
             if (isDialogOpen.value) {
                 LlamatikDialog(
@@ -131,6 +146,7 @@ class ChatBotTabScreen : Screen {
         isDialogOpen: MutableState<Boolean>,
         conversation: List<ChatUiModel.Message>,
         isLoading: MutableState<Boolean>,
+        state: ChatBotState,
     ) {
         BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
 
@@ -138,10 +154,19 @@ class ChatBotTabScreen : Screen {
                 topBar = {
                     TopAppBar(
                         title = {
-                            Text(
-                                text = "Llamatik AI PREVIEW",
-                                style = Typography.get().titleMedium
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .padding(top = 16.dp)
+                            ) {
+                                Text(
+                                    text = state.greeting,
+                                    style = Typography.get().labelSmall
+                                )
+                                Text(
+                                    text = state.header,
+                                    style = Typography.get().bodyLarge
+                                )
+                            }
                         },
                         colors = TopAppBarDefaults.mediumTopAppBarColors(
                             containerColor = MaterialTheme.colorScheme.background
@@ -174,7 +199,7 @@ class ChatBotTabScreen : Screen {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues).padding(bottom = 80.dp)
+                        .padding(paddingValues)
                         .background(MaterialTheme.colorScheme.background)
                 ) {
                     Spacer(
@@ -186,9 +211,35 @@ class ChatBotTabScreen : Screen {
                         messages = conversation,
                         addressee = ChatUiModel.Author.bot
                     )
-                    ChatView(localization, viewModel, isDialogOpen, chatUiModel, isLoading)
+                    ChatView(localization, viewModel, isDialogOpen, chatUiModel, isLoading, state)
                 }
             }
+        }
+    }
+
+    @Composable
+    fun ChatHeader() {
+        var sizeImage by remember { mutableStateOf(IntSize.Zero) }
+        val gradient = Brush.verticalGradient(
+            colors = listOf(
+                Color.Transparent,
+                MaterialTheme.colorScheme.background
+            ),
+            startY = sizeImage.height.toFloat() / 3,
+            endY = sizeImage.height.toFloat()
+        )
+
+        Box {
+            Image(
+                modifier = Modifier.fillMaxWidth().height(140.dp)
+                    .onGloballyPositioned {
+                        sizeImage = it.size
+                    },
+                contentScale = ContentScale.FillWidth,
+                painter = painterResource(Res.drawable.a_pair_of_llamas_in_a_field_with_clouds_and_mounta),
+                contentDescription = null
+            )
+            Box(modifier = Modifier.matchParentSize().background(gradient))
         }
     }
 
@@ -198,7 +249,8 @@ class ChatBotTabScreen : Screen {
         viewModel: ChatBotViewModel,
         isDialogOpen: MutableState<Boolean>,
         chatUiModel: ChatUiModel,
-        isLoading: MutableState<Boolean>
+        isLoading: MutableState<Boolean>,
+        state: ChatBotState
     ) {
         val listState = rememberLazyListState()
         LaunchedEffect(chatUiModel.messages.size) {
@@ -214,6 +266,8 @@ class ChatBotTabScreen : Screen {
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    ChatHeader()
+/*
                     Text(
                         modifier = Modifier.padding(16.dp),
                         text = "\uD83D\uDEEB Ok, let's start! How can I help you?",
@@ -228,6 +282,8 @@ class ChatBotTabScreen : Screen {
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.outline
                     )
+*/
+                    LatestNewsCarousel(viewModel, localization, state)
                 }
             } else {
                 LazyColumn(
@@ -288,6 +344,50 @@ class ChatBotTabScreen : Screen {
                 style = Typography.get().titleSmall,
                 color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
             )
+        }
+    }
+
+    @Composable
+    fun LatestNewsCarousel(
+        viewModel: ChatBotViewModel,
+        localization: Localization,
+        state: ChatBotState
+    ) {
+        if (state.latestNews.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = localization.homeLastestNews,
+                    style = Typography.get().titleMedium,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)
+                )
+                Text(
+                    text = "View All",
+                    style = Typography.get().titleMedium,
+                    modifier = Modifier
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp)
+                        .clickable {
+                            viewModel.onOpenNewsClicked()
+                        }
+                )
+            }
+            LazyRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(state.latestNews.size) { index ->
+                    NewsCardSmall(state.latestNews[index], 240.dp, 200.dp) {
+                        val item = state.latestNews[index]
+                        viewModel.onOpenFeedItemDetail(
+                            item.link
+                        )
+                    }
+                    if (index == state.latestNews.size - 1) {
+                        Spacer(modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
         }
     }
 }

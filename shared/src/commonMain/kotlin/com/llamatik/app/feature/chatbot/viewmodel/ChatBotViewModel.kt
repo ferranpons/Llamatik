@@ -10,6 +10,11 @@ import com.llamatik.app.feature.chatbot.utils.Gemma3
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
 import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
 import com.llamatik.app.feature.chatbot.utils.retrieveContext
+import com.llamatik.app.feature.news.NewsFeedDetailScreen
+import com.llamatik.app.feature.news.NewsFeedScreen
+import com.llamatik.app.feature.news.repositories.FeedItem
+import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
+import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
@@ -23,16 +28,27 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.concurrent.Volatile
+import kotlin.time.Clock.System
+import kotlin.time.ExperimentalTime
 
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 
 class ChatBotViewModel(
     private val rootNavigatorRepository: RootNavigatorRepository,
     private val settings: Settings,
+    private val getAllNewsUseCase: GetAllNewsUseCase,
 ) : ScreenModel {
 
-    private val _state = MutableStateFlow(ChatBotState())
+    private val _state = MutableStateFlow(
+        ChatBotState(
+            greeting = "",
+            header = getCurrentLocalization().welcome,
+            latestNews = emptyList(),
+        )
+    )
     val state = _state.asStateFlow()
 
     private val _sideEffects = Channel<ChatBotSideEffects>()
@@ -54,10 +70,36 @@ class ChatBotViewModel(
         }
     }
 
+    @OptIn(ExperimentalTime::class)
+    private fun getGreeting(): String {
+        val currentTime = System.now()
+        val timeZone = TimeZone.currentSystemDefault()
+        val localDateTime = currentTime.toLocalDateTime(timeZone)
+
+        return when (localDateTime.hour) {
+            in 6..11 -> getCurrentLocalization().greetingMorning
+            in 12..17 -> getCurrentLocalization().greetingAfternoon
+            in 16..21 -> getCurrentLocalization().greetingEvening
+            else -> getCurrentLocalization().greetingNight
+        }
+    }
+
     fun onStarted(embedFilePath: String, generatorFilePath: String) {
         LlamaBridge.initModel(embedFilePath)
         LlamaBridge.initGenerateModel(generatorFilePath)
         screenModelScope.launch {
+            getAllNewsUseCase.invoke()
+                .onSuccess {
+                    _state.value = _state.value.copy(latestNews = it)
+                }
+                .onFailure { error ->
+                    Logger.e(error.message ?: "Unknown error")
+                }
+            _state.value = _state.value.copy(
+                greeting = getGreeting(),
+                header = getCurrentLocalization().welcome,
+                latestNews = _state.value.latestNews,
+            )
             vectorStore = loadVectorStoreEntries()
         }
     }
@@ -218,6 +260,14 @@ class ChatBotViewModel(
         rootNavigatorRepository.navigator.push(ChatbotOnboardingScreen { onPrivacyAccepted() })
     }
 
+    fun onOpenFeedItemDetail(link: String) {
+        rootNavigatorRepository.navigator.push(NewsFeedDetailScreen(link))
+    }
+
+    fun onOpenNewsClicked() {
+        rootNavigatorRepository.navigator.push(NewsFeedScreen())
+    }
+
     private fun onPrivacyAccepted() {
         settings.putBoolean(PRIVACY_CHATBOT_VIEWED_KEY, true)
         rootNavigatorRepository.navigator.pop()
@@ -308,7 +358,12 @@ data class ChatUiModel(
     }
 }
 
-data class ChatBotState(val isPrivacyMessageDisplayed: Boolean = false)
+data class ChatBotState(
+    val greeting: String,
+    val header: String,
+    val isPrivacyMessageDisplayed: Boolean = false,
+    val latestNews: List<FeedItem>,
+)
 
 sealed class ChatBotSideEffects {
     data object Initial : ChatBotSideEffects()

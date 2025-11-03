@@ -19,10 +19,8 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.transitions.SlideTransition
 import com.llamatik.app.navigation.ChatBotTab
-import com.llamatik.app.navigation.HomeTab
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.platform.RootSnackbarHostStateRepository
-import com.llamatik.app.ui.components.LLamatikNavigationBar
 import com.llamatik.app.ui.components.LlamatikNavigationBarItem
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
@@ -43,7 +41,7 @@ fun MainScreenView() {
     val snackbarHostState = remember { SnackbarHostState() }
     val rootNavigator = LocalNavigator.currentOrThrow
     TabNavigator(
-        HomeTab,
+        ChatBotTab,
         disposeNestedNavigators = false,
     ) { _ ->
         val rootNavigatorRepository = setupRootNavigator(rootNavigator, LocalTabNavigator.current)
@@ -54,12 +52,13 @@ fun MainScreenView() {
             contentColor = MaterialTheme.colorScheme.onBackground,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             snackbarHost = { SnackbarHost(rootSnackbarHostStateRepository.snackbarHostState) },
+            /*
             bottomBar = {
                 LLamatikNavigationBar {
                     TabNavigationItem(HomeTab, rootNavigatorRepository)
                     TabNavigationItem(ChatBotTab, rootNavigatorRepository)
                 }
-            },
+            },*/
         ) {
             SlideTransition(LocalNavigator.currentOrThrow) { screen ->
                 screen.Content()

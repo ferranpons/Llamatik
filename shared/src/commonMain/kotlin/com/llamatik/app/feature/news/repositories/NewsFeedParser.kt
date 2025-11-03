@@ -31,13 +31,13 @@ data class RssChannel(
     @XmlElement val language: String,
     @XmlElement
     @XmlSerialName("updatePeriod", "http://purl.org/rss/1.0/modules/syndication/", "sy")
-    val syUpdatePeriod: String,
+    val syUpdatePeriod: String?,
     @XmlElement
     @XmlSerialName("updateFrequency", "http://purl.org/rss/1.0/modules/syndication/", "sy")
-    val syUpdateFrequency: String,
+    val syUpdateFrequency: String?,
     @XmlElement(true)
     val generator: String? = null,
-    @XmlElement val image: FeedImage,
+    @XmlElement val image: FeedImage?,
     @XmlElement(true)
     @XmlSerialName("link", "http://www.w3.org/2005/Atom", "atom")
     val atomLink: AtomLink? = null,

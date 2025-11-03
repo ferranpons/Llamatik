@@ -6,7 +6,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 
-private const val NEWS_RSS_PATH = "https://techcrunch.com/category/artificial-intelligence/feed/"
+private const val NEWS_RSS_PATH = "https://www.llamatik.com/blog/index.xml"
 
 class NewsRepository(private val service: ServiceClient) {
 
