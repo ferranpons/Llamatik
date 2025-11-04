@@ -123,7 +123,6 @@ class ChatBotViewModel(
         if (question.isBlank()) return
 
         screenModelScope.launch {
-            // Append user turn
             _conversation.value += ChatUiModel.Message(question, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)

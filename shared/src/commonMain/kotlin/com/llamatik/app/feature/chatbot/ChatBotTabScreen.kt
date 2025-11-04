@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
@@ -55,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
@@ -81,10 +83,6 @@ import com.llamatik.library.platform.LlamaBridge.getModelPath
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
-// --- Safe wiring: if your ViewModel already has onModelChanged(String), it will be used.
-// This extension is a no-op fallback so this file compiles either way.
-@Suppress("unused")
-fun ChatBotViewModel.onModelChanged(model: String) { /* no-op fallback */ }
 
 class ChatBotTabScreen : Screen {
     @Composable
@@ -94,6 +92,7 @@ class ChatBotTabScreen : Screen {
         val embedFilePath = getModelPath(modelFileName = "nomic_embed_text_v1_5_Q4_0.gguf")
         val generatorFilePath = getModelPath(modelFileName = "gemma_3_270m_Q8_0.gguf")
         val isLoading = remember { mutableStateOf(false) }
+        val showSuggestions = remember { mutableStateOf(true) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
@@ -118,7 +117,8 @@ class ChatBotTabScreen : Screen {
                 isDialogOpen,
                 conversation.value,
                 isLoading,
-                state
+                state,
+                showSuggestions
             )
             if (isDialogOpen.value) {
                 LlamatikDialog(
@@ -165,6 +165,7 @@ class ChatBotTabScreen : Screen {
         conversation: List<ChatUiModel.Message>,
         isLoading: MutableState<Boolean>,
         state: ChatBotState,
+        showSuggestions: MutableState<Boolean>,
     ) {
         BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
 
@@ -202,6 +203,7 @@ class ChatBotTabScreen : Screen {
                             }
                             IconButton(
                                 onClick = {
+                                    showSuggestions.value = true
                                     viewModel.onClearConversation()
                                 }
                             ) {
@@ -229,7 +231,7 @@ class ChatBotTabScreen : Screen {
                         messages = conversation,
                         addressee = ChatUiModel.Author.bot
                     )
-                    ChatView(localization, viewModel, isDialogOpen, chatUiModel, isLoading, state)
+                    ChatView(localization, viewModel, isDialogOpen, chatUiModel, isLoading, state, showSuggestions)
                 }
             }
         }
@@ -268,7 +270,8 @@ class ChatBotTabScreen : Screen {
         isDialogOpen: MutableState<Boolean>,
         chatUiModel: ChatUiModel,
         isLoading: MutableState<Boolean>,
-        state: ChatBotState
+        state: ChatBotState,
+        showSuggestions: MutableState<Boolean>,
     ) {
         val listState = rememberLazyListState()
         LaunchedEffect(chatUiModel.messages.size) {
@@ -303,7 +306,7 @@ class ChatBotTabScreen : Screen {
                     }
                 }
             }
-            ChatInputBox(viewModel = viewModel)
+            ChatInputBox(viewModel = viewModel, showSuggestions = showSuggestions)
         }
     }
 
@@ -397,13 +400,14 @@ class ChatBotTabScreen : Screen {
 @Composable
 fun ChatInputBox(
     viewModel: ChatBotViewModel,
+    showSuggestions: MutableState<Boolean>,
     availableModels: List<String> = listOf("GPT-4o mini", "Llama 3.1 8B", "Mistral Small"),
     initialModel: String = availableModels.firstOrNull() ?: "Model",
     suggestions: List<String> = listOf(
         "Summarize the latest news",
         "Create a receipt",
         "Draft a polite reply"
-    )
+    ),
 ) {
     Box(
         modifier = Modifier
@@ -413,17 +417,20 @@ fun ChatInputBox(
         var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue())
         }
-        var showSuggestions by rememberSaveable { mutableStateOf(true) }
 
         Column(
             horizontalAlignment = Alignment.Start, // pill aligned left
         ) {
-            if (showSuggestions && suggestions.isNotEmpty()) {
+            if (showSuggestions.value && suggestions.isNotEmpty()) {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     items(suggestions.size) { index ->
                         val hint = suggestions[index]
+                        if (index == 0) {
+                            Spacer(modifier = Modifier.size(16.dp))
+                        }
+
                         Surface(
                             onClick = {
                                 input = TextFieldValue(hint)
@@ -431,7 +438,7 @@ fun ChatInputBox(
                                 if (message.isNotEmpty()) {
                                     input = TextFieldValue()
                                     viewModel.onMessageSend(message)
-                                    showSuggestions = false
+                                    showSuggestions.value = false
                                 }
                             },
                             shape = RoundedCornerShape(9.dp),
@@ -461,6 +468,7 @@ fun ChatInputBox(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
+                val keyboardController = LocalSoftwareKeyboardController.current
                 val canSend = input.text.isNotBlank()
                 TextField(
                     value = input,
@@ -478,6 +486,9 @@ fun ChatInputBox(
                         imeAction = ImeAction.Send,
                         capitalization = KeyboardCapitalization.Sentences
                     ),
+                    keyboardActions = KeyboardActions(
+                        onSend = { keyboardController?.hide() },
+                    ),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                         unfocusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -492,6 +503,8 @@ fun ChatInputBox(
                                     val message = input.text.trim()
                                     input = TextFieldValue()
                                     viewModel.onMessageSend(message)
+                                    showSuggestions.value = false
+                                    keyboardController?.hide()
                                 }
                             },
                             enabled = canSend,
@@ -511,7 +524,7 @@ fun ChatInputBox(
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
+                    },
                 )
             }
 
@@ -591,7 +604,7 @@ fun ModelSelector(
                         onClick = {
                             model = m
                             showModelMenu = false
-                            viewModel.onModelChanged(m) // safe no-op if not implemented yet
+                            //viewModel.onModelChanged(m) // safe no-op if not implemented yet
                         }
                     )
                 }
