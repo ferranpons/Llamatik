@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -395,161 +394,205 @@ class ChatBotTabScreen : Screen {
     }
 }
 
-/**
- * ChatGPT-style input with:
- * - left: model pill (dropdown)
- * - middle: rounded multiline text field
- * - right: send button (disabled when input is blank)
- *
- * IMPORTANT: Use rememberSaveable with TextFieldValue.Saver to avoid the crash.
- */
 @Composable
 fun ChatInputBox(
     viewModel: ChatBotViewModel,
-    // Provide your real model list from VM/state when ready.
     availableModels: List<String> = listOf("GPT-4o mini", "Llama 3.1 8B", "Mistral Small"),
-    initialModel: String = availableModels.firstOrNull() ?: "Model"
+    initialModel: String = availableModels.firstOrNull() ?: "Model",
+    suggestions: List<String> = listOf(
+        "Summarize the latest news",
+        "Create a receipt",
+        "Draft a polite reply"
+    )
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // ✅ Fix: TextFieldValue must use an explicit Saver with rememberSaveable
         var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue())
         }
-        var model by rememberSaveable { mutableStateOf(initialModel) }
-        var showModelMenu by rememberSaveable { mutableStateOf(false) }
+        var showSuggestions by rememberSaveable { mutableStateOf(true) }
 
         Column(
-            horizontalAlignment = Alignment.End,
+            horizontalAlignment = Alignment.Start, // pill aligned left
         ) {
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(MaterialTheme.colorScheme.surfaceDim)
-            )
+            if (showSuggestions && suggestions.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    items(suggestions.size) { index ->
+                        val hint = suggestions[index]
+                        Surface(
+                            onClick = {
+                                input = TextFieldValue(hint)
+                                val message = input.text.trim()
+                                if (message.isNotEmpty()) {
+                                    input = TextFieldValue()
+                                    viewModel.onMessageSend(message)
+                                    showSuggestions = false
+                                }
+                            },
+                            shape = RoundedCornerShape(9.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            tonalElevation = 1.dp,
+                            modifier = Modifier
+                                .padding(end = 8.dp, bottom = 6.dp)
+                        ) {
+                            Text(
+                                text = hint,
+                                style = Typography.get().labelMedium,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                        if (index == suggestions.size - 1) {
+                            Spacer(modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
 
-            Row(
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                tonalElevation = 1.dp,
+                color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.Bottom
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                // Model "pill"
-                Box {
-                    Surface(
-                        onClick = { showModelMenu = true },
-                        shape = RoundedCornerShape(999.dp),
-                        tonalElevation = 1.dp,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier
-                            .defaultMinSize(minHeight = 36.dp)
-                            .padding(end = 8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                val canSend = input.text.isNotBlank()
+                TextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp),
+                    placeholder = { Text("Ask me something…") },
+                    textStyle = Typography.get().bodyMedium,
+                    singleLine = false,
+                    minLines = 1,
+                    maxLines = 6,
+                    shape = RoundedCornerShape(20.dp),
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Send,
+                        capitalization = KeyboardCapitalization.Sentences
+                    ),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                if (canSend) {
+                                    val message = input.text.trim()
+                                    input = TextFieldValue()
+                                    viewModel.onMessageSend(message)
+                                }
+                            },
+                            enabled = canSend,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(
+                                    if (canSend) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Memory,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = model,
-                                style = Typography.get().labelMedium
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Default.ExpandMore,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
+                                imageVector = LlamatikIcons.Send,
+                                contentDescription = "Send",
+                                tint = if (canSend) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
+                )
+            }
 
-                    DropdownMenu(
-                        expanded = showModelMenu,
-                        onDismissRequest = { showModelMenu = false }
-                    ) {
-                        availableModels.forEach { m ->
-                            DropdownMenuItem(
-                                text = { Text(m) },
-                                onClick = {
-                                    model = m
-                                    showModelMenu = false
-                                    viewModel.onModelChanged(m) // safe no-op if not implemented in VM yet
-                                }
-                            )
-                        }
-                    }
-                }
+            ModelSelector(viewModel, initialModel, availableModels)
+        }
+    }
+}
 
-                // Rounded multiline TextField inside a Surface
+@Composable
+fun ModelSelector(
+    viewModel: ChatBotViewModel,
+    initialModel: String,
+    availableModels: List<String>,
+) {
+    var model by rememberSaveable { mutableStateOf(initialModel) }
+    var showModelMenu by rememberSaveable { mutableStateOf(false) }
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Box {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    onClick = { showModelMenu = true },
+                    shape = RoundedCornerShape(999.dp),
                     tonalElevation = 1.dp,
                     color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp)
+                    modifier = Modifier.defaultMinSize(minHeight = 32.dp)
                 ) {
-                    TextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 2.dp),
-                        placeholder = { Text("Message…") },
-                        textStyle = Typography.get().bodyMedium,
-                        singleLine = false,
-                        minLines = 1,
-                        maxLines = 6,
-                        shape = RoundedCornerShape(20.dp),
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Send,
-                            capitalization = KeyboardCapitalization.Sentences
-                        ),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        trailingIcon = {}
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Memory,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = model,
+                            style = Typography.get().labelMedium
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
 
-                // Send button
-                val canSend = input.text.isNotBlank()
+                Spacer(modifier = Modifier.size(8.dp))
+
                 IconButton(
-                    onClick = {
-                        if (canSend) {
-                            val message = input.text.trim()
-                            input = TextFieldValue()
-                            viewModel.onMessageSend(message)
-                        }
-                    },
-                    enabled = canSend,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            if (canSend) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant
+                    onClick = {},
+                    modifier = Modifier.size(24.dp),
+                    content = {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
                         )
-                ) {
-                    Icon(
-                        imageVector = LlamatikIcons.Send,
-                        contentDescription = "Send",
-                        tint = if (canSend) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+
+            DropdownMenu(
+                expanded = showModelMenu,
+                onDismissRequest = { showModelMenu = false }
+            ) {
+                availableModels.forEach { m ->
+                    DropdownMenuItem(
+                        text = { Text(m) },
+                        onClick = {
+                            model = m
+                            showModelMenu = false
+                            viewModel.onModelChanged(m) // safe no-op if not implemented yet
+                        }
                     )
                 }
             }
