@@ -41,7 +41,7 @@ import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import org.jetbrains.compose.resources.painterResource
 
-class ChatbotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
+class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
 
     @Composable
     override fun Content() {
@@ -49,7 +49,11 @@ class ChatbotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
         LlamatikTheme {
             val scrollState = rememberScrollState()
             Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
+                modifier =
+                    Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -73,19 +77,17 @@ class ChatbotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                 }
                 Text(
                     modifier = Modifier.padding(16.dp),
-                    text = "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F WELCOME TO Llamatik AI!",
+                    text = "\uD83E\uDD99\nWelcome to Llamatik",
                     style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    text = "Llamatik AI is an experimental local assistant, designed to help you quickly find information — all without needing an internet connection.\n" +
+                    text = "Llamatik ChatBot is an experimental local assistant, designed to help you quickly understand how Llamatik Library works.\n" +
                             "\n" +
-                            "It can help you:\n" +
-                            "---\n" +
-                            "---\n" +
-                            "---\n" +
+                            "For more information please go to llamatik.com" +
+                            "\n" +
                             "\n" +
                             "\uD83D\uDD10 Privacy Notice\n\n" +
                             "Your privacy is fully protected. The chatbot runs entirely on your device.\n" +
@@ -94,11 +96,11 @@ class ChatbotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                             "\n" +
                             "---\n" +
                             "\n" +
-                            "By continuing, you accept that Llamatik AI chatbot is provided for educational and informational purposes only, and complies with global privacy laws including GDPR, CCPA, and LGPD.\n" +
+                            "By continuing, you accept that Llamatik ChatBot is provided for educational and informational purposes only, and complies with global privacy laws including GDPR, CCPA, and LGPD.\n" +
                             "\n",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Button(
                     onClick = { onAccept.invoke() },

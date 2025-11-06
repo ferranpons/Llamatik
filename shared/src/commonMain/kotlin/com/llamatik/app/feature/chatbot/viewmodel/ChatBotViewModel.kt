@@ -3,7 +3,7 @@ package com.llamatik.app.feature.chatbot.viewmodel
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import co.touchlab.kermit.Logger
-import com.llamatik.app.feature.chatbot.ChatbotOnboardingScreen
+import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
 import com.llamatik.app.feature.chatbot.utils.ChatMessage
 import com.llamatik.app.feature.chatbot.utils.ChatRunner
 import com.llamatik.app.feature.chatbot.utils.Gemma3
@@ -66,7 +66,7 @@ class ChatBotViewModel(
     init {
         val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
         if (isPrivacyMessageDisplayed) {
-            rootNavigatorRepository.navigator.push(ChatbotOnboardingScreen { onPrivacyAccepted() })
+            rootNavigatorRepository.navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
         }
     }
 
@@ -256,7 +256,7 @@ class ChatBotViewModel(
     }
 
     fun onShowPrivacyScreen() {
-        rootNavigatorRepository.navigator.push(ChatbotOnboardingScreen { onPrivacyAccepted() })
+        rootNavigatorRepository.navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
     }
 
     fun onOpenFeedItemDetail(link: String) {
