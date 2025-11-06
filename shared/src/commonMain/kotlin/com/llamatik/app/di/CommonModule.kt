@@ -4,6 +4,8 @@ import androidx.compose.material3.SnackbarHostState
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import com.llamatik.app.data.repositories.DownloadFileRepository
+import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
+import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.debugmenu.repositories.GlobalAppSettingsRepository
 import com.llamatik.app.feature.debugmenu.viewmodel.DebugMenuViewModel
@@ -48,7 +50,7 @@ val commonModule = module {
     }
 
     factory {
-        ChatBotViewModel(get(), get(), get())
+        ChatBotViewModel(get(), get(), get(), get())
     }
 
     single { (navigator: Navigator, tabNavigator: TabNavigator) ->
@@ -67,6 +69,9 @@ val commonModule = module {
     factoryOf(::GetAllNewsUseCase)
 
     singleOf(::NewsRepository)
+
+    factoryOf(::GetModelsUseCase)
+    singleOf(::ModelsRepository)
 
     singleOf(::DownloadFileRepository)
     singleOf(::Settings)

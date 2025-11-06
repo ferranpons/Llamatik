@@ -4,6 +4,8 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
+import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.utils.ChatMessage
 import com.llamatik.app.feature.chatbot.utils.ChatRunner
 import com.llamatik.app.feature.chatbot.utils.Gemma3
@@ -40,6 +42,7 @@ class ChatBotViewModel(
     private val rootNavigatorRepository: RootNavigatorRepository,
     private val settings: Settings,
     private val getAllNewsUseCase: GetAllNewsUseCase,
+    private val getModelsUseCase: GetModelsUseCase,
 ) : ScreenModel {
 
     private val _state = MutableStateFlow(
@@ -47,6 +50,7 @@ class ChatBotViewModel(
             greeting = "",
             header = getCurrentLocalization().welcome,
             latestNews = emptyList(),
+            models = emptyList(),
         )
     )
     val state = _state.asStateFlow()
@@ -91,6 +95,13 @@ class ChatBotViewModel(
             getAllNewsUseCase.invoke()
                 .onSuccess {
                     _state.value = _state.value.copy(latestNews = it)
+                }
+                .onFailure { error ->
+                    Logger.e(error.message ?: "Unknown error")
+                }
+            getModelsUseCase.invoke()
+                .onSuccess {
+                    _state.value = _state.value.copy(models = it)
                 }
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
@@ -362,6 +373,7 @@ data class ChatBotState(
     val header: String,
     val isPrivacyMessageDisplayed: Boolean = false,
     val latestNews: List<FeedItem>,
+    val models: List<LlamaModel> = emptyList(),
 )
 
 sealed class ChatBotSideEffects {

@@ -81,6 +81,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
@@ -143,6 +144,7 @@ class ChatBotTabScreen : Screen {
             )
             if (showSettingsSheet.value) {
                 SettingsBottomSheet(
+                    models = state.models,
                     onDismiss = { showSettingsSheet.value = false },
                     onModelSelected = { fileName ->
                         // Resolve path and initialize generator model
@@ -667,36 +669,6 @@ fun ModelSelector(
     }
 }
 
-// You can move this list to a repository or your ViewModel later.
-private data class LlamaModel(
-    val name: String,
-    val fileName: String,  // local GGUF file name
-    val sizeMb: Int,
-    val url: String        // remote GGUF url for download
-)
-
-private val BuiltInModels = listOf(
-    LlamaModel(
-        name = "Gemma 3 270M Q8_0",
-        fileName = "gemma_3_270m_Q8_0.gguf",
-        sizeMb = 430,
-        url = "https://your.cdn/models/gemma_3_270m_Q8_0.gguf"
-    ),
-    LlamaModel(
-        name = "Llama 3.1 8B Q4_0",
-        fileName = "llama-3.1-8b-instruct.Q4_0.gguf",
-        sizeMb = 4100,
-        url = "https://your.cdn/models/llama-3.1-8b-instruct.Q4_0.gguf"
-    ),
-    LlamaModel(
-        name = "Phi-3 mini Q4_0",
-        fileName = "phi-3-mini-4k-instruct.Q4_0.gguf",
-        sizeMb = 1100,
-        url = "https://your.cdn/models/phi-3-mini-4k-instruct.Q4_0.gguf"
-    )
-)
-
-// Common llama.cpp generation parameters you asked for.
 data class GenerateSettings(
     val temperature: Float = 0.7f,
     val maxTokens: Int = 256,
@@ -735,7 +707,8 @@ private fun isModelInstalled(fileName: String): Boolean {
 @Composable
 fun SettingsBottomSheet(
     onDismiss: () -> Unit,
-    onModelSelected: (fileName: String) -> Unit
+    onModelSelected: (fileName: String) -> Unit,
+    models: List<LlamaModel>
 ) {
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -761,7 +734,7 @@ fun SettingsBottomSheet(
             )
             Spacer(Modifier.height(8.dp))
 
-            BuiltInModels.forEach { model ->
+            models.forEach { model ->
                 val installed = remember(model.fileName) { mutableStateOf(isModelInstalled(model.fileName)) }
                 val isDownloading = downloadingMap[model.fileName] == true
                 val pct = progressMap[model.fileName] ?: 0f
