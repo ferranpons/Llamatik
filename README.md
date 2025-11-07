@@ -173,6 +173,20 @@ Please go to the [Backend README.md](./backend/README.md) for more information.
 
 ---
 
+## Try LLamatik App
+
+If you want to try how LLamatik works you can download the App on the App Store or Google Play Store.
+
+
+
+## Apps using Llamatik
+
+The following is a list of some of the public apps using Llamatik and are published on the Google Play Store and App Store.
+
+Want to add your app? Found an app that no longer works or no longer uses Llamatik? Please submit a pull request on GitHub to update this page!
+
+---
+
 ## 🤝 Contributing
 
 Llamatik is 100% open-source and actively developed.  

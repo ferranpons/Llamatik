@@ -186,10 +186,14 @@ android {
 compose.desktop {
     application {
         mainClass = "MainKt"
+        jvmArgs += listOf("-Dapple.awt.application.name=Llamatik")
 
         nativeDistributions {
+            macOS {
+                bundleID = "com.llamatik.app"
+            }
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.llamatik.app"
+            packageName = "Llamatik"
             packageVersion = "$versionMajor.$versionMinor.$versionPatch"
         }
     }
