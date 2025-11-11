@@ -34,26 +34,55 @@ class ModelsRepository(private val service: ServiceClient) {
         )
     }
 
-    suspend fun getLocalModels(): List<LlamaModel> {
+    fun getDefaultGenerateModels(): List<LlamaModel> {
         return listOf(
             LlamaModel(
                 name = "Gemma 3 270M Q8_0",
-                fileName = "gemma_3_270m_Q8_0.gguf",
-                sizeMb = 430,
-                url = "https://your.cdn/models/gemma_3_270m_Q8_0.gguf"
+                fileName = "gemma-3-270m-Q8_0.gguf",
+                sizeMb = 292,
+                url = "https://huggingface.co/ggml-org/gemma-3-270m-GGUF/resolve/main/gemma-3-270m-Q8_0.gguf?download=true"
             ),
             LlamaModel(
-                name = "Llama 3.1 8B Q4_0",
-                fileName = "llama-3.1-8b-instruct.Q4_0.gguf",
-                sizeMb = 4100,
-                url = "https://your.cdn/models/llama-3.1-8b-instruct.Q4_0.gguf"
+                name = "SmolVLM 256M Instruct",
+                fileName = "SmolVLM-256M-Instruct-Q8_0.gguf",
+                sizeMb = 175,
+                url = "https://huggingface.co/ggml-org/SmolVLM-256M-Instruct-GGUF/resolve/main/SmolVLM-256M-Instruct-Q8_0.gguf?download=true"
             ),
             LlamaModel(
-                name = "Phi-3 mini Q4_0",
-                fileName = "phi-3-mini-4k-instruct.Q4_0.gguf",
-                sizeMb = 1100,
-                url = "https://your.cdn/models/phi-3-mini-4k-instruct.Q4_0.gguf"
-            )
+                name = "SmolVLM 500M Instruct",
+                fileName = "SmolVLM-500M-Instruct-Q8_0.gguf",
+                sizeMb = 437,
+                url = "https://huggingface.co/ggml-org/SmolVLM-500M-Instruct-GGUF/resolve/main/SmolVLM-500M-Instruct-Q8_0.gguf?download=true"
+            ),
+            LlamaModel(
+                name = "Qwen 2.5 5B Instruct",
+                fileName = "qwen2.5-1.5b-instruct-q2_k.gguf",
+                sizeMb = 753,
+                url = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q2_k.gguf?download=true"
+            ),
+            LlamaModel(
+                name = "Phi-1_5 Q2 K",
+                fileName = "phi-1_5-Q2_K.gguf",
+                sizeMb = 613,
+                url = "https://huggingface.co/TKDKid1000/phi-1_5-GGUF/resolve/main/phi-1_5-Q2_K.gguf?download=true"
+            ),
+            LlamaModel(
+                name = "Llama 3.2 1B Instruct Q2 K",
+                fileName = "Llama-3.2-1B-Instruct-Q2_K.gguf",
+                sizeMb = 581,
+                url = "https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q2_K.gguf?download=true"
+            ),
+        )
+    }
+
+    fun getDefaultEmbedModels(): List<LlamaModel> {
+        return listOf(
+            LlamaModel(
+                name = "Nomic Embed Text v1.5 Q4",
+                fileName = "nomic-embed-text-v1.5.Q4_0.gguf",
+                sizeMb = 77,
+                url = "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_0.gguf?download=true"
+            ),
         )
     }
 }

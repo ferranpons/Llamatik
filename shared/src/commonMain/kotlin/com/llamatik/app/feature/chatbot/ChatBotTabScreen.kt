@@ -81,7 +81,6 @@ import com.llamatik.app.ui.components.NewsCardSmall
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
-import com.llamatik.library.platform.LlamaBridge.getModelPath
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
@@ -91,8 +90,8 @@ class ChatBotTabScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val localization = getCurrentLocalization()
-        val embedFilePath = getModelPath(modelFileName = "nomic_embed_text_v1_5_Q4_0.gguf")
-        val generatorFilePath = getModelPath(modelFileName = "gemma_3_270m_Q8_0.gguf")
+        //val embedFilePath = getModelPath(modelFileName = "nomic_embed_text_v1_5_Q4_0.gguf")
+        //val generatorFilePath = getModelPath(modelFileName = "gemma_3_270m_Q8_0.gguf")
         val isLoading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
         val showSettingsSheet = remember { mutableStateOf(false) }
@@ -104,7 +103,7 @@ class ChatBotTabScreen : Screen {
         val isDialogOpen = remember { mutableStateOf(false) }
 
         DisposableEffect(Unit) {
-            viewModel.onStarted(embedFilePath, generatorFilePath)
+            viewModel.onStarted()
             onDispose {
                 viewModel.onDispose()
             }
@@ -126,7 +125,8 @@ class ChatBotTabScreen : Screen {
             )
             if (showSettingsSheet.value) {
                 ModelSettingsBottomSheet(
-                    models = state.models,
+                    embedModels = state.embedModels,
+                    generateModels = state.generateModels,
                     onDismiss = { showSettingsSheet.value = false },
                     onModelSelected = { fileName ->
                         // Resolve path and initialize generator model
@@ -336,7 +336,8 @@ class ChatBotTabScreen : Screen {
             ChatInputBox(
                 viewModel = viewModel,
                 showSuggestions = showSuggestions,
-                availableModels = state.models,
+                embedModels = state.embedModels,
+                generateModels = state.generateModels,
                 onOpenSettings = { showSettingsSheet.value = true }
             )
         }
@@ -433,7 +434,8 @@ class ChatBotTabScreen : Screen {
 fun ChatInputBox(
     viewModel: ChatBotViewModel,
     showSuggestions: MutableState<Boolean>,
-    availableModels: List<LlamaModel>,
+    embedModels: List<LlamaModel>,
+    generateModels: List<LlamaModel>,
     suggestions: List<String> = listOf(
         "Summarize the latest news",
         "Create a receipt",
@@ -560,10 +562,10 @@ fun ChatInputBox(
                 )
             }
 
-            ModelSelector(
+            GenerateModelSelector(
                 viewModel,
-                if (availableModels.isNotEmpty()) availableModels[0] else null,
-                availableModels,
+                if (generateModels.isNotEmpty()) generateModels[0] else null,
+                generateModels,
                 onOpenSettings
             )
         }
@@ -571,7 +573,7 @@ fun ChatInputBox(
 }
 
 @Composable
-fun ModelSelector(
+fun GenerateModelSelector(
     viewModel: ChatBotViewModel,
     initialModel: LlamaModel?,
     availableModels: List<LlamaModel>,

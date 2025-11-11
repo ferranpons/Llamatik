@@ -10,12 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.progressSemantics
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +24,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -36,12 +36,13 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.ui.theme.Typography
-import korlibs.util.format
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -85,7 +86,8 @@ private fun isModelInstalled(fileName: String): Boolean {
 fun ModelSettingsBottomSheet(
     onDismiss: () -> Unit,
     onModelSelected: (fileName: String) -> Unit,
-    models: List<LlamaModel>
+    embedModels: List<LlamaModel>,
+    generateModels: List<LlamaModel>,
 ) {
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -103,89 +105,42 @@ fun ModelSettingsBottomSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .verticalScroll(rememberScrollState())
+        ) {
             Text(
-                text = "Models",
-                style = com.llamatik.app.ui.theme.Typography.get().titleLarge
+                text = "Generate Models",
+                style = Typography.get().titleLarge
             )
             Spacer(Modifier.height(8.dp))
 
-            models.forEach { model ->
-                val installed = remember(model.fileName) { mutableStateOf(isModelInstalled(model.fileName)) }
-                val isDownloading = downloadingMap[model.fileName] == true
-                val pct = progressMap[model.fileName] ?: 0f
-
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Memory,
-                                contentDescription = null,
-                                tint = if (installed.value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(model.name, style = com.llamatik.app.ui.theme.Typography.get().titleMedium)
-                                Text("${model.sizeMb} MB • ${model.fileName}", style = com.llamatik.app.ui.theme.Typography.get().labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-
-                            if (installed.value) {
-                                FilledTonalButton(
-                                    onClick = { onModelSelected(model.fileName) },
-                                    content = { Text("Select") }
-                                )
-                            } else {
-                                if (isDownloading) {
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text("Downloading… ${(pct * 100).roundToInt()}%", style = com.llamatik.app.ui.theme.Typography.get().labelSmall)
-                                        Spacer(Modifier.height(6.dp))
-                                        LinearProgressIndicator(
-                                            progress = { pct },
-                                            modifier = Modifier.width(140.dp).progressSemantics()
-                                        )
-                                    }
-                                } else {
-                                    Button(
-                                        onClick = {
-                                            downloadingMap[model.fileName] = true
-                                            progressMap[model.fileName] = 0f
-                                            jobs[model.fileName] = scope.launch {
-                                                try {
-                                                    /*
-                                                    downloadModelFile(model) { p ->
-                                                        progressMap[model.fileName] = p.coerceIn(0f, 1f)
-                                                    }*/
-                                                    installed.value = true
-                                                } catch (t: Throwable) {
-                                                    // You can surface a snackbar/toast here
-                                                } finally {
-                                                    downloadingMap[model.fileName] = false
-                                                }
-                                            }
-                                        }
-                                    ) { Text("Download") }
-                                }
-                            }
-                        }
-
-                        if (isDownloading || !installed.value) {
-                            Spacer(Modifier.height(8.dp))
-                        }
-                    }
-                }
+            generateModels.forEach { model ->
+                ModelCard(model, progressMap, downloadingMap, jobs, scope)
             }
 
+            Spacer(Modifier.height(32.dp))
+
+            Text(
+                text = "Embed Models",
+                style = Typography.get().titleLarge
+            )
+            Spacer(Modifier.height(8.dp))
+
+            embedModels.forEach { model ->
+                ModelCard(model, progressMap, downloadingMap, jobs, scope)
+            }
+/*
             Spacer(Modifier.height(4.dp))
             HorizontalDivider()
             Spacer(Modifier.height(8.dp))
 
             Text(
                 text = "Generation Settings",
-                style = com.llamatik.app.ui.theme.Typography.get().titleLarge
+                style = Typography.get().titleLarge
             )
             Spacer(Modifier.height(4.dp))
 
@@ -251,11 +206,90 @@ fun ModelSettingsBottomSheet(
             }
 
             Spacer(Modifier.height(16.dp))
+ */
         }
     }
 }
 
 // --- Small UI helpers --------------------------------------------------------
+
+@Composable
+fun ModelCard(
+    model: LlamaModel,
+    progressMap: SnapshotStateMap<String, Float>,
+    downloadingMap: SnapshotStateMap<String, Boolean>,
+    jobs: SnapshotStateMap<String, Job?>,
+    scope: CoroutineScope
+) {
+    val installed = remember(model.fileName) { mutableStateOf(isModelInstalled(model.fileName)) }
+    val isDownloading = downloadingMap[model.fileName] == true
+    val pct = progressMap[model.fileName] ?: 0f
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Memory,
+                    contentDescription = null,
+                    tint = if (installed.value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(model.name, style = Typography.get().titleMedium)
+                    Text("${model.sizeMb} MB • ${model.fileName}", style = Typography.get().labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                if (installed.value) {
+                    FilledTonalButton(
+                        onClick = {
+                            //onModelSelected(model.fileName)
+                        },
+                        content = { Text("Select") }
+                    )
+                } else {
+                    if (isDownloading) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Downloading… ${(pct * 100).roundToInt()}%", style = Typography.get().labelSmall)
+                            Spacer(Modifier.height(6.dp))
+                            LinearProgressIndicator(
+                                progress = { pct },
+                                modifier = Modifier.width(140.dp).progressSemantics()
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                downloadingMap[model.fileName] = true
+                                progressMap[model.fileName] = 0f
+                                jobs[model.fileName] = scope.launch {
+                                    try {
+                                        /*
+                                        downloadModelFile(model) { p ->
+                                            progressMap[model.fileName] = p.coerceIn(0f, 1f)
+                                        }*/
+                                        installed.value = true
+                                    } catch (t: Throwable) {
+                                        // You can surface a snackbar/toast here
+                                    } finally {
+                                        downloadingMap[model.fileName] = false
+                                    }
+                                }
+                            }
+                        ) { Text("Download") }
+                    }
+                }
+            }
+
+            if (isDownloading || !installed.value) {
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
 
 @Composable
 private fun ParamSlider(
@@ -268,8 +302,8 @@ private fun ParamSlider(
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = com.llamatik.app.ui.theme.Typography.get().labelLarge)
-            Text(format(value), style = com.llamatik.app.ui.theme.Typography.get().labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, style = Typography.get().labelLarge)
+            Text(format(value), style = Typography.get().labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Slider(
             value = value,

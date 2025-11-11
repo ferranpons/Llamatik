@@ -7,8 +7,13 @@ import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
 class GetModelsUseCase(
     private val modelsRepository: ModelsRepository,
 ) : UseCase() {
-    suspend fun invoke(): Result<List<LlamaModel>> = runCatching {
-        val models = modelsRepository.getLocalModels()
+    fun getDefaultEmbedModels(): Result<List<LlamaModel>> = runCatching {
+        val models = modelsRepository.getDefaultEmbedModels()
+        return@runCatching models
+    }
+
+    fun getDefaultGenerateModels(): Result<List<LlamaModel>> = runCatching {
+        val models = modelsRepository.getDefaultGenerateModels()
         return@runCatching models
     }
 }

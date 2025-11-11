@@ -50,7 +50,7 @@ class ChatBotViewModel(
             greeting = "",
             header = getCurrentLocalization().welcome,
             latestNews = emptyList(),
-            models = emptyList(),
+            embedModels = emptyList(),
         )
     )
     val state = _state.asStateFlow()
@@ -88,9 +88,15 @@ class ChatBotViewModel(
         }
     }
 
-    fun onStarted(embedFilePath: String, generatorFilePath: String) {
-        LlamaBridge.initModel(embedFilePath)
-        LlamaBridge.initGenerateModel(generatorFilePath)
+    fun onStarted(embedFilePath: String? = null, generatorFilePath: String? = null) {
+        embedFilePath?.let {
+            LlamaBridge.initModel(embedFilePath)
+            _state.value = _state.value.copy(isEmbedModelLoaded = true)
+        }
+        generatorFilePath?.let {
+            LlamaBridge.initGenerateModel(generatorFilePath)
+            _state.value = _state.value.copy(isGenerateModelLoaded = true)
+        }
         screenModelScope.launch {
             getAllNewsUseCase.invoke()
                 .onSuccess {
@@ -99,9 +105,16 @@ class ChatBotViewModel(
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
                 }
-            getModelsUseCase.invoke()
+            getModelsUseCase.getDefaultEmbedModels()
                 .onSuccess {
-                    _state.value = _state.value.copy(models = it)
+                    _state.value = _state.value.copy(embedModels = it)
+                }
+                .onFailure { error ->
+                    Logger.e(error.message ?: "Unknown error")
+                }
+            getModelsUseCase.getDefaultGenerateModels()
+                .onSuccess {
+                    _state.value = _state.value.copy(generateModels = it)
                 }
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
@@ -373,7 +386,10 @@ data class ChatBotState(
     val header: String,
     val isPrivacyMessageDisplayed: Boolean = false,
     val latestNews: List<FeedItem>,
-    val models: List<LlamaModel> = emptyList(),
+    val embedModels: List<LlamaModel> = emptyList(),
+    val generateModels: List<LlamaModel> = emptyList(),
+    val isEmbedModelLoaded: Boolean = false,
+    val isGenerateModelLoaded: Boolean = false,
 )
 
 sealed class ChatBotSideEffects {

@@ -90,7 +90,7 @@ class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                             "\n" +
                             "\n" +
                             "\uD83D\uDD10 Privacy Notice\n\n" +
-                            "Your privacy is fully protected. The chatbot runs entirely on your device.\n" +
+                            "Your privacy is fully protected. This chatbot runs entirely on your device.\n" +
                             "It does not collect, store, or share any personal data.\n" +
                             "No information is sent to external servers.\n" +
                             "\n" +
