@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +65,7 @@ import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.ui.ModelSelectorBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
@@ -95,6 +94,7 @@ class ChatBotTabScreen : Screen {
         val isLoading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
         val showSettingsSheet = remember { mutableStateOf(false) }
+        val showModelSelectorSheet = remember { mutableStateOf(false) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
@@ -118,7 +118,8 @@ class ChatBotTabScreen : Screen {
         SetupSideEffects(
             viewModel = viewModel,
             isLoading = isLoading,
-            showSettingsSheet = showSettingsSheet
+            showSettingsSheet = showSettingsSheet,
+            showModelSelectorSheet = showModelSelectorSheet
         )
         LlamatikTheme {
             ChatBotScreenView(
@@ -129,10 +130,16 @@ class ChatBotTabScreen : Screen {
                 isLoading,
                 state,
                 showSuggestions,
-                showSettingsSheet
+                showSettingsSheet,
+                showModelSelectorSheet
             )
             if (showSettingsSheet.value) {
-                ModelSettingsBottomSheet(
+                ModelSettingsBottomSheet {
+                    showSettingsSheet.value = false
+                }
+            }
+            if (showModelSelectorSheet.value) {
+                ModelSelectorBottomSheet(
                     downloadingMap = downloadingMap,
                     progressMap = progressMap,
                     selectedEmbedModelName = state.selectedEmbedModelName,
@@ -149,7 +156,7 @@ class ChatBotTabScreen : Screen {
                         viewModel.onDownloadModel(model)
                     }
                 ) {
-                    showSettingsSheet.value = false
+                    showModelSelectorSheet.value = false
                 }
             }
             if (isDialogOpen.value) {
@@ -168,8 +175,9 @@ class ChatBotTabScreen : Screen {
     private fun SetupSideEffects(
         viewModel: ChatBotViewModel,
         isLoading: MutableState<Boolean>,
+        showModelSelectorSheet: MutableState<Boolean>,
         showSettingsSheet: MutableState<Boolean>,
-        ) {
+    ) {
         val sideEffects = viewModel.sideEffects.collectAsState(ChatBotSideEffects.Initial)
         sideEffects.value.apply {
             when (this) {
@@ -187,9 +195,13 @@ class ChatBotTabScreen : Screen {
                 }
                 ChatBotSideEffects.ScrollToBottom -> {}
                 ChatBotSideEffects.OnEmbedModelLoaded -> {
-                    showSettingsSheet.value = false
+                    showModelSelectorSheet.value = false
                 }
                 ChatBotSideEffects.OnGenerateModelLoaded -> {
+                    showModelSelectorSheet.value = false
+                }
+
+                ChatBotSideEffects.OnSettingsChanged -> {
                     showSettingsSheet.value = false
                 }
             }
@@ -206,6 +218,7 @@ class ChatBotTabScreen : Screen {
         state: ChatBotState,
         showSuggestions: MutableState<Boolean>,
         showSettingsSheet: MutableState<Boolean>,
+        showModelSelectorSheet: MutableState<Boolean>,
     ) {
         BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
 
@@ -279,7 +292,8 @@ class ChatBotTabScreen : Screen {
                         isLoading,
                         state,
                         showSuggestions,
-                        showSettingsSheet
+                        showSettingsSheet,
+                        showModelSelectorSheet
                     )
                 }
             }
@@ -322,6 +336,7 @@ class ChatBotTabScreen : Screen {
         state: ChatBotState,
         showSuggestions: MutableState<Boolean>,
         showSettingsSheet: MutableState<Boolean>,
+        showModelSelectorSheet: MutableState<Boolean>,
     ) {
         val listState = rememberLazyListState()
         LaunchedEffect(chatUiModel.messages.size) {
@@ -361,6 +376,7 @@ class ChatBotTabScreen : Screen {
                 showSuggestions = showSuggestions,
                 embedModels = state.embedModels,
                 generateModels = state.generateModels,
+                onOpenModelSelector = { showModelSelectorSheet.value = true },
                 onOpenSettings = { showSettingsSheet.value = true }
             )
         }
@@ -464,6 +480,7 @@ fun ChatInputBox(
         "Create a receipt",
         "Draft a polite reply"
     ),
+    onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Box(
@@ -476,7 +493,7 @@ fun ChatInputBox(
         }
 
         Column(
-            horizontalAlignment = Alignment.Start, // pill aligned left
+            horizontalAlignment = Alignment.Start,
         ) {
             if (showSuggestions.value && suggestions.isNotEmpty()) {
                 LazyRow(
@@ -589,6 +606,7 @@ fun ChatInputBox(
                 viewModel,
                 if (generateModels.isNotEmpty()) generateModels[0] else null,
                 generateModels,
+                onOpenModelSelector,
                 onOpenSettings
             )
         }
@@ -600,10 +618,10 @@ fun GenerateModelSelector(
     viewModel: ChatBotViewModel,
     initialModel: LlamaModel?,
     availableModels: List<LlamaModel>,
+    onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     var model by rememberSaveable { mutableStateOf(initialModel) }
-    var showModelMenu by rememberSaveable { mutableStateOf(false) }
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -613,7 +631,7 @@ fun GenerateModelSelector(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
-                    onClick = { showModelMenu = true },
+                    onClick = onOpenModelSelector,
                     shape = RoundedCornerShape(999.dp),
                     tonalElevation = 1.dp,
                     color = MaterialTheme.colorScheme.secondaryContainer,
@@ -655,22 +673,6 @@ fun GenerateModelSelector(
                         )
                     }
                 )
-            }
-
-            DropdownMenu(
-                expanded = showModelMenu,
-                onDismissRequest = { showModelMenu = false }
-            ) {
-                availableModels.forEach { it ->
-                    DropdownMenuItem(
-                        text = { Text(it.name) },
-                        onClick = {
-                            model = it
-                            showModelMenu = false
-                            //viewModel.onModelChanged(m) // safe no-op if not implemented yet
-                        }
-                    )
-                }
             }
         }
     }

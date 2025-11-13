@@ -1,0 +1,163 @@
+package com.llamatik.app.feature.chatbot.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.progressSemantics
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.ui.theme.Typography
+
+@Composable
+fun ModelSelectorBottomSheet(
+    downloadingMap: Map<String, Boolean>,
+    progressMap: Map<String, Float>,
+    selectedEmbedModelName: String?,
+    selectedGenerateModelName: String?,
+    embedModels: List<LlamaModel>,
+    generateModels: List<LlamaModel>,
+    onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
+    onGenerateModelSelectedClicked: (LlamaModel) -> Unit,
+    onDownloadModelClicked: (LlamaModel) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .verticalScroll(rememberScrollState())
+        ) {
+            Text(
+                text = "Generate Models",
+                style = Typography.get().titleLarge
+            )
+            Spacer(Modifier.height(8.dp))
+
+            generateModels.forEach { model ->
+                ModelRow(
+                    model = model,
+                    isCurrent = (model.name == selectedGenerateModelName),
+                    isDownloading = downloadingMap[model.url] == true,
+                    progress = progressMap[model.url] ?: 0f,
+                    onModelSelectedClicked = onGenerateModelSelectedClicked,
+                    onDownloadModelClicked = onDownloadModelClicked
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+/*
+            Spacer(Modifier.height(32.dp))
+
+            Text(
+                text = "Embed Models",
+                style = Typography.get().titleLarge
+            )
+            Spacer(Modifier.height(8.dp))
+
+            embedModels.forEach { model ->
+                ModelRow(
+                    model = model,
+                    isCurrent = (model.name == selectedEmbedModelName),
+                    isDownloading = downloadingMap[model.url] == true,
+                    progress = progressMap[model.url] ?: 0f,
+                    onModelSelectedClicked = onEmbedModelSelectedClicked,
+                    onDownloadModelClicked = onDownloadModelClicked
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+ */
+        }
+    }
+}
+
+@Composable
+private fun ModelRow(
+    model: LlamaModel,
+    isCurrent: Boolean,
+    isDownloading: Boolean,
+    progress: Float,
+    onModelSelectedClicked: (LlamaModel) -> Unit,
+    onDownloadModelClicked: (LlamaModel) -> Unit
+) {
+    var localDownloading by remember(model.url, isDownloading) { mutableStateOf(isDownloading) }
+    val effectiveDownloading = localDownloading || isDownloading
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Default.Memory,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(model.name, style = Typography.get().labelLarge)
+                Text("${model.sizeMb} MB", style = Typography.get().labelSmall)
+            }
+
+            if (!model.fileName.isNullOrEmpty()) {
+                if (isCurrent) {
+                    FilledTonalButton(onClick = { /* no-op */ }, enabled = false) { Text("Current") }
+                } else {
+                    FilledTonalButton(onClick = { onModelSelectedClicked(model) }) { Text("Select") }
+                }
+            } else {
+                if (effectiveDownloading) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Downloading…", style = Typography.get().labelSmall)
+                        Spacer(Modifier.height(6.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .width(140.dp)
+                                .progressSemantics()
+                        )
+                    }
+                } else {
+                    Button(onClick = { localDownloading = true; onDownloadModelClicked(model) }) {
+                        Text("Download")
+                    }
+                }
+            }
+        }
+
+        if (effectiveDownloading || model.fileName.isNullOrEmpty()) {
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}

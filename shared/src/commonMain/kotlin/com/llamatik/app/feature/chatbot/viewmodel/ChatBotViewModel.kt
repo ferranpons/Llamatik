@@ -490,4 +490,5 @@ sealed class ChatBotSideEffects {
     data object ScrollToBottom : ChatBotSideEffects()
     data object OnEmbedModelLoaded: ChatBotSideEffects()
     data object OnGenerateModelLoaded: ChatBotSideEffects()
+    data object OnSettingsChanged: ChatBotSideEffects()
 }
