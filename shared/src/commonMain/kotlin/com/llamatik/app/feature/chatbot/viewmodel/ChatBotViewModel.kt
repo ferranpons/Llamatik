@@ -22,6 +22,7 @@ import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.openFileSaver
+import io.github.vinceglb.filekit.path
 import io.github.vinceglb.filekit.write
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -175,14 +176,17 @@ class ChatBotViewModel(
                 getModelsUseCase.downloadModel(model) { pct ->
                     updateDownload(model.url) { ds -> ds.copy(inProgress = true, progress = pct.coerceIn(0, 100)) }
                 }.onSuccess { result ->
+                    updateDownload(model.url) { it.copy(inProgress = false, progress = 100, done = true) }
                     val file = FileKit.openFileSaver(
                         suggestedName = model.fileName?.urlToFileName() ?: model.name,
                         extension = "gguf"
                     )
                     result.first?.let { bytesArray ->
-                        file?.write(bytesArray)
+                        file?.let {
+                            file.write(bytesArray)
+                            updateModels(model, file.path)
+                        }
                     }
-                    updateDownload(model.url) { it.copy(inProgress = false, progress = 100, done = true) }
                 }.onFailure { e ->
                     updateDownload(model.url) { it.copy(inProgress = false, error = e.message ?: "Download failed") }
                 }
@@ -190,6 +194,26 @@ class ChatBotViewModel(
                 updateDownload(model.url) { it.copy(inProgress = false, error = t.message ?: "Download failed") }
             }
         }
+    }
+
+    private fun updateModels(newModel: LlamaModel, path: String?) {
+        val embedModels = _state.value.embedModels.map {
+            if (it.name == newModel.name) {
+                it.copy(fileName = path)
+            } else {
+                it
+            }
+        }
+        _state.value = _state.value.copy(embedModels = embedModels)
+
+        val generateModels = _state.value.embedModels.map {
+            if (it.name == newModel.name) {
+                it.copy(fileName = path)
+            } else {
+                it
+            }
+        }
+        _state.value = _state.value.copy(generateModels = generateModels)
     }
 
     fun String.urlToFileName(): String {

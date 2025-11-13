@@ -32,7 +32,6 @@ class ModelsRepository(private val service: ServiceClient) {
                     val bytes = packet.readBytes()
                     downloaded += bytes.size
                     file.appendBytes(bytes)
-                    file.appendBytesBase64(bytes)
                     onProgress?.invoke(downloaded, totalBytes)
                 }
             }

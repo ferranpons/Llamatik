@@ -39,30 +39,19 @@ class GetModelsUseCase(
     ): Result<Pair<ByteArray?, String>> =
         runCatching {
             val fileName = extractFileName(model.url)
-            val tempFile = modelsRepository.downloadFileAndSave(
+            modelsRepository.downloadFileAndSave(
                 url = model.url,
                 fileName = fileName
             ) { downloaded, total ->
                 if (total > 0) {
                     val pct = ((downloaded.toDouble() / total.toDouble()) * 100.0)
-                        .toInt()
-                        .coerceIn(0, 100)
+                        .toInt().coerceIn(0, 100)
                     onProgress(pct)
                 } else {
-                    // Unknown total; keep as 0 (indeterminate)
                     onProgress(0)
                 }
             }
-            val bytes = tempFile.readBytes()
-            val base64String = tempFile.readBase64String()
-            if (bytes.isNotEmpty()) {
-                return@runCatching Pair<ByteArray?, String>(
-                    bytes,
-                    base64String
-                )
-            } else {
-                return@runCatching Pair<ByteArray?, String>(null, "")
-            }
+            return@runCatching Pair<ByteArray?, String>(null, "")
         }
 
     private fun extractFileName(url: String): String {
