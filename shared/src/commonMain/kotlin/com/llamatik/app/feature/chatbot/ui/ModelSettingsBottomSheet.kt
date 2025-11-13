@@ -29,10 +29,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.ui.theme.Typography
 import korlibs.util.format
-import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
 data class GenerateSettings(
@@ -84,7 +80,8 @@ private fun isModelInstalled(fileName: String): Boolean {
 
 @Composable
 fun ModelSettingsBottomSheet(
-    isDownloading: MutableState<Boolean>,
+    downloadingMap: Map<String, Boolean>,
+    progressMap: Map<String, Float>,
     embedModels: List<LlamaModel>,
     generateModels: List<LlamaModel>,
     onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
@@ -92,13 +89,7 @@ fun ModelSettingsBottomSheet(
     onDownloadModelClicked: (LlamaModel) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    // track download progress by fileName
-    val progressMap = remember { mutableStateMapOf<String, Float>() }
-    val downloadingMap = remember { mutableStateMapOf<String, Boolean>() }
-    val jobs = remember { mutableStateMapOf<String, Job?>() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -119,15 +110,14 @@ fun ModelSettingsBottomSheet(
             Spacer(Modifier.height(8.dp))
 
             generateModels.forEach { model ->
-                ModelCard(
-                    isDownloading = isDownloading,
+                ModelRow(
                     model = model,
-                    progressMap = progressMap,
-                    downloadingMap = downloadingMap,
-                    onModelSelectedClicked = onGenerateModelSelectedClicked
-                ) {
-                    onDownloadModelClicked(model)
-                }
+                    isDownloading = downloadingMap[model.url] == true,
+                    progress = progressMap[model.url] ?: 0f,
+                    onModelSelectedClicked = onGenerateModelSelectedClicked,
+                    onDownloadModelClicked = onDownloadModelClicked
+                )
+                Spacer(Modifier.height(12.dp))
             }
 
             Spacer(Modifier.height(32.dp))
@@ -139,20 +129,76 @@ fun ModelSettingsBottomSheet(
             Spacer(Modifier.height(8.dp))
 
             embedModels.forEach { model ->
-                ModelCard(
-                    isDownloading = isDownloading,
+                ModelRow(
                     model = model,
-                    progressMap = progressMap,
-                    downloadingMap = downloadingMap,
-                    onModelSelectedClicked = onEmbedModelSelectedClicked
-                ) {
-                    onDownloadModelClicked(model)
-                }
+                    isDownloading = downloadingMap[model.url] == true,
+                    progress = progressMap[model.url] ?: 0f,
+                    onModelSelectedClicked = onEmbedModelSelectedClicked,
+                    onDownloadModelClicked = onDownloadModelClicked
+                )
+                Spacer(Modifier.height(12.dp))
             }
+
 
             Spacer(Modifier.height(32.dp))
             ParamsView {  }
 
+        }
+    }
+}
+
+@Composable
+private fun ModelRow(
+    model: LlamaModel,
+    isDownloading: Boolean,
+    progress: Float,
+    onModelSelectedClicked: (LlamaModel) -> Unit,
+    onDownloadModelClicked: (LlamaModel) -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Default.Memory,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(model.name, style = Typography.get().labelLarge)
+                Text("${model.sizeMb} MB", style = Typography.get().labelSmall)
+            }
+
+            if (!model.fileName.isNullOrEmpty()) {
+                FilledTonalButton(
+                    onClick = { onModelSelectedClicked(model) },
+                    content = { Text("Select") }
+                )
+            } else {
+                if (isDownloading) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Downloading…", style = Typography.get().labelSmall)
+                        Spacer(Modifier.height(6.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .width(140.dp)
+                                .progressSemantics()
+                        )
+                    }
+                } else {
+                    Button(onClick = { onDownloadModelClicked(model) }) {
+                        Text("Download")
+                    }
+                }
+            }
+        }
+
+        // Keep the model parameters section visible if downloading or if not yet downloaded
+        if (isDownloading || model.fileName.isNullOrEmpty()) {
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

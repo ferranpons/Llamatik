@@ -93,13 +93,16 @@ class ChatBotTabScreen : Screen {
         //val embedFilePath = getModelPath(modelFileName = "nomic_embed_text_v1_5_Q4_0.gguf")
         //val generatorFilePath = getModelPath(modelFileName = "gemma_3_270m_Q8_0.gguf")
         val isLoading = remember { mutableStateOf(false) }
-        val isDownloading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
         val showSettingsSheet = remember { mutableStateOf(false) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
         )
+
+        val downloadStates by viewModel.downloadStates.collectAsState()
+        val downloadingMap = downloadStates.mapValues { it.value.inProgress }
+        val progressMap = downloadStates.mapValues { it.value.progress.coerceIn(0, 100) / 100f }
 
         val isDialogOpen = remember { mutableStateOf(false) }
 
@@ -115,7 +118,6 @@ class ChatBotTabScreen : Screen {
         SetupSideEffects(
             viewModel = viewModel,
             isLoading = isLoading,
-            isDownloading = isDownloading,
             showSettingsSheet = showSettingsSheet
         )
         LlamatikTheme {
@@ -131,7 +133,8 @@ class ChatBotTabScreen : Screen {
             )
             if (showSettingsSheet.value) {
                 ModelSettingsBottomSheet(
-                    isDownloading = isDownloading,
+                    downloadingMap = downloadingMap,
+                    progressMap = progressMap,
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
                     onEmbedModelSelectedClicked = { model ->
@@ -163,7 +166,6 @@ class ChatBotTabScreen : Screen {
     private fun SetupSideEffects(
         viewModel: ChatBotViewModel,
         isLoading: MutableState<Boolean>,
-        isDownloading: MutableState<Boolean>,
         showSettingsSheet: MutableState<Boolean>,
         ) {
         val sideEffects = viewModel.sideEffects.collectAsState(ChatBotSideEffects.Initial)
@@ -187,15 +189,6 @@ class ChatBotTabScreen : Screen {
                 }
                 ChatBotSideEffects.OnGenerateModelLoaded -> {
                     showSettingsSheet.value = false
-                }
-                ChatBotSideEffects.Downloading -> {
-                    isDownloading.value = true
-                }
-                ChatBotSideEffects.OnDownloaded -> {
-                    isDownloading.value = false
-                }
-                ChatBotSideEffects.OnDownloadedError -> {
-                    isDownloading.value = false
                 }
             }
         }

@@ -49,6 +49,22 @@ class ChatBotViewModel(
     private val getModelsUseCase: GetModelsUseCase,
 ) : ScreenModel {
 
+    data class DownloadState(
+        val inProgress: Boolean = false,
+        val progress: Int = 0,
+        val done: Boolean = false,
+        val error: String? = null
+    )
+
+    private val _downloadStates = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
+    val downloadStates: StateFlow<Map<String, DownloadState>> = _downloadStates.asStateFlow()
+
+    private fun updateDownload(url: String, transform: (DownloadState) -> DownloadState) {
+        val current = _downloadStates.value
+        val existing = current[url] ?: DownloadState()
+        _downloadStates.value = current.toMutableMap().apply { put(url, transform(existing)) }
+    }
+
     private val _state = MutableStateFlow(
         ChatBotState(
             greeting = "",
@@ -153,10 +169,12 @@ class ChatBotViewModel(
     }
 
     fun onDownloadModel(model: LlamaModel) {
-        screenModelScope.launch {
-            _sideEffects.trySend(ChatBotSideEffects.Downloading)
-            getModelsUseCase.downloadModel(model.url)
-                .onSuccess { result ->
+        screenModelScope.launch(Dispatchers.IO) {
+            try {
+                updateDownload(model.url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
+                getModelsUseCase.downloadModel(model) { pct ->
+                    updateDownload(model.url) { ds -> ds.copy(inProgress = true, progress = pct.coerceIn(0, 100)) }
+                }.onSuccess { result ->
                     val file = FileKit.openFileSaver(
                         suggestedName = model.fileName?.urlToFileName() ?: model.name,
                         extension = "gguf"
@@ -164,12 +182,13 @@ class ChatBotViewModel(
                     result.first?.let { bytesArray ->
                         file?.write(bytesArray)
                     }
-                    _sideEffects.trySend(ChatBotSideEffects.OnDownloaded)
+                    updateDownload(model.url) { it.copy(inProgress = false, progress = 100, done = true) }
+                }.onFailure { e ->
+                    updateDownload(model.url) { it.copy(inProgress = false, error = e.message ?: "Download failed") }
                 }
-                .onFailure {
-                    _sideEffects.trySend(ChatBotSideEffects.OnDownloadedError)
-                    Logger.w(it) { "Error on downloading user manual" }
-                }
+            } catch (t: Throwable) {
+                updateDownload(model.url) { it.copy(inProgress = false, error = t.message ?: "Download failed") }
+            }
         }
     }
 
@@ -461,7 +480,4 @@ sealed class ChatBotSideEffects {
     data object ScrollToBottom : ChatBotSideEffects()
     data object OnEmbedModelLoaded: ChatBotSideEffects()
     data object OnGenerateModelLoaded: ChatBotSideEffects()
-    data object Downloading : ChatBotSideEffects()
-    data object OnDownloaded : ChatBotSideEffects()
-    data object OnDownloadedError : ChatBotSideEffects()
 }

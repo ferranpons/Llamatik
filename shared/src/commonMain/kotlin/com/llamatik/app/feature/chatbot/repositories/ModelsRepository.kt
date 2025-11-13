@@ -15,17 +15,25 @@ private const val DEFAULT_BUFFER_SIZE: Int = 8 * 1024
 
 class ModelsRepository(private val service: ServiceClient) {
 
-    suspend fun downloadFileAndSave(url: String, fileName: String): LlamatikTempFile {
+    suspend fun downloadFileAndSave(
+        url: String,
+        fileName: String,
+        onProgress: ((downloaded: Long, total: Long) -> Unit)? = null
+    ): LlamatikTempFile {
         val file = LlamatikTempFile(fileName)
         service.httpClient.prepareGet(url).execute { httpResponse ->
             val channel: ByteReadChannel = httpResponse.body()
+            val totalBytes = httpResponse.contentLength() ?: -1
+            var downloaded: Long = 0
             println("Downloading ${httpResponse.contentLength()} bytes")
             while (!channel.isClosedForRead) {
                 val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
                 while (!packet.isEmpty) {
                     val bytes = packet.readBytes()
+                    downloaded += bytes.size
                     file.appendBytes(bytes)
                     file.appendBytesBase64(bytes)
+                    onProgress?.invoke(downloaded, totalBytes)
                 }
             }
             file.close()
