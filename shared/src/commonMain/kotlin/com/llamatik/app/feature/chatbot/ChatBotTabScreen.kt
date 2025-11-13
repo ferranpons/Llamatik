@@ -64,7 +64,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.feature.chatbot.ui.ModelSelectorBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
@@ -89,8 +88,6 @@ class ChatBotTabScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val localization = getCurrentLocalization()
-        //val embedFilePath = getModelPath(modelFileName = "nomic_embed_text_v1_5_Q4_0.gguf")
-        //val generatorFilePath = getModelPath(modelFileName = "gemma_3_270m_Q8_0.gguf")
         val isLoading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
         val showSettingsSheet = remember { mutableStateOf(false) }
@@ -287,7 +284,6 @@ class ChatBotTabScreen : Screen {
                     ChatView(
                         localization,
                         viewModel,
-                        isDialogOpen,
                         chatUiModel,
                         isLoading,
                         state,
@@ -330,7 +326,6 @@ class ChatBotTabScreen : Screen {
     fun ChatView(
         localization: Localization,
         viewModel: ChatBotViewModel,
-        isDialogOpen: MutableState<Boolean>,
         chatUiModel: ChatUiModel,
         isLoading: MutableState<Boolean>,
         state: ChatBotState,
@@ -372,10 +367,9 @@ class ChatBotTabScreen : Screen {
                 }
             }
             ChatInputBox(
+                state = state,
                 viewModel = viewModel,
                 showSuggestions = showSuggestions,
-                embedModels = state.embedModels,
-                generateModels = state.generateModels,
                 onOpenModelSelector = { showModelSelectorSheet.value = true },
                 onOpenSettings = { showSettingsSheet.value = true }
             )
@@ -471,10 +465,9 @@ class ChatBotTabScreen : Screen {
 
 @Composable
 fun ChatInputBox(
+    state: ChatBotState,
     viewModel: ChatBotViewModel,
     showSuggestions: MutableState<Boolean>,
-    embedModels: List<LlamaModel>,
-    generateModels: List<LlamaModel>,
     suggestions: List<String> = listOf(
         "Summarize the latest news",
         "Create a receipt",
@@ -603,9 +596,7 @@ fun ChatInputBox(
             }
 
             GenerateModelSelector(
-                viewModel,
-                if (generateModels.isNotEmpty()) generateModels[0] else null,
-                generateModels,
+                selectedModelName = state.selectedGenerateModelName,
                 onOpenModelSelector,
                 onOpenSettings
             )
@@ -615,13 +606,11 @@ fun ChatInputBox(
 
 @Composable
 fun GenerateModelSelector(
-    viewModel: ChatBotViewModel,
-    initialModel: LlamaModel?,
-    availableModels: List<LlamaModel>,
+    selectedModelName: String?,
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    var model by rememberSaveable { mutableStateOf(initialModel) }
+    var model by rememberSaveable { mutableStateOf(selectedModelName) }
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -648,7 +637,7 @@ fun GenerateModelSelector(
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = model?.name ?: "no model selected",
+                            text = selectedModelName ?: "no model selected",
                             style = Typography.get().labelMedium
                         )
                         Spacer(Modifier.width(4.dp))
