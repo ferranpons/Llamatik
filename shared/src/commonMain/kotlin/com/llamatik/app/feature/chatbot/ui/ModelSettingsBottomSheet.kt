@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -82,6 +83,8 @@ private fun isModelInstalled(fileName: String): Boolean {
 fun ModelSettingsBottomSheet(
     downloadingMap: Map<String, Boolean>,
     progressMap: Map<String, Float>,
+    selectedEmbedModelName: String?,
+    selectedGenerateModelName: String?,
     embedModels: List<LlamaModel>,
     generateModels: List<LlamaModel>,
     onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
@@ -112,6 +115,7 @@ fun ModelSettingsBottomSheet(
             generateModels.forEach { model ->
                 ModelRow(
                     model = model,
+                    isCurrent = (model.name == selectedGenerateModelName),
                     isDownloading = downloadingMap[model.url] == true,
                     progress = progressMap[model.url] ?: 0f,
                     onModelSelectedClicked = onGenerateModelSelectedClicked,
@@ -131,6 +135,7 @@ fun ModelSettingsBottomSheet(
             embedModels.forEach { model ->
                 ModelRow(
                     model = model,
+                    isCurrent = (model.name == selectedEmbedModelName),
                     isDownloading = downloadingMap[model.url] == true,
                     progress = progressMap[model.url] ?: 0f,
                     onModelSelectedClicked = onEmbedModelSelectedClicked,
@@ -150,11 +155,15 @@ fun ModelSettingsBottomSheet(
 @Composable
 private fun ModelRow(
     model: LlamaModel,
+    isCurrent: Boolean,
     isDownloading: Boolean,
     progress: Float,
     onModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit
 ) {
+    var localDownloading by remember(model.url, isDownloading) { mutableStateOf(isDownloading) }
+    val effectiveDownloading = localDownloading || isDownloading
+
     Column(Modifier.fillMaxWidth()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -172,12 +181,13 @@ private fun ModelRow(
             }
 
             if (!model.fileName.isNullOrEmpty()) {
-                FilledTonalButton(
-                    onClick = { onModelSelectedClicked(model) },
-                    content = { Text("Select") }
-                )
+                if (isCurrent) {
+                    FilledTonalButton(onClick = { /* no-op */ }, enabled = false) { Text("Current") }
+                } else {
+                    FilledTonalButton(onClick = { onModelSelectedClicked(model) }) { Text("Select") }
+                }
             } else {
-                if (isDownloading) {
+                if (effectiveDownloading) {
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Downloading…", style = Typography.get().labelSmall)
                         Spacer(Modifier.height(6.dp))
@@ -189,7 +199,7 @@ private fun ModelRow(
                         )
                     }
                 } else {
-                    Button(onClick = { onDownloadModelClicked(model) }) {
+                    Button(onClick = { localDownloading = true; onDownloadModelClicked(model) }) {
                         Text("Download")
                     }
                 }
@@ -197,7 +207,7 @@ private fun ModelRow(
         }
 
         // Keep the model parameters section visible if downloading or if not yet downloaded
-        if (isDownloading || model.fileName.isNullOrEmpty()) {
+        if (effectiveDownloading || model.fileName.isNullOrEmpty()) {
             Spacer(Modifier.height(8.dp))
         }
     }

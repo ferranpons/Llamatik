@@ -135,6 +135,8 @@ class ChatBotTabScreen : Screen {
                 ModelSettingsBottomSheet(
                     downloadingMap = downloadingMap,
                     progressMap = progressMap,
+                    selectedEmbedModelName = state.selectedEmbedModelName,
+                    selectedGenerateModelName = state.selectedGenerateModelName,
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
                     onEmbedModelSelectedClicked = { model ->

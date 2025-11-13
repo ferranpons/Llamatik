@@ -147,13 +147,14 @@ class ChatBotViewModel(
             )
             vectorStore = loadVectorStoreEntries()
         }
+        _sideEffects.trySend(ChatBotSideEffects.OnLoaded)
     }
 
     fun onEmbedModelSelected(model: LlamaModel) {
         screenModelScope.launch {
             model.fileName?.let {
                 LlamaBridge.initModel(it)
-                _state.value = _state.value.copy(isEmbedModelLoaded = true)
+                _state.value = _state.value.copy(selectedEmbedModelName = model.name)
                 _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
             }
         }
@@ -163,7 +164,7 @@ class ChatBotViewModel(
         screenModelScope.launch {
             model.fileName?.let {
                 LlamaBridge.initGenerateModel(it)
-                _state.value = _state.value.copy(isGenerateModelLoaded = true)
+                _state.value = _state.value.copy(selectedGenerateModelName = model.name)
                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
             }
         }
@@ -175,17 +176,20 @@ class ChatBotViewModel(
                 updateDownload(model.url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
                 getModelsUseCase.downloadModel(model) { pct ->
                     updateDownload(model.url) { ds -> ds.copy(inProgress = true, progress = pct.coerceIn(0, 100)) }
-                }.onSuccess { result ->
+                }.onSuccess { tempFile ->
+                    Logger.d("LlamaVM - download finished")
                     updateDownload(model.url) { it.copy(inProgress = false, progress = 100, done = true) }
                     val file = FileKit.openFileSaver(
                         suggestedName = model.fileName?.urlToFileName() ?: model.name,
                         extension = "gguf"
                     )
-                    result.first?.let { bytesArray ->
-                        file?.let {
-                            file.write(bytesArray)
-                            updateModels(model, file.path)
-                        }
+                    file?.let {
+                        Logger.d("LlamaVM - saving model to ${file.path}")
+                        file.write(tempFile.readBytes())
+                        _state.value = _state.value.copy(
+                            embedModels = _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = file.path) else it },
+                            generateModels = _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = file.path) else it },
+                        )
                     }
                 }.onFailure { e ->
                     updateDownload(model.url) { it.copy(inProgress = false, error = e.message ?: "Download failed") }
@@ -194,26 +198,6 @@ class ChatBotViewModel(
                 updateDownload(model.url) { it.copy(inProgress = false, error = t.message ?: "Download failed") }
             }
         }
-    }
-
-    private fun updateModels(newModel: LlamaModel, path: String?) {
-        val embedModels = _state.value.embedModels.map {
-            if (it.name == newModel.name) {
-                it.copy(fileName = path)
-            } else {
-                it
-            }
-        }
-        _state.value = _state.value.copy(embedModels = embedModels)
-
-        val generateModels = _state.value.embedModels.map {
-            if (it.name == newModel.name) {
-                it.copy(fileName = path)
-            } else {
-                it
-            }
-        }
-        _state.value = _state.value.copy(generateModels = generateModels)
     }
 
     fun String.urlToFileName(): String {
@@ -492,6 +476,8 @@ data class ChatBotState(
     val generateModels: List<LlamaModel> = emptyList(),
     val isEmbedModelLoaded: Boolean = false,
     val isGenerateModelLoaded: Boolean = false,
+    val selectedEmbedModelName: String? = null,
+    val selectedGenerateModelName: String? = null,
 )
 
 sealed class ChatBotSideEffects {

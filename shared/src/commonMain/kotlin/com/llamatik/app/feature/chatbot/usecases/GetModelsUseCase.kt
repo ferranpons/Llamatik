@@ -3,6 +3,7 @@ package com.llamatik.app.feature.chatbot.usecases
 import com.llamatik.app.common.usecases.UseCase
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
+import com.llamatik.app.platform.LlamatikTempFile
 
 class GetModelsUseCase(
     private val modelsRepository: ModelsRepository,
@@ -36,10 +37,10 @@ class GetModelsUseCase(
     suspend fun downloadModel(
         model: LlamaModel,
         onProgress: (Int) -> Unit
-    ): Result<Pair<ByteArray?, String>> =
+    ): Result<LlamatikTempFile> =
         runCatching {
             val fileName = extractFileName(model.url)
-            modelsRepository.downloadFileAndSave(
+            val file = modelsRepository.downloadFileAndSave(
                 url = model.url,
                 fileName = fileName
             ) { downloaded, total ->
@@ -51,7 +52,7 @@ class GetModelsUseCase(
                     onProgress(0)
                 }
             }
-            return@runCatching Pair<ByteArray?, String>(null, "")
+            return@runCatching file
         }
 
     private fun extractFileName(url: String): String {

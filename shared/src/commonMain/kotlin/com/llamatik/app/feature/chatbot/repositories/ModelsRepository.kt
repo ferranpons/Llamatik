@@ -1,5 +1,6 @@
 package com.llamatik.app.feature.chatbot.repositories
 
+import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.ServiceClient
@@ -25,11 +26,12 @@ class ModelsRepository(private val service: ServiceClient) {
             val channel: ByteReadChannel = httpResponse.body()
             val totalBytes = httpResponse.contentLength() ?: -1
             var downloaded: Long = 0
-            println("Downloading ${httpResponse.contentLength()} bytes")
+            Logger.d("Downloading ${httpResponse.contentLength()} bytes")
             while (!channel.isClosedForRead) {
                 val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
                 while (!packet.isEmpty) {
                     val bytes = packet.readBytes()
+                    Logger.d("Downloaded ${bytes.size} bytes")
                     downloaded += bytes.size
                     file.appendBytes(bytes)
                     onProgress?.invoke(downloaded, totalBytes)
