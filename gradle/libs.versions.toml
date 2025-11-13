@@ -34,6 +34,7 @@ kotlinStdlib = "2.2.21"
 kotlinTest = "2.2.21"
 runner = "1.6.2"
 core = "1.6.1"
+runtime = "1.9.4"
 
 [libraries]
 # Common
@@ -149,6 +150,7 @@ kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version
 #androidx-navigation-common-ktx = { group = "androidx.navigation", name = "navigation-common-ktx", version.ref = "navigationCommonKtx" }
 kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlinStdlib" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlinTest" }
+androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 #androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
 #androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
 

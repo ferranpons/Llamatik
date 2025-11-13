@@ -16,4 +16,34 @@ class GetModelsUseCase(
         val models = modelsRepository.getDefaultGenerateModels()
         return@runCatching models
     }
+
+    suspend fun downloadModel(modelUrl: String): Result<Pair<ByteArray?, String>> =
+        runCatching {
+            val fileName = extractFileName(modelUrl)
+            val tempFile = modelsRepository.downloadFileAndSave(url = modelUrl, fileName = fileName)
+            val bytes = tempFile.readBytes()
+            val base64String = tempFile.readBase64String()
+            if (bytes.isNotEmpty()) {
+                return@runCatching Pair<ByteArray?, String>(
+                    bytes,
+                    base64String
+                )
+            } else {
+                return@runCatching Pair<ByteArray?, String>(null, "")
+            }
+        }
+
+    private fun extractFileName(url: String): String {
+        val parts = url.split("/")
+        return removeFileExtension(parts.last())
+    }
+
+    private fun removeFileExtension(filename: String): String {
+        val lastIndex = filename.lastIndexOf(".")
+        return if (lastIndex > 0) {
+            filename.substring(0, lastIndex)
+        } else {
+            filename
+        }
+    }
 }

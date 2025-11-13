@@ -24,6 +24,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -42,9 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.ui.theme.Typography
-import kotlinx.coroutines.CoroutineScope
+import korlibs.util.format
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 data class GenerateSettings(
@@ -84,16 +84,16 @@ private fun isModelInstalled(fileName: String): Boolean {
 
 @Composable
 fun ModelSettingsBottomSheet(
-    onDismiss: () -> Unit,
-    onModelSelected: (fileName: String) -> Unit,
+    isDownloading: MutableState<Boolean>,
     embedModels: List<LlamaModel>,
     generateModels: List<LlamaModel>,
+    onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
+    onGenerateModelSelectedClicked: (LlamaModel) -> Unit,
+    onDownloadModelClicked: (LlamaModel) -> Unit,
+    onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    // Local state
-    val generateSettings = rememberGenerateSettingsState()
 
     // track download progress by fileName
     val progressMap = remember { mutableStateMapOf<String, Float>() }
@@ -119,7 +119,15 @@ fun ModelSettingsBottomSheet(
             Spacer(Modifier.height(8.dp))
 
             generateModels.forEach { model ->
-                ModelCard(model, progressMap, downloadingMap, jobs, scope)
+                ModelCard(
+                    isDownloading = isDownloading,
+                    model = model,
+                    progressMap = progressMap,
+                    downloadingMap = downloadingMap,
+                    onModelSelectedClicked = onGenerateModelSelectedClicked
+                ) {
+                    onDownloadModelClicked(model)
+                }
             }
 
             Spacer(Modifier.height(32.dp))
@@ -131,100 +139,33 @@ fun ModelSettingsBottomSheet(
             Spacer(Modifier.height(8.dp))
 
             embedModels.forEach { model ->
-                ModelCard(model, progressMap, downloadingMap, jobs, scope)
-            }
-/*
-            Spacer(Modifier.height(4.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                text = "Generation Settings",
-                style = Typography.get().titleLarge
-            )
-            Spacer(Modifier.height(4.dp))
-
-            ParamSlider(
-                label = "Temperature",
-                value = generateSettings.value.temperature,
-                valueRange = 0.0f..2.0f,
-                step = 0.01f,
-                format = { "%.2f".format(it) },
-                onChange = { generateSettings.value = generateSettings.value.copy(temperature = it) }
-            )
-
-            ParamIntField(
-                label = "Max tokens",
-                value = generateSettings.value.maxTokens,
-                min = 16,
-                max = 8192,
-                onChange = { generateSettings.value = generateSettings.value.copy(maxTokens = it) }
-            )
-
-            ParamSlider(
-                label = "Top-p",
-                value = generateSettings.value.topP,
-                valueRange = 0.0f..1.0f,
-                step = 0.01f,
-                format = { "%.2f".format(it) },
-                onChange = { generateSettings.value = generateSettings.value.copy(topP = it) }
-            )
-
-            ParamIntField(
-                label = "Top-k",
-                value = generateSettings.value.topK,
-                min = 1,
-                max = 1000,
-                onChange = { generateSettings.value = generateSettings.value.copy(topK = it) }
-            )
-
-            ParamSlider(
-                label = "Repeat penalty",
-                value = generateSettings.value.repeatPenalty,
-                valueRange = 0.8f..2.0f,
-                step = 0.01f,
-                format = { "%.2f".format(it) },
-                onChange = { generateSettings.value = generateSettings.value.copy(repeatPenalty = it) }
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onDismiss) { Text("Close") }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        // TODO: thread these into your actual llama.cpp call site.
-                        // Example: ChatRunner / LlamaBridge could accept these:
-                        // LlamaBridge.updateGenerateParams(generateSettings.value.toBridgeParams())
-                        onDismiss()
-                    }
-                ) { Text("Apply") }
+                ModelCard(
+                    isDownloading = isDownloading,
+                    model = model,
+                    progressMap = progressMap,
+                    downloadingMap = downloadingMap,
+                    onModelSelectedClicked = onEmbedModelSelectedClicked
+                ) {
+                    onDownloadModelClicked(model)
+                }
             }
 
-            Spacer(Modifier.height(16.dp))
- */
+            Spacer(Modifier.height(32.dp))
+            ParamsView {  }
+
         }
     }
 }
 
-// --- Small UI helpers --------------------------------------------------------
-
 @Composable
 fun ModelCard(
+    isDownloading: MutableState<Boolean>,
     model: LlamaModel,
     progressMap: SnapshotStateMap<String, Float>,
     downloadingMap: SnapshotStateMap<String, Boolean>,
-    jobs: SnapshotStateMap<String, Job?>,
-    scope: CoroutineScope
+    onModelSelectedClicked: (LlamaModel) -> Unit,
+    onDownloadModelClicked: (LlamaModel) -> Unit
 ) {
-    val installed = remember(model.fileName) { mutableStateOf(isModelInstalled(model.fileName)) }
-    val isDownloading = downloadingMap[model.fileName] == true
-    val pct = progressMap[model.fileName] ?: 0f
-
     ElevatedCard(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
     ) {
@@ -233,61 +174,132 @@ fun ModelCard(
                 Icon(
                     imageVector = Icons.Default.Memory,
                     contentDescription = null,
-                    tint = if (installed.value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (!model.fileName.isNullOrEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(model.name, style = Typography.get().titleMedium)
-                    Text("${model.sizeMb} MB • ${model.fileName}", style = Typography.get().labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${model.sizeMb} MB", style = Typography.get().labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!model.fileName.isNullOrEmpty()) {
+                        Text(
+                            "INSTALLED",
+                            style = Typography.get().labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
-                if (installed.value) {
+                if (!model.fileName.isNullOrEmpty()) {
                     FilledTonalButton(
                         onClick = {
-                            //onModelSelected(model.fileName)
+                            onModelSelectedClicked(model)
                         },
                         content = { Text("Select") }
                     )
                 } else {
-                    if (isDownloading) {
+                    if (isDownloading.value) {
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Downloading… ${(pct * 100).roundToInt()}%", style = Typography.get().labelSmall)
+                            Text("Downloading…", style = Typography.get().labelSmall)
                             Spacer(Modifier.height(6.dp))
                             LinearProgressIndicator(
-                                progress = { pct },
+                                progress = { 0f },
                                 modifier = Modifier.width(140.dp).progressSemantics()
                             )
                         }
                     } else {
                         Button(
                             onClick = {
-                                downloadingMap[model.fileName] = true
-                                progressMap[model.fileName] = 0f
-                                jobs[model.fileName] = scope.launch {
-                                    try {
-                                        /*
-                                        downloadModelFile(model) { p ->
-                                            progressMap[model.fileName] = p.coerceIn(0f, 1f)
-                                        }*/
-                                        installed.value = true
-                                    } catch (t: Throwable) {
-                                        // You can surface a snackbar/toast here
-                                    } finally {
-                                        downloadingMap[model.fileName] = false
-                                    }
-                                }
+                                onDownloadModelClicked.invoke(model)
                             }
-                        ) { Text("Download") }
+                        ) {
+                            Text("Download")
+                        }
                     }
                 }
             }
 
-            if (isDownloading || !installed.value) {
+            if (isDownloading.value || model.fileName.isNullOrEmpty()) {
                 Spacer(Modifier.height(8.dp))
             }
         }
     }
+}
+
+@Composable
+private fun ParamsView(
+    onDismiss: () -> Unit
+) {
+    val generateSettings = rememberGenerateSettingsState()
+
+    Text(
+        text = "Generation Settings",
+        style = Typography.get().titleLarge
+    )
+    Spacer(Modifier.height(4.dp))
+
+    ParamSlider(
+        label = "Temperature",
+        value = generateSettings.value.temperature,
+        valueRange = 0.0f..2.0f,
+        step = 0.01f,
+        format = { "%.2f".format(it) },
+        onChange = { generateSettings.value = generateSettings.value.copy(temperature = it) }
+    )
+
+    ParamIntField(
+        label = "Max tokens",
+        value = generateSettings.value.maxTokens,
+        min = 16,
+        max = 8192,
+        onChange = { generateSettings.value = generateSettings.value.copy(maxTokens = it) }
+    )
+
+    ParamSlider(
+        label = "Top-p",
+        value = generateSettings.value.topP,
+        valueRange = 0.0f..1.0f,
+        step = 0.01f,
+        format = { "%.2f".format(it) },
+        onChange = { generateSettings.value = generateSettings.value.copy(topP = it) }
+    )
+
+    ParamIntField(
+        label = "Top-k",
+        value = generateSettings.value.topK,
+        min = 1,
+        max = 1000,
+        onChange = { generateSettings.value = generateSettings.value.copy(topK = it) }
+    )
+
+    ParamSlider(
+        label = "Repeat penalty",
+        value = generateSettings.value.repeatPenalty,
+        valueRange = 0.8f..2.0f,
+        step = 0.01f,
+        format = { "%.2f".format(it) },
+        onChange = { generateSettings.value = generateSettings.value.copy(repeatPenalty = it) }
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        TextButton(onClick = onDismiss) { Text("Close") }
+        Spacer(Modifier.width(8.dp))
+        Button(
+            onClick = {
+                // TODO: thread these into your actual llama.cpp call site.
+                // Example: ChatRunner / LlamaBridge could accept these:
+                // LlamaBridge.updateGenerateParams(generateSettings.value.toBridgeParams())
+                onDismiss()
+            }
+        ) { Text("Apply") }
+    }
+
+    Spacer(Modifier.height(16.dp))
 }
 
 

@@ -20,6 +20,9 @@ import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
+import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.dialogs.openFileSaver
+import io.github.vinceglb.filekit.write
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.channels.Channel
@@ -32,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import net.thauvin.erik.urlencoder.UrlEncoderUtil
 import kotlin.concurrent.Volatile
 import kotlin.time.Clock.System
 import kotlin.time.ExperimentalTime
@@ -127,6 +131,61 @@ class ChatBotViewModel(
             vectorStore = loadVectorStoreEntries()
         }
     }
+
+    fun onEmbedModelSelected(model: LlamaModel) {
+        screenModelScope.launch {
+            model.fileName?.let {
+                LlamaBridge.initModel(it)
+                _state.value = _state.value.copy(isEmbedModelLoaded = true)
+                _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
+            }
+        }
+    }
+
+    fun onGenerateModelSelected(model: LlamaModel) {
+        screenModelScope.launch {
+            model.fileName?.let {
+                LlamaBridge.initGenerateModel(it)
+                _state.value = _state.value.copy(isGenerateModelLoaded = true)
+                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+            }
+        }
+    }
+
+    fun onDownloadModel(model: LlamaModel) {
+        screenModelScope.launch {
+            _sideEffects.trySend(ChatBotSideEffects.Downloading)
+            getModelsUseCase.downloadModel(model.url)
+                .onSuccess { result ->
+                    val file = FileKit.openFileSaver(
+                        suggestedName = model.fileName?.urlToFileName() ?: model.name,
+                        extension = "gguf"
+                    )
+                    result.first?.let { bytesArray ->
+                        file?.write(bytesArray)
+                    }
+                    _sideEffects.trySend(ChatBotSideEffects.OnDownloaded)
+                }
+                .onFailure {
+                    _sideEffects.trySend(ChatBotSideEffects.OnDownloadedError)
+                    Logger.w(it) { "Error on downloading user manual" }
+                }
+        }
+    }
+
+    fun String.urlToFileName(): String {
+        val filename = this.substring(this.lastIndexOf("/") + 1).removeExtension()
+        return UrlEncoderUtil.decode(filename)
+    }
+
+    fun String.removeExtension(): String {
+        val lastIndex = this.lastIndexOf('.')
+        if (lastIndex != -1) {
+            return this.substring(0, lastIndex)
+        }
+        return this
+    }
+
 
     override fun onDispose() {
         LlamaBridge.shutdown()
@@ -400,4 +459,9 @@ sealed class ChatBotSideEffects {
     data object OnNoResults : ChatBotSideEffects()
     data object OnLoadError : ChatBotSideEffects()
     data object ScrollToBottom : ChatBotSideEffects()
+    data object OnEmbedModelLoaded: ChatBotSideEffects()
+    data object OnGenerateModelLoaded: ChatBotSideEffects()
+    data object Downloading : ChatBotSideEffects()
+    data object OnDownloaded : ChatBotSideEffects()
+    data object OnDownloadedError : ChatBotSideEffects()
 }

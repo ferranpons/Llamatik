@@ -93,6 +93,7 @@ class ChatBotTabScreen : Screen {
         //val embedFilePath = getModelPath(modelFileName = "nomic_embed_text_v1_5_Q4_0.gguf")
         //val generatorFilePath = getModelPath(modelFileName = "gemma_3_270m_Q8_0.gguf")
         val isLoading = remember { mutableStateOf(false) }
+        val isDownloading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
         val showSettingsSheet = remember { mutableStateOf(false) }
 
@@ -111,7 +112,12 @@ class ChatBotTabScreen : Screen {
 
         val state by viewModel.state.collectAsState()
         val conversation = viewModel.conversation.collectAsState()
-        SetupSideEffects(viewModel, isLoading)
+        SetupSideEffects(
+            viewModel = viewModel,
+            isLoading = isLoading,
+            isDownloading = isDownloading,
+            showSettingsSheet = showSettingsSheet
+        )
         LlamatikTheme {
             ChatBotScreenView(
                 viewModel,
@@ -125,16 +131,21 @@ class ChatBotTabScreen : Screen {
             )
             if (showSettingsSheet.value) {
                 ModelSettingsBottomSheet(
+                    isDownloading = isDownloading,
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
-                    onDismiss = { showSettingsSheet.value = false },
-                    onModelSelected = { fileName ->
-                        // Resolve path and initialize generator model
-                        //val path = getModelPath(modelFileName = fileName)
-                        //initGenerateModel(path)
-                        showSettingsSheet.value = false
+                    onEmbedModelSelectedClicked = { model ->
+                        viewModel.onEmbedModelSelected(model)
+                    },
+                    onGenerateModelSelectedClicked = { model ->
+                        viewModel.onGenerateModelSelected(model)
+                    },
+                    onDownloadModelClicked = { model ->
+                        viewModel.onDownloadModel(model)
                     }
-                )
+                ) {
+                    showSettingsSheet.value = false
+                }
             }
             if (isDialogOpen.value) {
                 LlamatikDialog(
@@ -151,8 +162,10 @@ class ChatBotTabScreen : Screen {
     @Composable
     private fun SetupSideEffects(
         viewModel: ChatBotViewModel,
-        isLoading: MutableState<Boolean>
-    ) {
+        isLoading: MutableState<Boolean>,
+        isDownloading: MutableState<Boolean>,
+        showSettingsSheet: MutableState<Boolean>,
+        ) {
         val sideEffects = viewModel.sideEffects.collectAsState(ChatBotSideEffects.Initial)
         sideEffects.value.apply {
             when (this) {
@@ -169,6 +182,21 @@ class ChatBotTabScreen : Screen {
                     isLoading.value = false
                 }
                 ChatBotSideEffects.ScrollToBottom -> {}
+                ChatBotSideEffects.OnEmbedModelLoaded -> {
+                    showSettingsSheet.value = false
+                }
+                ChatBotSideEffects.OnGenerateModelLoaded -> {
+                    showSettingsSheet.value = false
+                }
+                ChatBotSideEffects.Downloading -> {
+                    isDownloading.value = true
+                }
+                ChatBotSideEffects.OnDownloaded -> {
+                    isDownloading.value = false
+                }
+                ChatBotSideEffects.OnDownloadedError -> {
+                    isDownloading.value = false
+                }
             }
         }
     }
