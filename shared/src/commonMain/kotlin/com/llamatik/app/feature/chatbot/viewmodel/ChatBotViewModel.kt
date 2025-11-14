@@ -18,6 +18,7 @@ import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
+import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Dispatchers
@@ -242,7 +243,7 @@ class ChatBotViewModel(
         return lines.joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
     }
 
-    fun onMessageSend(message: String) {
+    fun onMessageSendWithEmbed(message: String) {
         val question = message.trim()
         if (question.isBlank()) return
 
@@ -348,60 +349,94 @@ class ChatBotViewModel(
         if (input.isBlank()) return
 
         screenModelScope.launch {
+            // 1) Append user message bubble
             _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
             withContext(Dispatchers.IO) {
                 try {
-                    val systemPrompt = """
-                    You are a helpful, concise assistant.
-                    Answer clearly and directly using your own knowledge.
-                    Prefer short paragraphs and ≤6 bullet points when helpful.
-                    If uncertain, say what you do and don't know.
-                    Do not invent citations.
-                """.trimIndent()
+                    // 2) Instruction-style template (works better for small instruct GGUFs like SmolVLM/Phi/Gemma-instruct)
+                    val prompt = buildString {
+                        appendLine("You are a helpful, concise assistant. Answer clearly and directly.")
+                        appendLine("Avoid long lists or repeating words. Keep answers short (3–6 sentences).")
+                        appendLine()
+                        appendLine("### Instruction:")
+                        appendLine(input)
+                        appendLine()
+                        append("### Response:\n")
+                    }
 
-                    // Insert a placeholder assistant message we will update as tokens stream
+                    // 3) Insert a placeholder assistant bubble we will stream into
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
                     val acc = StringBuilder()
+                    var completed = false
 
-                    // Stream directly from LlamaBridge (no contexts, no embeddings)
-                    LlamaBridge.generateWithContextStream(
-                        system = systemPrompt,
-                        context = "",
-                        user = input,
-                        onDelta = { chunk ->
-                            if (activeRequestId != requestId) return@generateWithContextStream
-                            acc.append(chunk)
-                            _conversation.value = _conversation.value.dropLast(1) +
-                                    ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
-                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                    // tiny anti-babble guard: if the same short token repeats too much, stop
+                    fun looksLikeBabble(s: String): Boolean {
+                        if (s.length < 60) return false
+                        // detect pathological repetition like "3, 3, 3, ..." or the same short token repeating
+                        val tail = s.takeLast(200)
+                        val collapsed = tail.replace("\\s+".toRegex(), " ").trim()
+                        val commas = collapsed.count { it == ',' }
+                        if (commas > 60) return true
+                        // repeated 1–3 char tokens 30+ times
+                        val m = Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
+                        return m != null
+                    }
 
-                            // Optional loop/echo guard using your existing helpers:
-                            if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
-                                val trimmed = trimLoop(acc.toString(), user = input)
+                    // 4) Stream tokens directly from the bridge using the callback interface
+                    LlamaBridge.generateStream(
+                        prompt = prompt,
+                        callback = object : GenStream {
+                            override fun onDelta(text: String) {
+                                if (activeRequestId != requestId || completed) return
+
+                                acc.append(text)
                                 _conversation.value = _conversation.value.dropLast(1) +
-                                        ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
+                                        ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
+                                _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+
+                                // Your existing echo/loop guard (protects against model mirroring the user)
+                                if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
+                                    val trimmed = trimLoop(acc.toString(), user = input)
+                                    _conversation.value = _conversation.value.dropLast(1) +
+                                            ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
+                                    completed = true
+                                    activeRequestId = null
+                                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                    return
+                                }
+
+                                // Anti-babble guard for tiny models
+                                if (looksLikeBabble(acc.toString())) {
+                                    completed = true
+                                    activeRequestId = null
+                                    // lightly trim trailing commas/dangling tokens
+                                    val cleaned = acc.toString().trim().trimEnd(',', ' ', '\n')
+                                    _conversation.value = _conversation.value.dropLast(1) +
+                                            ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
+                                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                }
+                            }
+
+                            override fun onComplete() {
+                                if (activeRequestId != requestId || completed) return
+                                completed = true
                                 activeRequestId = null
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                return@generateWithContextStream
                             }
-                        },
-                        onDone = {
-                            if (activeRequestId != requestId) return@generateWithContextStream
-                            activeRequestId = null
-                            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                        },
-                        onError = { err ->
-                            if (activeRequestId != requestId) return@generateWithContextStream
-                            _conversation.value = _conversation.value.dropLast(1) +
-                                    ChatUiModel.Message("There is a problem with the AI: $err", ChatUiModel.Author.bot)
-                            activeRequestId = null
-                            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+
+                            override fun onError(message: String) {
+                                if (activeRequestId != requestId) return
+                                _conversation.value = _conversation.value.dropLast(1) +
+                                        ChatUiModel.Message("There is a problem with the AI: $message", ChatUiModel.Author.bot)
+                                activeRequestId = null
+                                _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                            }
                         }
                     )
                 } catch (t: Throwable) {
