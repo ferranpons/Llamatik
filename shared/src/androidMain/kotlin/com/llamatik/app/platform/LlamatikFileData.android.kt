@@ -101,4 +101,6 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
 
         return stringBuilder.toString()
     }
+
+    actual fun absolutePath(): String = file.toString()
 }

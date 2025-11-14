@@ -14,4 +14,5 @@ expect class LlamatikTempFile(fileName: String) {
     fun appendBytesBase64(bytes: ByteArray)
     fun close()
     fun readBase64String(): String
+    fun absolutePath(): String
 }

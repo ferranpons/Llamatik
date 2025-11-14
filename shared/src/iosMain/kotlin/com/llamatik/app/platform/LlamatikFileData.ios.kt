@@ -7,6 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
+import platform.Foundation.temporaryDirectory
 import platform.darwin.DISPATCH_QUEUE_PRIORITY_DEFAULT
 import platform.darwin.dispatch_data_create
 import platform.darwin.dispatch_get_global_queue
@@ -50,26 +51,16 @@ actual suspend fun ByteArray.writeToFile(fileName: String) {
 actual suspend fun ByteArray.addBytesToFile(fileName: String) {
 }
 
-@Suppress(names = ["EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING"])
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class LlamatikTempFile actual constructor(fileName: String) {
-    actual fun readBytes(): ByteArray {
-        TODO("Not yet implemented")
-    }
+    private val base64file = platform.Foundation.NSFileManager.defaultManager.temporaryDirectory
+        .URLByAppendingPathComponent("${fileName}.tmp")
 
-    actual fun appendBytes(bytes: ByteArray) {
-    }
-
-    actual fun getBase64String(): String {
-        TODO("Not yet implemented")
-    }
-
-    actual fun appendBytesBase64(bytes: ByteArray) {
-    }
-
-    actual fun close() {
-    }
-
-    actual fun readBase64String(): String {
-        TODO("Not yet implemented")
-    }
+    actual fun appendBytes(bytes: ByteArray) {}
+    actual fun readBytes(): ByteArray { return ByteArray(0) }
+    actual fun getBase64String(): String { return "" }
+    actual fun appendBytesBase64(bytes: ByteArray) {}
+    actual fun close() {}
+    actual fun readBase64String(): String { return "" }
+    actual fun absolutePath(): String = base64file?.path ?: ""
 }

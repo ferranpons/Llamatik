@@ -122,7 +122,6 @@ class ChatBotTabScreen : Screen {
             ChatBotScreenView(
                 viewModel,
                 localization,
-                isDialogOpen,
                 conversation.value,
                 isLoading,
                 state,
@@ -201,6 +200,9 @@ class ChatBotTabScreen : Screen {
                 ChatBotSideEffects.OnSettingsChanged -> {
                     showSettingsSheet.value = false
                 }
+
+                ChatBotSideEffects.OnEmbedModelLoadError -> {}
+                ChatBotSideEffects.OnGenerateModelLoadError -> {}
             }
         }
     }
@@ -209,7 +211,6 @@ class ChatBotTabScreen : Screen {
     fun ChatBotScreenView(
         viewModel: ChatBotViewModel,
         localization: Localization,
-        isDialogOpen: MutableState<Boolean>,
         conversation: List<ChatUiModel.Message>,
         isLoading: MutableState<Boolean>,
         state: ChatBotState,
@@ -504,7 +505,7 @@ fun ChatInputBox(
                                 val message = input.text.trim()
                                 if (message.isNotEmpty()) {
                                     input = TextFieldValue()
-                                    viewModel.onMessageSend(message)
+                                    viewModel.onMessageSendDirect(message)
                                     showSuggestions.value = false
                                 }
                             },
@@ -569,7 +570,7 @@ fun ChatInputBox(
                                 if (canSend) {
                                     val message = input.text.trim()
                                     input = TextFieldValue()
-                                    viewModel.onMessageSend(message)
+                                    viewModel.onMessageSendDirect(message)
                                     showSuggestions.value = false
                                     keyboardController?.hide()
                                 }
@@ -597,8 +598,8 @@ fun ChatInputBox(
 
             GenerateModelSelector(
                 selectedModelName = state.selectedGenerateModelName,
-                onOpenModelSelector,
-                onOpenSettings
+                onOpenModelSelector = onOpenModelSelector,
+                onOpenSettings = onOpenSettings
             )
         }
     }
@@ -610,7 +611,6 @@ fun GenerateModelSelector(
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    var model by rememberSaveable { mutableStateOf(selectedModelName) }
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center

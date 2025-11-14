@@ -20,10 +20,6 @@ import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
-import io.github.vinceglb.filekit.FileKit
-import io.github.vinceglb.filekit.dialogs.openFileSaver
-import io.github.vinceglb.filekit.path
-import io.github.vinceglb.filekit.write
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.channels.Channel
@@ -153,9 +149,14 @@ class ChatBotViewModel(
     fun onEmbedModelSelected(model: LlamaModel) {
         screenModelScope.launch {
             model.fileName?.let {
-                LlamaBridge.initModel(it)
+                Logger.d("LlamaVM - initModel $it")
+                val isLoaded = LlamaBridge.initModel(it)
+                if (isLoaded) {
                 _state.value = _state.value.copy(selectedEmbedModelName = model.name)
                 _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
+                }
             }
         }
     }
@@ -163,9 +164,14 @@ class ChatBotViewModel(
     fun onGenerateModelSelected(model: LlamaModel) {
         screenModelScope.launch {
             model.fileName?.let {
-                LlamaBridge.initGenerateModel(it)
-                _state.value = _state.value.copy(selectedGenerateModelName = model.name)
-                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                Logger.d("LlamaVM - initGenerateModel $it")
+                val isLoaded = LlamaBridge.initGenerateModel(it)
+                if (isLoaded) {
+                    _state.value = _state.value.copy(selectedGenerateModelName = model.name)
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+                }
             }
         }
     }
@@ -179,18 +185,26 @@ class ChatBotViewModel(
                 }.onSuccess { tempFile ->
                     Logger.d("LlamaVM - download finished")
                     updateDownload(model.url) { it.copy(inProgress = false, progress = 100, done = true) }
+                    _state.value = _state.value.copy(
+                        embedModels = _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = tempFile.absolutePath()) else it },
+                        generateModels = _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = tempFile.absolutePath()) else it },
+                    )
+
+                    /*
                     val file = FileKit.openFileSaver(
                         suggestedName = model.fileName?.urlToFileName() ?: model.name,
                         extension = "gguf"
                     )
                     file?.let {
-                        Logger.d("LlamaVM - saving model to ${file.path}")
+                        val fullFilenameWithPath = "${file.path}${file.name}"
+                        Logger.d("LlamaVM - saving model to $fullFilenameWithPath")
                         file.write(tempFile.readBytes())
                         _state.value = _state.value.copy(
-                            embedModels = _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = file.path) else it },
-                            generateModels = _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = file.path) else it },
+                            embedModels = _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = fullFilenameWithPath) else it },
+                            generateModels = _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = fullFilenameWithPath) else it },
                         )
                     }
+                     */
                 }.onFailure { e ->
                     updateDownload(model.url) { it.copy(inProgress = false, error = e.message ?: "Download failed") }
                 }
@@ -323,6 +337,76 @@ class ChatBotViewModel(
                     emitBot("There is a problem with the AI")
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                     _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                }
+            }
+        }
+    }
+
+    // === Alternative entry point using LlamaBridge directly (no RAG/embeddings) ===
+    fun onMessageSendDirect(message: String) {
+        val input = message.trim()
+        if (input.isBlank()) return
+
+        screenModelScope.launch {
+            _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
+            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
+            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+
+            withContext(Dispatchers.IO) {
+                try {
+                    val systemPrompt = """
+                    You are a helpful, concise assistant.
+                    Answer clearly and directly using your own knowledge.
+                    Prefer short paragraphs and ≤6 bullet points when helpful.
+                    If uncertain, say what you do and don't know.
+                    Do not invent citations.
+                """.trimIndent()
+
+                    // Insert a placeholder assistant message we will update as tokens stream
+                    _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
+
+                    val requestId = kotlin.random.Random.nextLong().toString()
+                    activeRequestId = requestId
+                    val acc = StringBuilder()
+
+                    // Stream directly from LlamaBridge (no contexts, no embeddings)
+                    LlamaBridge.generateWithContextStream(
+                        system = systemPrompt,
+                        context = "",
+                        user = input,
+                        onDelta = { chunk ->
+                            if (activeRequestId != requestId) return@generateWithContextStream
+                            acc.append(chunk)
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                    ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
+                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+
+                            // Optional loop/echo guard using your existing helpers:
+                            if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
+                                val trimmed = trimLoop(acc.toString(), user = input)
+                                _conversation.value = _conversation.value.dropLast(1) +
+                                        ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
+                                activeRequestId = null
+                                _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                return@generateWithContextStream
+                            }
+                        },
+                        onDone = {
+                            if (activeRequestId != requestId) return@generateWithContextStream
+                            activeRequestId = null
+                            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        },
+                        onError = { err ->
+                            if (activeRequestId != requestId) return@generateWithContextStream
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                    ChatUiModel.Message("There is a problem with the AI: $err", ChatUiModel.Author.bot)
+                            activeRequestId = null
+                            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                        }
+                    )
+                } catch (t: Throwable) {
+                    emitBot("There is a problem with the AI: ${t.message ?: "Unknown error"}")
+                    _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                 }
             }
         }
@@ -489,6 +573,8 @@ sealed class ChatBotSideEffects {
     data object OnLoadError : ChatBotSideEffects()
     data object ScrollToBottom : ChatBotSideEffects()
     data object OnEmbedModelLoaded: ChatBotSideEffects()
+    data object OnEmbedModelLoadError: ChatBotSideEffects()
     data object OnGenerateModelLoaded: ChatBotSideEffects()
+    data object OnGenerateModelLoadError: ChatBotSideEffects()
     data object OnSettingsChanged: ChatBotSideEffects()
 }

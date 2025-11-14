@@ -31,7 +31,6 @@ class ModelsRepository(private val service: ServiceClient) {
                 val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
                 while (!packet.isEmpty) {
                     val bytes = packet.readBytes()
-                    Logger.d("Downloaded ${bytes.size} bytes")
                     downloaded += bytes.size
                     file.appendBytes(bytes)
                     onProgress?.invoke(downloaded, totalBytes)
