@@ -109,7 +109,7 @@ private fun ModelRow(
     isDownloading: Boolean,
     progress: Float,
     onModelSelectedClicked: (LlamaModel) -> Unit,
-    onDownloadModelClicked: (LlamaModel) -> Unit
+    onDownloadModelClicked: (LlamaModel) -> Unit,
 ) {
     var localDownloading by remember(model.url, isDownloading) { mutableStateOf(isDownloading) }
     val effectiveDownloading = localDownloading || isDownloading
@@ -130,7 +130,7 @@ private fun ModelRow(
                 Text("${model.sizeMb} MB", style = Typography.get().labelSmall)
             }
 
-            if (!model.fileName.isNullOrEmpty()) {
+            if (!model.localPath.isNullOrEmpty()) {
                 if (isCurrent) {
                     FilledTonalButton(onClick = { /* no-op */ }, enabled = false) { Text("Current") }
                 } else {
