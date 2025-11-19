@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.ServiceClient
+import com.russhwolf.settings.Settings
 import io.ktor.client.call.body
 import io.ktor.client.request.prepareGet
 import io.ktor.http.contentLength
@@ -74,7 +75,7 @@ class ModelsRepository(private val service: ServiceClient) {
                 sizeMb = 581,
                 url = "https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q2_K.gguf?download=true"
             ),
-        )
+        ) 
     }
 
     fun getDefaultEmbedModels(): List<LlamaModel> {
@@ -85,5 +86,13 @@ class ModelsRepository(private val service: ServiceClient) {
                 url = "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_0.gguf?download=true"
             ),
         )
+    }
+
+    fun getSavedModelPath(modelName: String): String {
+        return Settings().getString(modelName, "")
+    }
+
+    fun saveModelPath(modelName: String, modelPath: String) {
+        Settings().putString(modelName, modelPath)
     }
 }

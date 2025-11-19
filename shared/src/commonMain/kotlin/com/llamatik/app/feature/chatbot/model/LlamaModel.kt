@@ -2,7 +2,8 @@ package com.llamatik.app.feature.chatbot.model
 
 data class LlamaModel(
     val name: String,
-    val fileName: String? = null,
+    val url: String,
     val sizeMb: Int,
-    val url: String
+    val fileName: String? = null,
+    val localPath: String? = null
 )

@@ -132,6 +132,18 @@ class ChatBotViewModel(
                 }
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess {
+                    for (model in it) {
+                        model.localPath?.let {
+                            Logger.d("LlamaVM - Init Generate Model: ${model.name}")
+                            val isLoaded = LlamaBridge.initGenerateModel(model.localPath)
+                            if (isLoaded) {
+                                _state.value = _state.value.copy(selectedGenerateModelName = model.name)
+                                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                            } else {
+                                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+                            }
+                        }
+                    }
                     _state.value = _state.value.copy(generateModels = it)
                 }
                 .onFailure { error ->
@@ -153,8 +165,8 @@ class ChatBotViewModel(
                 Logger.d("LlamaVM - initModel $it")
                 val isLoaded = LlamaBridge.initModel(it)
                 if (isLoaded) {
-                _state.value = _state.value.copy(selectedEmbedModelName = model.name)
-                _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
+                    _state.value = _state.value.copy(selectedEmbedModelName = model.name)
+                    _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
                 } else {
                     _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
                 }
@@ -180,15 +192,42 @@ class ChatBotViewModel(
     fun onDownloadModel(model: LlamaModel) {
         screenModelScope.launch(Dispatchers.IO) {
             try {
-                updateDownload(model.url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
+                updateDownload(model.url) {
+                    it.copy(
+                        inProgress = true,
+                        progress = 0,
+                        done = false,
+                        error = null
+                    )
+                }
                 getModelsUseCase.downloadModel(model) { pct ->
-                    updateDownload(model.url) { ds -> ds.copy(inProgress = true, progress = pct.coerceIn(0, 100)) }
+                    updateDownload(model.url) { ds ->
+                        ds.copy(
+                            inProgress = true,
+                            progress = pct.coerceIn(0, 100)
+                        )
+                    }
                 }.onSuccess { tempFile ->
                     Logger.d("LlamaVM - download finished")
-                    updateDownload(model.url) { it.copy(inProgress = false, progress = 100, done = true) }
+                    updateDownload(model.url) {
+                        it.copy(
+                            inProgress = false,
+                            progress = 100,
+                            done = true
+                        )
+                    }
+                    getModelsUseCase.saveModelPath(model.name, tempFile.absolutePath())
                     _state.value = _state.value.copy(
-                        embedModels = _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = tempFile.absolutePath()) else it },
-                        generateModels = _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = tempFile.absolutePath()) else it },
+                        embedModels = _state.value.embedModels.map {
+                            if (it.url == model.url) it.copy(
+                                fileName = tempFile.absolutePath()
+                            ) else it
+                        },
+                        generateModels = _state.value.generateModels.map {
+                            if (it.url == model.url) it.copy(
+                                fileName = tempFile.absolutePath()
+                            ) else it
+                        },
                     )
 
                     /*
@@ -207,10 +246,20 @@ class ChatBotViewModel(
                     }
                      */
                 }.onFailure { e ->
-                    updateDownload(model.url) { it.copy(inProgress = false, error = e.message ?: "Download failed") }
+                    updateDownload(model.url) {
+                        it.copy(
+                            inProgress = false,
+                            error = e.message ?: "Download failed"
+                        )
+                    }
                 }
             } catch (t: Throwable) {
-                updateDownload(model.url) { it.copy(inProgress = false, error = t.message ?: "Download failed") }
+                updateDownload(model.url) {
+                    it.copy(
+                        inProgress = false,
+                        error = t.message ?: "Download failed"
+                    )
+                }
             }
         }
     }
@@ -255,9 +304,11 @@ class ChatBotViewModel(
             withContext(Dispatchers.IO) {
                 try {
                     val qVec = LlamaBridge.embed(question).toList()
-                    val store = vectorStore ?: return@withContext emitBot("There is a problem with the AI")
+                    val store =
+                        vectorStore ?: return@withContext emitBot("There is a problem with the AI")
 
-                    val topItems = retrieveContext(qVec, question, store, poolSize = 80, topContext = 4)
+                    val topItems =
+                        retrieveContext(qVec, question, store, poolSize = 80, topContext = 4)
                     val rawContext = topItems.joinToString("\n\n") { sanitizeForRag(it.text) }
                     val compact = buildCompactContext(rawContext, question, hardLimit = 1600)
 
@@ -280,7 +331,8 @@ class ChatBotViewModel(
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     // Build common chat history (user + any prior assistant turns), drop placeholder
-                    val chatHistory: List<ChatMessage> = toChatMessages(_conversation.value.dropLast(1))
+                    val chatHistory: List<ChatMessage> =
+                        toChatMessages(_conversation.value.dropLast(1))
 
                     // Streaming with loop/echo guard
                     val requestId = kotlin.random.Random.nextLong().toString()
@@ -327,7 +379,10 @@ class ChatBotViewModel(
                         onError = { err ->
                             if (activeRequestId != requestId) return@stream
                             _conversation.value = _conversation.value.dropLast(1) +
-                                    ChatUiModel.Message("There is a problem with the AI: $err", ChatUiModel.Author.bot)
+                                    ChatUiModel.Message(
+                                        "There is a problem with the AI: $err",
+                                        ChatUiModel.Author.bot
+                                    )
                             _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         }
@@ -384,7 +439,8 @@ class ChatBotViewModel(
                         val commas = collapsed.count { it == ',' }
                         if (commas > 60) return true
                         // repeated 1–3 char tokens 30+ times
-                        val m = Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
+                        val m =
+                            Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
                         return m != null
                     }
 
@@ -433,7 +489,10 @@ class ChatBotViewModel(
                             override fun onError(message: String) {
                                 if (activeRequestId != requestId) return
                                 _conversation.value = _conversation.value.dropLast(1) +
-                                        ChatUiModel.Message("There is a problem with the AI: $message", ChatUiModel.Author.bot)
+                                        ChatUiModel.Message(
+                                            "There is a problem with the AI: $message",
+                                            ChatUiModel.Author.bot
+                                        )
                                 activeRequestId = null
                                 _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                             }
@@ -527,7 +586,8 @@ class ChatBotViewModel(
         // 2) Repetition of a long span (n-gram) near the end
         val tail = f.takeLast(minOf(400, f.length))
         // Look for the last sentence (>= 60 chars) being duplicated
-        val sentences = tail.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length >= 60 }
+        val sentences =
+            tail.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length >= 60 }
         if (sentences.isNotEmpty()) {
             val last = sentences.last()
             val firstIdx = f.indexOf(last)
@@ -607,9 +667,9 @@ sealed class ChatBotSideEffects {
     data object OnNoResults : ChatBotSideEffects()
     data object OnLoadError : ChatBotSideEffects()
     data object ScrollToBottom : ChatBotSideEffects()
-    data object OnEmbedModelLoaded: ChatBotSideEffects()
-    data object OnEmbedModelLoadError: ChatBotSideEffects()
-    data object OnGenerateModelLoaded: ChatBotSideEffects()
-    data object OnGenerateModelLoadError: ChatBotSideEffects()
-    data object OnSettingsChanged: ChatBotSideEffects()
+    data object OnEmbedModelLoaded : ChatBotSideEffects()
+    data object OnEmbedModelLoadError : ChatBotSideEffects()
+    data object OnGenerateModelLoaded : ChatBotSideEffects()
+    data object OnGenerateModelLoadError : ChatBotSideEffects()
+    data object OnSettingsChanged : ChatBotSideEffects()
 }

@@ -9,13 +9,25 @@ class GetModelsUseCase(
     private val modelsRepository: ModelsRepository,
 ) : UseCase() {
     fun getDefaultEmbedModels(): Result<List<LlamaModel>> = runCatching {
-        val models = modelsRepository.getDefaultEmbedModels()
-        return@runCatching models
+        return@runCatching modelsRepository.getDefaultEmbedModels().map { model ->
+            val localFilePath = modelsRepository.getSavedModelPath(modelName = model.name)
+            if (localFilePath.isNotEmpty()) {
+                model.copy(localPath = localFilePath)
+            } else {
+                model
+            }
+        }
     }
 
     fun getDefaultGenerateModels(): Result<List<LlamaModel>> = runCatching {
-        val models = modelsRepository.getDefaultGenerateModels()
-        return@runCatching models
+        return@runCatching modelsRepository.getDefaultGenerateModels().map { model ->
+            val localFilePath = modelsRepository.getSavedModelPath(modelName = model.name)
+            if (localFilePath.isNotEmpty()) {
+                model.copy(localPath = localFilePath)
+            } else {
+                model
+            }
+        }
     }
 
     suspend fun downloadModel(modelUrl: String): Result<Pair<ByteArray?, String>> =
@@ -55,6 +67,11 @@ class GetModelsUseCase(
             return@runCatching file
         }
 
+    fun saveModelPath(modelName: String, modelPath: String): Result<Unit> =
+        runCatching {
+            modelsRepository.saveModelPath(modelName, modelPath)
+        }
+
     private fun extractFileName(url: String): String {
         val parts = url.split("/")
         return removeFileExtension(parts.last())
@@ -63,7 +80,7 @@ class GetModelsUseCase(
     private fun removeFileExtension(filename: String): String {
         val lastIndex = filename.lastIndexOf(".")
         return if (lastIndex > 0) {
-            filename.substring(0, lastIndex)
+            filename.take(lastIndex)
         } else {
             filename
         }
