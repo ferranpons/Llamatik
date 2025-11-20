@@ -132,9 +132,13 @@ private fun ModelRow(
 
             if (!model.localPath.isNullOrEmpty()) {
                 if (isCurrent) {
-                    FilledTonalButton(onClick = { /* no-op */ }, enabled = false) { Text("Current") }
+                    FilledTonalButton(onClick = { /* no-op */ }, enabled = false) {
+                        Text("Current")
+                    }
                 } else {
-                    FilledTonalButton(onClick = { onModelSelectedClicked(model) }) { Text("Select") }
+                    FilledTonalButton(onClick = { onModelSelectedClicked(model) }) {
+                        Text("Select")
+                    }
                 }
             } else {
                 if (effectiveDownloading) {

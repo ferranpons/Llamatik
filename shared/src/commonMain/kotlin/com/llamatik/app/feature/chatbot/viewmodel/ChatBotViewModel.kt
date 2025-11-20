@@ -176,14 +176,27 @@ class ChatBotViewModel(
 
     fun onGenerateModelSelected(model: LlamaModel) {
         screenModelScope.launch {
-            model.fileName?.let {
-                Logger.d("LlamaVM - initGenerateModel $it")
-                val isLoaded = LlamaBridge.initGenerateModel(it)
-                if (isLoaded) {
-                    _state.value = _state.value.copy(selectedGenerateModelName = model.name)
-                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
-                } else {
-                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+            if (!model.localPath.isNullOrEmpty()) {
+                model.localPath.let {
+                    Logger.d("LlamaVM - initGenerateModel $it")
+                    val isLoaded = LlamaBridge.initGenerateModel(it)
+                    if (isLoaded) {
+                        _state.value = _state.value.copy(selectedGenerateModelName = model.name)
+                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                    } else {
+                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+                    }
+                }
+            } else {
+                model.fileName?.let {
+                    Logger.d("LlamaVM - initGenerateModel $it")
+                    val isLoaded = LlamaBridge.initGenerateModel(it)
+                    if (isLoaded) {
+                        _state.value = _state.value.copy(selectedGenerateModelName = model.name)
+                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                    } else {
+                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+                    }
                 }
             }
         }
