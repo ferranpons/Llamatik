@@ -15,10 +15,6 @@
         android:theme="@style/Theme.Llamatik"
         android:largeHeap="true">
 
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="" />
-
         <activity
             android:name=".SplashActivity"
             android:exported="true"

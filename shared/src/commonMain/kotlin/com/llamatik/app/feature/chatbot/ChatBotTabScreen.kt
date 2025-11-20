@@ -25,7 +25,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -659,7 +658,7 @@ fun GenerateModelSelector(
                         )
                     }
                 }
-
+/*
                 Spacer(modifier = Modifier.size(8.dp))
 
                 IconButton(
@@ -673,6 +672,7 @@ fun GenerateModelSelector(
                         )
                     }
                 )
+ */
             }
         }
     }
