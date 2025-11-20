@@ -357,13 +357,10 @@ class ChatBotTabScreen : Screen {
                     modifier = Modifier.fillMaxWidth().weight(1f)
                 ) {
                     items(chatUiModel.messages.size) { item ->
-                        ChatItem(chatUiModel.messages[item])
-                        if (isLoading.value && item == chatUiModel.messages.size - 1) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp).align(Alignment.End)
-                            )
-                        }
+                        ChatItem(
+                            message = chatUiModel.messages[item],
+                            showLoading = isLoading.value && item == chatUiModel.messages.size - 1
+                        )
                     }
                 }
             }
@@ -378,7 +375,7 @@ class ChatBotTabScreen : Screen {
     }
 
     @Composable
-    fun ChatItem(message: ChatUiModel.Message) {
+    fun ChatItem(message: ChatUiModel.Message, showLoading: Boolean) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -404,18 +401,32 @@ class ChatBotTabScreen : Screen {
                         if (message.isFromMe)
                             MaterialTheme.colorScheme.inversePrimary
                         else
-                            MaterialTheme.colorScheme.surfaceContainer
+                            MaterialTheme.colorScheme.primaryContainer
                     )
                     .padding(16.dp)
             ) {
                 Text(text = message.text)
             }
-            Text(
+            Row(
                 modifier = Modifier.align(if (message.isFromMe) Alignment.End else Alignment.Start),
-                text = if (message.isFromMe) "\uD83D\uDEE9 Me" else "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F Llamatik AI",
-                style = Typography.get().titleSmall,
-                color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            )
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                    text = if (message.isFromMe) "\uD83D\uDEE9 Me" else "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F Llamatik AI",
+                    style = Typography.get().titleSmall,
+                    color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                )
+                if (showLoading) {
+                    Spacer(modifier = Modifier.size(8.dp))
+                    CircularProgressIndicator(
+                        modifier =
+                            Modifier
+                                .size(10.dp)
+                                .align(Alignment.CenterVertically)
+                    )
+                }
+            }
         }
     }
 
