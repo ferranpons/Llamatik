@@ -10,7 +10,7 @@ internal object FrenchLocalization : Localization {
     override val close = "Fermer"
     override val previous = "Précédent"
 
-    override val welcome = "Bienvenue dans le compagnon non officiel de DCS"
+    override val welcome = "Bienvenue dans le Llamatik"
     override val backLabel = "Retour"
     override val topAppBarActionIconDescription = "Paramètres"
     override val home = "Accueil"

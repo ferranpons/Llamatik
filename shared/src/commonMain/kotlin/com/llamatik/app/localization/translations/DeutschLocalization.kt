@@ -10,7 +10,7 @@ internal object DeutschLocalization : Localization {
     override val close = "Verschließen"
     override val previous = "Zurück"
 
-    override val welcome = "Willkommen beim inoffiziellen DCS-Begleiter"
+    override val welcome = "Willkommen beim inoffiziellen Llamatik"
 
     override val backLabel = "Zurück"
     override val topAppBarActionIconDescription = "Einstellungen"
