@@ -41,7 +41,7 @@ import kotlin.time.ExperimentalTime
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 
 class ChatBotViewModel(
-    private val navigator: Navigator,
+    private var navigator: Navigator,
     private val settings: Settings,
     private val getAllNewsUseCase: GetAllNewsUseCase,
     private val getModelsUseCase: GetModelsUseCase,
@@ -85,6 +85,9 @@ class ChatBotViewModel(
     @Volatile
     private var activeRequestId: String? = null
 
+    @Volatile
+    private var started = false
+
     init {
         val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
         if (isPrivacyMessageDisplayed) {
@@ -106,16 +109,22 @@ class ChatBotViewModel(
         }
     }
 
-    fun onStarted(embedFilePath: String? = null, generatorFilePath: String? = null) {
-        embedFilePath?.let {
-            LlamaBridge.initModel(embedFilePath)
-            _state.value = _state.value.copy(isEmbedModelLoaded = true)
+    fun onStarted(navigator: Navigator? = null, embedFilePath: String? = null, generatorFilePath: String? = null) {
+        navigator?.let {
+            this.navigator = it
         }
-        generatorFilePath?.let {
-            LlamaBridge.initGenerateModel(generatorFilePath)
-            _state.value = _state.value.copy(isGenerateModelLoaded = true)
-        }
-        screenModelScope.launch {
+        if (started) return
+        started = true
+
+        screenModelScope.launch(Dispatchers.IO) {
+            embedFilePath?.let {
+                LlamaBridge.initModel(embedFilePath)
+                _state.value = _state.value.copy(isEmbedModelLoaded = true)
+            }
+            generatorFilePath?.let {
+                LlamaBridge.initGenerateModel(generatorFilePath)
+                _state.value = _state.value.copy(isGenerateModelLoaded = true)
+            }
             getAllNewsUseCase.invoke()
                 .onSuccess {
                     _state.value = _state.value.copy(latestNews = it)
@@ -160,7 +169,7 @@ class ChatBotViewModel(
     }
 
     fun onEmbedModelSelected(model: LlamaModel) {
-        screenModelScope.launch {
+        screenModelScope.launch(Dispatchers.IO) {
             model.fileName?.let {
                 Logger.d("LlamaVM - initModel $it")
                 val isLoaded = LlamaBridge.initModel(it)
@@ -175,7 +184,7 @@ class ChatBotViewModel(
     }
 
     fun onGenerateModelSelected(model: LlamaModel) {
-        screenModelScope.launch {
+        screenModelScope.launch(Dispatchers.IO) {
             if (!model.localPath.isNullOrEmpty()) {
                 model.localPath.let {
                     Logger.d("LlamaVM - initGenerateModel $it")

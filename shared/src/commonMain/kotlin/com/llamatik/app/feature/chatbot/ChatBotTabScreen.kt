@@ -37,7 +37,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -102,11 +101,8 @@ class ChatBotTabScreen : Screen {
 
         val isDialogOpen = remember { mutableStateOf(false) }
 
-        DisposableEffect(Unit) {
-            viewModel.onStarted()
-            onDispose {
-                viewModel.onDispose()
-            }
+        LaunchedEffect(Unit) {
+            viewModel.onStarted(navigator)
         }
 
         val state by viewModel.state.collectAsState()
@@ -335,7 +331,9 @@ class ChatBotTabScreen : Screen {
     ) {
         val listState = rememberLazyListState()
         LaunchedEffect(chatUiModel.messages.size) {
-            listState.animateScrollToItem(chatUiModel.messages.size)
+            if (chatUiModel.messages.isNotEmpty()) {
+                listState.animateScrollToItem(chatUiModel.messages.size -1)
+            }
         }
 
         Column(
