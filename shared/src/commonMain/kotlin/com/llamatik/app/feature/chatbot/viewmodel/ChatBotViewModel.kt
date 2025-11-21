@@ -2,6 +2,7 @@ package com.llamatik.app.feature.chatbot.viewmodel
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
 import com.llamatik.app.feature.chatbot.model.LlamaModel
@@ -17,7 +18,6 @@ import com.llamatik.app.feature.news.NewsFeedScreen
 import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.localization.getCurrentLocalization
-import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
@@ -41,7 +41,7 @@ import kotlin.time.ExperimentalTime
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 
 class ChatBotViewModel(
-    private val rootNavigatorRepository: RootNavigatorRepository,
+    private val navigator: Navigator,
     private val settings: Settings,
     private val getAllNewsUseCase: GetAllNewsUseCase,
     private val getModelsUseCase: GetModelsUseCase,
@@ -88,7 +88,7 @@ class ChatBotViewModel(
     init {
         val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
         if (isPrivacyMessageDisplayed) {
-            rootNavigatorRepository.navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
+            navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
         }
     }
 
@@ -557,20 +557,20 @@ class ChatBotViewModel(
     }
 
     fun onShowPrivacyScreen() {
-        rootNavigatorRepository.navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
+        navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
     }
 
     fun onOpenFeedItemDetail(link: String) {
-        rootNavigatorRepository.navigator.push(NewsFeedDetailScreen(link))
+        navigator.push(NewsFeedDetailScreen(link))
     }
 
     fun onOpenNewsClicked() {
-        rootNavigatorRepository.navigator.push(NewsFeedScreen())
+        navigator.push(NewsFeedScreen())
     }
 
     private fun onPrivacyAccepted() {
         settings.putBoolean(PRIVACY_CHATBOT_VIEWED_KEY, true)
-        rootNavigatorRepository.navigator.pop()
+        navigator.pop()
     }
 
     // --- mapping helpers ---

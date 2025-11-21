@@ -36,13 +36,13 @@ fun NewsCardSmall(
     feedItem: FeedItem,
     width: Dp,
     height: Dp,
-    onClick: () -> Unit
+    onCardClicked: () -> Unit
 ) {
     val imageHeight = 70.dp
     val roundedCornerSize = 10.dp
 
     Card(
-        onClick = { onClick() },
+        onClick = onCardClicked,
         modifier = Modifier.size(width, height).padding(start = 16.dp, top = 16.dp),
         shape = RoundedCornerShape(roundedCornerSize),
         colors = CardDefaults.cardColors(

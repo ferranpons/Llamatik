@@ -17,9 +17,7 @@ val versionMinor = properties["llamatik.version.minor"].toString().toInt()
 val versionPatch = properties["llamatik.version.patch"].toString().toInt()
 
 fun versionCode(): Int {
-    versionNum?.let {
-        return (versionMajor * 1000000) + (versionMinor * 1000) + it.toInt()
-    } ?: return versionMinor + 1
+    return versionMajor * 10000 + versionMinor * 100 + versionPatch
 }
 
 kotlin {

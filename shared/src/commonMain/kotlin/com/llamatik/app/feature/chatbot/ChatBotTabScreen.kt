@@ -459,11 +459,13 @@ class ChatBotTabScreen : Screen {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(state.latestNews.size) { index ->
-                    NewsCardSmall(state.latestNews[index], 240.dp, 200.dp) {
-                        val item = state.latestNews[index]
-                        viewModel.onOpenFeedItemDetail(
-                            item.link
-                        )
+                    val item = state.latestNews[index]
+                    NewsCardSmall(
+                        feedItem = item,
+                        width = 240.dp,
+                        height = 200.dp
+                    ) {
+                        viewModel.onOpenFeedItemDetail(item.link)
                     }
                     if (index == state.latestNews.size - 1) {
                         Spacer(modifier = Modifier.size(16.dp))
