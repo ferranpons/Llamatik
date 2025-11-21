@@ -38,7 +38,7 @@ class ModelsRepository(private val service: ServiceClient) {
                 }
             }
             file.close()
-            println("Download Finished")
+            Logger.d("Download Finished")
         }
         return file
     }

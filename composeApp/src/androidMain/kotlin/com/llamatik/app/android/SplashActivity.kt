@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 
 @SuppressLint("CustomSplashScreen", "RestrictedApi")
 class SplashActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val splashScreen = installSplashScreen()

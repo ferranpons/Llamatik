@@ -33,4 +33,8 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
     actual fun readBase64String(): String {
         TODO("Not yet implemented")
     }
+
+    actual fun absolutePath(): String {
+        TODO("Not yet implemented")
+    }
 }

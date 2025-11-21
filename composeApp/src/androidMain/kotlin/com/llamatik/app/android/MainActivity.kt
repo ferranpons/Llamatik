@@ -23,17 +23,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         FileKit.init(this)
 
-        /*val modelPath = copyModelFromResources(
-            context = this,
-            resourcePath = "raw/nomic_embed_text_v1_5_q4_0.gguf",
-            outputFileName = "nomic_embed_text_v1_5_q4_0.gguf"
-        )*/
-        //System.loadLibrary("llama-jni")
-
-        //val modelPath = copyModelFromAssetsToCache(this)
-        //println("Model Path: $modelPath")
-        //LlamaBridge.initModel(modelPath)
-
         val uiState: MainActivityUiState by mutableStateOf(MainActivityUiState.Loading)
 
         enableEdgeToEdge()
@@ -43,14 +32,16 @@ class MainActivity : ComponentActivity() {
 
             DisposableEffect(darkTheme) {
                 enableEdgeToEdge(
-                    statusBarStyle = SystemBarStyle.auto(
-                        android.graphics.Color.TRANSPARENT,
-                        android.graphics.Color.TRANSPARENT,
-                    ) { darkTheme },
-                    navigationBarStyle = SystemBarStyle.auto(
-                        lightScrim,
-                        darkScrim,
-                    ) { darkTheme },
+                    statusBarStyle =
+                        SystemBarStyle.auto(
+                            lightScrim = android.graphics.Color.TRANSPARENT,
+                            darkScrim = android.graphics.Color.TRANSPARENT,
+                        ) { darkTheme },
+                    navigationBarStyle =
+                        SystemBarStyle.auto(
+                            lightScrim = lightScrim,
+                            darkScrim = darkScrim,
+                        ) { darkTheme },
                 )
                 onDispose {}
             }
@@ -64,7 +55,7 @@ class MainActivity : ComponentActivity() {
     private fun copyModelFromResources(
         context: Context,
         resourcePath: String,
-        outputFileName: String
+        outputFileName: String,
     ): String {
         val outputFile = File(context.cacheDir, outputFileName)
         if (!outputFile.exists()) {
@@ -92,16 +83,16 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun shouldUseDarkTheme(
-    uiState: MainActivityUiState
-): Boolean = when (uiState) {
-    MainActivityUiState.Loading -> isSystemInDarkTheme()
-    is MainActivityUiState.Success -> when (uiState.userData.darkThemeConfig) {
-        DarkThemeConfig.FOLLOW_SYSTEM -> isSystemInDarkTheme()
-        DarkThemeConfig.LIGHT -> false
-        DarkThemeConfig.DARK -> true
+fun shouldUseDarkTheme(uiState: MainActivityUiState): Boolean =
+    when (uiState) {
+        MainActivityUiState.Loading -> isSystemInDarkTheme()
+        is MainActivityUiState.Success ->
+            when (uiState.userData.darkThemeConfig) {
+                DarkThemeConfig.FOLLOW_SYSTEM -> isSystemInDarkTheme()
+                DarkThemeConfig.LIGHT -> false
+                DarkThemeConfig.DARK -> true
+            }
     }
-}
 
 /**
  * The default light scrim, as defined by androidx and the platform:

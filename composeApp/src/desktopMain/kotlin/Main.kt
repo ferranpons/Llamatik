@@ -13,21 +13,22 @@ import org.jetbrains.compose.resources.painterResource
 import org.koin.core.context.startKoin
 
 @OptIn(ExperimentalMaterial3Api::class, InternalResourceApi::class)
-fun main() = application {
-    startKoin {
-        modules(commonModule)
-    }
-    val windowState = rememberWindowState(placement = WindowPlacement.Maximized)
+fun main() =
+    application {
+        startKoin {
+            modules(commonModule)
+        }
+        val windowState = rememberWindowState(placement = WindowPlacement.Maximized)
 
-    Window(
-        onCloseRequest = ::exitApplication,
-        state = windowState,
-        title = "Llamatik",
-        undecorated = windowState.placement == WindowPlacement.Fullscreen,
-        icon = painterResource(Res.drawable.llamatik_icon_logo)
-    ) {
-        LlamatikTheme {
-            MainApp()
+        Window(
+            onCloseRequest = ::exitApplication,
+            state = windowState,
+            title = "Llamatik",
+            undecorated = windowState.placement == WindowPlacement.Fullscreen,
+            icon = painterResource(Res.drawable.llamatik_icon_logo),
+        ) {
+            LlamatikTheme {
+                MainApp()
+            }
         }
     }
-}

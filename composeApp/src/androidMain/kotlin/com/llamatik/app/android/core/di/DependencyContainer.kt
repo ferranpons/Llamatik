@@ -11,7 +11,6 @@ import org.koin.core.logger.Level
 import org.koin.core.module.Module
 
 object DependencyContainer {
-
     @VisibleForTesting
     var testModules: MutableList<Module> = mutableListOf()
 
