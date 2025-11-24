@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -41,6 +42,8 @@ fun ModelSelectorBottomSheet(
     selectedGenerateModelName: String?,
     embedModels: List<LlamaModel>,
     generateModels: List<LlamaModel>,
+    loadingEmbedModelName: String?,
+    loadingGenerateModelName: String?,
     onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
     onGenerateModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit,
@@ -72,6 +75,7 @@ fun ModelSelectorBottomSheet(
                     isCurrent = (model.name == selectedGenerateModelName),
                     isDownloading = downloadingMap[model.url] == true,
                     progress = progressMap[model.url] ?: 0f,
+                    isSelecting = (model.name == loadingGenerateModelName),
                     onModelSelectedClicked = onGenerateModelSelectedClicked,
                     onDownloadModelClicked = onDownloadModelClicked
                 )
@@ -108,6 +112,7 @@ private fun ModelRow(
     isCurrent: Boolean,
     isDownloading: Boolean,
     progress: Float,
+    isSelecting: Boolean,
     onModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit,
 ) {
@@ -136,8 +141,22 @@ private fun ModelRow(
                         Text("Current")
                     }
                 } else {
-                    FilledTonalButton(onClick = { onModelSelectedClicked(model) }) {
-                        Text("Select")
+                    FilledTonalButton(
+                        onClick = { if (!isSelecting) onModelSelectedClicked(model) },
+                        enabled = !isSelecting
+                    ) {
+                        if (isSelecting) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Loading…")
+                            }
+                        } else {
+                            Text("Select")
+                        }
                     }
                 }
             } else {

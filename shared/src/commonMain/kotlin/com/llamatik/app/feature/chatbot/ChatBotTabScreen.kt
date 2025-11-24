@@ -91,6 +91,9 @@ class ChatBotTabScreen : Screen {
         val showSettingsSheet = remember { mutableStateOf(false) }
         val showModelSelectorSheet = remember { mutableStateOf(false) }
 
+        val loadingEmbedModelName = remember { mutableStateOf<String?>(null) }
+        val loadingGenerateModelName = remember { mutableStateOf<String?>(null) }
+
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
         )
@@ -111,7 +114,9 @@ class ChatBotTabScreen : Screen {
             viewModel = viewModel,
             isLoading = isLoading,
             showSettingsSheet = showSettingsSheet,
-            showModelSelectorSheet = showModelSelectorSheet
+            showModelSelectorSheet = showModelSelectorSheet,
+            loadingEmbedModelName = loadingEmbedModelName,
+            loadingGenerateModelName = loadingGenerateModelName,
         )
         LlamatikTheme {
             ChatBotScreenView(
@@ -137,10 +142,14 @@ class ChatBotTabScreen : Screen {
                     selectedGenerateModelName = state.selectedGenerateModelName,
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
+                    loadingEmbedModelName = loadingEmbedModelName.value,          // NEW
+                    loadingGenerateModelName = loadingGenerateModelName.value,
                     onEmbedModelSelectedClicked = { model ->
+                        loadingEmbedModelName.value = model.name
                         viewModel.onEmbedModelSelected(model)
                     },
                     onGenerateModelSelectedClicked = { model ->
+                        loadingGenerateModelName.value = model.name
                         viewModel.onGenerateModelSelected(model)
                     },
                     onDownloadModelClicked = { model ->
@@ -168,6 +177,8 @@ class ChatBotTabScreen : Screen {
         isLoading: MutableState<Boolean>,
         showModelSelectorSheet: MutableState<Boolean>,
         showSettingsSheet: MutableState<Boolean>,
+        loadingEmbedModelName: MutableState<String?>,
+        loadingGenerateModelName: MutableState<String?>,
     ) {
         val sideEffects = viewModel.sideEffects.collectAsState(ChatBotSideEffects.Initial)
         sideEffects.value.apply {
@@ -186,9 +197,11 @@ class ChatBotTabScreen : Screen {
                 }
                 ChatBotSideEffects.ScrollToBottom -> {}
                 ChatBotSideEffects.OnEmbedModelLoaded -> {
+                    loadingEmbedModelName.value = null
                     showModelSelectorSheet.value = false
                 }
                 ChatBotSideEffects.OnGenerateModelLoaded -> {
+                    loadingGenerateModelName.value = null
                     showModelSelectorSheet.value = false
                 }
 
@@ -196,8 +209,12 @@ class ChatBotTabScreen : Screen {
                     showSettingsSheet.value = false
                 }
 
-                ChatBotSideEffects.OnEmbedModelLoadError -> {}
-                ChatBotSideEffects.OnGenerateModelLoadError -> {}
+                ChatBotSideEffects.OnEmbedModelLoadError -> {
+                    loadingEmbedModelName.value = null
+                }
+                ChatBotSideEffects.OnGenerateModelLoadError -> {
+                    loadingGenerateModelName.value = null
+                }
             }
         }
     }

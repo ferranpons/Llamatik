@@ -242,12 +242,14 @@ class ChatBotViewModel(
                     _state.value = _state.value.copy(
                         embedModels = _state.value.embedModels.map {
                             if (it.url == model.url) it.copy(
-                                fileName = tempFile.absolutePath()
+                                fileName = tempFile.absolutePath(),
+                                localPath = tempFile.absolutePath()
                             ) else it
                         },
                         generateModels = _state.value.generateModels.map {
                             if (it.url == model.url) it.copy(
-                                fileName = tempFile.absolutePath()
+                                fileName = tempFile.absolutePath(),
+                                localPath = tempFile.absolutePath()
                             ) else it
                         },
                     )
