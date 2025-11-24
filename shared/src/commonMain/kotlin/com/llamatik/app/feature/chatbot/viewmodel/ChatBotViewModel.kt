@@ -170,43 +170,46 @@ class ChatBotViewModel(
 
     fun onEmbedModelSelected(model: LlamaModel) {
         screenModelScope.launch(Dispatchers.IO) {
-            model.fileName?.let {
-                Logger.d("LlamaVM - initModel $it")
-                val isLoaded = LlamaBridge.initModel(it)
+            val pathFromState = model.localPath
+            val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name)
+                .takeIf { it.isNotEmpty() }
+            val path = pathFromState ?: pathFromStorage
+
+            if (!path.isNullOrEmpty()) {
+                Logger.d("LlamaVM - initEmbedModel $path")
+                val isLoaded = LlamaBridge.initModel(path)
                 if (isLoaded) {
                     _state.value = _state.value.copy(selectedEmbedModelName = model.name)
                     _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
                 } else {
                     _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
                 }
+            } else {
+                Logger.e { "LlamaVM - no local path for embed model ${model.name}" }
+                _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
             }
         }
     }
 
     fun onGenerateModelSelected(model: LlamaModel) {
         screenModelScope.launch(Dispatchers.IO) {
-            if (!model.localPath.isNullOrEmpty()) {
-                model.localPath.let {
-                    Logger.d("LlamaVM - initGenerateModel $it")
-                    val isLoaded = LlamaBridge.initGenerateModel(it)
-                    if (isLoaded) {
-                        _state.value = _state.value.copy(selectedGenerateModelName = model.name)
-                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
-                    } else {
-                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
-                    }
+            val pathFromState = model.localPath
+            val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name)
+                .takeIf { it.isNotEmpty() }
+            val path = pathFromState ?: pathFromStorage
+
+            if (!path.isNullOrEmpty()) {
+                Logger.d("LlamaVM - initGenerateModel $path")
+                val isLoaded = LlamaBridge.initGenerateModel(path)
+                if (isLoaded) {
+                    _state.value = _state.value.copy(selectedGenerateModelName = model.name)
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                 }
             } else {
-                model.fileName?.let {
-                    Logger.d("LlamaVM - initGenerateModel $it")
-                    val isLoaded = LlamaBridge.initGenerateModel(it)
-                    if (isLoaded) {
-                        _state.value = _state.value.copy(selectedGenerateModelName = model.name)
-                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
-                    } else {
-                        _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
-                    }
-                }
+                Logger.e { "LlamaVM - no local path for generate model ${model.name}" }
+                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
             }
         }
     }

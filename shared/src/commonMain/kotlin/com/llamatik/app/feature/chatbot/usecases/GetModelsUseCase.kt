@@ -72,6 +72,8 @@ class GetModelsUseCase(
             modelsRepository.saveModelPath(modelName, modelPath)
         }
 
+    fun getSavedModelPath(modelName: String): String = modelsRepository.getSavedModelPath(modelName)
+
     private fun extractFileName(url: String): String {
         val parts = url.split("/")
         return removeFileExtension(parts.last())
