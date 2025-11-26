@@ -14,6 +14,9 @@
 
 ## 🚀 Features
 
+<img align="right" width="0" height="368px" hspace="20"/>
+<img src="assets/androidScreenshots/phoneScreenshot3.png" height="368px" align="right" />
+
 - ✅ Kotlin Multiplatform: shared code across Android, iOS, and desktop  
 - ✅ Offline inference via llama.cpp (compiled with Kotlin/Native bindings)  
 - ✅ Remote inference via optional HTTP client (e.g. llamatik-server)  
@@ -22,6 +25,7 @@
 - ✅ Context-aware generation (system + conversation history)  
 - ✅ Works with GGUF models (e.g. Mistral, Phi, LLaMA)  
 - ✅ Lightweight and dependency-free runtime  
+<br><br><br>
 
 ---
 
@@ -177,8 +181,8 @@ Please go to the [Backend README.md](./backend/README.md) for more information.
 
 If you want to try how LLamatik works you can download the App on the App Store or Google Play Store.
 
-<a href="https://play.google.com/store/apps/details?id=com.llamatik.app.android"><img src="assets/google-play-button.png" align="left" width="200px" height="68px"/></a>
-</br></br>
+| <a href="https://play.google.com/store/apps/details?id=com.llamatik.app.android"><img src="assets/google-play-button.png" align="left" width="200px" height="68px"/></a> | <a href="https://play.google.com/store/apps/details?id=com.llamatik.app.android"><img src="assets/app-store-button.png" align="left" width="200px" height="68px"/></a> |
+</br></br></br>
 
 
 ## Apps using Llamatik
