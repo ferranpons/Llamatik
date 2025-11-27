@@ -9,9 +9,8 @@ import io.ktor.client.call.body
 import io.ktor.client.request.prepareGet
 import io.ktor.http.contentLength
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.core.isEmpty
-import io.ktor.utils.io.core.readBytes
 import io.ktor.utils.io.readRemaining
+import kotlinx.io.readByteArray
 
 private const val DEFAULT_BUFFER_SIZE: Int = 64 * 1024
 
@@ -30,8 +29,8 @@ class ModelsRepository(private val service: ServiceClient) {
             Logger.d("Downloading ${httpResponse.contentLength()} bytes")
             while (!channel.isClosedForRead) {
                 val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
-                while (!packet.isEmpty) {
-                    val bytes = packet.readBytes()
+                while (!packet.exhausted()) {
+                    val bytes = packet.readByteArray()
                     Logger.d("${bytes.size} bytes")
                     downloaded += bytes.size
                     file.appendBytes(bytes)
