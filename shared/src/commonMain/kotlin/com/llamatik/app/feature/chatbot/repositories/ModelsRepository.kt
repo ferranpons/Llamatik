@@ -95,4 +95,8 @@ class ModelsRepository(private val service: ServiceClient) {
     fun saveModelPath(modelName: String, modelPath: String) {
         Settings().putString(modelName, modelPath)
     }
+
+    fun deleteModelPath(modelName: String) {
+        Settings().remove(modelName)
+    }
 }

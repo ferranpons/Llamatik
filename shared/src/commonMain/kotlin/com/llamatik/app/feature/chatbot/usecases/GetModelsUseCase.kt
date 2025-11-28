@@ -87,4 +87,8 @@ class GetModelsUseCase(
             filename
         }
     }
+
+    fun deleteModelPath(model: LlamaModel) {
+        modelsRepository.deleteModelPath(modelName = model.name)
+    }
 }

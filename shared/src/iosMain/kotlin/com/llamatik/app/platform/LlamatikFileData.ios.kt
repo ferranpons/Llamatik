@@ -265,4 +265,19 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
         println("🔵 [iOS] LlamatikTempFile.absolutePath → $path (exists=$exists)")
         return path
     }
+
+    actual fun delete(path: String): Boolean {
+        val fileManager = NSFileManager.defaultManager
+        return try {
+            if (!fileManager.fileExistsAtPath(path)) {
+                // Already gone, treat as success
+                true
+            } else {
+                // removeItemAtPath returns true on success
+                fileManager.removeItemAtPath(path, error = null)
+            }
+        } catch (_: Throwable) {
+            false
+        }
+    }
 }

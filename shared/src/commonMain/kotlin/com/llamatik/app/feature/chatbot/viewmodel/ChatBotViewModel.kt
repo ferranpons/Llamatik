@@ -18,6 +18,7 @@ import com.llamatik.app.feature.news.NewsFeedScreen
 import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
@@ -287,6 +288,49 @@ class ChatBotViewModel(
                         error = t.message ?: "Download failed"
                     )
                 }
+            }
+        }
+    }
+
+    fun onDeleteModel(model: LlamaModel) {
+        screenModelScope.launch(Dispatchers.IO) {
+            try {
+                Logger.d("LlamaVM - deleting model ${model.name}")
+
+                val pathFromState = model.localPath
+                val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name)
+                    .takeIf { it.isNotEmpty() }
+                val path = pathFromState ?: pathFromStorage
+
+                if (!path.isNullOrEmpty()) {
+                    Logger.d("LlamaVM - delete model file at $path")
+
+                    try {
+                        // 🔥 Physically delete the file (multiplatform helper)
+                        LlamatikTempFile.delete(path)
+                    } catch (e: Throwable) {
+                        Logger.e(e) { "LlamaVM - failed to delete file at $path" }
+                        // we still proceed to clear state, so UI is consistent
+                    }
+                }
+
+                getModelsUseCase.deleteModelPath(model)
+                _state.value = _state.value.copy(
+                    embedModels = _state.value.embedModels.map {
+                        if (it.url == model.url) it.copy(
+                            fileName = null,
+                            localPath = null
+                        ) else it
+                    },
+                    generateModels = _state.value.generateModels.map {
+                        if (it.url == model.url) it.copy(
+                            fileName = null,
+                            localPath = null
+                        ) else it
+                    },
+                )
+            } catch (t: Throwable) {
+                Logger.e(t) { "LlamaVM - error deleting model ${model.name}" }
             }
         }
     }

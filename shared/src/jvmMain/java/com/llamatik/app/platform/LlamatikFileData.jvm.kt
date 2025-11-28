@@ -37,4 +37,8 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
     actual fun absolutePath(): String {
         TODO("Not yet implemented")
     }
+
+    actual fun delete(path: String): Boolean {
+        TODO("Not yet implemented")
+    }
 }

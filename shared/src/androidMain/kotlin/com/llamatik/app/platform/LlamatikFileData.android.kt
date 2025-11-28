@@ -103,4 +103,17 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
     }
 
     actual fun absolutePath(): String = file.toString()
+
+    actual fun delete(path: String): Boolean {
+        return try {
+            val file = java.io.File(path)
+            if (file.exists()) {
+                file.delete()
+            } else {
+                true // treat "already gone" as success
+            }
+        } catch (_: Throwable) {
+            false
+        }
+    }
 }

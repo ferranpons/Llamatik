@@ -15,4 +15,5 @@ expect class LlamatikTempFile(fileName: String) {
     fun close()
     fun readBase64String(): String
     fun absolutePath(): String
+    fun delete(path: String): Boolean
 }
