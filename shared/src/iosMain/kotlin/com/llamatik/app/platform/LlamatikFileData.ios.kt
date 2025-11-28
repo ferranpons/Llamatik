@@ -12,9 +12,12 @@ import platform.Foundation.NSDataBase64DecodingIgnoreUnknownCharacters
 import platform.Foundation.NSDataBase64Encoding64CharacterLineLength
 import platform.Foundation.NSDataBase64EncodingEndLineWithLineFeed
 import platform.Foundation.NSDataBase64EncodingOptions
+import platform.Foundation.NSDocumentDirectory
+import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSString
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.NSUserDomainMask
 import platform.Foundation.base64EncodedStringWithOptions
 import platform.Foundation.create
 import platform.posix.O_APPEND
@@ -23,6 +26,7 @@ import platform.posix.O_TRUNC
 import platform.posix.O_WRONLY
 import platform.posix.close
 import platform.posix.memcpy
+import platform.posix.mkdir
 import platform.posix.open
 import platform.posix.write
 
@@ -32,7 +36,41 @@ import platform.posix.write
  * Key points:
  * - All *writing* uses POSIX open/write/close (no repeated read+concat).
  * - Base64 helpers still use NSData, but only on-demand.
+ * - Files are stored in a persistent Documents/models directory (not /tmp).
  */
+
+// ---------- Paths ----------
+
+/**
+ * Base directory where we persist large model files.
+ * Example (device):
+ * /var/mobile/Containers/Data/Application/<UUID>/Documents/models
+ */
+private fun modelsBaseDir(): String {
+    val paths = NSSearchPathForDirectoriesInDomains(
+        directory = NSDocumentDirectory,
+        domainMask = NSUserDomainMask,
+        expandTilde = true
+    )
+    val base = (paths.firstOrNull() as? String)
+        ?: NSTemporaryDirectory()
+        ?: "/tmp"
+
+    val dir = if (base.endsWith("/")) base + "models" else "$base/models"
+
+    // Best-effort create; ignore error if it already exists
+    mkdir(dir, 0x755u)
+
+    return dir
+}
+
+/**
+ * Full path for a given model file name, under the persistent models directory.
+ */
+private fun modelPathFor(fileName: String): String {
+    val baseDir = modelsBaseDir()
+    return if (baseDir.endsWith("/")) baseDir + fileName else "$baseDir/$fileName"
+}
 
 // ---------- Small helpers ----------
 
@@ -64,6 +102,7 @@ private fun writeBytesToFile(path: String, bytes: ByteArray, append: Boolean) {
         O_WRONLY or O_CREAT or O_TRUNC
     }
 
+    // 0o644 = rw-r--r--
     val fd = open(path, flags, 0x644)
     if (fd < 0) {
         // Could log errno here if you want
@@ -96,21 +135,18 @@ private fun readBytesFromFile(path: String): ByteArray {
     return nsDataToByteArray(data)
 }
 
-private fun tempPathFor(fileName: String): String {
-    val baseDir = NSTemporaryDirectory()
-    return if (baseDir.endsWith("/")) baseDir + fileName else "$baseDir/$fileName"
-}
-
 // ---------- actuals for extension functions ----------
 
 /**
  * Stream download to file using a single open() + write(...) loop.
  * This is the hot path used when downloading models.
+ * Files are written into Documents/models.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual suspend fun ByteReadChannel.writeToFile(fileName: String) {
-    val path = tempPathFor(fileName)
+    val path = modelPathFor(fileName)
 
+    // 0o644 = rw-r--r--
     val fd = open(path, O_WRONLY or O_CREAT or O_TRUNC, 0x644)
     if (fd < 0) {
         // Could log: "Failed to open $path, errno=$errno"
@@ -149,13 +185,13 @@ actual suspend fun ByteReadChannel.writeToFile(fileName: String) {
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun ByteArray.writeToFile(fileName: String) {
-    val path = tempPathFor(fileName)
+    val path = modelPathFor(fileName)
     writeBytesToFile(path, this, append = false)
 }
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun ByteArray.addBytesToFile(fileName: String) {
-    val path = tempPathFor(fileName)
+    val path = modelPathFor(fileName)
     writeBytesToFile(path, this, append = true)
 }
 
@@ -164,7 +200,8 @@ actual suspend fun ByteArray.addBytesToFile(fileName: String) {
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class LlamatikTempFile actual constructor(fileName: String) {
 
-    private val path: String = tempPathFor(fileName)
+    // Now points to persistent Documents/models/<fileName>
+    private val path: String = modelPathFor(fileName)
 
     @OptIn(ExperimentalForeignApi::class)
     private fun base64Encode(bytes: ByteArray): String {
