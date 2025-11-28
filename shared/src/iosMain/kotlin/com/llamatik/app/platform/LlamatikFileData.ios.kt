@@ -12,30 +12,27 @@ import platform.Foundation.NSDataBase64DecodingIgnoreUnknownCharacters
 import platform.Foundation.NSDataBase64Encoding64CharacterLineLength
 import platform.Foundation.NSDataBase64EncodingEndLineWithLineFeed
 import platform.Foundation.NSDataBase64EncodingOptions
-import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSSearchPathForDirectoriesInDomains
+import platform.Foundation.NSFileHandle
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSString
+import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUTF8StringEncoding
-import platform.Foundation.NSUserDomainMask
 import platform.Foundation.base64EncodedStringWithOptions
+import platform.Foundation.closeFile
 import platform.Foundation.create
-import platform.posix.O_APPEND
-import platform.posix.O_CREAT
-import platform.posix.O_TRUNC
-import platform.posix.O_WRONLY
-import platform.posix.close
+import platform.Foundation.fileHandleForWritingAtPath
+import platform.Foundation.seekToEndOfFile
+import platform.Foundation.truncateFileAtOffset
+import platform.Foundation.writeData
 import platform.posix.memcpy
-import platform.posix.mkdir
-import platform.posix.open
-import platform.posix.write
 
 /**
  * iOS implementation optimized for large streaming downloads.
  *
  * Key points:
- * - All *writing* uses POSIX open/write/close (no repeated read+concat).
+ * - All writing uses NSFileHandle (no repeated read+concat into a single NSData).
  * - Base64 helpers still use NSData, but only on-demand.
- * - Files are stored in a persistent Documents/models directory.
+ * - Files are stored under NSTemporaryDirectory().
  */
 
 // ---------- Name & path helpers ----------
@@ -49,34 +46,22 @@ private fun normalizedModelName(fileName: String): String =
     if (fileName.contains('.')) fileName else "$fileName.gguf"
 
 /**
- * Base directory where we persist large model files.
- * Example (device):
- * /var/mobile/Containers/Data/Application/<UUID>/Documents/models
+ * Base temp directory for model files.
+ * Example (simulator):
+ * /Users/.../Containers/Data/Application/<UUID>/tmp/
  */
-private fun modelsBaseDir(): String {
-    val paths = NSSearchPathForDirectoriesInDomains(
-        directory = NSDocumentDirectory,
-        domainMask = NSUserDomainMask,
-        expandTilde = true
-    )
-    val base = (paths.firstOrNull() as? String) ?: "/tmp"
-
-    val dir = if (base.endsWith("/")) base + "models" else "$base/models"
-
-    // Best-effort create; ignore error if it already exists
-    mkdir(dir, 0x755u)
-
-    return dir
+private fun tempBaseDir(): String {
+    val baseDir = NSTemporaryDirectory() ?: "/tmp/"
+    return if (baseDir.endsWith("/")) baseDir else "$baseDir/"
 }
 
 /**
- * Full path for a given model file name, under the persistent models directory.
- * The name is normalized so that bare names become "<name>.gguf".
+ * Full path for a given model file name under the temp directory.
  */
-private fun modelPathFor(fileName: String): String {
+private fun tempPathFor(fileName: String): String {
+    val base = tempBaseDir()
     val normalized = normalizedModelName(fileName)
-    val baseDir = modelsBaseDir()
-    return if (baseDir.endsWith("/")) baseDir + normalized else "$baseDir/$normalized"
+    return base + normalized
 }
 
 // ---------- Small helpers ----------
@@ -97,109 +82,119 @@ private fun nsDataToByteArray(data: NSData): ByteArray {
     return result
 }
 
-/**
- * Low-level streaming write using POSIX APIs.
- * This does NOT read the existing file – it just appends or overwrites.
- */
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-private fun writeBytesToFile(path: String, bytes: ByteArray, append: Boolean) {
-    val flags = if (append) {
-        O_WRONLY or O_CREAT or O_APPEND
-    } else {
-        O_WRONLY or O_CREAT or O_TRUNC
-    }
+private fun fileExists(path: String): Boolean =
+    NSFileManager.defaultManager.fileExistsAtPath(path)
 
-    // 0o644 = rw-r--r--
-    val fd = open(path, flags, 0x644)
-    if (fd < 0) {
-        // Could log errno here if you want
+/**
+ * Create an empty file at [path] if it does not already exist.
+ */
+private fun ensureFileExists(path: String) {
+    val fm = NSFileManager.defaultManager
+    if (!fm.fileExistsAtPath(path)) {
+        fm.createFileAtPath(path, null, null)
+    }
+}
+
+// ---------- Low-level write helpers using NSFileHandle ----------
+
+/**
+ * Write [data] (NSData) to [path] using NSFileHandle.
+ *
+ * @param append If true, seek to end of file; otherwise truncate to 0 first.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private fun writeNSDataToFile(path: String, data: NSData, append: Boolean) {
+    ensureFileExists(path)
+
+    val handle: NSFileHandle? = NSFileHandle.fileHandleForWritingAtPath(path)
+    if (handle == null) {
+        println("🔴 [iOS] writeNSDataToFile: cannot open handle for $path")
         return
     }
 
     try {
-        bytes.usePinned { pinned ->
-            var remaining = bytes.size
-            var offset = 0
-            while (remaining > 0) {
-                val written = write(fd, pinned.addressOf(offset), remaining.convert())
-                if (written <= 0) {
-                    // error or interrupted; you might check errno if needed
-                    break
-                }
-                val w = written.toInt()
-                remaining -= w
-                offset += w
-            }
+        if (!append) {
+            // Truncate to 0
+            handle.truncateFileAtOffset(0uL)
+        } else {
+            // Seek to end
+            handle.seekToEndOfFile()
         }
+        handle.writeData(data)
     } finally {
-        close(fd)
+        handle.closeFile()
     }
-}
-
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-private fun readBytesFromFile(path: String): ByteArray {
-    val data = NSData.create(contentsOfFile = path) ?: return ByteArray(0)
-    return nsDataToByteArray(data)
 }
 
 // ---------- actuals for extension functions ----------
 
 /**
- * Stream download to file using a single open() + write(...) loop.
+ * Stream download to file using a single NSFileHandle opened once.
  * This is the hot path used when downloading models.
- * Files are written into Documents/models with a normalized name.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual suspend fun ByteReadChannel.writeToFile(fileName: String) {
-    val path = modelPathFor(fileName)
+    val path = tempPathFor(fileName)
+    println("🔵 [iOS] ByteReadChannel.writeToFile → $path")
 
-    // 0o644 = rw-r--r--
-    val fd = open(path, O_WRONLY or O_CREAT or O_TRUNC, 0x644)
-    if (fd < 0) {
-        // Could log: "Failed to open $path"
+    val fm = NSFileManager.defaultManager
+    // Create an empty file (or overwrite if exists)
+    fm.createFileAtPath(path, null, null)
+
+    val handle: NSFileHandle? = NSFileHandle.fileHandleForWritingAtPath(path)
+    if (handle == null) {
+        println("🔴 [iOS] ByteReadChannel.writeToFile: cannot open handle for $path")
         return
     }
 
     try {
-        // Larger buffer for better throughput on iOS
+        // Ensure we start from offset 0
+        handle.truncateFileAtOffset(0uL)
+
         val buffer = ByteArray(256 * 1024)
 
         while (true) {
             val read = readAvailable(buffer, 0, buffer.size)
             if (read <= 0) break
 
-            buffer.usePinned { pinned ->
-                var remaining = read
-                var offset = 0
-                while (remaining > 0) {
-                    val written =
-                        write(fd, pinned.addressOf(offset), remaining.convert())
-                    if (written <= 0) {
-                        // error or interrupted
-                        remaining = 0
-                        break
-                    }
-                    val w = written.toInt()
-                    remaining -= w
-                    offset += w
-                }
+            val chunk = if (read == buffer.size) {
+                buffer
+            } else {
+                buffer.copyOf(read)
             }
+
+            val data = byteArrayToNSData(chunk)
+            handle.writeData(data)
         }
     } finally {
-        close(fd)
+        handle.closeFile()
     }
+
+    val exists = fileExists(path)
+    val size = NSData.create(contentsOfFile = path)?.length ?: -1
+    println("✅ [iOS] Download finished. Exists=$exists, sizeBytes=$size")
 }
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun ByteArray.writeToFile(fileName: String) {
-    val path = modelPathFor(fileName)
-    writeBytesToFile(path, this, append = false)
+    val path = tempPathFor(fileName)
+    println("🔵 [iOS] ByteArray.writeToFile → $path")
+    val data = byteArrayToNSData(this)
+    writeNSDataToFile(path, data, append = false)
+    val exists = fileExists(path)
+    val size = NSData.create(contentsOfFile = path)?.length ?: -1
+    println("✅ [iOS] ByteArray.writeToFile done. Exists=$exists, sizeBytes=$size")
 }
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun ByteArray.addBytesToFile(fileName: String) {
-    val path = modelPathFor(fileName)
-    writeBytesToFile(path, this, append = true)
+    val path = tempPathFor(fileName)
+    println("🔵 [iOS] ByteArray.addBytesToFile → $path")
+    val data = byteArrayToNSData(this)
+    writeNSDataToFile(path, data, append = true)
+    val exists = fileExists(path)
+    val size = NSData.create(contentsOfFile = path)?.length ?: -1
+    println("✅ [iOS] ByteArray.addBytesToFile done. Exists=$exists, sizeBytes=$size")
 }
 
 // ---------- LlamatikTempFile implementation ----------
@@ -207,8 +202,12 @@ actual suspend fun ByteArray.addBytesToFile(fileName: String) {
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class LlamatikTempFile actual constructor(fileName: String) {
 
-    // Single canonical path (normalized name) under Documents/models
-    private val path: String = modelPathFor(fileName)
+    private val path: String = tempPathFor(fileName)
+
+    init {
+        val exists = fileExists(path)
+        println("🟢 [iOS] LlamatikTempFile.init path=$path exists=$exists")
+    }
 
     @OptIn(ExperimentalForeignApi::class)
     private fun base64Encode(bytes: ByteArray): String {
@@ -228,16 +227,21 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
     }
 
     actual fun appendBytes(bytes: ByteArray) {
-        writeBytesToFile(path, bytes, append = true)
+        println("🔵 [iOS] LlamatikTempFile.appendBytes → $path (len=${bytes.size})")
+        val data = byteArrayToNSData(bytes)
+        writeNSDataToFile(path, data, append = true)
     }
 
-    actual fun readBytes(): ByteArray = readBytesFromFile(path)
+    actual fun readBytes(): ByteArray {
+        println("🔵 [iOS] LlamatikTempFile.readBytes ← $path")
+        val data = NSData.create(contentsOfFile = path) ?: return ByteArray(0)
+        return nsDataToByteArray(data)
+    }
 
     actual fun getBase64String(): String = base64Encode(readBytes())
 
     @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
     actual fun appendBytesBase64(bytes: ByteArray) {
-        // Interpret incoming bytes as UTF-8 base64 text, decode, and append to the binary file
         val nsString = NSString.create(
             data = byteArrayToNSData(bytes),
             encoding = NSUTF8StringEncoding
@@ -254,5 +258,9 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
 
     actual fun readBase64String(): String = getBase64String()
 
-    actual fun absolutePath(): String = path
+    actual fun absolutePath(): String {
+        val exists = fileExists(path)
+        println("🔵 [iOS] LlamatikTempFile.absolutePath → $path (exists=$exists)")
+        return path
+    }
 }
