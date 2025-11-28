@@ -1,3 +1,5 @@
+@file:OptIn(BetaInteropApi::class)
+
 package com.llamatik.app.platform
 
 import io.ktor.utils.io.ByteReadChannel
@@ -227,13 +229,13 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
     }
 
     actual fun appendBytes(bytes: ByteArray) {
-        println("🔵 [iOS] LlamatikTempFile.appendBytes → $path (len=${bytes.size})")
+        // println("🔵 [iOS] LlamatikTempFile.appendBytes → $path (len=${bytes.size})")
         val data = byteArrayToNSData(bytes)
         writeNSDataToFile(path, data, append = true)
     }
 
     actual fun readBytes(): ByteArray {
-        println("🔵 [iOS] LlamatikTempFile.readBytes ← $path")
+        // println("🔵 [iOS] LlamatikTempFile.readBytes ← $path")
         val data = NSData.create(contentsOfFile = path) ?: return ByteArray(0)
         return nsDataToByteArray(data)
     }
