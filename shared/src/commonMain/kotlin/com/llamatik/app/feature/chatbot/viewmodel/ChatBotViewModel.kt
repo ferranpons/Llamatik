@@ -306,11 +306,11 @@ class ChatBotViewModel(
                     Logger.d("LlamaVM - delete model file at $path")
 
                     try {
-                        // 🔥 Physically delete the file (multiplatform helper)
-                        LlamatikTempFile.delete(path)
+                        model.fileName?.let { fileName ->
+                            LlamatikTempFile(fileName).delete(path)
+                        }
                     } catch (e: Throwable) {
                         Logger.e(e) { "LlamaVM - failed to delete file at $path" }
-                        // we still proceed to clear state, so UI is consistent
                     }
                 }
 
