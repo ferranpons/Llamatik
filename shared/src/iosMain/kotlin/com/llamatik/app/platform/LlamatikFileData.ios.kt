@@ -15,7 +15,6 @@ import platform.Foundation.NSDataBase64EncodingOptions
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSString
-import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.base64EncodedStringWithOptions
@@ -36,10 +35,18 @@ import platform.posix.write
  * Key points:
  * - All *writing* uses POSIX open/write/close (no repeated read+concat).
  * - Base64 helpers still use NSData, but only on-demand.
- * - Files are stored in a persistent Documents/models directory (not /tmp).
+ * - Files are stored in a persistent Documents/models directory.
  */
 
-// ---------- Paths ----------
+// ---------- Name & path helpers ----------
+
+/**
+ * Normalize a model file name:
+ * - If it already contains a dot (e.g. ".gguf"), keep it.
+ * - Else, assume it's a GGUF model and append ".gguf".
+ */
+private fun normalizedModelName(fileName: String): String =
+    if (fileName.contains('.')) fileName else "$fileName.gguf"
 
 /**
  * Base directory where we persist large model files.
@@ -52,9 +59,7 @@ private fun modelsBaseDir(): String {
         domainMask = NSUserDomainMask,
         expandTilde = true
     )
-    val base = (paths.firstOrNull() as? String)
-        ?: NSTemporaryDirectory()
-        ?: "/tmp"
+    val base = (paths.firstOrNull() as? String) ?: "/tmp"
 
     val dir = if (base.endsWith("/")) base + "models" else "$base/models"
 
@@ -66,10 +71,12 @@ private fun modelsBaseDir(): String {
 
 /**
  * Full path for a given model file name, under the persistent models directory.
+ * The name is normalized so that bare names become "<name>.gguf".
  */
 private fun modelPathFor(fileName: String): String {
+    val normalized = normalizedModelName(fileName)
     val baseDir = modelsBaseDir()
-    return if (baseDir.endsWith("/")) baseDir + fileName else "$baseDir/$fileName"
+    return if (baseDir.endsWith("/")) baseDir + normalized else "$baseDir/$normalized"
 }
 
 // ---------- Small helpers ----------
@@ -140,7 +147,7 @@ private fun readBytesFromFile(path: String): ByteArray {
 /**
  * Stream download to file using a single open() + write(...) loop.
  * This is the hot path used when downloading models.
- * Files are written into Documents/models.
+ * Files are written into Documents/models with a normalized name.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual suspend fun ByteReadChannel.writeToFile(fileName: String) {
@@ -149,7 +156,7 @@ actual suspend fun ByteReadChannel.writeToFile(fileName: String) {
     // 0o644 = rw-r--r--
     val fd = open(path, O_WRONLY or O_CREAT or O_TRUNC, 0x644)
     if (fd < 0) {
-        // Could log: "Failed to open $path, errno=$errno"
+        // Could log: "Failed to open $path"
         return
     }
 
@@ -200,7 +207,7 @@ actual suspend fun ByteArray.addBytesToFile(fileName: String) {
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class LlamatikTempFile actual constructor(fileName: String) {
 
-    // Now points to persistent Documents/models/<fileName>
+    // Single canonical path (normalized name) under Documents/models
     private val path: String = modelPathFor(fileName)
 
     @OptIn(ExperimentalForeignApi::class)
