@@ -10,6 +10,9 @@ import io.ktor.client.request.prepareGet
 import io.ktor.http.contentLength
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.io.readByteArray
 
 private const val DEFAULT_BUFFER_SIZE: Int = 64 * 1024
@@ -22,25 +25,45 @@ class ModelsRepository(private val service: ServiceClient) {
         onProgress: ((downloaded: Long, total: Long) -> Unit)? = null
     ): LlamatikTempFile {
         val file = LlamatikTempFile(fileName)
-        service.httpClient.prepareGet(url).execute { httpResponse ->
-            val channel: ByteReadChannel = httpResponse.body()
-            val totalBytes = httpResponse.contentLength() ?: -1
-            var downloaded: Long = 0
-            Logger.d("Downloading ${httpResponse.contentLength()} bytes")
-            while (!channel.isClosedForRead) {
-                val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
-                while (!packet.exhausted()) {
-                    val bytes = packet.readByteArray()
-                    Logger.d("${bytes.size} bytes")
-                    downloaded += bytes.size
-                    file.appendBytes(bytes)
-                    onProgress?.invoke(downloaded, totalBytes)
+        val ctx = currentCoroutineContext()
+
+        try {
+            service.httpClient.prepareGet(url).execute { httpResponse ->
+                val channel: ByteReadChannel = httpResponse.body()
+                val totalBytes = httpResponse.contentLength() ?: -1
+                var downloaded: Long = 0
+                Logger.d("Downloading ${httpResponse.contentLength()} bytes")
+
+                while (!channel.isClosedForRead) {
+                    ctx.ensureActive()
+
+                    val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
+                    while (!packet.exhausted()) {
+                        ctx.ensureActive()
+
+                        val bytes = packet.readByteArray()
+                        if (bytes.isEmpty()) break
+
+                        downloaded += bytes.size
+                        file.appendBytes(bytes)
+                        onProgress?.invoke(downloaded, totalBytes)
+                    }
                 }
+
+                file.close()
+                Logger.d("Download Finished")
             }
-            file.close()
-            Logger.d("Download Finished")
+
+            return file
+        } catch (e: CancellationException) {
+            Logger.d(e) { "Download cancelled for $url" }
+            runCatching { LlamatikTempFile(fileName).delete(file.absolutePath()) }
+            throw e
+        } catch (t: Throwable) {
+            Logger.e(t) { "Download failed for $url" }
+            runCatching { LlamatikTempFile(fileName).delete(file.absolutePath()) }
+            throw t
         }
-        return file
     }
 
     fun getDefaultGenerateModels(): List<LlamaModel> {
@@ -75,7 +98,7 @@ class ModelsRepository(private val service: ServiceClient) {
                 sizeMb = 581,
                 url = "https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q2_K.gguf?download=true"
             ),
-        ) 
+        )
     }
 
     fun getDefaultEmbedModels(): List<LlamaModel> {
