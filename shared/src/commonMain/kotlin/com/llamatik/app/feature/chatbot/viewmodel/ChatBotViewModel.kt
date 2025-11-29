@@ -22,7 +22,6 @@ import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
@@ -73,7 +72,6 @@ class ChatBotViewModel(
             header = getCurrentLocalization().welcome,
             latestNews = emptyList(),
             embedModels = emptyList(),
-            isGenerating = false,
         )
     )
     val state = _state.asStateFlow()
@@ -86,7 +84,7 @@ class ChatBotViewModel(
     private val _conversation = MutableStateFlow(emptyList<ChatUiModel.Message>())
     val conversation: StateFlow<List<ChatUiModel.Message>> get() = _conversation
 
-    /** Guard to ignore late callbacks when a new request starts */
+    /** Guard to ignore late callbacks when a new request starts or is stopped */
     @Volatile
     private var activeRequestId: String? = null
 
@@ -94,9 +92,6 @@ class ChatBotViewModel(
     private var started = false
 
     private val downloadJobs = mutableMapOf<String, Job>()
-
-    /** The currently running generation job (direct chat path). */
-    private var currentGenerationJob: Job? = null
 
     init {
         val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
@@ -392,9 +387,8 @@ class ChatBotViewModel(
     }
 
     override fun onDispose() {
-        // Stop any ongoing generation when the screen is disposed
-        currentGenerationJob?.cancel()
-        currentGenerationJob = null
+        // Do NOT cancel native generation abruptly – just shut down cleanly
+        activeRequestId = null
         _state.value = _state.value.copy(isGenerating = false)
         LlamaBridge.shutdown()
     }
@@ -459,9 +453,9 @@ class ChatBotViewModel(
                     ChatRunner.stream(
                         system = systemPrompt,
                         contexts = listOf(compact),
-                        messages = chatHistory,  // last item is the user question we just appended
+                        messages = chatHistory,
                         template = Gemma3,
-                        maxTokens = 256,         // keep turns tight to avoid run-ons
+                        maxTokens = 256,
                         onDelta = { chunk ->
                             if (activeRequestId != requestId) return@stream
                             if (chunk.isEmpty()) return@stream
@@ -471,13 +465,11 @@ class ChatBotViewModel(
                                     ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
-                            // ---- Loop/Echo Guard ----
                             if (looksLikeEchoOrLoop(
                                     full = acc.toString(),
                                     user = question
                                 )
                             ) {
-                                // finish early with the trimmed text
                                 val trimmed = trimLoop(acc.toString(), user = question)
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
@@ -520,12 +512,7 @@ class ChatBotViewModel(
         val input = message.trim()
         if (input.isBlank()) return
 
-        // 🔹 Stop any ongoing generation before starting a new one
-        currentGenerationJob?.cancel()
-        currentGenerationJob = null
-        activeRequestId = null
-
-        val job = screenModelScope.launch {
+        screenModelScope.launch {
             // 1) Append user message bubble
             _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
@@ -534,7 +521,6 @@ class ChatBotViewModel(
 
             withContext(Dispatchers.IO) {
                 try {
-                    // 2) Instruction-style template
                     val prompt = buildString {
                         appendLine("You are a helpful, concise assistant. Answer clearly and directly.")
                         appendLine("Avoid long lists or repeating words. Keep answers short (3–6 sentences).")
@@ -545,7 +531,7 @@ class ChatBotViewModel(
                         append("### Response:\n")
                     }
 
-                    // 3) Insert a placeholder assistant bubble we will stream into
+                    // Placeholder assistant bubble
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val requestId = kotlin.random.Random.nextLong().toString()
@@ -553,15 +539,12 @@ class ChatBotViewModel(
                     val acc = StringBuilder()
                     var completed = false
 
-                    // tiny anti-babble guard: if the same short token repeats too much, stop
                     fun looksLikeBabble(s: String): Boolean {
                         if (s.length < 60) return false
-                        // detect pathological repetition like "3, 3, 3, ..." or the same short token repeating
                         val tail = s.takeLast(200)
                         val collapsed = tail.replace("\\s+".toRegex(), " ").trim()
                         val commas = collapsed.count { it == ',' }
                         if (commas > 60) return true
-                        // repeated 1–3 char tokens 30+ times
                         val m =
                             Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
                         return m != null
@@ -579,30 +562,25 @@ class ChatBotViewModel(
                                         ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
-                                // Your existing echo/loop guard (protects against model mirroring the user)
                                 if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
                                     val trimmed = trimLoop(acc.toString(), user = input)
                                     _conversation.value = _conversation.value.dropLast(1) +
                                             ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
                                     completed = true
                                     activeRequestId = null
-                                    _state.value =
-                                        _state.value.copy(isGenerating = false)
+                                    _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                     return
                                 }
 
-                                // Anti-babble guard for tiny models
                                 if (looksLikeBabble(acc.toString())) {
                                     completed = true
                                     activeRequestId = null
-                                    // lightly trim trailing commas/dangling tokens
                                     val cleaned =
                                         acc.toString().trim().trimEnd(',', ' ', '\n')
                                     _conversation.value = _conversation.value.dropLast(1) +
                                             ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
-                                    _state.value =
-                                        _state.value.copy(isGenerating = false)
+                                    _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 }
                             }
@@ -628,11 +606,6 @@ class ChatBotViewModel(
                             }
                         }
                     )
-                } catch (e: CancellationException) {
-                    // Generation cancelled (e.g. user pressed Stop)
-                    Logger.d(e) { "Generation cancelled" }
-                    activeRequestId = null
-                    _state.value = _state.value.copy(isGenerating = false)
                 } catch (t: Throwable) {
                     emitBot("There is a problem with the AI: ${t.message ?: "Unknown error"}")
                     _state.value = _state.value.copy(isGenerating = false)
@@ -640,16 +613,13 @@ class ChatBotViewModel(
                 }
             }
         }
-
-        currentGenerationJob = job
     }
 
-    /** Called from UI Stop button */
+    /** Called from UI Stop button – logical stop, no native cancellation */
     fun stopGeneration() {
         Logger.d { "LlamaVM - stopGeneration()" }
-        currentGenerationJob?.cancel()
-        currentGenerationJob = null
-        activeRequestId = null
+        LlamaBridge.nativeCancelGenerate()
+        activeRequestId = null      // all callbacks for current requestId will be ignored
         _state.value = _state.value.copy(isGenerating = false)
     }
 
@@ -686,9 +656,6 @@ class ChatBotViewModel(
     }
 
     fun onClearConversation() {
-        // Stop any ongoing generation and clear the active request
-        currentGenerationJob?.cancel()
-        currentGenerationJob = null
         activeRequestId = null
         _state.value = _state.value.copy(isGenerating = false)
         screenModelScope.launch { _conversation.emit(emptyList()) }
@@ -730,13 +697,10 @@ class ChatBotViewModel(
         val f = full.trim()
         if (f.isEmpty()) return false
 
-        // 1) If the model starts echoing the question again after the first 80 chars, stop
         val idx = f.indexOf(user, startIndex = minOf(80, f.length))
         if (idx >= 0) return true
 
-        // 2) Repetition of a long span (n-gram) near the end
         val tail = f.takeLast(minOf(400, f.length))
-        // Look for the last sentence (>= 60 chars) being duplicated
         val sentences =
             tail.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length >= 60 }
         if (sentences.isNotEmpty()) {

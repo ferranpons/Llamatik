@@ -11,6 +11,7 @@
 #include <cstdlib>   // malloc, free
 #include <string_view>
 #include <vector>
+#include <atomic>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "LlamaBridge", __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "LlamaBridge", __VA_ARGS__)
@@ -32,6 +33,9 @@ static struct llama_context *gen_ctx = nullptr;
 
 // Backend lifetime
 static bool g_backend_inited = false;
+
+// Streaming cancel flag (for generateStream)
+static std::atomic<bool> g_cancel_requested{false};
 
 // ===================================================================================
 //                              SMALL HELPERS
@@ -571,6 +575,9 @@ static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallbac
         return;
     }
 
+    // Reset cancel flag at the start of each stream
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     std::vector<llama_token> tokens(2048);
@@ -613,7 +620,15 @@ static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallbac
     char piece_buf[768];
     char spec_buf[64];
 
+    bool stopped_by_cancel = false;
+
     for (int i = 0; i < max_new_tokens; ++i) {
+        // Check for cancel BEFORE doing expensive work
+        if (g_cancel_requested.load(std::memory_order_relaxed)) {   // <-- NEW
+            stopped_by_cancel = true;
+            break;
+        }
+
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (tok == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
@@ -655,7 +670,9 @@ static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallbac
         if (llama_decode(gen_ctx, step) != 0) {
             llama_batch_free(step);
             env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed mid-stream"));
-            break;
+            llama_sampler_free(sampler);
+            llama_batch_free(batch);
+            return;
         }
         llama_batch_free(step);
     }
@@ -663,6 +680,7 @@ static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallbac
     llama_sampler_free(sampler);
     llama_batch_free(batch);
 
+    // Always signal completion – Kotlin side will ignore if it has nulled activeRequestId
     env->CallVoidMethod(jCallback, m.onComplete);
 }
 
@@ -686,6 +704,14 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateStream(
     }
     stream_from_prompt(env, prompt, jCallback, m);
     env->ReleaseStringUTFChars(jPrompt, prompt);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeCancelGenerate(
+        JNIEnv * /*env*/, jobject /*thiz*/) {
+    LOGI("nativeCancelGenerate: cancel requested");
+    g_cancel_requested.store(true, std::memory_order_relaxed);
 }
 
 // Optional: streamWithContext(system, context, user, callback)

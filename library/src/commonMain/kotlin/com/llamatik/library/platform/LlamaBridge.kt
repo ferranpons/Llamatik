@@ -23,6 +23,7 @@ expect object LlamaBridge {
         onError: (String) -> Unit
     )
     fun shutdown()
+    fun nativeCancelGenerate()
 }
 
 interface GenStream {

@@ -227,4 +227,6 @@ actual object LlamaBridge {
         }
         generateStreamWithContext(system, context, user, proxy)
     }
+
+    actual external fun nativeCancelGenerate()
 }

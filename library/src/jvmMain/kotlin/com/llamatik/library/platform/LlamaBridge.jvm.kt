@@ -57,4 +57,7 @@ actual object LlamaBridge {
         onError: (String) -> Unit
     ) {
     }
+
+    actual fun nativeCancelGenerate() {
+    }
 }
