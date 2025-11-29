@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <algorithm>
 #include <cctype>   // tolower, isalpha
+#include <cstdarg>  // va_list, va_start, va_end
+#include <atomic>
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -47,6 +49,7 @@ static struct llama_model   *gen_model  = nullptr; // generation model
 static struct llama_context *gen_ctx    = nullptr;
 
 static bool g_backend_inited = false;
+static std::atomic<bool> g_cancel_requested{false};
 
 // ===================== Helpers =====================
 
@@ -336,6 +339,10 @@ bool llama_embed_init(const char *model_path) {
     return true;
 }
 
+void llama_generate_cancel(void) {
+    g_cancel_requested.store(true, std::memory_order_relaxed);
+}
+
 float *llama_embed(const char *input) {
     if (!ctx || !model || !input) return nullptr;
 
@@ -430,6 +437,8 @@ bool llama_generate_init(const char *model_path) {
 char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     // We treat `prompt` we receive as the *Question* and build our wrapper.
@@ -488,6 +497,11 @@ char *llama_generate(const char *prompt) {
     int max_new_tokens = std::max(remaining_ctx, 2048);
 
     for (int i = 0; i < max_new_tokens; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) {
+            DBG("stream: cancelled at token %d", i);
+            break;
+        }
+
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (llama_vocab_is_eog(v, tok)) {
@@ -589,6 +603,8 @@ void llama_generate_stream(const char *prompt,
         void *user) {
     if (!gen_ctx || !gen_model || !prompt) { if (on_error) on_error("generator not ready", user); return; }
 
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     // Wrap incoming prompt as Question only (no system echo)
@@ -652,6 +668,11 @@ void llama_generate_stream(const char *prompt,
     assembled.reserve(4096);
 
     for (int i = 0; i < max_new_tokens; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) {
+            DBG("stream: cancelled at token %d", i);
+            break;
+        }
+
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (llama_vocab_is_eog(v, tok)) break;

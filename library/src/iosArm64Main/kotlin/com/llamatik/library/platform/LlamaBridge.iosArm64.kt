@@ -9,6 +9,7 @@ import com.llamatik.library.platform.llama.llama_embed_init
 import com.llamatik.library.platform.llama.llama_embedding_size
 import com.llamatik.library.platform.llama.llama_free_embedding
 import com.llamatik.library.platform.llama.llama_generate
+import com.llamatik.library.platform.llama.llama_generate_cancel
 import com.llamatik.library.platform.llama.llama_generate_chat
 import com.llamatik.library.platform.llama.llama_generate_chat_stream
 import com.llamatik.library.platform.llama.llama_generate_free
@@ -228,5 +229,7 @@ actual object LlamaBridge {
         generateStreamWithContext(system, context, user, proxy)
     }
 
-    actual external fun nativeCancelGenerate()
+    actual fun nativeCancelGenerate() {
+        llama_generate_cancel()
+    }
 }
