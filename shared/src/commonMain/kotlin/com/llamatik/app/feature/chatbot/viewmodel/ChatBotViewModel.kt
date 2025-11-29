@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
@@ -88,6 +89,8 @@ class ChatBotViewModel(
 
     @Volatile
     private var started = false
+
+    private val downloadJobs = mutableMapOf<String, kotlinx.coroutines.Job>()
 
     init {
         val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
@@ -216,9 +219,14 @@ class ChatBotViewModel(
     }
 
     fun onDownloadModel(model: LlamaModel) {
-        screenModelScope.launch(Dispatchers.IO) {
+        val url = model.url
+
+        val existingJob = downloadJobs[url]
+        if (existingJob?.isActive == true) return
+
+        val job = screenModelScope.launch(Dispatchers.IO) {
             try {
-                updateDownload(model.url) {
+                updateDownload(url) {
                     it.copy(
                         inProgress = true,
                         progress = 0,
@@ -226,68 +234,92 @@ class ChatBotViewModel(
                         error = null
                     )
                 }
-                getModelsUseCase.downloadModel(model) { pct ->
-                    updateDownload(model.url) { ds ->
-                        ds.copy(
+
+                getModelsUseCase.downloadModel(url) { bytes, totalBytes ->
+                    updateDownload(url) {
+                        it.copy(
                             inProgress = true,
-                            progress = pct.coerceIn(0, 100)
+                            progress = ((bytes.toFloat() / totalBytes.toFloat()) * 100f).toInt()
                         )
                     }
                 }.onSuccess { tempFile ->
                     Logger.d("LlamaVM - download finished")
-                    updateDownload(model.url) {
+                    updateDownload(url) {
                         it.copy(
                             inProgress = false,
                             progress = 100,
-                            done = true
+                            done = true,
+                            error = null
                         )
                     }
                     getModelsUseCase.saveModelPath(model.name, tempFile.absolutePath())
                     _state.value = _state.value.copy(
                         embedModels = _state.value.embedModels.map {
-                            if (it.url == model.url) it.copy(
+                            if (it.url == url) it.copy(
                                 fileName = tempFile.absolutePath(),
                                 localPath = tempFile.absolutePath()
                             ) else it
                         },
                         generateModels = _state.value.generateModels.map {
-                            if (it.url == model.url) it.copy(
+                            if (it.url == url) it.copy(
                                 fileName = tempFile.absolutePath(),
                                 localPath = tempFile.absolutePath()
                             ) else it
                         },
                     )
-
-                    /*
-                    val file = FileKit.openFileSaver(
-                        suggestedName = model.fileName?.urlToFileName() ?: model.name,
-                        extension = "gguf"
-                    )
-                    file?.let {
-                        val fullFilenameWithPath = "${file.path}${file.name}"
-                        Logger.d("LlamaVM - saving model to $fullFilenameWithPath")
-                        file.write(tempFile.readBytes())
-                        _state.value = _state.value.copy(
-                            embedModels = _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = fullFilenameWithPath) else it },
-                            generateModels = _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = fullFilenameWithPath) else it },
-                        )
-                    }
-                     */
-                }.onFailure { e ->
-                    updateDownload(model.url) {
-                        it.copy(
-                            inProgress = false,
-                            error = e.message ?: "Download failed"
-                        )
+                }.onFailure { error ->
+                    if (coroutineContext.isActive) {
+                        // Real error
+                        Logger.e(error.message ?: "Unknown error")
+                        updateDownload(url) {
+                            it.copy(
+                                inProgress = false,
+                                error = error.message,
+                                done = false
+                            )
+                        }
+                    } else {
+                        Logger.d { "LlamaVM - download cancelled for $url" }
                     }
                 }
             } catch (t: Throwable) {
-                updateDownload(model.url) {
-                    it.copy(
-                        inProgress = false,
-                        error = t.message ?: "Download failed"
-                    )
+                if (coroutineContext.isActive) {
+                    Logger.e(t) { "LlamaVM - download error for ${model.name}" }
+                    updateDownload(url) {
+                        it.copy(
+                            inProgress = false,
+                            error = t.message,
+                            done = false
+                        )
+                    }
+                } else {
+                    Logger.d { "LlamaVM - download cancelled for $url" }
                 }
+            } finally {
+                // Remove the job reference when finished or cancelled
+                downloadJobs.remove(url)
+            }
+        }
+
+        downloadJobs[url] = job
+    }
+
+    fun onCancelDownload(model: LlamaModel) {
+        val url = model.url
+        val job = downloadJobs[url]
+
+        if (job != null) {
+            Logger.d { "LlamaVM - cancelling download for $url" }
+            job.cancel()
+            downloadJobs.remove(url)
+
+            updateDownload(url) {
+                it.copy(
+                    inProgress = false,
+                    done = false,
+                    progress = 0,
+                    error = "Cancelled"
+                )
             }
         }
     }

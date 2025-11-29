@@ -157,7 +157,10 @@ class ChatBotTabScreen : Screen {
                     },
                     onDeleteModelClicked = { model ->
                         viewModel.onDeleteModel(model)
-                    }
+                    },
+                    onCancelDownloadClicked = { model ->
+                        viewModel.onCancelDownload(model)
+                    },
                 ) {
                     showModelSelectorSheet.value = false
                 }

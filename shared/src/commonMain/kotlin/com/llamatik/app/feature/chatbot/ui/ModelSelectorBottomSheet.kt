@@ -22,6 +22,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,6 +49,7 @@ fun ModelSelectorBottomSheet(
     onGenerateModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit,
     onDeleteModelClicked: (LlamaModel) -> Unit,
+    onCancelDownloadClicked: (LlamaModel) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -80,6 +82,7 @@ fun ModelSelectorBottomSheet(
                     onModelSelectedClicked = onGenerateModelSelectedClicked,
                     onDownloadModelClicked = onDownloadModelClicked,
                     onDeleteModelClicked = onDeleteModelClicked,
+                    onCancelDownloadClicked = onCancelDownloadClicked,
                 )
                 Spacer(Modifier.height(12.dp))
             }
@@ -118,6 +121,7 @@ private fun ModelRow(
     onModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit,
     onDeleteModelClicked: (LlamaModel) -> Unit,
+    onCancelDownloadClicked: (LlamaModel) -> Unit,
 ) {
     val hasLocalFile = !model.localPath.isNullOrEmpty() || !model.fileName.isNullOrEmpty()
     var localDownloading by remember(model.url, isDownloading) { mutableStateOf(isDownloading) }
@@ -174,7 +178,17 @@ private fun ModelRow(
             } else {
                 if (effectiveDownloading) {
                     Column(horizontalAlignment = Alignment.End) {
-                        Text("Downloading…", style = Typography.get().labelSmall)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Downloading…", style = Typography.get().labelSmall)
+                            TextButton(
+                                onClick = { onCancelDownloadClicked(model) }
+                            ) {
+                                Text("Stop")
+                            }
+                        }
                         Spacer(Modifier.height(6.dp))
                         LinearProgressIndicator(
                             progress = { progress },

@@ -30,10 +30,15 @@ class GetModelsUseCase(
         }
     }
 
+    // --- Legacy-style download returning bytes + base64 (kept as-is) ---
+
     suspend fun downloadModel(modelUrl: String): Result<Pair<ByteArray?, String>> =
         runCatching {
             val fileName = extractFileName(modelUrl)
-            val tempFile = modelsRepository.downloadFileAndSave(url = modelUrl, fileName = fileName)
+            val tempFile = modelsRepository.downloadFileAndSave(
+                url = modelUrl,
+                fileName = fileName
+            )
             val bytes = tempFile.readBytes()
             val base64String = tempFile.readBase64String()
             if (bytes.isNotEmpty()) {
@@ -45,6 +50,8 @@ class GetModelsUseCase(
                 return@runCatching Pair<ByteArray?, String>(null, "")
             }
         }
+
+    // --- Existing progress (Int %) API (you can keep this if used somewhere else) ---
 
     suspend fun downloadModel(
         model: LlamaModel,
@@ -58,11 +65,30 @@ class GetModelsUseCase(
             ) { downloaded, total ->
                 if (total > 0) {
                     val pct = ((downloaded.toDouble() / total.toDouble()) * 100.0)
-                        .toInt().coerceIn(0, 100)
+                        .toInt()
+                        .coerceIn(0, 100)
                     onProgress(pct)
                 } else {
                     onProgress(0)
                 }
+            }
+            return@runCatching file
+        }
+
+    // --- NEW: bytes + total version used by ChatBotViewModel.onDownloadModel ---
+
+    suspend fun downloadModel(
+        modelUrl: String,
+        onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit
+    ): Result<LlamatikTempFile> =
+        runCatching {
+            val fileName = extractFileName(modelUrl)
+            val file = modelsRepository.downloadFileAndSave(
+                url = modelUrl,
+                fileName = fileName
+            ) { downloaded, total ->
+                // Just forward the raw numbers to the caller (ViewModel)
+                onProgress(downloaded, total)
             }
             return@runCatching file
         }
