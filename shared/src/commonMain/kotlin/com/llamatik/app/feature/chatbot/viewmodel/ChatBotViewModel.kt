@@ -22,8 +22,10 @@ import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +73,7 @@ class ChatBotViewModel(
             header = getCurrentLocalization().welcome,
             latestNews = emptyList(),
             embedModels = emptyList(),
+            isGenerating = false,
         )
     )
     val state = _state.asStateFlow()
@@ -90,7 +93,10 @@ class ChatBotViewModel(
     @Volatile
     private var started = false
 
-    private val downloadJobs = mutableMapOf<String, kotlinx.coroutines.Job>()
+    private val downloadJobs = mutableMapOf<String, Job>()
+
+    /** The currently running generation job (direct chat path). */
+    private var currentGenerationJob: Job? = null
 
     init {
         val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
@@ -113,7 +119,11 @@ class ChatBotViewModel(
         }
     }
 
-    fun onStarted(navigator: Navigator? = null, embedFilePath: String? = null, generatorFilePath: String? = null) {
+    fun onStarted(
+        navigator: Navigator? = null,
+        embedFilePath: String? = null,
+        generatorFilePath: String? = null
+    ) {
         navigator?.let {
             this.navigator = it
         }
@@ -146,11 +156,12 @@ class ChatBotViewModel(
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess {
                     for (model in it) {
-                        model.localPath?.let {
+                        model.localPath?.let { path ->
                             Logger.d("LlamaVM - Init Generate Model: ${model.name}")
-                            val isLoaded = LlamaBridge.initGenerateModel(model.localPath)
+                            val isLoaded = LlamaBridge.initGenerateModel(path)
                             if (isLoaded) {
-                                _state.value = _state.value.copy(selectedGenerateModelName = model.name)
+                                _state.value =
+                                    _state.value.copy(selectedGenerateModelName = model.name)
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
                             } else {
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
@@ -380,8 +391,11 @@ class ChatBotViewModel(
         return this
     }
 
-
     override fun onDispose() {
+        // Stop any ongoing generation when the screen is disposed
+        currentGenerationJob?.cancel()
+        currentGenerationJob = null
+        _state.value = _state.value.copy(isGenerating = false)
         LlamaBridge.shutdown()
     }
 
@@ -506,15 +520,21 @@ class ChatBotViewModel(
         val input = message.trim()
         if (input.isBlank()) return
 
-        screenModelScope.launch {
+        // 🔹 Stop any ongoing generation before starting a new one
+        currentGenerationJob?.cancel()
+        currentGenerationJob = null
+        activeRequestId = null
+
+        val job = screenModelScope.launch {
             // 1) Append user message bubble
             _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+            _state.value = _state.value.copy(isGenerating = true)
 
             withContext(Dispatchers.IO) {
                 try {
-                    // 2) Instruction-style template (works better for small instruct GGUFs like SmolVLM/Phi/Gemma-instruct)
+                    // 2) Instruction-style template
                     val prompt = buildString {
                         appendLine("You are a helpful, concise assistant. Answer clearly and directly.")
                         appendLine("Avoid long lists or repeating words. Keep answers short (3–6 sentences).")
@@ -566,6 +586,8 @@ class ChatBotViewModel(
                                             ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
                                     completed = true
                                     activeRequestId = null
+                                    _state.value =
+                                        _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                     return
                                 }
@@ -575,9 +597,12 @@ class ChatBotViewModel(
                                     completed = true
                                     activeRequestId = null
                                     // lightly trim trailing commas/dangling tokens
-                                    val cleaned = acc.toString().trim().trimEnd(',', ' ', '\n')
+                                    val cleaned =
+                                        acc.toString().trim().trimEnd(',', ' ', '\n')
                                     _conversation.value = _conversation.value.dropLast(1) +
                                             ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
+                                    _state.value =
+                                        _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 }
                             }
@@ -586,6 +611,7 @@ class ChatBotViewModel(
                                 if (activeRequestId != requestId || completed) return
                                 completed = true
                                 activeRequestId = null
+                                _state.value = _state.value.copy(isGenerating = false)
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                             }
 
@@ -597,16 +623,34 @@ class ChatBotViewModel(
                                             ChatUiModel.Author.bot
                                         )
                                 activeRequestId = null
+                                _state.value = _state.value.copy(isGenerating = false)
                                 _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                             }
                         }
                     )
+                } catch (e: CancellationException) {
+                    // Generation cancelled (e.g. user pressed Stop)
+                    Logger.d(e) { "Generation cancelled" }
+                    activeRequestId = null
+                    _state.value = _state.value.copy(isGenerating = false)
                 } catch (t: Throwable) {
                     emitBot("There is a problem with the AI: ${t.message ?: "Unknown error"}")
+                    _state.value = _state.value.copy(isGenerating = false)
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                 }
             }
         }
+
+        currentGenerationJob = job
+    }
+
+    /** Called from UI Stop button */
+    fun stopGeneration() {
+        Logger.d { "LlamaVM - stopGeneration()" }
+        currentGenerationJob?.cancel()
+        currentGenerationJob = null
+        activeRequestId = null
+        _state.value = _state.value.copy(isGenerating = false)
     }
 
     private fun emitBot(text: String) {
@@ -642,7 +686,11 @@ class ChatBotViewModel(
     }
 
     fun onClearConversation() {
+        // Stop any ongoing generation and clear the active request
+        currentGenerationJob?.cancel()
+        currentGenerationJob = null
         activeRequestId = null
+        _state.value = _state.value.copy(isGenerating = false)
         screenModelScope.launch { _conversation.emit(emptyList()) }
     }
 
@@ -760,6 +808,7 @@ data class ChatBotState(
     val isGenerateModelLoaded: Boolean = false,
     val selectedEmbedModelName: String? = null,
     val selectedGenerateModelName: String? = null,
+    val isGenerating: Boolean = false,
 )
 
 sealed class ChatBotSideEffects {

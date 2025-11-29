@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -142,7 +143,7 @@ class ChatBotTabScreen : Screen {
                     selectedGenerateModelName = state.selectedGenerateModelName,
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
-                    loadingEmbedModelName = loadingEmbedModelName.value,          // NEW
+                    loadingEmbedModelName = loadingEmbedModelName.value,
                     loadingGenerateModelName = loadingGenerateModelName.value,
                     onEmbedModelSelectedClicked = { model ->
                         loadingEmbedModelName.value = model.name
@@ -292,7 +293,9 @@ class ChatBotTabScreen : Screen {
                         .background(MaterialTheme.colorScheme.background)
                 ) {
                     Spacer(
-                        modifier = Modifier.fillMaxWidth().height(1.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
                             .background(MaterialTheme.colorScheme.surfaceDim)
                     )
 
@@ -329,7 +332,9 @@ class ChatBotTabScreen : Screen {
 
         Box {
             Image(
-                modifier = Modifier.fillMaxWidth().height(140.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
                     .onGloballyPositioned {
                         sizeImage = it.size
                     },
@@ -355,7 +360,7 @@ class ChatBotTabScreen : Screen {
         val listState = rememberLazyListState()
         LaunchedEffect(chatUiModel.messages.size) {
             if (chatUiModel.messages.isNotEmpty()) {
-                listState.animateScrollToItem(chatUiModel.messages.size -1)
+                listState.animateScrollToItem(chatUiModel.messages.size - 1)
             }
         }
 
@@ -364,7 +369,9 @@ class ChatBotTabScreen : Screen {
         ) {
             if (chatUiModel.messages.isEmpty()) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -374,7 +381,9 @@ class ChatBotTabScreen : Screen {
             } else {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxWidth().weight(1f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 ) {
                     items(chatUiModel.messages.size) { item ->
                         ChatItem(
@@ -435,7 +444,8 @@ class ChatBotTabScreen : Screen {
                     modifier = Modifier.align(Alignment.CenterVertically),
                     text = if (message.isFromMe) "\uD83D\uDEE9 Me" else "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F Llamatik AI",
                     style = Typography.get().titleSmall,
-                    color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurface,
                 )
                 if (showLoading) {
                     Spacer(modifier = Modifier.size(8.dp))
@@ -519,6 +529,7 @@ fun ChatInputBox(
             mutableStateOf(TextFieldValue())
         }
 
+        val isGenerating = state.isGenerating
         Column(
             horizontalAlignment = Alignment.Start,
         ) {
@@ -588,7 +599,15 @@ fun ChatInputBox(
                         capitalization = KeyboardCapitalization.Sentences
                     ),
                     keyboardActions = KeyboardActions(
-                        onSend = { keyboardController?.hide() },
+                        onSend = {
+                            if (!isGenerating && canSend) {
+                                val message = input.text.trim()
+                                input = TextFieldValue()
+                                viewModel.onMessageSendDirect(message)
+                                showSuggestions.value = false
+                                keyboardController?.hide()
+                            }
+                        },
                     ),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -598,32 +617,51 @@ fun ChatInputBox(
                         unfocusedIndicatorColor = Color.Transparent
                     ),
                     trailingIcon = {
-                        IconButton(
-                            onClick = {
-                                if (canSend) {
-                                    val message = input.text.trim()
-                                    input = TextFieldValue()
-                                    viewModel.onMessageSendDirect(message)
-                                    showSuggestions.value = false
-                                    keyboardController?.hide()
-                                }
-                            },
-                            enabled = canSend,
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(
-                                    if (canSend) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surfaceVariant
+                        if (isGenerating) {
+                            IconButton(
+                                onClick = {
+                                    viewModel.stopGeneration()
+                                },
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.errorContainer)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Stop,
+                                    contentDescription = "Stop",
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
                                 )
-                        ) {
-                            Icon(
-                                imageVector = LlamatikIcons.Send,
-                                contentDescription = "Send",
-                                tint = if (canSend) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            }
+                        } else {
+                            IconButton(
+                                onClick = {
+                                    if (canSend) {
+                                        val message = input.text.trim()
+                                        input = TextFieldValue()
+                                        viewModel.onMessageSendDirect(message)
+                                        showSuggestions.value = false
+                                        keyboardController?.hide()
+                                    }
+                                },
+                                enabled = canSend,
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(
+                                        if (canSend) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = LlamatikIcons.Send,
+                                    contentDescription = "Send",
+                                    tint = if (canSend) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     },
                 )
@@ -681,21 +719,21 @@ fun GenerateModelSelector(
                         )
                     }
                 }
-/*
-                Spacer(modifier = Modifier.size(8.dp))
+                /*
+                                Spacer(modifier = Modifier.size(8.dp))
 
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.size(24.dp),
-                    content = {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
- */
+                                IconButton(
+                                    onClick = onOpenSettings,
+                                    modifier = Modifier.size(24.dp),
+                                    content = {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                )
+                 */
             }
         }
     }
