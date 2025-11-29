@@ -81,7 +81,6 @@ import com.llamatik.app.ui.theme.Typography
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
-
 class ChatBotTabScreen : Screen {
     @Composable
     override fun Content() {
@@ -111,6 +110,7 @@ class ChatBotTabScreen : Screen {
 
         val state by viewModel.state.collectAsState()
         val conversation = viewModel.conversation.collectAsState()
+
         SetupSideEffects(
             viewModel = viewModel,
             isLoading = isLoading,
@@ -119,17 +119,62 @@ class ChatBotTabScreen : Screen {
             loadingEmbedModelName = loadingEmbedModelName,
             loadingGenerateModelName = loadingGenerateModelName,
         )
+
         LlamatikTheme {
-            ChatBotScreenView(
-                viewModel,
-                localization,
-                conversation.value,
-                isLoading,
-                state,
-                showSuggestions,
-                showSettingsSheet,
-                showModelSelectorSheet
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                ChatBotScreenView(
+                    viewModel,
+                    localization,
+                    conversation.value,
+                    isLoading,
+                    state,
+                    showSuggestions,
+                    showSettingsSheet,
+                    showModelSelectorSheet
+                )
+
+                // --------- Initial setup overlay (auto model download) ----------
+                if (state.isInitialSetup) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 24.dp, vertical = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                            )
+                            Text(
+                                text = "Setting up Llamatik…",
+                                style = Typography.get().titleMedium
+                            )
+                            val modelName = state.initialSetupModelName ?: "AI model"
+                            Text(
+                                text = "Downloading $modelName for the first time.\nThis may take a few minutes.",
+                                style = Typography.get().bodyMedium
+                            )
+                            if (state.initialSetupProgress > 0) {
+                                Text(
+                                    text = "Progress: ${state.initialSetupProgress.coerceIn(0, 100)}%",
+                                    style = Typography.get().labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+                // ----------------------------------------------------------------
+            }
+
             if (showSettingsSheet.value) {
                 ModelSettingsBottomSheet {
                     showSettingsSheet.value = false
@@ -238,7 +283,6 @@ class ChatBotTabScreen : Screen {
         showModelSelectorSheet: MutableState<Boolean>,
     ) {
         BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
-
             Scaffold(
                 topBar = {
                     TopAppBar(
@@ -719,21 +763,6 @@ fun GenerateModelSelector(
                         )
                     }
                 }
-                /*
-                                Spacer(modifier = Modifier.size(8.dp))
-
-                                IconButton(
-                                    onClick = onOpenSettings,
-                                    modifier = Modifier.size(24.dp),
-                                    content = {
-                                        Icon(
-                                            imageVector = Icons.Default.Settings,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                )
-                 */
             }
         }
     }

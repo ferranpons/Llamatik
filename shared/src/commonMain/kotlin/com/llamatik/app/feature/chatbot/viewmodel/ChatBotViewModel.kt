@@ -149,21 +149,29 @@ class ChatBotViewModel(
                     Logger.e(error.message ?: "Unknown error")
                 }
             getModelsUseCase.getDefaultGenerateModels()
-                .onSuccess {
-                    for (model in it) {
+                .onSuccess { models ->
+                    // Try to init any already-downloaded generate models
+                    for (model in models) {
                         model.localPath?.let { path ->
                             Logger.d("LlamaVM - Init Generate Model: ${model.name}")
                             val isLoaded = LlamaBridge.initGenerateModel(path)
                             if (isLoaded) {
                                 _state.value =
-                                    _state.value.copy(selectedGenerateModelName = model.name)
+                                    _state.value.copy(
+                                        selectedGenerateModelName = model.name,
+                                        isGenerateModelLoaded = true
+                                    )
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                                return@launch
                             } else {
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                             }
                         }
                     }
-                    _state.value = _state.value.copy(generateModels = it)
+                    _state.value = _state.value.copy(generateModels = models)
+
+                    // If there is no local model at all, begin initial setup auto-download
+                    startInitialSetupIfNeeded(models)
                 }
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
@@ -176,6 +184,116 @@ class ChatBotViewModel(
             vectorStore = loadVectorStoreEntries()
         }
         _sideEffects.trySend(ChatBotSideEffects.OnLoaded)
+    }
+
+    /**
+     * Check if we already have at least one generate model locally.
+     * If not, automatically download and initialize the default model.
+     * We prefer Gemma 3 by name if available.
+     */
+    private suspend fun startInitialSetupIfNeeded(models: List<LlamaModel>) {
+        if (models.isEmpty()) return
+
+        // Do we already have a local path for any generate model?
+        val hasLocal = models.any { model ->
+            val fromState = model.localPath
+            val fromStorage = getModelsUseCase.getSavedModelPath(model.name)
+                .takeIf { it.isNotEmpty() }
+            !fromState.isNullOrEmpty() || !fromStorage.isNullOrEmpty()
+        }
+        if (hasLocal) {
+            return
+        }
+
+        // ---- Prefer Gemma 3 model by default ----
+        val defaultModel = models.firstOrNull {
+            it.name.contains("gemma 3", ignoreCase = true) ||
+                    it.name.contains("gemma3", ignoreCase = true)
+        } ?: models.first()
+
+        val url = defaultModel.url
+        Logger.d("LlamaVM - initial setup: downloading default generate model ${defaultModel.name}")
+
+        _state.value = _state.value.copy(
+            isInitialSetup = true,
+            initialSetupModelName = defaultModel.name,
+            initialSetupProgress = 0
+        )
+
+        updateDownload(url) {
+            it.copy(
+                inProgress = true,
+                progress = 0,
+                done = false,
+                error = null
+            )
+        }
+
+        getModelsUseCase.downloadModel(url) { bytes, totalBytes ->
+            val progress = if (totalBytes > 0) {
+                ((bytes.toFloat() / totalBytes.toFloat()) * 100f).toInt()
+            } else 0
+            updateDownload(url) {
+                it.copy(
+                    inProgress = true,
+                    progress = progress
+                )
+            }
+            _state.value = _state.value.copy(initialSetupProgress = progress)
+        }.onSuccess { tempFile ->
+            Logger.d("LlamaVM - initial setup download finished for ${defaultModel.name}")
+            val path = tempFile.absolutePath()
+
+            getModelsUseCase.saveModelPath(defaultModel.name, path)
+
+            _state.value = _state.value.copy(
+                generateModels = _state.value.generateModels.map {
+                    if (it.url == url) it.copy(
+                        fileName = path,
+                        localPath = path
+                    ) else it
+                }
+            )
+
+            val loaded = LlamaBridge.initGenerateModel(path)
+            if (loaded) {
+                _state.value = _state.value.copy(
+                    selectedGenerateModelName = defaultModel.name,
+                    isGenerateModelLoaded = true,
+                    isInitialSetup = false,
+                    initialSetupProgress = 100
+                )
+                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+            } else {
+                _state.value = _state.value.copy(
+                    isInitialSetup = false
+                )
+                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+            }
+
+            updateDownload(url) {
+                it.copy(
+                    inProgress = false,
+                    progress = 100,
+                    done = true,
+                    error = null
+                )
+            }
+        }.onFailure { error ->
+            Logger.e(error.message ?: "Unknown error") {
+                "LlamaVM - initial setup download failed for ${defaultModel.name}"
+            }
+            _state.value = _state.value.copy(
+                isInitialSetup = false
+            )
+            updateDownload(url) {
+                it.copy(
+                    inProgress = false,
+                    error = error.message,
+                    done = false
+                )
+            }
+        }
     }
 
     fun onEmbedModelSelected(model: LlamaModel) {
@@ -275,7 +393,6 @@ class ChatBotViewModel(
                     )
                 }.onFailure { error ->
                     if (coroutineContext.isActive) {
-                        // Real error
                         Logger.e(error.message ?: "Unknown error")
                         updateDownload(url) {
                             it.copy(
@@ -387,7 +504,6 @@ class ChatBotViewModel(
     }
 
     override fun onDispose() {
-        // Do NOT cancel native generation abruptly – just shut down cleanly
         activeRequestId = null
         _state.value = _state.value.copy(isGenerating = false)
         LlamaBridge.shutdown()
@@ -507,13 +623,11 @@ class ChatBotViewModel(
         }
     }
 
-    // === Alternative entry point using LlamaBridge directly (no RAG/embeddings) ===
     fun onMessageSendDirect(message: String) {
         val input = message.trim()
         if (input.isBlank()) return
 
         screenModelScope.launch {
-            // 1) Append user message bubble
             _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
@@ -615,11 +729,11 @@ class ChatBotViewModel(
         }
     }
 
-    /** Called from UI Stop button – logical stop, no native cancellation */
+    /** Called from UI Stop button */
     fun stopGeneration() {
         Logger.d { "LlamaVM - stopGeneration()" }
         LlamaBridge.nativeCancelGenerate()
-        activeRequestId = null      // all callbacks for current requestId will be ignored
+        activeRequestId = null
         _state.value = _state.value.copy(isGenerating = false)
     }
 
@@ -676,6 +790,11 @@ class ChatBotViewModel(
     private fun onPrivacyAccepted() {
         settings.putBoolean(PRIVACY_CHATBOT_VIEWED_KEY, true)
         navigator.pop()
+        // when the user closes onboarding, if there is still no model,
+        // initial setup will be started (or has already started) based on current state
+        screenModelScope.launch(Dispatchers.IO) {
+            startInitialSetupIfNeeded(_state.value.generateModels)
+        }
     }
 
     // --- mapping helpers ---
@@ -692,7 +811,6 @@ class ChatBotViewModel(
 
     // --- Echo/loop guard utilities ---
 
-    /** Detects obvious loops: question echoed, or a long suffix repeated twice. */
     private fun looksLikeEchoOrLoop(full: String, user: String): Boolean {
         val f = full.trim()
         if (f.isEmpty()) return false
@@ -712,7 +830,6 @@ class ChatBotViewModel(
         return false
     }
 
-    /** Trim after the first occurrence of repeated content or before echoed question. */
     private fun trimLoop(full: String, user: String): String {
         val f = full.trim()
         val idxEcho = f.indexOf(user, startIndex = minOf(80, f.length))
@@ -773,6 +890,9 @@ data class ChatBotState(
     val selectedEmbedModelName: String? = null,
     val selectedGenerateModelName: String? = null,
     val isGenerating: Boolean = false,
+    val isInitialSetup: Boolean = false,
+    val initialSetupProgress: Int = 0,
+    val initialSetupModelName: String? = null,
 )
 
 sealed class ChatBotSideEffects {
