@@ -93,9 +93,13 @@ class ChatBotViewModel(
 
     private val downloadJobs = mutableMapOf<String, Job>()
 
+    /** Whether the user has already accepted the privacy/onboarding */
+    private var hasAcceptedPrivacy: Boolean =
+        settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
+
     init {
-        val isPrivacyMessageDisplayed = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
-        if (isPrivacyMessageDisplayed) {
+        // If privacy not accepted yet → show onboarding first.
+        if (!hasAcceptedPrivacy) {
             navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
         }
     }
@@ -134,6 +138,7 @@ class ChatBotViewModel(
                 LlamaBridge.initGenerateModel(generatorFilePath)
                 _state.value = _state.value.copy(isGenerateModelLoaded = true)
             }
+
             getAllNewsUseCase.invoke()
                 .onSuccess {
                     _state.value = _state.value.copy(latestNews = it)
@@ -141,6 +146,7 @@ class ChatBotViewModel(
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
                 }
+
             getModelsUseCase.getDefaultEmbedModels()
                 .onSuccess {
                     _state.value = _state.value.copy(embedModels = it)
@@ -148,6 +154,7 @@ class ChatBotViewModel(
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
                 }
+
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess { models ->
                     // Try to init any already-downloaded generate models
@@ -170,17 +177,20 @@ class ChatBotViewModel(
                     }
                     _state.value = _state.value.copy(generateModels = models)
 
-                    // If there is no local model at all, begin initial setup auto-download
-                    startInitialSetupIfNeeded(models)
+                    if (hasAcceptedPrivacy) {
+                        startInitialSetupIfNeeded(models)
+                    }
                 }
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
                 }
+
             _state.value = _state.value.copy(
                 greeting = getGreeting(),
                 header = getCurrentLocalization().welcome,
                 latestNews = _state.value.latestNews,
             )
+
             vectorStore = loadVectorStoreEntries()
         }
         _sideEffects.trySend(ChatBotSideEffects.OnLoaded)
@@ -233,6 +243,7 @@ class ChatBotViewModel(
             val progress = if (totalBytes > 0) {
                 ((bytes.toFloat() / totalBytes.toFloat()) * 100f).toInt()
             } else 0
+
             updateDownload(url) {
                 it.copy(
                     inProgress = true,
@@ -419,7 +430,6 @@ class ChatBotViewModel(
                     Logger.d { "LlamaVM - download cancelled for $url" }
                 }
             } finally {
-                // Remove the job reference when finished or cancelled
                 downloadJobs.remove(url)
             }
         }
@@ -546,7 +556,6 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    // Tighter system prompt to discourage repetition
                     val systemPrompt = """
                         You are a concise technical assistant.
                         Use ONLY the CONTEXT to answer. If the context is insufficient, say briefly that you don't have enough information.
@@ -554,14 +563,11 @@ class ChatBotViewModel(
                         End your answer when done.
                     """.trimIndent()
 
-                    // Placeholder for streaming assistant
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
-                    // Build common chat history (user + any prior assistant turns), drop placeholder
                     val chatHistory: List<ChatMessage> =
                         toChatMessages(_conversation.value.dropLast(1))
 
-                    // Streaming with loop/echo guard
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
                     val acc = StringBuilder()
@@ -623,6 +629,7 @@ class ChatBotViewModel(
         }
     }
 
+    // === Alternative entry point using LlamaBridge directly (no RAG/embeddings) ===
     fun onMessageSendDirect(message: String) {
         val input = message.trim()
         if (input.isBlank()) return
@@ -645,7 +652,6 @@ class ChatBotViewModel(
                         append("### Response:\n")
                     }
 
-                    // Placeholder assistant bubble
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val requestId = kotlin.random.Random.nextLong().toString()
@@ -664,7 +670,6 @@ class ChatBotViewModel(
                         return m != null
                     }
 
-                    // 4) Stream tokens directly from the bridge using the callback interface
                     LlamaBridge.generateStream(
                         prompt = prompt,
                         callback = object : GenStream {
@@ -729,7 +734,7 @@ class ChatBotViewModel(
         }
     }
 
-    /** Called from UI Stop button */
+    /** Called from UI Stop button – logical stop + native cancellation */
     fun stopGeneration() {
         Logger.d { "LlamaVM - stopGeneration()" }
         LlamaBridge.nativeCancelGenerate()
@@ -789,11 +794,15 @@ class ChatBotViewModel(
 
     private fun onPrivacyAccepted() {
         settings.putBoolean(PRIVACY_CHATBOT_VIEWED_KEY, true)
+        hasAcceptedPrivacy = true
         navigator.pop()
-        // when the user closes onboarding, if there is still no model,
-        // initial setup will be started (or has already started) based on current state
+
+        // After onboarding is closed, start initial setup (Gemma 3 download) if needed.
         screenModelScope.launch(Dispatchers.IO) {
-            startInitialSetupIfNeeded(_state.value.generateModels)
+            val models = _state.value.generateModels.ifEmpty {
+                getModelsUseCase.getDefaultGenerateModels().getOrElse { emptyList() }
+            }
+            startInitialSetupIfNeeded(models)
         }
     }
 
@@ -890,9 +899,11 @@ data class ChatBotState(
     val selectedEmbedModelName: String? = null,
     val selectedGenerateModelName: String? = null,
     val isGenerating: Boolean = false,
+
+    // Initial setup overlay state
     val isInitialSetup: Boolean = false,
-    val initialSetupProgress: Int = 0,
     val initialSetupModelName: String? = null,
+    val initialSetupProgress: Int = 0,
 )
 
 sealed class ChatBotSideEffects {
