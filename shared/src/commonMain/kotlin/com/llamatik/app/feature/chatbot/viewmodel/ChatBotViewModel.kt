@@ -169,7 +169,7 @@ class ChatBotViewModel(
                                         isGenerateModelLoaded = true
                                     )
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
-                                return@launch
+                                break
                             } else {
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                             }
