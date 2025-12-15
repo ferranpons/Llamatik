@@ -10,6 +10,7 @@ import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.utils.ChatMessage
 import com.llamatik.app.feature.chatbot.utils.ChatRunner
 import com.llamatik.app.feature.chatbot.utils.Gemma3
+import com.llamatik.app.feature.chatbot.utils.PromptTemplate
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
 import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
 import com.llamatik.app.feature.chatbot.utils.retrieveContext
@@ -576,7 +577,7 @@ class ChatBotViewModel(
                         system = systemPrompt,
                         contexts = listOf(compact),
                         messages = chatHistory,
-                        template = Gemma3,
+                        template = currentGenerateTemplate(),
                         maxTokens = 256,
                         onDelta = { chunk ->
                             if (activeRequestId != requestId) return@stream
@@ -816,6 +817,18 @@ class ChatBotViewModel(
                 else -> null
             }
         }
+    }
+
+    private fun currentGenerateTemplate(): PromptTemplate {
+        val state = _state.value
+        val selectedName = state.selectedGenerateModelName
+
+        val modelTemplate = state.generateModels
+            .firstOrNull { it.name == selectedName }
+            ?.template
+
+        // Fallback to Gemma3 so we never break if something is null
+        return modelTemplate ?: Gemma3
     }
 
     // --- Echo/loop guard utilities ---
