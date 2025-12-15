@@ -43,6 +43,10 @@ import kotlin.time.Clock.System
 import kotlin.time.ExperimentalTime
 
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
+private const val DEFAULT_SYSTEM_PROMPT = """
+You are Llamatik, a privacy-first local AI assistant running fully on-device.
+Be clear, honest, and concise. Answer in the user's language.
+"""
 
 class ChatBotViewModel(
     private var navigator: Navigator,
@@ -114,7 +118,7 @@ class ChatBotViewModel(
         return when (localDateTime.hour) {
             in 6..11 -> getCurrentLocalization().greetingMorning
             in 12..17 -> getCurrentLocalization().greetingAfternoon
-            in 16..21 -> getCurrentLocalization().greetingEvening
+            in 18..21 -> getCurrentLocalization().greetingEvening
             else -> getCurrentLocalization().greetingNight
         }
     }
@@ -557,13 +561,6 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    val systemPrompt = """
-                        You are a concise technical assistant.
-                        Use ONLY the CONTEXT to answer. If the context is insufficient, say briefly that you don't have enough information.
-                        Do NOT repeat the user's question. Do NOT repeat sentences verbatim. Avoid lists longer than 6 items.
-                        End your answer when done.
-                    """.trimIndent()
-
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val chatHistory: List<ChatMessage> =
@@ -574,7 +571,7 @@ class ChatBotViewModel(
                     val acc = StringBuilder()
 
                     ChatRunner.stream(
-                        system = systemPrompt,
+                        system = currentSystemPrompt(),
                         contexts = listOf(compact),
                         messages = chatHistory,
                         template = currentGenerateTemplate(),
@@ -643,16 +640,6 @@ class ChatBotViewModel(
 
             withContext(Dispatchers.IO) {
                 try {
-                    val prompt = buildString {
-                        appendLine("You are a helpful, concise assistant. Answer clearly and directly.")
-                        appendLine("Avoid long lists or repeating words. Keep answers short (3–6 sentences).")
-                        appendLine()
-                        appendLine("### Instruction:")
-                        appendLine(input)
-                        appendLine()
-                        append("### Response:\n")
-                    }
-
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val requestId = kotlin.random.Random.nextLong().toString()
@@ -672,7 +659,7 @@ class ChatBotViewModel(
                     }
 
                     LlamaBridge.generateStream(
-                        prompt = prompt,
+                        prompt = buildDirectPrompt(input),
                         callback = object : GenStream {
                             override fun onDelta(text: String) {
                                 if (activeRequestId != requestId || completed) return
@@ -829,6 +816,24 @@ class ChatBotViewModel(
 
         // Fallback to Gemma3 so we never break if something is null
         return modelTemplate ?: Gemma3
+    }
+
+    private fun currentGenerateModel(): LlamaModel? {
+        val state = _state.value
+        return state.generateModels.firstOrNull { it.name == state.selectedGenerateModelName }
+    }
+
+    private fun currentSystemPrompt(): String {
+        return currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
+    }
+
+    private fun buildDirectPrompt(input: String): String {
+        return buildString {
+            append(currentSystemPrompt())
+            append("\n\nUser:\n")
+            append(input.trim())
+            append("\n\nAssistant:")
+        }
     }
 
     // --- Echo/loop guard utilities ---

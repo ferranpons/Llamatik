@@ -10,4 +10,5 @@ data class LlamaModel(
     val fileName: String? = null,
     val localPath: String? = null,
     val template: PromptTemplate = Plain,
+    val systemPrompt: String? = null,
 )
