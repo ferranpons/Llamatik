@@ -1,0 +1,64 @@
+cmake_minimum_required(VERSION 3.18)
+project(llama_jni_desktop CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ----------------------------------------------------------------------------------
+# Paths:
+#  - LLAMA_WRAPPER_DIR: your existing CMake project that builds llama_static_wrapper
+#  - JNI_SRC_DIR: where your JNI bridge (llama_jni.cpp) lives
+# ----------------------------------------------------------------------------------
+
+# Existing wrapper (used for iOS, etc.)
+set(LLAMA_WRAPPER_DIR "${CMAKE_CURRENT_LIST_DIR}/../llama-wrapper")
+
+# JNI wrapper used also by Android
+set(JNI_SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/../../src/commonMain/cpp")
+
+# Header generated / maintained for cinterop (contains llama_jni.h)
+set(JNI_CINTEROP_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../src/commonMain/c_interop/include")
+
+# ----------------------------------------------------------------------------------
+# Bring in existing llama wrapper CMake project
+# This defines 'llama_static_wrapper', which links llama.cpp + ggml, etc.
+# ----------------------------------------------------------------------------------
+add_subdirectory("${LLAMA_WRAPPER_DIR}" "${CMAKE_BINARY_DIR}/llama-wrapper-build")
+
+# ----------------------------------------------------------------------------------
+# JNI headers
+# ----------------------------------------------------------------------------------
+find_package(JNI REQUIRED)
+
+include_directories(
+        ${JNI_INCLUDE_DIRS}
+        "${JNI_SRC_DIR}"
+        "${JNI_CINTEROP_INCLUDE_DIR}"
+)
+
+# ----------------------------------------------------------------------------------
+# JNI bridge source
+# Make sure this file exists:
+#   library/src/commonMain/cpp/llama_jni.cpp
+# ----------------------------------------------------------------------------------
+add_library(llama_jni SHARED
+        "${JNI_SRC_DIR}/llama_jni.cpp"
+)
+
+# ----------------------------------------------------------------------------------
+# Link against your static wrapper from llama.cpp
+# 'llama_static_wrapper' is the target built in llama-wrapper/CMakeLists.txt
+# ----------------------------------------------------------------------------------
+target_link_libraries(llama_jni
+        PRIVATE
+        llama_static_wrapper
+)
+
+# ----------------------------------------------------------------------------------
+# Make sure the output goes directly into the build dir we use as java.library.path
+# Gradle sets CMAKE_BINARY_DIR to: library/build/llama-jni/macos
+# so we want: library/build/llama-jni/macos/libllama_jni.dylib
+# ----------------------------------------------------------------------------------
+set_target_properties(llama_jni PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)

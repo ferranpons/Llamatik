@@ -52,8 +52,10 @@ kotlin {
             if (out.isNotEmpty() && file(out).canExecute()) return out
         } catch (_: Throwable) {}
         for (p in candidates) if (file(p).canExecute()) return p
-        throw GradleException("Cannot find required tool '$name'. " +
-                "Install it (e.g. 'brew install $name') or set ${name.uppercase()}_PATH=/full/path/to/$name")
+        throw GradleException(
+            "Cannot find required tool '$name'. " +
+                    "Install it (e.g. 'brew install $name') or set ${name.uppercase()}_PATH=/full/path/to/$name"
+        )
     }
 
     // Resolve tools once
@@ -187,6 +189,43 @@ kotlin {
         }
     }
 
+    // ---------- Desktop (macOS) JNI build for llama_jni ----------
+
+    // This is where we'll output libllama_jni.dylib for desktop (via CMakeLists.txt)
+    val macJniBuildDir = buildDir.resolve("llama-jni/macos")
+
+    val buildLlamaJniDesktop by tasks.registering(Exec::class) {
+        group = "llama-native"
+        description = "Configure CMake for desktop (macOS) llama_jni"
+
+        doFirst {
+            // CMakeLists.txt should live here and build a SHARED library called 'llama_jni'
+            // which ends up as: library/build/llama-jni/macos/libllama_jni.dylib
+            val sourceDir = projectDir.resolve("cmake/llama-jni-desktop")
+            macJniBuildDir.mkdirs()
+
+            commandLine(
+                cmakePath,
+                "-S", sourceDir.absolutePath,
+                "-B", macJniBuildDir.absolutePath,
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DCMAKE_SYSTEM_NAME=Darwin"
+            )
+        }
+    }
+
+    val compileLlamaJniDesktop by tasks.registering(Exec::class) {
+        group = "llama-native"
+        description = "Build desktop (macOS) libllama_jni.dylib"
+        dependsOn(buildLlamaJniDesktop)
+
+        commandLine(
+            cmakePath,
+            "--build", macJniBuildDir.absolutePath,
+            "--config", "Release"
+        )
+    }
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -203,6 +242,11 @@ kotlin {
         }
         val androidMain by getting
     }
+}
+
+// Make sure building the library also builds the desktop JNI
+tasks.named("build").configure {
+    dependsOn("compileLlamaJniDesktop")
 }
 
 compose.resources {

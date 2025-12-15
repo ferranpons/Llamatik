@@ -193,7 +193,17 @@ android {
 compose.desktop {
     application {
         mainClass = "MainKt"
-        jvmArgs += listOf("-Dapple.awt.application.name=Llamatik")
+
+        // NEW: tell the JVM where libllama_jni.dylib is built
+        val nativeDir = project(":library")
+            .buildDir
+            .resolve("llama-jni/macos")
+            .absolutePath
+
+        jvmArgs += listOf(
+            "-Dapple.awt.application.name=Llamatik",
+            "-Djava.library.path=$nativeDir"
+        )
 
         nativeDistributions {
             macOS {

@@ -6,52 +6,65 @@ import androidx.compose.runtime.Composable
 
 actual object LlamaBridge {
 
-    // ---------- Small logging helper ----------
+    // ----- Native load flag -----
+
+    private val nativeLoaded: Boolean = run {
+        try {
+            System.loadLibrary("llama_jni")
+            println("🖥️ [JVM LlamaBridge] Loaded native library 'llama_jni'")
+            true
+        } catch (t: Throwable) {
+            println("🖥️ [JVM LlamaBridge] Failed to load 'llama_jni': ${t.message}")
+            false
+        }
+    }
 
     private fun log(msg: String) {
         println("🖥️ [JVM LlamaBridge] $msg")
     }
 
-    // ---------- Model path ----------
+    // ----- Model path -----
 
     /**
-     * On JVM/desktop we assume [modelFileName] is already a usable path,
-     * or the caller knows where the model lives.
-     *
-     * If you want, you can later change this to resolve something like
-     * `~/Llamatik/models/<modelFileName>` or a configurable directory.
+     * On JVM / desktop we assume [modelFileName] is already an absolute path,
+     * e.g. the value coming from LlamatikTempFile.absolutePath().
      */
     @Composable
     actual fun getModelPath(modelFileName: String): String {
-        // For now, just return it as-is.
-        log("getModelPath('$modelFileName') → returning unchanged on JVM")
+        log("getModelPath('$modelFileName')")
         return modelFileName
     }
 
-    // ---------- Init / embedding ----------
+    // ----- Native declarations (only used when nativeLoaded = true) -----
 
-    actual fun initModel(modelPath: String): Boolean {
-        log("initModel('$modelPath') called on JVM stub – no native backend wired.")
-        // Stub: pretend failure so you can detect that desktop backend isn't enabled.
-        return false
-    }
+    private external fun nativeInitModel(modelPath: String): Boolean
+    private external fun nativeEmbed(input: String): FloatArray
+    private external fun nativeInitGenerateModel(modelPath: String): Boolean
+    private external fun nativeGenerate(prompt: String): String
+    private external fun nativeGenerateWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String
+    ): String
 
-    actual fun embed(input: String): FloatArray {
-        log("embed(...) called on JVM stub – returning empty embedding.")
-        return FloatArray(0)
-    }
+    private external fun nativeGenerateStream(prompt: String, callback: GenStream)
+    private external fun nativeGenerateWithContextStream(
+        system: String,
+        context: String,
+        user: String,
+        callback: GenStream
+    )
 
-    actual fun initGenerateModel(modelPath: String): Boolean {
-        log("initGenerateModel('$modelPath') called on JVM stub – no native backend wired.")
-        return false
-    }
+    private external fun nativeShutdown()
+    private external fun nativeCancelGenerateImpl()
 
-    // ---------- Prompt helpers (same format as Android) ----------
+    // ----- Prompt helper (same as Android) -----
 
-    /**
-     * Mirrors the Android buildChatPrompt so behavior is consistent across platforms.
-     */
-    private fun buildChatPrompt(systemPrompt: String, contextBlock: String, userPrompt: String): String {
+    private fun buildChatPrompt(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String
+    ): String {
         return buildString {
             append("<start_of_turn>system\n")
             append(systemPrompt.trim())
@@ -66,14 +79,61 @@ actual object LlamaBridge {
         }
     }
 
-    // ---------- Synchronous generation ----------
+    // ----- Public actuals (safe wrappers) -----
+
+    actual fun initModel(modelPath: String): Boolean {
+        if (!nativeLoaded) {
+            log("initModel('$modelPath') – native library NOT loaded, returning false.")
+            return false
+        }
+        return try {
+            nativeInitModel(modelPath)
+        } catch (e: UnsatisfiedLinkError) {
+            log("initModel: UnsatisfiedLinkError: ${e.message}")
+            false
+        }
+    }
+
+    actual fun embed(input: String): FloatArray {
+        if (!nativeLoaded) {
+            log("embed(...) – native library NOT loaded, returning empty array.")
+            return FloatArray(0)
+        }
+        return try {
+            nativeEmbed(input)
+        } catch (e: UnsatisfiedLinkError) {
+            log("embed: UnsatisfiedLinkError: ${e.message}")
+            FloatArray(0)
+        }
+    }
+
+    actual fun initGenerateModel(modelPath: String): Boolean {
+        if (!nativeLoaded) {
+            log("initGenerateModel('$modelPath') – native library NOT loaded, returning false.")
+            return false
+        }
+        return try {
+            nativeInitGenerateModel(modelPath)
+        } catch (e: UnsatisfiedLinkError) {
+            log("initGenerateModel: UnsatisfiedLinkError: ${e.message}")
+            false
+        }
+    }
 
     actual fun generate(prompt: String): String {
-        log("generate(...) called on JVM stub – returning diagnostic placeholder.")
-        return buildString {
-            append("JVM stub backend – no local llama.cpp wired.\n\n")
-            append("Prompt was:\n")
-            append(prompt)
+        if (!nativeLoaded) {
+            log("generate(...) – native library NOT loaded, returning stub text.")
+            return buildString {
+                append("JVM stub backend – native 'llama_jni' not available.\n\n")
+                append("Prompt was:\n")
+                append(prompt)
+            }
+        }
+        return try {
+            nativeGenerate(prompt)
+        } catch (e: UnsatisfiedLinkError) {
+            log("generate: UnsatisfiedLinkError: ${e.message}")
+            "JVM error: native backend not available."
         }
     }
 
@@ -82,21 +142,37 @@ actual object LlamaBridge {
         contextBlock: String,
         userPrompt: String
     ): String {
-        log("generateWithContext(...) called on JVM stub – delegating to generate() with chat prompt.")
-        val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
-        return generate(prompt)
+        if (!nativeLoaded) {
+            log("generateWithContext(...) – native NOT loaded, using prompt + stub generate().")
+            val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
+            return generate(prompt)
+        }
+        return try {
+            nativeGenerateWithContext(systemPrompt, contextBlock, userPrompt)
+        } catch (e: UnsatisfiedLinkError) {
+            log("generateWithContext: UnsatisfiedLinkError: ${e.message}")
+            val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
+            generate(prompt)
+        }
     }
 
-    // ---------- Streaming generation ----------
-
     actual fun generateStream(prompt: String, callback: GenStream) {
-        log("generateStream(...) called on JVM stub – emitting placeholder and completing.")
+        if (!nativeLoaded) {
+            log("generateStream(...) – native NOT loaded, emitting stub stream.")
+            try {
+                callback.onDelta("JVM stub backend – streaming not available (no llama_jni).\n")
+                callback.onDelta("Prompt was:\n$prompt")
+                callback.onComplete()
+            } catch (t: Throwable) {
+                callback.onError("JVM stub error: ${t.message}")
+            }
+            return
+        }
         try {
-            callback.onDelta("JVM stub backend – streaming is not implemented.\n")
-            callback.onDelta("Prompt was:\n$prompt")
-            callback.onComplete()
-        } catch (t: Throwable) {
-            callback.onError("JVM stub error: ${t.message}")
+            nativeGenerateStream(prompt, callback)
+        } catch (e: UnsatisfiedLinkError) {
+            log("generateStream: UnsatisfiedLinkError: ${e.message}")
+            callback.onError("JVM native error: ${e.message}")
         }
     }
 
@@ -106,8 +182,8 @@ actual object LlamaBridge {
         userPrompt: String,
         callback: GenStream
     ) {
-        log("generateStreamWithContext(...) called on JVM stub – delegating to generateStream().")
         val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
+        log("generateStreamWithContext(...) – delegating to generateStream() with built prompt.")
         generateStream(prompt, callback)
     }
 
@@ -119,24 +195,53 @@ actual object LlamaBridge {
         onDone: () -> Unit,
         onError: (String) -> Unit
     ) {
-        log("generateWithContextStream(...) called on JVM stub – emitting placeholder callbacks.")
+        if (!nativeLoaded) {
+            log("generateWithContextStream(...) – native NOT loaded, emitting stub callbacks.")
+            try {
+                onDelta("JVM stub backend – generateWithContextStream not available (no llama_jni).\n")
+                val prompt = buildChatPrompt(system, context, user)
+                onDelta("Composed prompt was:\n$prompt")
+                onDone()
+            } catch (t: Throwable) {
+                onError("JVM stub error: ${t.message}")
+            }
+            return
+        }
+
         try {
-            onDelta("JVM stub backend – generateWithContextStream is not implemented.\n")
-            val prompt = buildChatPrompt(system, context, user)
-            onDelta("Composed prompt was:\n$prompt")
-            onDone()
-        } catch (t: Throwable) {
-            onError("JVM stub error: ${t.message}")
+            val cb = object : GenStream {
+                override fun onDelta(text: String) = onDelta(text)
+                override fun onComplete() = onDone()
+                override fun onError(message: String) = onError(message)
+            }
+            nativeGenerateWithContextStream(system, context, user, cb)
+        } catch (e: UnsatisfiedLinkError) {
+            log("generateWithContextStream: UnsatisfiedLinkError: ${e.message}")
+            onError("JVM native error: ${e.message}")
         }
     }
 
-    // ---------- Lifecycle ----------
-
     actual fun shutdown() {
-        log("shutdown() called on JVM stub – nothing to clean up.")
+        if (!nativeLoaded) {
+            log("shutdown() – native NOT loaded, nothing to do.")
+            return
+        }
+        try {
+            nativeShutdown()
+        } catch (e: UnsatisfiedLinkError) {
+            log("shutdown: UnsatisfiedLinkError: ${e.message}")
+        }
     }
 
     actual fun nativeCancelGenerate() {
-        log("nativeCancelGenerate() called on JVM stub – nothing to cancel.")
+        if (!nativeLoaded) {
+            log("nativeCancelGenerate() – native NOT loaded, nothing to cancel.")
+            return
+        }
+        try {
+            nativeCancelGenerateImpl()
+        } catch (e: UnsatisfiedLinkError) {
+            log("nativeCancelGenerate: UnsatisfiedLinkError: ${e.message}")
+        }
     }
 }
