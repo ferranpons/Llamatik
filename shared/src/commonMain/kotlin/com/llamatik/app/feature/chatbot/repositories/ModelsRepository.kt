@@ -83,14 +83,21 @@ class ModelsRepository(private val service: ServiceClient) {
     fun getDefaultGenerateModels(): List<LlamaModel> {
         return listOf(
             LlamaModel(
-                name = "Gemma 3 270M Q8_0",
+                name = "Gemma 3 270M Instruct Q8_0",
                 sizeMb = 292,
-                url = "https://huggingface.co/ggml-org/gemma-3-270m-GGUF/resolve/main/gemma-3-270m-Q8_0.gguf?download=true",
+                url = "https://huggingface.co/ggml-org/gemma-3-270m-it-GGUF/resolve/main/gemma-3-270m-it-Q8_0.gguf?download=true",
                 template = Gemma3,
                 systemPrompt = """
-                    You are Llamatik powered by Gemma 3 270M, a small but capable local AI model.
-                    Be concise and practical. If the task is complex, summarise rather than generating huge outputs.
-                    Always answer in the user’s language and mention when something might be limited by model size.
+                    You are Llamatik, a small on-device assistant powered by Gemma 3 270M.
+                
+                    When the user writes something, answer them directly.
+                    - If they ask you to create something (a receipt, an email, a summary, a list, etc.),
+                      output that thing directly.
+                    - Do NOT describe what another model should do.
+                    - Do NOT start with "Task:", "The user:", or similar meta descriptions,
+                      unless the user explicitly asks you to.
+                    - Keep answers short and clear, unless the user asks for a long answer.
+                    - Always reply in the same language as the user’s last message.
                 """.trimIndent()
             ),
             LlamaModel(

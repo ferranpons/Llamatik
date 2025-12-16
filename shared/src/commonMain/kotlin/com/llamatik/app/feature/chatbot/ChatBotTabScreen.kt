@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -557,9 +558,12 @@ fun ChatInputBox(
     viewModel: ChatBotViewModel,
     showSuggestions: MutableState<Boolean>,
     suggestions: List<String> = listOf(
-        "Summarize the latest news",
-        "Create a receipt",
-        "Draft a polite reply"
+        "Create a simple receipt for a videogame console sale",
+        "Draft a polite reply to someone asking for a discount",
+        "Provide a brief overview of the most recent world news",
+        "Create a list of tips for selling items online",
+        "Give me a list of steps to prepare a simple invoice",
+        "Write a short story about a magical forest"
     ),
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -602,6 +606,7 @@ fun ChatInputBox(
                             tonalElevation = 1.dp,
                             modifier = Modifier
                                 .padding(end = 8.dp, bottom = 6.dp)
+                                .widthIn(max = 200.dp)
                         ) {
                             Text(
                                 text = hint,
