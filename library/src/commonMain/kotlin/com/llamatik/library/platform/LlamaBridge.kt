@@ -24,6 +24,13 @@ expect object LlamaBridge {
     )
     fun shutdown()
     fun nativeCancelGenerate()
+    fun updateGenerateParams(
+        temperature: Float,
+        maxTokens: Int,
+        topP: Float,
+        topK: Int,
+        repeatPenalty: Float,
+    )
 }
 
 interface GenStream {

@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
+import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.utils.ChatMessage
@@ -76,6 +77,7 @@ class ChatBotViewModel(
             header = getCurrentLocalization().welcome,
             latestNews = emptyList(),
             embedModels = emptyList(),
+            generateSettings = GenerateSettings()
         )
     )
     val state = _state.asStateFlow()
@@ -197,6 +199,8 @@ class ChatBotViewModel(
 
             vectorStore = loadVectorStoreEntries()
         }
+
+        onGenerateSettingsApplied(_state.value.generateSettings)
         _sideEffects.trySend(ChatBotSideEffects.OnLoaded)
     }
 
@@ -309,6 +313,17 @@ class ChatBotViewModel(
                 )
             }
         }
+    }
+
+    fun onGenerateSettingsApplied(settings: GenerateSettings) {
+        _state.value = _state.value.copy(generateSettings = settings)
+        LlamaBridge.updateGenerateParams(
+            temperature = settings.temperature,
+            maxTokens = settings.maxTokens,
+            topP = settings.topP,
+            topK = settings.topK,
+            repeatPenalty = settings.repeatPenalty
+        )
     }
 
     fun onEmbedModelSelected(model: LlamaModel) {
@@ -568,13 +583,14 @@ class ChatBotViewModel(
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
                     val acc = StringBuilder()
+                    val generateSettings = _state.value.generateSettings
 
                     ChatRunner.stream(
                         system = currentSystemPrompt(),
                         contexts = listOf(compact),
                         messages = chatHistory,
                         template = currentGenerateTemplate(),
-                        maxTokens = 256,
+                        maxTokens = generateSettings.maxTokens,
                         onDelta = { chunk ->
                             if (activeRequestId != requestId) return@stream
                             if (chunk.isEmpty()) return@stream
@@ -662,12 +678,14 @@ class ChatBotViewModel(
                         return m != null
                     }
 
+                    val generateSettings = _state.value.generateSettings
+
                     ChatRunner.stream(
                         system = currentSystemPrompt(),
                         contexts = emptyList(),
                         messages = chatHistory,
                         template = currentGenerateTemplate(),
-                        maxTokens = 256,
+                        maxTokens = generateSettings.maxTokens,
                         onDelta = { chunk ->
                             if (activeRequestId != requestId || completed) return@stream
                             if (chunk.isEmpty()) return@stream
@@ -929,6 +947,8 @@ data class ChatBotState(
     val isInitialSetup: Boolean = false,
     val initialSetupModelName: String? = null,
     val initialSetupProgress: Int = 0,
+
+    val generateSettings: GenerateSettings = GenerateSettings(),
 )
 
 sealed class ChatBotSideEffects {

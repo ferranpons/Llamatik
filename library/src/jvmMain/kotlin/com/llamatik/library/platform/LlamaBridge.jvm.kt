@@ -60,4 +60,14 @@ actual object LlamaBridge {
 
     actual fun nativeCancelGenerate() {
     }
+
+    actual fun updateGenerateParams(
+        temperature: Float,
+        maxTokens: Int,
+        topP: Float,
+        topK: Int,
+        repeatPenalty: Float,
+    ) {
+        // TODO: implement on iOS/desktop – currently ignored.
+    }
 }

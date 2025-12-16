@@ -34,6 +34,23 @@ actual object LlamaBridge {
     actual external fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
     private external fun nativeGenerateStream(prompt: String, callback: GenStream)
     private external fun nativeGenerateWithContextStream(system: String, context: String, user: String, callback: GenStream)
+    private external fun nativeUpdateGenerationParams(
+        temperature: Float,
+        maxTokens: Int,
+        topP: Float,
+        topK: Int,
+        repeatPenalty: Float,
+    )
+
+    actual fun updateGenerateParams(
+        temperature: Float,
+        maxTokens: Int,
+        topP: Float,
+        topK: Int,
+        repeatPenalty: Float,
+    ) {
+        nativeUpdateGenerationParams(temperature, maxTokens, topP, topK, repeatPenalty)
+    }
 
     actual fun generateStream(prompt: String, callback: GenStream) {
         nativeGenerateStream(prompt, callback)

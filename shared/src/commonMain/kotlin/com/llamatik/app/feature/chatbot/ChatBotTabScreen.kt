@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -134,7 +135,6 @@ class ChatBotTabScreen : Screen {
                     showModelSelectorSheet
                 )
 
-                // --------- Initial setup overlay (auto model download) ----------
                 if (state.isInitialSetup) {
                     Box(
                         modifier = Modifier
@@ -173,13 +173,14 @@ class ChatBotTabScreen : Screen {
                         }
                     }
                 }
-                // ----------------------------------------------------------------
             }
 
             if (showSettingsSheet.value) {
-                ModelSettingsBottomSheet {
-                    showSettingsSheet.value = false
-                }
+                ModelSettingsBottomSheet(
+                    current = state.generateSettings,
+                    onApply = { viewModel.onGenerateSettingsApplied(it) },
+                    onDismiss = { showSettingsSheet.value = false }
+                )
             }
             if (showModelSelectorSheet.value) {
                 ModelSelectorBottomSheet(
@@ -768,6 +769,20 @@ fun GenerateModelSelector(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.size(8.dp))
+
+                IconButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.size(24.dp),
+                    content = {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
             }
         }
     }
