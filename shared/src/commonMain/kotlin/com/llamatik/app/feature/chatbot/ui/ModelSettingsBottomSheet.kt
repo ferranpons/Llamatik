@@ -30,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.ui.theme.Typography
-import korlibs.util.format
 import kotlin.math.roundToInt
 
 private val GenerateSettingsSaver: Saver<GenerateSettings, Any> = listSaver(
@@ -103,7 +102,7 @@ private fun ParamsView(
         value = generateSettings.value.temperature,
         valueRange = 0.0f..2.0f,
         step = 0.01f,
-        format = { "%.2f".format(it) },
+        format = { "$it" },
         onChange = { generateSettings.value = generateSettings.value.copy(temperature = it) }
     )
 
@@ -120,7 +119,7 @@ private fun ParamsView(
         value = generateSettings.value.topP,
         valueRange = 0.0f..1.0f,
         step = 0.01f,
-        format = { "%.2f".format(it) },
+        format = { "$it" },
         onChange = { generateSettings.value = generateSettings.value.copy(topP = it) }
     )
 
@@ -137,7 +136,7 @@ private fun ParamsView(
         value = generateSettings.value.repeatPenalty,
         valueRange = 0.8f..2.0f,
         step = 0.01f,
-        format = { "%.2f".format(it) },
+        format = { "$it" },
         onChange = { generateSettings.value = generateSettings.value.copy(repeatPenalty = it) }
     )
 
