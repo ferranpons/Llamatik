@@ -788,8 +788,7 @@ class ChatBotViewModel(
     }
 
     fun onClearConversation() {
-        activeRequestId = null
-        _state.value = _state.value.copy(isGenerating = false)
+        stopGeneration()
         screenModelScope.launch { _conversation.emit(emptyList()) }
     }
 
