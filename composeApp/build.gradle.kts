@@ -194,17 +194,11 @@ compose.desktop {
     application {
         mainClass = "MainKt"
 
-        // NEW: tell the JVM where libllama_jni.dylib is built
         val nativeDir = project(":library")
             .buildDir
             .resolve("llama-jni/macos")
             .absolutePath
-/*
-        jvmArgs += listOf(
-            "-Dapple.awt.application.name=Llamatik",
-            "-Djava.library.path=$nativeDir"
-        )
-*/
+
         run {
             // Ensure the dylib exists BEFORE we run
             dependsOn(":library:compileLlamaJniDesktop")
