@@ -5,11 +5,13 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
+import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.utils.ChatMessage
 import com.llamatik.app.feature.chatbot.utils.ChatRunner
 import com.llamatik.app.feature.chatbot.utils.Gemma3
+import com.llamatik.app.feature.chatbot.utils.PromptTemplate
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
 import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
 import com.llamatik.app.feature.chatbot.utils.retrieveContext
@@ -19,7 +21,6 @@ import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikTempFile
-import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,10 @@ import kotlin.time.Clock.System
 import kotlin.time.ExperimentalTime
 
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
+private const val DEFAULT_SYSTEM_PROMPT = """
+You are Llamatik, a privacy-first local AI assistant running fully on-device.
+Be clear, honest, and concise. Answer in the user's language.
+"""
 
 class ChatBotViewModel(
     private var navigator: Navigator,
@@ -72,6 +77,7 @@ class ChatBotViewModel(
             header = getCurrentLocalization().welcome,
             latestNews = emptyList(),
             embedModels = emptyList(),
+            generateSettings = GenerateSettings()
         )
     )
     val state = _state.asStateFlow()
@@ -113,7 +119,7 @@ class ChatBotViewModel(
         return when (localDateTime.hour) {
             in 6..11 -> getCurrentLocalization().greetingMorning
             in 12..17 -> getCurrentLocalization().greetingAfternoon
-            in 16..21 -> getCurrentLocalization().greetingEvening
+            in 18..21 -> getCurrentLocalization().greetingEvening
             else -> getCurrentLocalization().greetingNight
         }
     }
@@ -194,6 +200,8 @@ class ChatBotViewModel(
 
             vectorStore = loadVectorStoreEntries()
         }
+
+        onGenerateSettingsApplied(_state.value.generateSettings)
         _sideEffects.trySend(ChatBotSideEffects.OnLoaded)
     }
 
@@ -306,6 +314,17 @@ class ChatBotViewModel(
                 )
             }
         }
+    }
+
+    fun onGenerateSettingsApplied(settings: GenerateSettings) {
+        _state.value = _state.value.copy(generateSettings = settings)
+        LlamaBridge.updateGenerateParams(
+            temperature = settings.temperature,
+            maxTokens = settings.maxTokens,
+            topP = settings.topP,
+            topK = settings.topK,
+            repeatPenalty = settings.repeatPenalty
+        )
     }
 
     fun onEmbedModelSelected(model: LlamaModel) {
@@ -558,13 +577,6 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    val systemPrompt = """
-                        You are a concise technical assistant.
-                        Use ONLY the CONTEXT to answer. If the context is insufficient, say briefly that you don't have enough information.
-                        Do NOT repeat the user's question. Do NOT repeat sentences verbatim. Avoid lists longer than 6 items.
-                        End your answer when done.
-                    """.trimIndent()
-
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val chatHistory: List<ChatMessage> =
@@ -573,13 +585,14 @@ class ChatBotViewModel(
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
                     val acc = StringBuilder()
+                    val generateSettings = _state.value.generateSettings
 
                     ChatRunner.stream(
-                        system = systemPrompt,
+                        system = currentSystemPrompt(),
                         contexts = listOf(compact),
                         messages = chatHistory,
-                        template = Gemma3,
-                        maxTokens = 256,
+                        template = currentGenerateTemplate(),
+                        maxTokens = generateSettings.maxTokens,
                         onDelta = { chunk ->
                             if (activeRequestId != requestId) return@stream
                             if (chunk.isEmpty()) return@stream
@@ -631,12 +644,13 @@ class ChatBotViewModel(
         }
     }
 
-    // === Alternative entry point using LlamaBridge directly (no RAG/embeddings) ===
+    // === Alternative entry point using ChatRunner directly (no RAG/embeddings) ===
     fun onMessageSendDirect(message: String) {
         val input = message.trim()
         if (input.isBlank()) return
 
         screenModelScope.launch {
+            // 1) Add user message
             _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
@@ -644,17 +658,12 @@ class ChatBotViewModel(
 
             withContext(Dispatchers.IO) {
                 try {
-                    val prompt = buildString {
-                        appendLine("You are a helpful, concise assistant. Answer clearly and directly.")
-                        appendLine("Avoid long lists or repeating words. Keep answers short (3–6 sentences).")
-                        appendLine()
-                        appendLine("### Instruction:")
-                        appendLine(input)
-                        appendLine()
-                        append("### Response:\n")
-                    }
-
+                    // 2) Reserve an empty bot bubble
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
+
+                    // 3) Build chat history (everything except the empty last bot)
+                    val chatHistory: List<ChatMessage> =
+                        toChatMessages(_conversation.value.dropLast(1))
 
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
@@ -667,68 +676,72 @@ class ChatBotViewModel(
                         val collapsed = tail.replace("\\s+".toRegex(), " ").trim()
                         val commas = collapsed.count { it == ',' }
                         if (commas > 60) return true
-                        val m =
-                            Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
+                        val m = Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
                         return m != null
                     }
 
-                    LlamaBridge.generateStream(
-                        prompt = prompt,
-                        callback = object : GenStream {
-                            override fun onDelta(text: String) {
-                                if (activeRequestId != requestId || completed) return
+                    val generateSettings = _state.value.generateSettings
 
-                                acc.append(text)
+                    ChatRunner.stream(
+                        system = currentSystemPrompt(),
+                        contexts = emptyList(),
+                        messages = chatHistory,
+                        template = currentGenerateTemplate(),
+                        maxTokens = generateSettings.maxTokens,
+                        onDelta = { chunk ->
+                            if (activeRequestId != requestId || completed) return@stream
+                            if (chunk.isEmpty()) return@stream
+
+                            acc.append(chunk)
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                    ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
+                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+
+                            if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
+                                val trimmed = trimLoop(acc.toString(), user = input)
                                 _conversation.value = _conversation.value.dropLast(1) +
-                                        ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
-                                _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
-
-                                if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
-                                    val trimmed = trimLoop(acc.toString(), user = input)
-                                    _conversation.value = _conversation.value.dropLast(1) +
-                                            ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
-                                    completed = true
-                                    activeRequestId = null
-                                    _state.value = _state.value.copy(isGenerating = false)
-                                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                    return
-                                }
-
-                                if (looksLikeBabble(acc.toString())) {
-                                    completed = true
-                                    activeRequestId = null
-                                    val cleaned =
-                                        acc.toString().trim().trimEnd(',', ' ', '\n')
-                                    _conversation.value = _conversation.value.dropLast(1) +
-                                            ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
-                                    _state.value = _state.value.copy(isGenerating = false)
-                                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                }
-                            }
-
-                            override fun onComplete() {
-                                if (activeRequestId != requestId || completed) return
+                                        ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
                                 completed = true
                                 activeRequestId = null
                                 _state.value = _state.value.copy(isGenerating = false)
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                return@stream
                             }
 
-                            override fun onError(message: String) {
-                                if (activeRequestId != requestId) return
-                                _conversation.value = _conversation.value.dropLast(1) +
-                                        ChatUiModel.Message(
-                                            "There is a problem with the AI: $message",
-                                            ChatUiModel.Author.bot
-                                        )
+                            if (looksLikeBabble(acc.toString())) {
+                                completed = true
                                 activeRequestId = null
+                                val cleaned = acc.toString().trim().trimEnd(',', ' ', '\n')
+                                _conversation.value = _conversation.value.dropLast(1) +
+                                        ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
                                 _state.value = _state.value.copy(isGenerating = false)
-                                _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                                _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                             }
+                        },
+                        onComplete = { final ->
+                            if (activeRequestId != requestId || completed) return@stream
+                            completed = true
+                            activeRequestId = null
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                    ChatUiModel.Message(final, ChatUiModel.Author.bot)
+                            _state.value = _state.value.copy(isGenerating = false)
+                            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        },
+                        onError = { err ->
+                            if (activeRequestId != requestId) return@stream
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                    ChatUiModel.Message(
+                                        "There is a problem with the AI: $err",
+                                        ChatUiModel.Author.bot
+                                    )
+                            activeRequestId = null
+                            _state.value = _state.value.copy(isGenerating = false)
+                            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                         }
                     )
                 } catch (t: Throwable) {
                     emitBot("There is a problem with the AI: ${t.message ?: "Unknown error"}")
+                    activeRequestId = null
                     _state.value = _state.value.copy(isGenerating = false)
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                 }
@@ -777,8 +790,7 @@ class ChatBotViewModel(
     }
 
     fun onClearConversation() {
-        activeRequestId = null
-        _state.value = _state.value.copy(isGenerating = false)
+        stopGeneration()
         screenModelScope.launch { _conversation.emit(emptyList()) }
     }
 
@@ -817,6 +829,36 @@ class ChatBotViewModel(
                 ChatUiModel.Author.bot -> ChatMessage(ChatMessage.Role.Assistant, m.text)
                 else -> null
             }
+        }
+    }
+
+    private fun currentGenerateTemplate(): PromptTemplate {
+        val state = _state.value
+        val selectedName = state.selectedGenerateModelName
+
+        val modelTemplate = state.generateModels
+            .firstOrNull { it.name == selectedName }
+            ?.template
+
+        // Fallback to Gemma3 so we never break if something is null
+        return modelTemplate ?: Gemma3
+    }
+
+    private fun currentGenerateModel(): LlamaModel? {
+        val state = _state.value
+        return state.generateModels.firstOrNull { it.name == state.selectedGenerateModelName }
+    }
+
+    private fun currentSystemPrompt(): String {
+        return currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
+    }
+
+    private fun buildDirectPrompt(input: String): String {
+        return buildString {
+            append(currentSystemPrompt())
+            append("\n\nUser:\n")
+            append(input.trim())
+            append("\n\nAssistant:")
         }
     }
 
@@ -906,6 +948,8 @@ data class ChatBotState(
     val isInitialSetup: Boolean = false,
     val initialSetupModelName: String? = null,
     val initialSetupProgress: Int = 0,
+
+    val generateSettings: GenerateSettings = GenerateSettings(),
 )
 
 sealed class ChatBotSideEffects {

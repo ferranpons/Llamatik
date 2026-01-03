@@ -28,17 +28,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.ui.theme.Typography
-import korlibs.util.format
 import kotlin.math.roundToInt
-
-data class GenerateSettings(
-    val temperature: Float = 0.7f,
-    val maxTokens: Int = 256,
-    val topP: Float = 0.95f,
-    val topK: Int = 40,
-    val repeatPenalty: Float = 1.1f
-)
 
 private val GenerateSettingsSaver: Saver<GenerateSettings, Any> = listSaver(
     save = { gs ->
@@ -56,14 +48,16 @@ private val GenerateSettingsSaver: Saver<GenerateSettings, Any> = listSaver(
 )
 
 @Composable
-private fun rememberGenerateSettingsState(): MutableState<GenerateSettings> {
+private fun rememberGenerateSettingsState(initial: GenerateSettings): MutableState<GenerateSettings> {
     return rememberSaveable(stateSaver = GenerateSettingsSaver) {
-        mutableStateOf(GenerateSettings())
+        mutableStateOf(initial)
     }
 }
 
 @Composable
 fun ModelSettingsBottomSheet(
+    current: GenerateSettings,
+    onApply: (GenerateSettings) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -80,16 +74,22 @@ fun ModelSettingsBottomSheet(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .verticalScroll(rememberScrollState())
         ) {
-            ParamsView {  }
+            ParamsView(
+                initial = current,
+                onApply = onApply,
+                onDismiss = onDismiss
+            )
         }
     }
 }
 
 @Composable
 private fun ParamsView(
+    initial: GenerateSettings,
+    onApply: (GenerateSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val generateSettings = rememberGenerateSettingsState()
+    val generateSettings = rememberGenerateSettingsState(initial)
 
     Text(
         text = "Generation Settings",
@@ -102,7 +102,7 @@ private fun ParamsView(
         value = generateSettings.value.temperature,
         valueRange = 0.0f..2.0f,
         step = 0.01f,
-        format = { "%.2f".format(it) },
+        format = { "$it" },
         onChange = { generateSettings.value = generateSettings.value.copy(temperature = it) }
     )
 
@@ -119,7 +119,7 @@ private fun ParamsView(
         value = generateSettings.value.topP,
         valueRange = 0.0f..1.0f,
         step = 0.01f,
-        format = { "%.2f".format(it) },
+        format = { "$it" },
         onChange = { generateSettings.value = generateSettings.value.copy(topP = it) }
     )
 
@@ -136,7 +136,7 @@ private fun ParamsView(
         value = generateSettings.value.repeatPenalty,
         valueRange = 0.8f..2.0f,
         step = 0.01f,
-        format = { "%.2f".format(it) },
+        format = { "$it" },
         onChange = { generateSettings.value = generateSettings.value.copy(repeatPenalty = it) }
     )
 
@@ -150,9 +150,7 @@ private fun ParamsView(
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = {
-                // TODO: thread these into your actual llama.cpp call site.
-                // Example: ChatRunner / LlamaBridge could accept these:
-                // LlamaBridge.updateGenerateParams(generateSettings.value.toBridgeParams())
+                onApply(generateSettings.value)
                 onDismiss()
             }
         ) { Text("Apply") }

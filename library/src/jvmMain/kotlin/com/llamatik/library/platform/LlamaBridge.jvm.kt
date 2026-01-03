@@ -244,4 +244,14 @@ actual object LlamaBridge {
             log("nativeCancelGenerate: UnsatisfiedLinkError: ${e.message}")
         }
     }
+
+    actual fun updateGenerateParams(
+        temperature: Float,
+        maxTokens: Int,
+        topP: Float,
+        topK: Int,
+        repeatPenalty: Float,
+    ) {
+        // TODO: implement on iOS/desktop – currently ignored.
+    }
 }

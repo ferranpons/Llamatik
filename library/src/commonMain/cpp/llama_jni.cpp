@@ -37,6 +37,12 @@ static bool g_backend_inited = false;
 // Streaming cancel flag (for generateStream)
 static std::atomic<bool> g_cancel_requested{false};
 
+static std::atomic<float> g_temperature     = 0.55f;
+static std::atomic<float> g_top_p          = 0.80f;
+static std::atomic<int>   g_top_k          = 20;
+static std::atomic<float> g_repeat_penalty = 1.10f;
+static std::atomic<int>   g_max_new_tokens = 640;
+
 // ===================================================================================
 //                              SMALL HELPERS
 // ===================================================================================
@@ -607,14 +613,19 @@ static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallbac
         return;
     }
 
+    float temperature    = g_temperature.load();
+    float top_p          = g_top_p.load();
+    int   top_k          = g_top_k.load();
+    float repeat_penalty = g_repeat_penalty.load();
+    int   max_new_tokens = g_max_new_tokens.load();
+
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    const int max_new_tokens = 640;
     int cur_pos = batch.n_tokens;
 
     char piece_buf[768];
@@ -749,4 +760,21 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateWithContextStream(
     std::string prompt = build_chat_prompt_gemma(system, user_turn);
 
     stream_from_prompt(env, prompt.c_str(), jCallback, m);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
+        JNIEnv *env,
+        jobject /*thiz*/,
+        jfloat temperature,
+        jint maxTokens,
+        jfloat topP,
+        jint topK,
+        jfloat repeatPenalty) {
+    g_temperature     = temperature;
+    g_top_p           = topP;
+    g_top_k           = topK;
+    g_repeat_penalty  = repeatPenalty;
+    g_max_new_tokens  = maxTokens;
 }

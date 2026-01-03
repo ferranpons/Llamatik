@@ -14,6 +14,7 @@ import com.llamatik.library.platform.llama.llama_generate_chat
 import com.llamatik.library.platform.llama.llama_generate_chat_stream
 import com.llamatik.library.platform.llama.llama_generate_free
 import com.llamatik.library.platform.llama.llama_generate_init
+import com.llamatik.library.platform.llama.llama_generate_set_params
 import com.llamatik.library.platform.llama.llama_generate_stream
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
@@ -231,5 +232,21 @@ actual object LlamaBridge {
 
     actual fun nativeCancelGenerate() {
         llama_generate_cancel()
+    }
+
+    actual fun updateGenerateParams(
+        temperature: Float,
+        maxTokens: Int,
+        topP: Float,
+        topK: Int,
+        repeatPenalty: Float,
+    ) {
+        llama_generate_set_params(
+            temperature,
+            maxTokens,
+            topP,
+            topK,
+            repeatPenalty
+        )
     }
 }

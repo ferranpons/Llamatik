@@ -25,6 +25,7 @@ object PromptRenderer {
             is Gemma3 -> renderGemma3(sys, ragBlock, messages)
             is Llama3Instruct -> renderLlama3(sys, ragBlock, messages)
             is Plain -> renderPlain(sys, ragBlock, messages)
+            QwenChat -> renderQwen(sys, ragBlock, messages)
         }
     }
 
@@ -131,6 +132,53 @@ object PromptRenderer {
         }
         sb.append(lastUser).append("\n\n")
         sb.append("### Assistant\n") // prefix for assistant completion
+
+        return sb.toString()
+    }
+
+    private fun renderQwen(
+        system: String,
+        rag: String,
+        messages: List<ChatMessage>
+    ): String {
+        val sb = StringBuilder()
+
+        // System
+        sb.append("<|im_start|>system\n")
+        sb.append(system)
+        sb.append("\n<|im_end|>\n")
+
+        val (prefix, last) = messages.splitOffLast()
+
+        // History
+        prefix.forEach { msg ->
+            val role = when (msg.role) {
+                ChatMessage.Role.System -> "system"
+                ChatMessage.Role.User -> "user"
+                ChatMessage.Role.Assistant -> "assistant"
+            }
+            sb.append("<|im_start|>$role\n")
+            sb.append(msg.content.trim())
+            sb.append("\n<|im_end|>\n")
+        }
+
+        // Last user + RAG
+        val lastUser = when (last?.role) {
+            ChatMessage.Role.User -> last.content.trim()
+            else -> ""
+        }
+
+        sb.append("<|im_start|>user\n")
+        if (rag.isNotBlank()) {
+            sb.append("Relevant context:\n")
+            sb.append(rag.trim())
+            sb.append("\n\n")
+        }
+        sb.append(lastUser)
+        sb.append("\n<|im_end|>\n")
+
+        // Assistant prefix
+        sb.append("<|im_start|>assistant\n")
 
         return sb.toString()
     }

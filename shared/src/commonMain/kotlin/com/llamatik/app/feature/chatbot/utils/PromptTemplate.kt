@@ -48,3 +48,10 @@ object Llama3Instruct : PromptTemplate {
         "<|eot_id|>", "```", // common EOS and fenced block end to curb run-ons
     )
 }
+
+object QwenChat : PromptTemplate {
+    override val name: String = "qwen_chat"
+    override val stopSequences: List<String> = listOf(
+        "<|im_end|>", // Qwen chat messages end marker
+    )
+}

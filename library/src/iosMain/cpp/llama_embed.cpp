@@ -51,6 +51,13 @@ static struct llama_context *gen_ctx    = nullptr;
 static bool g_backend_inited = false;
 static std::atomic<bool> g_cancel_requested{false};
 
+// Generation parameters (atomic for safe update while app is running)
+static std::atomic<float> g_temperature{0.55f};
+static std::atomic<int>   g_max_tokens{256};     // align with app default
+static std::atomic<float> g_top_p{0.95f};
+static std::atomic<int>   g_top_k{40};
+static std::atomic<float> g_repeat_penalty{1.10f};
+
 // ===================== Helpers =====================
 
 static int tokenize_with_retry(const llama_vocab *vocab,
@@ -437,6 +444,13 @@ bool llama_generate_init(const char *model_path) {
 char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
+    // Snapshot params at start (atomic -> local)
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
     g_cancel_requested.store(false, std::memory_order_relaxed);
 
     llama_memory_clear(llama_get_memory(gen_ctx), false);
@@ -482,10 +496,10 @@ char *llama_generate(const char *prompt) {
         llama_batch_free(batch);
         return nullptr;
     }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     // 3) Decode loop
@@ -494,7 +508,9 @@ char *llama_generate(const char *prompt) {
     const int safety = 16;
     int remaining_ctx = (int)n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
-    int max_new_tokens = std::max(remaining_ctx, 2048);
+
+    // IMPORTANT: limit to what's left in ctx AND the user-configured max_tokens
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
 
     for (int i = 0; i < max_new_tokens; ++i) {
         if (g_cancel_requested.load(std::memory_order_relaxed)) {
@@ -577,16 +593,16 @@ static std::string build_clean_prompt(const char *system_prompt,
         const char *context_block,
         const char *user_prompt) {
     (void)system_prompt; // not injected into text; we keep only a simple structure
-    std::string ctx = context_block ? context_block : "";
+    std::string ctxb = context_block ? context_block : "";
     std::string usr = user_prompt   ? user_prompt   : "";
-    return build_plain_prompt(ctx, usr);
+    return build_plain_prompt(ctxb, usr);
 }
 
 char *llama_generate_chat(const char *system_prompt,
         const char *context_block,
         const char *user_prompt) {
-    std::string prompt = build_clean_prompt(system_prompt, context_block, user_prompt);
-    char *raw = llama_generate(prompt.c_str());
+    std::string prompt2 = build_clean_prompt(system_prompt, context_block, user_prompt);
+    char *raw = llama_generate(prompt2.c_str());
     return raw; // already sanitized inside llama_generate
 }
 
@@ -602,6 +618,13 @@ void llama_generate_stream(const char *prompt,
         llm_on_error on_error,
         void *user) {
     if (!gen_ctx || !gen_model || !prompt) { if (on_error) on_error("generator not ready", user); return; }
+
+    // Snapshot params at start (atomic -> local)
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
 
     g_cancel_requested.store(false, std::memory_order_relaxed);
 
@@ -647,10 +670,10 @@ void llama_generate_stream(const char *prompt,
         if (on_error) on_error("sampler init failed", user);
         return;
     }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     const llama_vocab *v = llama_model_get_vocab(gen_model);
@@ -659,7 +682,9 @@ void llama_generate_stream(const char *prompt,
     const int safety = 16;
     int remaining_ctx = (int)n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
-    int max_new_tokens = std::max(remaining_ctx, 2048);
+
+    // IMPORTANT: limit to what's left in ctx AND the user-configured max_tokens
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
 
     std::string assembled;            // raw accumulation from tokens (no specials)
     size_t start_idx = std::string::npos; // where real content begins
@@ -744,10 +769,22 @@ void llama_generate_chat_stream(const char *system_prompt,
         llm_on_done on_done,
         llm_on_error on_error,
         void *user) {
-    std::string prompt = build_clean_prompt(system_prompt ? system_prompt : "",
+    std::string prompt2 = build_clean_prompt(system_prompt ? system_prompt : "",
             context_block ? context_block : "",
             user_prompt ? user_prompt : "");
-    llama_generate_stream(prompt.c_str(), on_delta, on_done, on_error, user);
+    llama_generate_stream(prompt2.c_str(), on_delta, on_done, on_error, user);
+}
+
+void llama_generate_set_params(float temperature,
+        int max_tokens,
+        float top_p,
+        int top_k,
+        float repeat_penalty) {
+    g_temperature.store(temperature, std::memory_order_relaxed);
+    g_max_tokens.store(max_tokens, std::memory_order_relaxed);
+    g_top_p.store(top_p, std::memory_order_relaxed);
+    g_top_k.store(top_k, std::memory_order_relaxed);
+    g_repeat_penalty.store(repeat_penalty, std::memory_order_relaxed);
 }
 
 void llama_generate_free() {

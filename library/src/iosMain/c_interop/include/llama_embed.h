@@ -117,6 +117,13 @@ void llama_generate_chat_stream(const char *system_prompt,
         llm_on_error on_error,
         void *user);
 
+
+void llama_generate_set_params(float temperature,
+        int max_tokens,
+        float top_p,
+        int top_k,
+        float repeat_penalty);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
