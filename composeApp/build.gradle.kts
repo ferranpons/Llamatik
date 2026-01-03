@@ -199,11 +199,21 @@ compose.desktop {
             .buildDir
             .resolve("llama-jni/macos")
             .absolutePath
-
+/*
         jvmArgs += listOf(
             "-Dapple.awt.application.name=Llamatik",
             "-Djava.library.path=$nativeDir"
         )
+*/
+        run {
+            // Ensure the dylib exists BEFORE we run
+            dependsOn(":library:compileLlamaJniDesktop")
+
+            jvmArgs(
+                "-Dapple.awt.application.name=Llamatik",
+                "-Djava.library.path=$nativeDir"
+            )
+        }
 
         nativeDistributions {
             macOS {
@@ -259,5 +269,27 @@ compose.desktop {
 
         // Logging
         implementation(libs.kermit)
+    }
+}
+
+val nativeDir = project(":library")
+    .layout
+    .buildDirectory
+    .dir("llama-jni/macos")
+    .get()
+    .asFile
+    .absolutePath
+
+tasks.matching { it.name == "run" || it.name.endsWith("Run") }.configureEach {
+    dependsOn(":library:compileLlamaJniDesktop")
+}
+
+tasks.withType(org.gradle.api.tasks.JavaExec::class.java).configureEach {
+    if (name == "run" || name.endsWith("Run")) {
+        dependsOn(":library:compileLlamaJniDesktop")
+        jvmArgs(
+            "-Dapple.awt.application.name=Llamatik",
+            "-Djava.library.path=$nativeDir"
+        )
     }
 }

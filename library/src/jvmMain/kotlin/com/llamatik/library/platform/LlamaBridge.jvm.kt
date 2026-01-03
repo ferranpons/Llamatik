@@ -39,6 +39,7 @@ actual object LlamaBridge {
 
     private external fun nativeInitModel(modelPath: String): Boolean
     private external fun nativeEmbed(input: String): FloatArray
+
     private external fun nativeInitGenerateModel(modelPath: String): Boolean
     private external fun nativeGenerate(prompt: String): String
     private external fun nativeGenerateWithContext(
@@ -58,24 +59,39 @@ actual object LlamaBridge {
     private external fun nativeShutdown()
     private external fun nativeCancelGenerateImpl()
 
-    // ----- Prompt helper (same as Android) -----
+    // ✅ NEW: generation settings
+    private external fun nativeUpdateGenerateParams(
+        temperature: Float,
+        maxTokens: Int,
+        topP: Float,
+        topK: Int,
+        repeatPenalty: Float,
+    )
 
-    private fun buildChatPrompt(
-        systemPrompt: String,
+    // ----- Prompt helpers -----
+    //
+    // IMPORTANT:
+    // - On iOS your wrapper builds a plain prompt ("Context/Question/Answer") and sanitizes.
+    // - On JVM, if your native desktop backend ALSO wraps prompts or uses its own template,
+    //   injecting <start_of_turn> tags here can cause echo/garbage.
+    //
+    // So we default to a plain structure matching iOS.
+
+    private fun buildPlainPrompt(
         contextBlock: String,
         userPrompt: String
     ): String {
+        val ctx = contextBlock.trim()
+        val usr = userPrompt.trim()
         return buildString {
-            append("<start_of_turn>system\n")
-            append(systemPrompt.trim())
-            append("\n<end_of_turn>\n")
-            append("<start_of_turn>user\n")
-            append("CONTEXT:\n")
-            append(contextBlock.trim())
-            append("\n\nQUESTION:\n")
-            append(userPrompt.trim())
-            append("\n<end_of_turn>\n")
-            append("<start_of_turn>assistant\n")
+            if (ctx.isNotEmpty()) {
+                append("Context:\n")
+                append(ctx)
+                append("\n\n")
+            }
+            append("Question:\n")
+            append(usr)
+            append("\n\nAnswer:\n")
         }
     }
 
@@ -130,6 +146,7 @@ actual object LlamaBridge {
             }
         }
         return try {
+            // IMPORTANT: pass-through; don't add chat tags here
             nativeGenerate(prompt)
         } catch (e: UnsatisfiedLinkError) {
             log("generate: UnsatisfiedLinkError: ${e.message}")
@@ -143,15 +160,18 @@ actual object LlamaBridge {
         userPrompt: String
     ): String {
         if (!nativeLoaded) {
-            log("generateWithContext(...) – native NOT loaded, using prompt + stub generate().")
-            val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
+            log("generateWithContext(...) – native NOT loaded, using plain composed prompt + stub generate().")
+            val prompt = buildPlainPrompt(contextBlock, userPrompt)
             return generate(prompt)
         }
+
         return try {
+            // If your native desktop implementation truly supports (system, context, user),
+            // keep using it. Otherwise it can ignore systemPrompt internally.
             nativeGenerateWithContext(systemPrompt, contextBlock, userPrompt)
         } catch (e: UnsatisfiedLinkError) {
             log("generateWithContext: UnsatisfiedLinkError: ${e.message}")
-            val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
+            val prompt = buildPlainPrompt(contextBlock, userPrompt)
             generate(prompt)
         }
     }
@@ -169,6 +189,7 @@ actual object LlamaBridge {
             return
         }
         try {
+            // IMPORTANT: pass-through; don't inject chat tags here
             nativeGenerateStream(prompt, callback)
         } catch (e: UnsatisfiedLinkError) {
             log("generateStream: UnsatisfiedLinkError: ${e.message}")
@@ -182,9 +203,21 @@ actual object LlamaBridge {
         userPrompt: String,
         callback: GenStream
     ) {
-        val prompt = buildChatPrompt(systemPrompt, contextBlock, userPrompt)
-        log("generateStreamWithContext(...) – delegating to generateStream() with built prompt.")
-        generateStream(prompt, callback)
+        if (!nativeLoaded) {
+            log("generateStreamWithContext(...) – native NOT loaded, emitting stub stream.")
+            val prompt = buildPlainPrompt(contextBlock, userPrompt)
+            generateStream(prompt, callback)
+            return
+        }
+
+        // Prefer native context-stream if available, otherwise fall back to composed prompt.
+        try {
+            nativeGenerateWithContextStream(systemPrompt, contextBlock, userPrompt, callback)
+        } catch (e: UnsatisfiedLinkError) {
+            log("generateStreamWithContext: UnsatisfiedLinkError: ${e.message} -> fallback to generateStream(prompt)")
+            val prompt = buildPlainPrompt(contextBlock, userPrompt)
+            generateStream(prompt, callback)
+        }
     }
 
     actual fun generateWithContextStream(
@@ -199,7 +232,7 @@ actual object LlamaBridge {
             log("generateWithContextStream(...) – native NOT loaded, emitting stub callbacks.")
             try {
                 onDelta("JVM stub backend – generateWithContextStream not available (no llama_jni).\n")
-                val prompt = buildChatPrompt(system, context, user)
+                val prompt = buildPlainPrompt(context, user)
                 onDelta("Composed prompt was:\n$prompt")
                 onDone()
             } catch (t: Throwable) {
@@ -216,8 +249,14 @@ actual object LlamaBridge {
             }
             nativeGenerateWithContextStream(system, context, user, cb)
         } catch (e: UnsatisfiedLinkError) {
-            log("generateWithContextStream: UnsatisfiedLinkError: ${e.message}")
-            onError("JVM native error: ${e.message}")
+            // Fallback: compose a plain prompt and stream it
+            log("generateWithContextStream: UnsatisfiedLinkError: ${e.message} -> fallback to generateStream(prompt)")
+            val prompt = buildPlainPrompt(context, user)
+            generateStream(prompt, object : GenStream {
+                override fun onDelta(text: String) = onDelta(text)
+                override fun onComplete() = onDone()
+                override fun onError(message: String) = onError(message)
+            })
         }
     }
 
@@ -252,6 +291,16 @@ actual object LlamaBridge {
         topK: Int,
         repeatPenalty: Float,
     ) {
-        // TODO: implement on iOS/desktop – currently ignored.
+        if (!nativeLoaded) {
+            log("updateGenerateParams(...) – native NOT loaded, ignoring. " +
+                    "t=$temperature max=$maxTokens topP=$topP topK=$topK rp=$repeatPenalty")
+            return
+        }
+        try {
+            nativeUpdateGenerateParams(temperature, maxTokens, topP, topK, repeatPenalty)
+            log("updateGenerateParams -> native applied. t=$temperature max=$maxTokens topP=$topP topK=$topK rp=$repeatPenalty")
+        } catch (e: UnsatisfiedLinkError) {
+            log("updateGenerateParams: UnsatisfiedLinkError: ${e.message}")
+        }
     }
 }
