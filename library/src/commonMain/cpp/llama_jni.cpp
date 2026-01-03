@@ -1,8 +1,7 @@
 #include <jni.h>
 #include "llama.h"
 #include "llama_jni.h"
-#include <libgen.h>
-#include <android/log.h>
+
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -12,11 +11,36 @@
 #include <string_view>
 #include <vector>
 #include <atomic>
+#include <cstdio>
 
+// ===================================================================================
+//                              PLATFORM LOGGING
+// ===================================================================================
+//
+// Android uses logcat; Desktop uses stderr.
+// This file is shared for Android + Desktop builds.
+
+#if defined(__ANDROID__)
+#include <android/log.h>
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "LlamaBridge", __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "LlamaBridge", __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  "LlamaBridge", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "LlamaBridge", __VA_ARGS__)
+#else
+static void log_stderr(const char* level, const char* fmt, ...) {
+        std::fprintf(stderr, "[LlamaBridge][%s] ", level);
+        va_list args;
+        va_start(args, fmt);
+        std::vfprintf(stderr, fmt, args);
+        va_end(args);
+        std::fprintf(stderr, "\n");
+        std::fflush(stderr);
+    }
+    #define LOGI(...) log_stderr("I", __VA_ARGS__)
+    #define LOGD(...) log_stderr("D", __VA_ARGS__)
+    #define LOGW(...) log_stderr("W", __VA_ARGS__)
+    #define LOGE(...) log_stderr("E", __VA_ARGS__)
+#endif
 
 // ===================================================================================
 //                              GLOBAL STATE (this TU)
@@ -61,11 +85,6 @@ static inline std::string to_lower(std::string s) {
     return s;
 }
 
-static inline bool starts_with(const std::string &s, const char *pfx) {
-    const size_t n = std::strlen(pfx);
-    return s.size() >= n && std::memcmp(s.data(), pfx, n) == 0;
-}
-
 static int tokenize_with_retry(const llama_vocab *vocab,
         const char *text,
         std::vector<llama_token> &tokens,
@@ -73,6 +92,7 @@ static int tokenize_with_retry(const llama_vocab *vocab,
         bool parse_special) {
     if (!text) return 0;
     const int text_len = (int) std::strlen(text);
+
     int n = llama_tokenize(vocab, text, text_len,
             tokens.data(),
             (int) tokens.size(),
@@ -125,7 +145,7 @@ static std::string sanitize_generation(std::string s) {
 
     for (const char *stop: {"<end_of_turn>", "<|eot_id|>", "</s>"}) {
         size_t p = s.find(stop);
-        if (p != std::string::npos) {s = s.substr(0, p);}
+        if (p != std::string::npos) { s = s.substr(0, p); }
     }
     drop_lines_with_prefix(s, "<start_of_turn>");
     drop_lines_with_prefix(s, "<|start_header_id|>");
@@ -156,6 +176,7 @@ static std::string sanitize_generation(std::string s) {
     (void) (slice_after_tag("ANSWER:") || slice_after_tag("FINAL_ANSWER:"));
 
     s = trim(s);
+
     auto strip_leading_noise = [](std::string &t) {
         auto ltrim_str = [&](const char *prefix) -> bool {
             size_t n = std::strlen(prefix);
@@ -170,7 +191,6 @@ static std::string sanitize_generation(std::string s) {
         bool changed = true;
         while (changed) {
             changed = false;
-
             changed |= ltrim_str("• ");
             changed |= ltrim_str("- ");
             changed |= ltrim_str("* ");
@@ -201,6 +221,7 @@ static std::string sanitize_generation(std::string s) {
         while (k < t.size() && !std::isalnum(static_cast<unsigned char>(t[k]))) ++k;
         if (k > 0 && k < t.size()) t.erase(0, k);
     };
+
     strip_leading_noise(s);
     s = trim(s);
 
@@ -238,9 +259,7 @@ static std::string sanitize_generation(std::string s) {
 // ---------- Chat templating ----------
 static std::string build_user_with_context(const std::string &context_block,
         const std::string &user_question) {
-    auto t = [](const std::string &x) {
-        return trim(x);
-    };
+    auto t = [](const std::string &x) { return trim(x); };
     if (t(context_block).empty()) return "QUESTION:\n" + user_question;
     std::ostringstream oss;
     oss << "CONTEXT:\n" << context_block << "\n\nQUESTION:\n" << user_question;
@@ -285,6 +304,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initModel(JNIEnv *env, jobject, j
     llama_model_params mparams = llama_model_default_params();
     emb_model = llama_model_load_from_file(path, mparams);
     env->ReleaseStringUTFChars(modelPath, path);
+
     if (!emb_model) {
         LOGE("embed model load failed");
         return JNI_FALSE;
@@ -293,6 +313,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initModel(JNIEnv *env, jobject, j
     llama_context_params cparams = llama_context_default_params();
     cparams.embeddings = true;
     cparams.n_ctx = 2048;
+
     emb_ctx = llama_init_from_model(emb_model, cparams);
     if (!emb_ctx) {
         llama_model_free(emb_model);
@@ -326,8 +347,8 @@ Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstri
             /*parse_special*/ false);
     env->ReleaseStringUTFChars(input, inputStr);
 
-    if (n_tokens <= 0 || n_tokens > llama_n_ctx(emb_ctx)) {
-        LOGW("embed tokenize fail/too long. n=%d ctx=%d", n_tokens, llama_n_ctx(emb_ctx));
+    if (n_tokens <= 0 || n_tokens > (int)llama_n_ctx(emb_ctx)) {
+        LOGW("embed tokenize fail/too long. n=%d ctx=%u", n_tokens, (unsigned)llama_n_ctx(emb_ctx));
         return nullptr;
     }
     tokens.resize(n_tokens);
@@ -366,7 +387,8 @@ Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstri
     return result;
 }
 
-extern "C" JNIEXPORT void JNICALL
+extern "C"
+JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_shutdown(JNIEnv *, jobject) {
     if (emb_ctx) llama_free(emb_ctx);
     if (emb_model) llama_model_free(emb_model);
@@ -402,6 +424,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     llama_model_params mparams = llama_model_default_params();
     gen_model = llama_model_load_from_file(path, mparams);
     env->ReleaseStringUTFChars(modelPath, path);
+
     if (!gen_model) {
         LOGE("gen model load failed");
         return JNI_FALSE;
@@ -410,6 +433,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     llama_context_params cparams = llama_context_default_params();
     cparams.embeddings = false;
     cparams.n_ctx = 4096;
+
     gen_ctx = llama_init_from_model(gen_model, cparams);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -417,7 +441,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
         return JNI_FALSE;
     }
 
-    LOGI("Gen context ready. n_ctx=%d", llama_n_ctx(gen_ctx));
+    LOGI("Gen context ready. n_ctx=%u", (unsigned)llama_n_ctx(gen_ctx));
     return JNI_TRUE;
 }
 
@@ -435,21 +459,23 @@ Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, js
         return nullptr;
     }
 
-// ---- one-shot generate using the same loop as streaming but buffering output ----
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     std::vector<llama_token> tokens(2048);
     int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),
-            prompt, tokens, /*add_bos*/ true, /*parse_special*/ true);
+            prompt, tokens,
+            /*add_bos*/ true,
+            /*parse_special*/ true);
     env->ReleaseStringUTFChars(input, prompt);
+
     if (n_tokens <= 0) {
         LOGE("tokenize failed");
         return nullptr;
     }
     tokens.resize(n_tokens);
 
-    const int n_ctx = llama_n_ctx(gen_ctx);
-    if ((int) tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
 
     llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
     batch.n_tokens = (int) tokens.size();
@@ -466,6 +492,7 @@ Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, js
         return nullptr;
     }
 
+    // NOTE: one-shot generate currently uses fixed sampler params (same as before).
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
@@ -484,7 +511,7 @@ Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, js
         if (tok < 0) break;
         if (tok == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
 
-// early stop on chat EOT
+        // early stop on chat EOT
         char sp[64];
         int sn = llama_token_to_piece(llama_model_get_vocab(gen_model), tok, sp, (int) sizeof(sp), 0, 1);
         if (sn > 0) {
@@ -493,6 +520,7 @@ Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, js
         }
 
         llama_sampler_accept(sampler, tok);
+
         int nn = llama_token_to_piece(llama_model_get_vocab(gen_model), tok, buf, (int) sizeof(buf), 0, 0);
         if (nn > 0) output.append(buf, nn);
 
@@ -505,6 +533,7 @@ Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, js
         step.n_seq_id[0] = 1;
         step.seq_id[0][0] = 0;
         step.logits[0] = true;
+
         if (llama_decode(gen_ctx, step) != 0) {
             llama_batch_free(step);
             break;
@@ -569,7 +598,6 @@ static bool resolve_stream_methods(JNIEnv *env, jobject cb, StreamMethods &m) {
     return m.onDelta && m.onComplete && m.onError;
 }
 
-// Light, streaming-friendly cut (no fallback)
 static inline bool is_eot_piece(const char *s) {
     return std::strcmp(s, "<end_of_turn>") == 0 || std::strcmp(s, "<|eot_id|>") == 0;
 }
@@ -583,20 +611,21 @@ static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallbac
 
     // Reset cancel flag at the start of each stream
     g_cancel_requested.store(false, std::memory_order_relaxed);
-
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     std::vector<llama_token> tokens(2048);
     int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),
-            prompt, tokens, /*add_bos*/ true, /*parse_special*/ true);
+            prompt, tokens,
+            /*add_bos*/ true,
+            /*parse_special*/ true);
     if (n_tokens <= 0) {
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("tokenization failed"));
         return;
     }
     tokens.resize(n_tokens);
 
-    const int n_ctx = llama_n_ctx(gen_ctx);
-    if ((int) tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
 
     llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
     batch.n_tokens = (int) tokens.size();
@@ -631,12 +660,8 @@ static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallbac
     char piece_buf[768];
     char spec_buf[64];
 
-    bool stopped_by_cancel = false;
-
     for (int i = 0; i < max_new_tokens; ++i) {
-        // Check for cancel BEFORE doing expensive work
-        if (g_cancel_requested.load(std::memory_order_relaxed)) {   // <-- NEW
-            stopped_by_cancel = true;
+        if (g_cancel_requested.load(std::memory_order_relaxed)) {
             break;
         }
 
@@ -713,6 +738,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateStream(
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("prompt decode failed"));
         return;
     }
+
     stream_from_prompt(env, prompt, jCallback, m);
     env->ReleaseStringUTFChars(jPrompt, prompt);
 }
@@ -725,7 +751,6 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeCancelGenerate(
     g_cancel_requested.store(true, std::memory_order_relaxed);
 }
 
-// Optional: streamWithContext(system, context, user, callback)
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateWithContextStream(
@@ -756,6 +781,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateWithContextStream(
                  "If the context is insufficient, respond exactly: \"I don't have enough information in my sources.\" "
                  "Write 2–5 short sentences in plain text. Do not use bullets or numbering.";
     }
+
     std::string user_turn = build_user_with_context(ctx, user);
     std::string prompt = build_chat_prompt_gemma(system, user_turn);
 
@@ -765,7 +791,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateWithContextStream(
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
-        JNIEnv *env,
+        JNIEnv * /*env*/,
         jobject /*thiz*/,
         jfloat temperature,
         jint maxTokens,
@@ -776,5 +802,5 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
     g_top_p           = topP;
     g_top_k           = topK;
     g_repeat_penalty  = repeatPenalty;
-    g_max_new_tokens  = maxTokens;
+    g_max_new_tokens  = (int)maxTokens;
 }

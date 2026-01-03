@@ -177,6 +177,7 @@ class ChatBotViewModel(
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
                                 break
                             } else {
+                                Logger.e { "LlamaVM - failed to load generate model ${model.name}" }
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                             }
                         }
@@ -363,6 +364,7 @@ class ChatBotViewModel(
                     _state.value = _state.value.copy(selectedGenerateModelName = model.name)
                     _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
                 } else {
+                    Logger.e { "LlamaVM - failed to load generate model ${model.name}" }
                     _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                 }
             } else {
