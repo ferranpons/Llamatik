@@ -8,8 +8,6 @@ import androidx.compose.runtime.Composable
 actual object LlamaBridge {
 
     init {
-        // Same approach as Android: System exists on JVM too.
-        // If it fails, you'll see it immediately.
         System.loadLibrary("llama_jni")
         println("🖥️ [JVM LlamaBridge] Loaded native library 'llama_jni'")
     }
