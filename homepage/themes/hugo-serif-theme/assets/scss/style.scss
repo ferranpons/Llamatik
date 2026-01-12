@@ -1,0 +1,61 @@
+// Any variables that need to use Hugo configuration need to be declared here
+// Colors
+$primary: {{ .Site.Params.colors.primary | default "#f24088" }};
+$black: {{ .Site.Params.colors.black | default "#2f2f41" }};
+$white: {{ .Site.Params.colors.white | default "#ffffff" }};
+$white-offset: {{ .Site.Params.colors.white_offset | default "#f6f7ff" }};
+$grey: {{ .Site.Params.colors.grey | default "#5C5A5A" }};
+
+// Fonts
+$font-family-base: {{ .Site.Params.fonts.base }}, Helvetica, Arial, sans-serif, -apple-system;
+$font-family-heading: {{ .Site.Params.fonts.heading }}, serif, -apple-system;
+
+
+// Variables - Override Bootstrap variables and set your own here
+@import 'variables';
+
+// Bootstrap
+@import 'bootstrap/bootstrap-reboot';
+@import 'bootstrap/bootstrap-grid';
+@import 'bootstrap/bootstrap-utilities';
+// @import 'bootstrap/bootstrap'; // Uncomment this line to import the entire Bootstrap library
+
+// Libraries
+@import 'libraries/hamburgers/hamburgers';
+
+// Components
+@import 'components/type';
+@import 'components/page';
+@import 'components/header';
+@import 'components/footer';
+@import 'components/sub-footer';
+@import 'components/logo';
+@import 'components/main-menu';
+@import 'components/main-menu-mobile';
+@import 'components/hamburger';
+@import 'components/buttons';
+@import 'components/call';
+@import 'components/title';
+@import 'components/content';
+@import 'components/intro';
+@import 'components/intro-image';
+@import 'components/strip';
+@import 'components/feature';
+@import 'components/social';
+@import 'components/pricing';
+@import 'components/dropdown-menu';
+
+// Pages
+@import 'pages/home';
+@import 'pages/team/team-summary';
+@import 'pages/services/page-services-single';
+
+body {
+  font-size: 16px;
+  line-height: 1.2;
+  font-family: $font-family-base;
+  @include media-breakpoint-up(md) {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+}

@@ -25,7 +25,11 @@
 - ✅ Context-aware generation (system + conversation history)  
 - ✅ Works with GGUF models (e.g. Mistral, Phi, LLaMA)  
 - ✅ Lightweight and dependency-free runtime  
-<br><br><br><br><br><br>
+<br><br><br>
+### Try it NOW
+If you want to try how LLamatik works you can download the App on the App Store or Google Play Store.
+<a href="https://play.google.com/store/apps/details?id=com.llamatik.app.android"><img src="assets/google-play-button.png" align="left" width="200px" height="68px"/></a> <a href="https://apple.co/3Md7EIh"><img src="assets/app-store-button.png" align="left" width="200px" height="76px"/></a>
+<br><br><br>
 
 ---
 
@@ -75,7 +79,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 commonMain.dependencies {
-    implementation("com.llamatik:library:0.8.1")
+    implementation("com.llamatik:library:0.11.0")
 }
 ```
 

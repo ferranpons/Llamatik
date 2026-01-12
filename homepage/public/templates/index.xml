@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Templates on Llamatik</title>
+    <link>//localhost:1313/templates/</link>
+    <description>Recent content in Templates on Llamatik</description>
+    <generator>Hugo</generator>
+    <language>en-US</language>
+    <atom:link href="//localhost:1313/templates/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Adoptme</title>
+      <link>//localhost:1313/templates/adoptme/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>//localhost:1313/templates/adoptme/</guid>
+      <description>&lt;p&gt;&lt;img src=&#34;//localhost:1313/images/screenshots/pet-app-android.png&#34; alt=&#34;screenshot1&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Adoptme is a premium Kotlin Multiplatform template for building marketplace style applications.&#xA;It&amp;rsquo;s build using the Kotlin Multiplatform framework and styled with Compose multiplatform, offering a fast, modern user interface.&#xA;With Adoptme, you can create a professional-looking marketplace application with ease, saving you time and effort.&lt;/p&gt;&#xA;&lt;h2 id=&#34;features&#34;&gt;Features&lt;/h2&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Shared UI and Logic for all platforms&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Multiplatform&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Compose Multiplatform&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Coroutines&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Serialization&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Datetime&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Voyager&lt;/strong&gt; for Navigation and View Models&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Koin&lt;/strong&gt; as Dependency Injection&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Detekt&lt;/strong&gt; for static code analysis&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Ktlint&lt;/strong&gt; linter&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Ktor&lt;/strong&gt; for Client&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Multiplatform-settings&lt;/strong&gt; for storage&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kamel&lt;/strong&gt; for Images&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kermit&lt;/strong&gt; for logging&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Version Catalogs&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Ktor for Server&lt;/strong&gt; (PostgresSQL+Tomcat)&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Swagger Codegen&lt;/strong&gt; for &lt;strong&gt;OpenAPI&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;Adoptme is a powerful and flexible marketplace application template that offers a range of features to help you build a professional looking application.&#xA;With its design and customizable options, Adoptme is an excellent choice for anyone looking to create a marketplace.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

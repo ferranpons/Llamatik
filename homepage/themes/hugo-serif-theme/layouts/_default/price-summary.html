@@ -1,0 +1,22 @@
+<div class="price-summary">
+    <h2>
+      <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+    </h2>
+    <h2>
+        {{if gt .Params.price 100 }}
+            <b>{{ .Params.price | lang.FormatCurrency 2 .Params.currency }}</b><small class="pricing-small">/month</small>*
+            <div class="pricing-small">{{ .Params.priceyearly | lang.FormatCurrency 2 .Params.currency }} yearly ({{ .Params.discount }} discount)</div>
+        {{else}}
+            {{if gt .Params.price 0 }}
+                <b>{{ .Params.price | lang.FormatCurrency 2 .Params.currency }}</b>
+                <div class="pricing-small">&nbsp;pay once and get access forever</div>
+            {{else}}
+                <b>FREE</b>
+                <div class="pricing-small">&nbsp;</div>
+            {{end}}
+        {{end}}
+    </h2>
+    <p>
+        {{ .Content }}
+    </p>
+</div>

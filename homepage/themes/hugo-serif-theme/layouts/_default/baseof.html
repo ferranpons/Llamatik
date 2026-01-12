@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.Language.Lang }}">
+
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z8KLBS6LGD"></script>
+  <script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-Z8KLBS6LGD');
+  </script>
+
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>{{ block "title" . }}{{ .Params.meta_title | default (printf "%s - %s" .Title .Site.Title) }}{{ end }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" href="{{ .Site.Params.favicon | relURL }}">
+
+  {{ partial "google-fonts.html" . }}
+
+  <!-- CSS-->
+  {{ $css_options := dict "targetPath" "css/style.css" "enableSourceMap" (not hugo.IsProduction) }}
+  {{ $style := resources.Get "scss/style.scss" | resources.ExecuteAsTemplate "style.scss" . | toCSS $css_options }}
+  {{ if hugo.IsProduction }}
+    {{ $style = $style | minify | fingerprint }}
+  {{ end }}
+  <link rel="stylesheet" href="{{ $style.RelPermalink }}">
+
+  {{ block "header_css" . }}{{ end }}
+
+  {{ block "meta_tags" . }}
+    {{ with .Params.description }}<meta name="description" content="{{ . }}"/>{{ end }}
+    <meta property="og:title" content="{{ .Params.meta_title | default .Title }}"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="{{ .Permalink }}"/>
+    {{ with .Params.image | default .Site.Params.seo.meta_og_image }}<meta property="og:image" content="{{ . | absURL }}"/>{{ end }}
+    {{ with .Params.description }}<meta property="og:description" content="{{ . }}"/>{{ end }}
+    <meta name="twitter:card" content="summary"/>
+    {{ with .Site.Params.seo.meta_twitter_site }}<meta name="twitter:site" content="{{ . }}"/>{{ end }}
+    {{ with .Site.Params.seo.meta_twitter_creator }}<meta name="twitter:creator" content="{{ . }}"/>{{ end }}
+  {{ end }}
+
+</head>
+
+<body class='page {{ block "body_classes" . }}{{ end }}'>
+  {{ partial "main-menu-mobile.html" . }}
+  <div class="wrapper">
+    {{ partial "header.html" . }}
+    {{ block "main" . }}
+    {{ end }}
+  </div>
+
+  {{ partial "footer.html" . }}
+  {{ partial "sub-footer.html" . }}
+
+  {{ $scripts := resources.Get "js/scripts.js" }}
+
+  {{ block "footer_js" . }}
+  {{ end }}
+
+  {{ if hugo.IsProduction }}
+    {{ $scripts = $scripts | minify | fingerprint }}
+  {{ end }}
+  <script type="text/javascript" src="{{ $scripts.RelPermalink }}"></script>
+
+  {{ partial "google-tag-manager.html" . }}
+  {{ partial "google-analytics.html" . }}
+</body>
+
+</html>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Pricing on Llamatik</title>
+    <link>//localhost:1313/pricing/</link>
+    <description>Recent content in Pricing on Llamatik</description>
+    <generator>Hugo</generator>
+    <language>en-US</language>
+    <lastBuildDate>Wed, 28 Nov 2018 15:15:26 +1000</lastBuildDate>
+    <atom:link href="//localhost:1313/pricing/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Basic</title>
+      <link>//localhost:1313/pricing/free/</link>
+      <pubDate>Wed, 28 Nov 2018 15:15:26 +1000</pubDate>
+      <guid>//localhost:1313/pricing/free/</guid>
+      <description>&lt;p&gt;Basic template is &lt;strong&gt;free forever&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Access to the template and be part of the community. All basic features include:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Basic Login/Register&lt;/li&gt;&#xA;&lt;li&gt;Composable Components&lt;/li&gt;&#xA;&lt;li&gt;Server with CRUD API&lt;/li&gt;&#xA;&lt;li&gt;Internationalization&lt;/li&gt;&#xA;&lt;li&gt;CI/CD&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+    </item>
+    <item>
+      <title>Starter Pack</title>
+      <link>//localhost:1313/pricing/starter/</link>
+      <pubDate>Wed, 28 Nov 2018 15:15:26 +1000</pubDate>
+      <guid>//localhost:1313/pricing/starter/</guid>
+      <description>&lt;p&gt;&lt;strong&gt;Perfect for startups&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Buy the &lt;em&gt;Starter&lt;/em&gt; pack and gain &lt;strong&gt;access&lt;/strong&gt; to 2 of the &lt;strong&gt;latest PRO templates&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;All Free Features&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;PRO features&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Constantly improved&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Developer Plan&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Advanced Integrations&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Slack channel access&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+    </item>
+    <item>
+      <title>Business</title>
+      <link>//localhost:1313/pricing/business/</link>
+      <pubDate>Wed, 28 Nov 2018 15:15:26 +1000</pubDate>
+      <guid>//localhost:1313/pricing/business/</guid>
+      <description>&lt;p&gt;&lt;strong&gt;For serious businesses&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Shape the roadmap and get &lt;strong&gt;priority access&lt;/strong&gt; to the &lt;strong&gt;new app templates&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Slack channel access&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Access to all PRO templates&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Developer plan&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Advanced integrations&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Roadmap shaping&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Priority access&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Email support&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+    </item>
+  </channel>
+</rss>

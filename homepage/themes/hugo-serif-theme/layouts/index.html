@@ -1,0 +1,190 @@
+{{ define "body_classes" }}page-home{{ end }}
+
+{{ define "main" }}
+<div class="intro">
+  <div class="container">
+    <div class="row justify-content-start">
+      <div class="col-12 col-md-7 col-lg-6 order-2 order-md-1">
+        {{ .Content }}
+        {{ if .Site.Params.homepage.show_contact_box }}
+        {{ partial "buynow.html" (dict "site" .Site "context" . "show_button" "true") }}
+        {{ end }}
+      </div>
+      {{ if .Params.intro_image }}
+      <div class="col-12 col-md-5 col-lg-6 order-1 order-md-2 position-relative">
+        <img alt={{ .Title }}
+          class="intro-image{{ if .Params.intro_image_absolute }} intro-image-absolute{{ end }}{{ if .Params.intro_image_hide_on_mobile }} intro-image-hide-mobile{{ end }}"
+          src="{{ .Params.intro_image | relURL }}" />
+      </div>
+      {{ end }}
+    </div>
+  </div>
+</div>
+
+<div class="strip">
+  <div class="container pt-6 pb-6 pb-md-10">
+    <div class="row justify-content-start">
+      <h3 class="pricing-centered">Our Tech Stack</h3>
+      <br/><br/><br/>
+      <p class="pricing-centered">
+        <img src="/images/logo/KotlinFullColorLogoOnWhiteRGB.png" width="120" title="" alt="Kotlin Language" />
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <img src="/images/logo/KtorLogo.png" width="110" title="" alt="Ktor Server" />
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <img src="/images/logo/ComposeMultiplatformLogo.png" width="40" title="" alt="Ktor Server" /> Compose Multiplatform
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <img src="/images/logo/MaterialDesign3Logo.png" width="40" title="" alt="Ktor Server" /> Material Design 3
+      </p>
+    </div>
+  </div>
+</div>
+
+{{ $services := where (where .Site.RegularPages "Type" "services") ".Params.featured" true }}
+{{if gt (len $services) 0}}
+<div class="strip">
+  <div class="container pt-6 pb-6 pb-md-10">
+    <div class="row justify-content-start">
+      {{ range first 6 (sort $services ".Params.weight") }}
+      <div class="col-12 col-md-4 mb-1">
+        {{ .Render "summary" }}
+      </div>
+      {{ end }}
+    </div>
+    {{ if .Site.Params.homepage.show_services_button }}
+    <div class="row justify-content-center">
+      <div class="col-auto">
+        <a class="button button-primary" href="{{ "services/" | relURL }}">View All Services</a>
+      </div>
+    </div>
+    {{ end }}
+  </div>
+</div>
+{{end}}
+
+<div class="strip strip-grey">
+  <div class="container pt-3 pb-3 pb-md-10">
+    <div class="row justify-content-center">
+      <div class="pricing-intro">
+        <h1>✨ Designed to Shine ✨</h1>
+      </div>
+      <p class="pricing-centered">
+        Create beautiful applications with <b>Multiplatform Kickstarter</b> using <b>Compose Multiplatform</b> and <b>Material 3</b>. <br/><br/>
+        <b>Material Design</b> is a <i>design system</i> built and supported by <b>Google</b> designers and developers.
+        The latest version, <b>Material 3</b>, enables personal, adaptive, and expressive experiences – <b>from dynamic color and enhanced accessibility, to foundations for large screen layouts and design tokens</b>.
+        Check <a href="https://www.jetbrains.com/lp/compose-multiplatform/" target="_blank">Jetbrains.com</a> and <a href="https://m3.material.io/" target="_blank">Material.io</a> for an in-depth UX guidance and UI component implementations.
+      </p>
+      <p class="pricing-centered">
+        <img src="/images/screenshots/adoptme-app-android-screenshot1.png" width="200" title="" alt="Pet Screenshot Android 1" />
+        &nbsp;&nbsp;
+        <img src="/images/screenshots/adoptme-app-android-screenshot2.png" width="200" title="" alt="Pet Screenshot Android 2" />
+        &nbsp;&nbsp;
+        <img src="/images/screenshots/adoptme-app-android-screenshot3.png" width="200" title="" alt="Pet Screenshot Android 3" />
+        &nbsp;&nbsp;
+        <img src="/images/screenshots/adoptme-app-android-screenshot4.png" width="200" title="" alt="Pet Screenshot Android 4" />
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="strip strip">
+  <div class="container pt-3 pb-3 pb-md-10">
+    <div class="row justify-content-center">
+      <div class="pricing-intro">
+        <h1>What is the cost of building an app from scratch?</h1>
+      </div>
+
+      <p class="pricing-centered">
+        <img src="/images/illustrations/money-stress-pana.svg" width="300" title="" alt="" />
+      </p>
+      <p class="pricing-centered">
+        "Developing a full-fledged cross-platform mobile app costs around <b>$20,000+</b> for a <b>simple app</b>, around <b>$20,000</b> to <b>$45,000</b> for a <b>moderate app</b> and <b>$45,000</b> to <b>$75,000</b> for <b>advanced apps</b>" - <a href="https://www.auxanoglobalservices.com/cost-to-develop-cross-platform-app/#gref">Auxano Global Services</a>
+      </p>
+
+      <p class="pricing-centered">
+        Multiplatform Kickstarter is an opinionated template that will save you all the trouble of researching and developing all the features and components needed to create production ready applications.
+      </p>
+
+      <p class="pricing-centered">
+        <em><b>Save months of work plus a lot of money and focus on building a profitable business.</b></em>
+      </p>
+    </div>
+  </div>
+</div>
+
+{{if .Site.Data.features}}
+<div class="strip strip-grey">
+  <div class="container pt-3 pb-3 pb-md-10">
+    <div class="row justify-content-center">
+      <div class="pricing-intro">
+        <h1>Everything you need to start your Application 🚀</h1>
+      </div>
+      <p class="pricing-centered">
+        It takes the <b>best parts of state-of-the-art tools</b> and <b>adds its own innovations</b>. While most templates only solves the basic functionality, we are aiming to <b>solve most of the common problems</b> when creating applications from initial status to production.
+        <br/><br/>
+      </p>
+      {{ range .Site.Data.features }}
+      <div class="col-12 col-md-6 col-lg-4 mb-2">
+        <div class="feature">
+          <h2 class="feature-title">{{ .title }}</h2>
+          <div class="feature-content">
+            <p>{{ .description }}</p>
+          </div>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{ if .Site.Params.showPricing }}
+  {{ $pricing := where (where .Site.RegularPages "Type" "pricing") ".Params.featured" true }}
+  {{if gt (len $pricing) 0}}
+  <div class="strip">
+    <div class="container pt-4 pb-3 pb-md-8">
+      <div class="row justify-content-center">
+        <div class="pricing-intro">
+          <h1>Build a profitable business</h1>
+        </div>
+        <p class="col-auto pricing-centered">
+          The <i>Basic template</i> is a good start but <b>**PRO templates**</b> have all you need to create professional apps without a hassle.<br/>
+          Get <b>access</b> to <b>our private Github team</b> and join <b>our Slack community</b> for support. <br/>
+          Subscribe and receive <b>unlimited updates to build as many apps as you want</b>.
+        </p>
+        {{ range first 3 (sort $pricing ".Params.weight") }}
+        {{ if eq (.Params.highlighted) true }}
+        <div class="col-14 col-md-3 mb-2 pricing-highlighted">
+        {{ else }}
+        <div class="col-14 col-md-3 mb-2 pricing">
+        {{ end }}
+          {{ .Render "price-summary" }}
+          <div class="col-auto">
+            {{ if eq (.Params.highlighted) true }}
+            <a class="button-expanded button-primary button-highlighted" href="{{ .Params.shoppingurl | relURL }}" target="_blank" rel="noopener noreferrer">{{ .Params.leadtext }}</a>
+            {{ else }}
+            <a class="button-expanded button-primary" href="{{ .Params.shoppingurl | relURL }}" target="_blank" rel="noopener noreferrer">{{ .Params.leadtext }}</a>
+            {{ end }}
+          </div>
+        </div>
+        {{ end }}
+        <div class="col-auto pricing-centered pricing-small">
+          * price and subscription plans may change in the future after the promotion ends.<br/>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+{{end}}
+
+<div class="strip strip-grey">
+  <div class="container pt-6 pb-6 pt-md-10 pb-md-10">
+    <div class="row justify-content-center">
+      <iframe src="https://multiplatformkickstarter.substack.com/embed" width="480" height="320" style="border:1px solid #EEE; background:white;" frameborder="0" scrolling="no"></iframe>
+    </div>
+  </div>
+</div>
+
+{{ end }}
+
+{{ define "footer_js" }}
+{{ end }}

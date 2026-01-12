@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>About on Llamatik</title>
+    <link>//localhost:1313/about/</link>
+    <description>Recent content in About on Llamatik</description>
+    <generator>Hugo</generator>
+    <language>en-US</language>
+    <lastBuildDate>Mon, 19 Nov 2018 10:47:58 +1000</lastBuildDate>
+    <atom:link href="//localhost:1313/about/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Ferran Pons</title>
+      <link>//localhost:1313/about/ferran-pons/</link>
+      <pubDate>Mon, 19 Nov 2018 10:47:58 +1000</pubDate>
+      <guid>//localhost:1313/about/ferran-pons/</guid>
+      <description>&lt;p&gt;With almost 20 years of experience as a programmer, my experience covers a lot of different kinds of applications, from web app development to desktop, mobile apps, and videogames.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Vanesa Rodríguez</title>
+      <link>//localhost:1313/about/vanesa-rodriguez/</link>
+      <pubDate>Mon, 19 Nov 2018 10:47:58 +1000</pubDate>
+      <guid>//localhost:1313/about/vanesa-rodriguez/</guid>
+      <description>&lt;p&gt;Experience in project leadership and research.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

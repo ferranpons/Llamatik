@@ -2,17 +2,24 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Llama.cpp on Llamatik</title>
-    <link>http://localhost:1313/tags/llama.cpp/</link>
+    <link>//localhost:1313/tags/llama.cpp/</link>
     <description>Recent content in Llama.cpp on Llamatik</description>
     <generator>Hugo</generator>
-    <language>en-us</language>
-    <lastBuildDate>Tue, 22 Jul 2025 09:00:00 -0500</lastBuildDate>
-    <atom:link href="http://localhost:1313/tags/llama.cpp/index.xml" rel="self" type="application/rss+xml" />
+    <language>en-US</language>
+    <lastBuildDate>Tue, 25 Nov 2025 09:00:00 -0500</lastBuildDate>
+    <atom:link href="//localhost:1313/tags/llama.cpp/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>“Introducing the Llamatik App an Offline AI Chat on Your Mobile Device”</title>
+      <link>//localhost:1313/blog/llamatik-app-android-published/</link>
+      <pubDate>Tue, 25 Nov 2025 09:00:00 -0500</pubDate>
+      <guid>//localhost:1313/blog/llamatik-app-android-published/</guid>
+      <description>&lt;p&gt;🚀 Introducing the Llamatik App: Offline AI Chat on Your Mobile Device&lt;/p&gt;&#xA;&lt;p&gt;We’re excited to announce the launch of the Llamatik App, a fully offline AI chatbot designed to showcase the power and versatility of the Llamatik Kotlin Multiplatform library.&#xA;Whether you’re a developer curious about on-device AI or a user who wants a private, fast, and modern chatbot experience, the Llamatik app brings the full potential of lightweight LLMs directly to your mobile device.&lt;/p&gt;</description>
+    </item>
     <item>
       <title>“Introducing Llamatik Offline LLMs for Kotlin Multiplatform”</title>
-      <link>http://localhost:1313/blog/llamatik-introduction/</link>
+      <link>//localhost:1313/blog/llamatik-introduction/</link>
       <pubDate>Tue, 22 Jul 2025 09:00:00 -0500</pubDate>
-      <guid>http://localhost:1313/blog/llamatik-introduction/</guid>
+      <guid>//localhost:1313/blog/llamatik-introduction/</guid>
       <description>&lt;p&gt;🦙 Introducing Llamatik: Offline LLMs for Kotlin Multiplatform&lt;/p&gt;&#xA;&lt;p&gt;We’re thrilled to introduce Llamatik — an open-source Kotlin Multiplatform library that brings local&#xA;Large Language Models (LLMs) to Android, iOS, desktop, and beyond using the power of llama.cpp.&lt;/p&gt;&#xA;&lt;p&gt;Llamatik makes it simple and efficient to integrate offline, on-device inference and embeddings into&#xA;your KMP apps, whether you’re building an AI assistant, a RAG chatbot, or an edge intelligence tool.&lt;/p&gt;&#xA;&lt;p&gt;⸻&lt;/p&gt;&#xA;&lt;p&gt;✨ Why Llamatik?&lt;/p&gt;</description>
     </item>
   </channel>

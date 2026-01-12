@@ -1,0 +1,47 @@
+.strip {
+  background: white;
+  background-repeat: no-repeat;
+}
+.strip-white {
+  background-color: white;
+}
+.strip-grey {
+  background-color: $white-offset;
+}
+.strip-diagonal {
+  transform: skewY(5deg);
+  padding-bottom: 50px;
+  margin-bottom: 65px;
+  > div {
+    transform: skewY(-5deg);
+  }
+}
+.strip-primary {
+  background-color: $primary;
+}
+
+.strip-diagonal-right {
+  margin-top: -100px;
+  transform: skewY(-5deg);
+  padding-bottom: 100px;
+  > div {
+    transform: skewY(5deg);
+  }
+}
+
+.strip-diagonal-left {
+  margin-top: -100px;
+  transform: skewY(5deg);
+  padding-bottom: 100px;
+  > div {
+    transform: skewY(-5deg);
+  }
+}
+
+.strip-bg-contain {
+  background-size: contain;
+}
+
+.strip-bg-cover {
+  background-size: cover;
+}

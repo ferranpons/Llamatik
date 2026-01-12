@@ -1,0 +1,167 @@
+{{ define "body_classes" }}page-default-list{{ end }}
+
+{{ define "main" }}
+<div class="intro">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-7 col-lg-6 order-2 order-md-1">
+        <h1>{{ .Params.title }}</h1>
+        <p>{{ .Params.description | .RenderString }}</p>
+      </div>
+      {{ if .Params.intro_image }}
+      <div class="col-12 col-md-5 col-lg-3 order-1 order-md-2 position-relative">
+        <img
+          class="intro-image{{ if .Params.intro_image_absolute }} intro-image-absolute{{ end }}{{ if .Params.intro_image_hide_on_mobile }} intro-image-hide-mobile{{ end }}"
+          src="{{ .Params.intro_image | relURL }}" />
+      </div>
+      {{ end }}
+    </div>
+    {{ .Content }}
+  </div>
+</div>
+<!--
+{{ if .Params.is_pricing }}
+  <div class="container pb-md-12">
+    <div class="row justify-content-center">
+      <p class="col-auto pricing-centered">
+        The <i>Basic template</i> is a good start but <b>**PRO templates**</b> have all you need to create professional apps without a hassle.<br/>
+        Get <b>access</b> to <b>our private Github team</b> and join <b>our Slack community</b> for support. <br/>
+        Subscribe and receive <b>unlimited updates to build as many apps as you want</b>.
+      </p>
+
+      {{ range .Pages.ByWeight }}
+
+      {{ if eq (.Params.highlighted) true }}
+      <div class="col-14 col-md-3 mb-2 pricing-highlighted">
+        {{ else }}
+        <div class="col-14 col-md-3 mb-2 pricing">
+          {{ end }}
+          {{ .Render "price-summary" }}
+          <div class="col-auto">
+            {{ if eq (.Params.highlighted) true }}
+            <a class="button-expanded button-primary button-highlighted" href="{{ .Params.shoppingurl | relURL }}" target="_blank" rel="noopener noreferrer">{{ .Params.leadtext }}</a>
+            {{ else }}
+            <a class="button-expanded button-primary" href="{{ .Params.shoppingurl | relURL }}" target="_blank" rel="noopener noreferrer">{{ .Params.leadtext }}</a>
+            {{ end }}
+          </div>
+        </div>
+
+      {{ end }}
+
+      <div class="col-auto pricing-centered pricing-small">
+        * price and subscription plans may change in the future after the promotion ends.<br/>
+      </div>
+    </div>
+  </div>
+
+  <div class="container pb-md-12">
+    <div class="row justify-content-center">
+      <h1>Compare Plans</h1>
+      <h6>Use the table below to compare full features of this product.</h6>
+      <br/><br/><br/>
+
+      <table class="table">
+        <thead>
+        <tr>
+          <th scope="col">Compare Plans</th>
+          <th scope="col">
+            <h1>Free</h1>
+            <br/>
+            <br/>
+            <br/>
+            <a class="button button-primary" href="https://github.com/MultiplatformKickstarter/adoptme" target="_blank" rel="noopener noreferrer">DONWLOAD NOW</a>
+            <br/><br/>
+          </th>
+          <th scope="col">
+            <h1>Starter</h1>
+            <b>{{ "49.99" | lang.FormatCurrency 2 "USD" }}</b><small class="pricing-small">/month</small>*
+            <div class="pricing-small">{{ 540.00 | lang.FormatCurrency 2 "USD" }} yearly (10% discount)</div>
+            <br/>
+            <a class="button button-primary button-highlighted" href="https://multiplatformkickstarter.lemonsqueezy.com/checkout/buy/1310894e-e1ff-4071-84c3-7c230c8af878" target="_blank" rel="noopener noreferrer">SUBSCRIBE NOW</a>
+            <br/><br/>
+          </th>
+          <th scope="col">
+            <h1>Business</h1>
+            <b>{{ "149.99" | lang.FormatCurrency 2 "USD" }}</b><small class="pricing-small">/month</small>*
+            <div class="pricing-small">{{ 1530.00 | lang.FormatCurrency 2 "USD" }} yearly (15% discount)</div>
+            <br/>
+            <a class="button button-primary button-highlighted" href="https://multiplatformkickstarter.lemonsqueezy.com/checkout/buy/c327de86-267a-41f6-9461-705998f41942" target="_blank" rel="noopener noreferrer">SUBSCRIBE NOW</a>
+            <br/><br/>
+          </th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <th scope="row">Basic Features</th>
+          <td>✔</td>
+          <td>✔</td>
+          <td>✔</td>
+        </tr>
+        <tr>
+          <th scope="row">PRO Features</th>
+          <td>-</td>
+          <td>✔</td>
+          <td>✔</td>
+        </tr>
+        <tr>
+          <th scope="row">Developer Plan</th>
+          <td>-</td>
+          <td>✔</td>
+          <td>✔</td>
+        </tr>
+        <tr>
+          <th scope="row">Slack Channel Access</th>
+          <td>-</td>
+          <td>✔</td>
+          <td>✔</td>
+        </tr>
+        <tr>
+          <th scope="row">Roadmap Shaping</th>
+          <td>-</td>
+          <td>-</td>
+          <td>✔</td>
+        </tr>
+        <tr>
+          <th scope="row">Email Support</th>
+          <td>-</td>
+          <td>-</td>
+          <td>✔</td>
+        </tr>
+        <tr>
+          <th scope="row">24/7 Support</th>
+          <td>-</td>
+          <td>-</td>
+          <td>✔</td>
+        </tr>
+        <tr>
+          <th scope="row">Priority Access</th>
+          <td>-</td>
+          <td>-</td>
+          <td>✔</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+{{ end }}
+-->
+
+    {{ if .Params.is_templates }}
+    <div class="container pb-md-16">
+      <div class="row justify-content-center">
+        {{ range .Pages.ByWeight }}
+
+        {{ if eq (.Params.highlighted) true }}
+        <div class="col-16 col-md-4 mb-2 pricing-highlighted">
+          {{ else }}
+          <div class="col-16 col-md-4 mb-2 pricing">
+            {{ end }}
+            {{ .Render "template-summary" }}
+          </div>
+
+          {{ end }}
+        </div>
+      </div>
+      {{ end }}
+
+{{ end }}

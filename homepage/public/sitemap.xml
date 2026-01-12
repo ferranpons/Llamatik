@@ -1,33 +1,81 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>http://localhost:1313/blog/</loc>
+    <loc>//localhost:1313/pricing/free/</loc>
+    <lastmod>2018-11-28T15:15:26+10:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/about/ferran-pons/</loc>
+    <lastmod>2018-11-19T10:47:58+10:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/templates/adoptme/</loc>
+  </url><url>
+    <loc>//localhost:1313/pricing/starter/</loc>
+    <lastmod>2018-11-28T15:15:26+10:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/about/vanesa-rodriguez/</loc>
+    <lastmod>2018-11-19T10:47:58+10:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/pricing/business/</loc>
+    <lastmod>2018-11-28T15:15:26+10:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/blog/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/blog/llamatik-app-android-published/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/app/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/kotlin/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/llama.cpp/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/llm/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/multiplatform/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/offline-ai/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/tags/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/blog/llamatik-introduction/</loc>
     <lastmod>2025-07-22T09:00:00-05:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/blog/llamatik-introduction/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/contact/</loc>
+    <lastmod>2023-10-25T17:01:34+07:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/kotlin/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/license/</loc>
+    <lastmod>2023-10-25T17:01:34+07:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/llama.cpp/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/privacy/</loc>
+    <lastmod>2023-10-25T17:01:34+07:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/pricing/</loc>
+    <lastmod>2018-11-28T15:15:26+10:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/llm/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/about/</loc>
+    <lastmod>2018-11-19T10:47:58+10:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/multiplatform/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/apps/</loc>
   </url><url>
-    <loc>http://localhost:1313/tags/offline-ai/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/categories/</loc>
   </url><url>
-    <loc>http://localhost:1313/tags/</loc>
-    <lastmod>2025-07-22T09:00:00-05:00</lastmod>
+    <loc>//localhost:1313/faq/</loc>
   </url><url>
-    <loc>http://localhost:1313/series/</loc>
+    <loc>//localhost:1313/features/</loc>
+  </url><url>
+    <loc>//localhost:1313/opensource/</loc>
+  </url><url>
+    <loc>//localhost:1313/templates/</loc>
   </url>
 </urlset>

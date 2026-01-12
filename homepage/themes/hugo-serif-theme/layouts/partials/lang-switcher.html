@@ -1,0 +1,22 @@
+{{ if hugo.IsMultilingual }}
+<li class="dropdown">
+    <a href="#" class="dropdown__title" data-bs-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="fa fa-globe fa-lg" aria-hidden="true"></i>{{ .Language }}</a>
+    <ul class="dropdown__menu">
+        {{ $siteLanguages := site.Languages}}
+        {{ $pageLang := .Page.Lang}}
+        {{ range .Page.AllTranslations }}
+        {{ $translation := .}}
+        {{ range $siteLanguages }}
+        {{ if eq $translation.Lang .Lang }}
+        {{ $selected := false }}
+        {{ if eq $pageLang .Lang}}
+        <li><a href="{{ $translation.RelPermalink }}" class="active">{{ .LanguageName }}</a></li>
+        {{ else }}
+        <li><a href="{{ $translation.RelPermalink }}">{{ .LanguageName }}</a></li>
+        {{ end }}
+        {{ end }}
+        {{ end }}
+        {{ end }}
+    </ul>
+</li>
+{{ end }}

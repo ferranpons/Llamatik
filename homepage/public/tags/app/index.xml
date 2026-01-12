@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>App on Llamatik</title>
+    <link>//localhost:1313/tags/app/</link>
+    <description>Recent content in App on Llamatik</description>
+    <generator>Hugo</generator>
+    <language>en-US</language>
+    <lastBuildDate>Tue, 25 Nov 2025 09:00:00 -0500</lastBuildDate>
+    <atom:link href="//localhost:1313/tags/app/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>“Introducing the Llamatik App an Offline AI Chat on Your Mobile Device”</title>
+      <link>//localhost:1313/blog/llamatik-app-android-published/</link>
+      <pubDate>Tue, 25 Nov 2025 09:00:00 -0500</pubDate>
+      <guid>//localhost:1313/blog/llamatik-app-android-published/</guid>
+      <description>&lt;p&gt;🚀 Introducing the Llamatik App: Offline AI Chat on Your Mobile Device&lt;/p&gt;&#xA;&lt;p&gt;We’re excited to announce the launch of the Llamatik App, a fully offline AI chatbot designed to showcase the power and versatility of the Llamatik Kotlin Multiplatform library.&#xA;Whether you’re a developer curious about on-device AI or a user who wants a private, fast, and modern chatbot experience, the Llamatik app brings the full potential of lightweight LLMs directly to your mobile device.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>
