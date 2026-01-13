@@ -1,62 +1,32 @@
 [
   {
-    "title": "Authentication",
-    "description": "Pre-built authentication solution that handles user registration, login and all common authentication workflows.",
+    "title": "On-device inference",
+    "description": "Run LLMs fully offline using native llama.cpp bindings compiled for each platform. No network required, no data leakage.",
     "image": "images/features/noun_branding_1885335.svg"
   },
   {
-    "title": "Compose Components",
-    "description": "Save time and effort with our collection of beautiful components, build great interfaces in minutes.",
+    "title": "Kotlin Multiplatform API",
+    "description": "A single, shared Kotlin API for Android, iOS, desktop, and server — with expect/actual handled for you.",
     "image": "images/features/noun_The Process_1885341.svg"
   },
   {
-    "title": "Navigation",
-    "description": "Built-in navigation using Voyager. Covers all the basic navigation scenarios with transitions.",
+    "title": "Remote inference",
+    "description": "Use HTTP-based inference when models are too large or when centralized execution is required — without changing your app logic.",
     "image": "images/features/noun_3d modeling_1885342.svg"
   },
   {
-    "title": "Tracking",
-    "description": "We provide an abstract component to track every aspect of your app in a simple way.",
+    "title": "Text generation & embeddings",
+    "description": "Built-in support for common LLM use cases like text generation, chat-style prompts, and vector embeddings.",
     "image": ""
   },
   {
-    "title": "Version Catalog",
-    "description": "Define all libraries, versions and plugins in one TOML file to reuse across multiplatform apps.",
+    "title": "GGUF model support",
+    "description": "Works with modern GGUF-based models such as LLaMA, Mistral, and Phi.",
     "image": "images/features/noun_The Process_1885341.svg"
   },
   {
-    "title": "CI Ready",
-    "description": "Basic scripts for your continuous integration builds. Key component for any Production application.",
-    "image": "images/features/noun_3d modeling_1885342.svg"
-  },
-  {
-    "title": "Debug Menu",
-    "description": "Built-in debug menu were you can manage all the important things of your apps.",
-    "image": "images/features/noun_branding_1885335.svg"
-  },
-  {
-    "title": "Internationalization",
-    "description": "FIGS - Translations are very important, also the way are displayed to avoid issues.",
-    "image": "images/features/noun_The Process_1885341.svg"
-  },
-  {
-    "title": "CRUD API",
-    "description": "The template provides a built-in CRUD API as an example for your APIs documented in OpenAPI.",
-    "image": "images/features/noun_3d modeling_1885342.svg"
-  },
-  {
-    "title": "Material 3",
-    "description": "All components and screens were created using Material 3 as the base.",
-    "image": "images/features/noun_branding_1885335.svg"
-  },
-  {
-    "title": "Ktor Client/Server",
-    "description": "Use the standard Ktor client and server apis to build your apps.",
-    "image": "images/features/noun_The Process_1885341.svg"
-  },
-  {
-    "title": "Data Storage",
-    "description": "Store all the data on every platform in a reliable way.",
+    "title": "Lightweight runtime",
+    "description": "No heavy frameworks, no cloud SDKs. Just Kotlin, native binaries, and full control over your stack.",
     "image": "images/features/noun_3d modeling_1885342.svg"
   }
 ]

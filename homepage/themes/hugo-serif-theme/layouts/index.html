@@ -24,16 +24,18 @@
 <div class="strip">
   <div class="container pt-6 pb-6 pb-md-10">
     <div class="row justify-content-start">
-      <h3 class="pricing-centered">Our Tech Stack</h3>
+      <h3 class="pricing-centered">Powered by proven technology</h3>
       <br/><br/><br/>
       <p class="pricing-centered">
-        <img src="/images/logo/KotlinFullColorLogoOnWhiteRGB.png" width="120" title="" alt="Kotlin Language" />
+        <img src="/images/logo/KotlinFullColorLogoOnWhiteRGB.png" width="120" title="" alt="Kotlin Language Logo" />
         &nbsp;&nbsp;&nbsp;&nbsp;
-        <img src="/images/logo/KtorLogo.png" width="110" title="" alt="Ktor Server" />
+        <img src="/images/logo/KtorLogo.png" width="110" title="" alt="Ktor Server Logo" />
         &nbsp;&nbsp;&nbsp;&nbsp;
-        <img src="/images/logo/ComposeMultiplatformLogo.png" width="40" title="" alt="Ktor Server" /> Compose Multiplatform
+          <img src="/images/logo/LlamaCppLogo.svg" width="130" title="" alt="Llama.cpp Logo" />
+          &nbsp;&nbsp;&nbsp;&nbsp;
+        <img src="/images/logo/ComposeMultiplatformLogo.png" width="40" title="" alt="Compose Multiplatform Logo" /> Compose Multiplatform
         &nbsp;&nbsp;&nbsp;&nbsp;
-        <img src="/images/logo/MaterialDesign3Logo.png" width="40" title="" alt="Ktor Server" /> Material Design 3
+        <img src="/images/logo/MaterialDesign3Logo.png" width="40" title="" alt="Material Design 3 Logo" /> Material Design 3
       </p>
     </div>
   </div>
@@ -65,13 +67,12 @@
   <div class="container pt-3 pb-3 pb-md-10">
     <div class="row justify-content-center">
       <div class="pricing-intro">
-        <h1>✨ Designed to Shine ✨</h1>
+        <h1>Designed for AI, Built for Kotlin</h1>
       </div>
       <p class="pricing-centered">
-        Create beautiful applications with <b>Multiplatform Kickstarter</b> using <b>Compose Multiplatform</b> and <b>Material 3</b>. <br/><br/>
-        <b>Material Design</b> is a <i>design system</i> built and supported by <b>Google</b> designers and developers.
-        The latest version, <b>Material 3</b>, enables personal, adaptive, and expressive experiences – <b>from dynamic color and enhanced accessibility, to foundations for large screen layouts and design tokens</b>.
-        Check <a href="https://www.jetbrains.com/lp/compose-multiplatform/" target="_blank">Jetbrains.com</a> and <a href="https://m3.material.io/" target="_blank">Material.io</a> for an in-depth UX guidance and UI component implementations.
+          Llamatik is designed for developers who want to integrate large language models without sacrificing performance, privacy, or control. Built on top of proven technologies like Kotlin Multiplatform, llama.cpp, and Compose Multiplatform, it fits naturally into modern Kotlin applications.
+          <br><br>
+          Whether you’re building mobile, desktop, or backend software, Llamatik gives you a clean, consistent API to run LLMs locally or remotely — without forcing architectural compromises.
       </p>
       <p class="pricing-centered">
         <img src="/images/screenshots/adoptme-app-android-screenshot1.png" width="200" title="" alt="Pet Screenshot Android 1" />
@@ -90,22 +91,29 @@
   <div class="container pt-3 pb-3 pb-md-10">
     <div class="row justify-content-center">
       <div class="pricing-intro">
-        <h1>What is the cost of building an app from scratch?</h1>
+        <h1>Why run LLMs on-device?</h1>
       </div>
 
       <p class="pricing-centered">
         <img src="/images/illustrations/money-stress-pana.svg" width="300" title="" alt="" />
       </p>
       <p class="pricing-centered">
-        "Developing a full-fledged cross-platform mobile app costs around <b>$20,000+</b> for a <b>simple app</b>, around <b>$20,000</b> to <b>$45,000</b> for a <b>moderate app</b> and <b>$45,000</b> to <b>$75,000</b> for <b>advanced apps</b>" - <a href="https://www.auxanoglobalservices.com/cost-to-develop-cross-platform-app/#gref">Auxano Global Services</a>
+          Cloud-based LLMs are powerful — but they come with trade-offs. Latency, recurring costs, privacy concerns, and vendor lock-in can quickly become blockers for real-world applications.
       </p>
 
       <p class="pricing-centered">
-        Multiplatform Kickstarter is an opinionated template that will save you all the trouble of researching and developing all the features and components needed to create production ready applications.
+          Llamatik lets you run models directly on user devices using native inference powered by llama.cpp, reducing infrastructure costs while keeping sensitive data local. When you need scale or centralized inference, you can seamlessly switch to remote execution — using the same Kotlin API.
       </p>
 
       <p class="pricing-centered">
-        <em><b>Save months of work plus a lot of money and focus on building a profitable business.</b></em>
+          Local-first by default. Remote when it makes sense.
+
+          This reframes cost as:
+          •	Infrastructure cost
+          •	Privacy cost
+          •	Architectural complexity
+
+          Much stronger for your audience.
       </p>
     </div>
   </div>
@@ -116,10 +124,12 @@
   <div class="container pt-3 pb-3 pb-md-10">
     <div class="row justify-content-center">
       <div class="pricing-intro">
-        <h1>Everything you need to start your Application 🚀</h1>
+        <h1>Everything you need to ship LLM features 🚀</h1>
       </div>
       <p class="pricing-centered">
-        It takes the <b>best parts of state-of-the-art tools</b> and <b>adds its own innovations</b>. While most templates only solves the basic functionality, we are aiming to <b>solve most of the common problems</b> when creating applications from initial status to production.
+          <b>Llamatik focuses on the hard parts of integrating large language models — so you can focus on building great products.</b>
+          <br><br>
+          Instead of stitching together native code, bindings, and platform-specific logic, Llamatik provides a unified Kotlin-first abstraction that works across platforms and environments.
         <br/><br/>
       </p>
       {{ range .Site.Data.features }}
@@ -136,6 +146,31 @@
   </div>
 </div>
 {{end}}
+
+<div class="strip strip">
+    <div class="container pt-3 pb-3 pb-md-10">
+        <div class="row justify-content-center">
+            <div class="pricing-intro">
+                <h1>Open source. Developer-first.</h1>
+            </div>
+
+            <p class="pricing-centered">
+                <img src="/images/illustrations/money-stress-pana.svg" width="300" title="" alt="" />
+            </p>
+            <p class="pricing-centered">
+                Llamatik is open source and built in the open.
+                Explore the code, contribute, or integrate it into your projects today.
+            </p>
+
+            <p class="pricing-centered">
+                CTA buttons:
+                •	View on GitHub
+                •	Read the Docs
+                •	Get Started
+            </p>
+        </div>
+    </div>
+</div>
 
 {{ if .Site.Params.showPricing }}
   {{ $pricing := where (where .Site.RegularPages "Type" "pricing") ".Params.featured" true }}

@@ -109,8 +109,8 @@ weight = 4
 [menu]
 # Main Menu
 [[menu.main]]
-name = "Models"
-url = "/models/"
+name = "Apps"
+url = "/apps/"
 weight = 1
 
 [[menu.main]]
