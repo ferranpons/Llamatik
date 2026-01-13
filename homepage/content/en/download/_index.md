@@ -1,6 +1,6 @@
 ---
 title: 'Apps'
-description: "Check out all the apps developed using Multiplatform Kickstarter"
+description: "Check out all the download developed using Multiplatform Kickstarter"
 intro_image: "images/illustrations/personal-settings-pana.svg"
 intro_image_absolute: false
 intro_image_hide_on_mobile: false

@@ -1,6 +1,6 @@
 ---
 title: "Adoptme PRO"
-description: "Multiplatform Template for Marketplace style apps **with all premium features**."
+description: "Multiplatform Template for Marketplace style download **with all premium features**."
 featured: true
 draft: true
 weight: 2

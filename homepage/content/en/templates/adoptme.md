@@ -1,6 +1,6 @@
 ---
 title: "Adoptme"
-description: "Basic Kotlin Multiplatform template for Marketplace style apps."
+description: "Basic Kotlin Multiplatform template for Marketplace style download."
 featured: true
 draft: false
 weight: 1

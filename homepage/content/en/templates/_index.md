@@ -1,6 +1,6 @@
 ---
 title: 'Templates'
-description: 'Kotlin Multiplatform app templates, and free starter kits, to help developers and entrepreneurs make apps for Android and iOS in minutes.'
+description: 'Kotlin Multiplatform app templates, and free starter kits, to help developers and entrepreneurs make download for Android and iOS in minutes.'
 intro_image: "images/illustrations/product-presentation-amico.svg"
 intro_image_absolute: false
 intro_image_hide_on_mobile: false
