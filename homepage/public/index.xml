@@ -37,13 +37,6 @@
       <description>&lt;p&gt;&lt;strong&gt;Perfect for startups&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Buy the &lt;em&gt;Starter&lt;/em&gt; pack and gain &lt;strong&gt;access&lt;/strong&gt; to 2 of the &lt;strong&gt;latest PRO templates&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;All Free Features&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;PRO features&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Constantly improved&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Developer Plan&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Advanced Integrations&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Slack channel access&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
     </item>
     <item>
-      <title>Vanesa Rodríguez</title>
-      <link>//localhost:1313/about/vanesa-rodriguez/</link>
-      <pubDate>Mon, 19 Nov 2018 10:47:58 +1000</pubDate>
-      <guid>//localhost:1313/about/vanesa-rodriguez/</guid>
-      <description>&lt;p&gt;Experience in project leadership and research.&lt;/p&gt;</description>
-    </item>
-    <item>
       <title>Business</title>
       <link>//localhost:1313/pricing/business/</link>
       <pubDate>Wed, 28 Nov 2018 15:15:26 +1000</pubDate>
@@ -65,13 +58,6 @@
       <description>&lt;p&gt;🦙 Introducing Llamatik: Offline LLMs for Kotlin Multiplatform&lt;/p&gt;&#xA;&lt;p&gt;We’re thrilled to introduce Llamatik — an open-source Kotlin Multiplatform library that brings local&#xA;Large Language Models (LLMs) to Android, iOS, desktop, and beyond using the power of llama.cpp.&lt;/p&gt;&#xA;&lt;p&gt;Llamatik makes it simple and efficient to integrate offline, on-device inference and embeddings into&#xA;your KMP apps, whether you’re building an AI assistant, a RAG chatbot, or an edge intelligence tool.&lt;/p&gt;&#xA;&lt;p&gt;⸻&lt;/p&gt;&#xA;&lt;p&gt;✨ Why Llamatik?&lt;/p&gt;</description>
     </item>
     <item>
-      <title>Contact</title>
-      <link>//localhost:1313/contact/</link>
-      <pubDate>Wed, 25 Oct 2023 17:01:34 +0700</pubDate>
-      <guid>//localhost:1313/contact/</guid>
-      <description>&lt;p&gt;Have something to say? Do you need assistance or have doubts? We are here to help. Contact us to our support email.&lt;/p&gt;</description>
-    </item>
-    <item>
       <title>Software License Agreement</title>
       <link>//localhost:1313/license/</link>
       <pubDate>Wed, 25 Oct 2023 17:01:34 +0700</pubDate>
@@ -84,6 +70,13 @@
       <pubDate>Wed, 25 Oct 2023 17:01:34 +0700</pubDate>
       <guid>//localhost:1313/privacy/</guid>
       <description>&lt;p&gt;#Software License Agreement&#xA;Last updated: June 1th, 2023&lt;/p&gt;&#xA;&lt;p&gt;##License Agreement&#xA;This License Agreement (“Agreement”) is a legal agreement between Multiplatform Kickstarter and you, the end user (“Licensee”), for the Multiplatform Kickstarter product (“Software”). By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this Agreement. If you do not agree to the terms of this Agreement, the Software should be immediately removed from your devices and you should not use the Software in any way.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Contact</title>
+      <link>//localhost:1313/contact/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>//localhost:1313/contact/</guid>
+      <description>&lt;p&gt;Have a question about Llamatik? Want to contribute, collaborate, or integrate llama.cpp into your&#xA;project using Kotlin? We’d love to hear from you.&lt;/p&gt;&#xA;&lt;p&gt;💬 General inquiries: &lt;a href=&#34;mailto:hello@multiplatformkickstarter.com&#34;&gt;hello@multiplatformkickstarter.com&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;🛠️ Technical&#xA;support: &lt;a href=&#34;mailto:support@@multiplatformkickstarter.com&#34;&gt;support@multiplatformkickstarter.com&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;🧑‍💻 Interested in contributing? Check out&#xA;our &lt;a href=&#34;https://github.com/ferranpons/llamatik&#34;&gt;GitHub repository&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;📰 For announcements, follow us on &lt;a href=&#34;https://twitter.com/LlamatikAI&#34;&gt;Twitter&lt;/a&gt;&#xA;or &lt;a href=&#34;https://twitter.com/mpkickstarter&#34;&gt;Multiplatform Kickstarter Twitter&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;We’re always excited to connect with developers, researchers, and companies who believe in open,&#xA;offline-friendly AI.&lt;/p&gt;</description>
     </item>
   </channel>
 </rss>

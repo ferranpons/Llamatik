@@ -12,9 +12,6 @@
     <loc>//localhost:1313/pricing/starter/</loc>
     <lastmod>2018-11-28T15:15:26+10:00</lastmod>
   </url><url>
-    <loc>//localhost:1313/about/vanesa-rodriguez/</loc>
-    <lastmod>2018-11-19T10:47:58+10:00</lastmod>
-  </url><url>
     <loc>//localhost:1313/pricing/business/</loc>
     <lastmod>2018-11-28T15:15:26+10:00</lastmod>
   </url><url>
@@ -51,9 +48,6 @@
     <loc>//localhost:1313/blog/llamatik-introduction/</loc>
     <lastmod>2025-07-22T09:00:00-05:00</lastmod>
   </url><url>
-    <loc>//localhost:1313/contact/</loc>
-    <lastmod>2023-10-25T17:01:34+07:00</lastmod>
-  </url><url>
     <loc>//localhost:1313/license/</loc>
     <lastmod>2023-10-25T17:01:34+07:00</lastmod>
   </url><url>
@@ -69,6 +63,8 @@
     <loc>//localhost:1313/download/</loc>
   </url><url>
     <loc>//localhost:1313/categories/</loc>
+  </url><url>
+    <loc>//localhost:1313/contact/</loc>
   </url><url>
     <loc>//localhost:1313/faq/</loc>
   </url><url>

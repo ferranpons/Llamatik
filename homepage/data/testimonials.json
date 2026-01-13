@@ -1,0 +1,20 @@
+[
+  {
+    "quote": "Llamatik made on-device LLM inference finally practical in Kotlin. The API feels native, not like a wrapper around C++.",
+    "name": "Alex Martínez",
+    "role": "Android Engineer",
+    "avatar": "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimg.freepik.com%2Fpremium-photo%2Fai-human-avatar-characters-male-model_1166271-38.jpg&f=1&nofb=1&ipt=974eb083635dd494dfdddd6fbf0a25aee9fa35df07eca857c32a0a305d8c4aa9"
+  },
+  {
+    "quote": "We integrated local embeddings on iOS and Android with the same Kotlin code. That alone justified using Llamatik.",
+    "name": "Sophie Laurent",
+    "role": "Mobile Lead",
+    "avatar": "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimg.freepik.com%2Fpremium-photo%2Fai-human-avatar-characters-male-model_1166271-38.jpg&f=1&nofb=1&ipt=974eb083635dd494dfdddd6fbf0a25aee9fa35df07eca857c32a0a305d8c4aa9"
+  },
+  {
+    "quote": "Privacy-first AI without cloud lock-in is exactly what we needed. Llamatik gives us full control over our stack.",
+    "name": "Daniel Weber",
+    "role": "CTO",
+    "avatar": "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimg.freepik.com%2Fpremium-photo%2Fai-human-avatar-characters-male-model_1166271-38.jpg&f=1&nofb=1&ipt=974eb083635dd494dfdddd6fbf0a25aee9fa35df07eca857c32a0a305d8c4aa9"
+  }
+]

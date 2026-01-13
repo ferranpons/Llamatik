@@ -3,7 +3,7 @@ title: "Ferran Pons"
 date: 2018-11-19T10:47:58+10:00
 draft: false
 image: "images/team/ferran-profile-pic.png"
-jobtitle: "Director"
+jobtitle: "Developer"
 linkedinurl: "https://www.linkedin.com/in/ferranpons/"
 promoted: true
 weight: 1

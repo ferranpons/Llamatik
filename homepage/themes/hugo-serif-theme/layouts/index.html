@@ -84,17 +84,14 @@
                 architectural compromises.
             </p>
             <p class="pricing-centered">
-                <img src="/images/screenshots/adoptme-app-android-screenshot1.png" width="200"
-                     title="" alt="Pet Screenshot Android 1"/>
+                <img src="/images/screenshots/phoneScreenshot1.png" width="200"
+                     title="" alt="Llamatik Screenshot 1"/>
                 &nbsp;&nbsp;
-                <img src="/images/screenshots/adoptme-app-android-screenshot2.png" width="200"
-                     title="" alt="Pet Screenshot Android 2"/>
+                <img src="/images/screenshots/phoneScreenshot2.png" width="200"
+                     title="" alt="Llamatik Screenshot 2"/>
                 &nbsp;&nbsp;
-                <img src="/images/screenshots/adoptme-app-android-screenshot3.png" width="200"
-                     title="" alt="Pet Screenshot Android 3"/>
-                &nbsp;&nbsp;
-                <img src="/images/screenshots/adoptme-app-android-screenshot4.png" width="200"
-                     title="" alt="Pet Screenshot Android 4"/>
+                <img src="/images/screenshots/phoneScreenshot3.png" width="200"
+                     title="" alt="Llamatik Screenshot 3"/>
             </p>
         </div>
     </div>
@@ -108,7 +105,7 @@
             </div>
 
             <p class="pricing-centered">
-                <img src="/images/illustrations/money-stress-pana.svg" width="300" title="" alt=""/>
+                <img src="/images/llamatik_ondevice_llms.png" width="400" title="" alt=""/>
             </p>
             <p class="pricing-centered">
                 Cloud-based LLMs are powerful — but they come with trade-offs. Latency, recurring
@@ -127,12 +124,14 @@
                 Local-first by default. Remote when it makes sense.
 
                 This reframes cost as:
-                • Infrastructure cost
-                • Privacy cost
-                • Architectural complexity
-
-                Much stronger for your audience.
             </p>
+            <ul>
+                <li>Infrastructure cost</li>
+                <li>Privacy cost</li>
+                <li>Architectural complexity</li>
+            </ul>
+
+            Much stronger for your audience.
         </div>
     </div>
 </div>
@@ -176,22 +175,57 @@
             </div>
 
             <p class="pricing-centered">
-                <img src="/images/illustrations/money-stress-pana.svg" width="300" title="" alt=""/>
+                <img src="/images/llamatik_opensource.png" width="400" title="" alt=""/>
             </p>
             <p class="pricing-centered">
                 Llamatik is open source and built in the open.
                 Explore the code, contribute, or integrate it into your projects today.
             </p>
 
+
             <p class="pricing-centered">
                 CTA buttons:
-                • View on GitHub
-                • Read the Docs
-                • Get Started
             </p>
+            <ul>
+                <li>View on GitHub</li>
+                <li>Read the Docs</li>
+                <li>Get Started</li>
+            </ul>
         </div>
     </div>
 </div>
+
+{{ $testimonials := site.Data.testimonials }}
+
+<section class="testimonials">
+    <div class="container">
+        <h2>What developers say about Llamatik</h2>
+        <p class="subtitle">
+            Used by developers building privacy-first, Kotlin-based AI applications.
+        </p>
+
+        <div class="testimonials-grid">
+            {{ range $testimonials }}
+            <div class="testimonial-card">
+                <div class="quote-icon">“</div>
+
+                <p class="quote">
+                    {{ .quote }}
+                </p>
+
+                <div class="author">
+                    {{ $avatar := .avatar | default "/images/testimonials/avatar-default.svg" }}
+                    <img src="{{ $avatar }}" alt="{{ .name }}" />
+                    <div>
+                        <div class="name">{{ .name }}</div>
+                        <div class="role">{{ .role }}</div>
+                    </div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+</section>
 
 {{ if .Site.Params.showPricing }}
 {{ $pricing := where (where .Site.RegularPages "Type" "pricing") ".Params.featured" true }}

@@ -15,12 +15,5 @@
       <guid>//localhost:1313/about/ferran-pons/</guid>
       <description>&lt;p&gt;With almost 20 years of experience as a programmer, my experience covers a lot of different kinds of applications, from web app development to desktop, mobile apps, and videogames.&lt;/p&gt;</description>
     </item>
-    <item>
-      <title>Vanesa Rodríguez</title>
-      <link>//localhost:1313/about/vanesa-rodriguez/</link>
-      <pubDate>Mon, 19 Nov 2018 10:47:58 +1000</pubDate>
-      <guid>//localhost:1313/about/vanesa-rodriguez/</guid>
-      <description>&lt;p&gt;Experience in project leadership and research.&lt;/p&gt;</description>
-    </item>
   </channel>
 </rss>
