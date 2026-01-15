@@ -1,7 +1,7 @@
 ---
 title: 'Homepage'
-meta_title: 'Multiplatform Kickstarter'
-description: "Create multiplatform applications within minutes"
+meta_title: 'Llamatik - KMP AI Library and Local Chatbot App'
+description: "KMP AI Library and Local Chatbot App"
 intro_image: "images/mk-lead-image.png"
 intro_image_absolute: false
 intro_image_hide_on_mobile: true
