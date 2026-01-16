@@ -12,5 +12,5 @@ is_pricing: false
 
 Llamatik is a Kotlin-first, open-source library for running large language models on-device or remotely — powering private, offline-first AI apps across Android, iOS, desktop, and server.
 
-No cloud lock-in. No data leakage. Just Kotlin + llama.cpp.
+*No cloud lock-in. No data leakage. Just Kotlin + llama.cpp*
 
