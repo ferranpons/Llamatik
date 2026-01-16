@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Llamatik Blog on Llamatik</title>
+    <title>Blog on Llamatik</title>
     <link>//localhost:1313/blog/</link>
-    <description>Recent content in Llamatik Blog on Llamatik</description>
+    <description>Recent content in Blog on Llamatik</description>
     <generator>Hugo</generator>
     <language>en-US</language>
     <lastBuildDate>Tue, 25 Nov 2025 09:00:00 -0500</lastBuildDate>

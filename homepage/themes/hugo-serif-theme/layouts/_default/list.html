@@ -19,6 +19,28 @@
     {{ .Content }}
   </div>
 </div>
+{{/*
+Generic section list rendering
+- The theme originally only rendered items for pricing/templates.
+- Blog (and any other section) needs to list its child pages.
+*/}}
+{{ if and (not .Params.is_pricing) (not .Params.is_templates) }}
+{{ if gt (len .Pages) 0 }}
+<div class="container pt-6 pb-6">
+    <div class="row">
+        {{ if eq .Section "blog" }}
+        {{ range .Pages.ByDate.Reverse }}
+        <div class="col-12 col-md-6 mb-3">{{ .Render "summary" }}</div>
+        {{ end }}
+        {{ else }}
+        {{ range .Pages.ByWeight }}
+        <div class="col-12 col-md-6 mb-3">{{ .Render "summary" }}</div>
+        {{ end }}
+        {{ end }}
+    </div>
+</div>
+{{ end }}
+{{ end }}
 <!--
 {{ if .Params.is_pricing }}
   <div class="container pb-md-12">
@@ -163,5 +185,5 @@
         </div>
       </div>
       {{ end }}
-
+    </div>
 {{ end }}

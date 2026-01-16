@@ -180,23 +180,25 @@
             <p class="pricing-centered">
                 Llamatik is open source and built in the open.
                 Explore the code, contribute, or integrate it into your projects today.
+                <br><br>
+                <a href="https://github.com/ferranpons/llamatik">View on GitHub</a></li>
             </p>
 
+            <!--
+                        <ul>
+                            <li>
 
-            <p class="pricing-centered">
-                CTA buttons:
-            </p>
-            <ul>
-                <li>View on GitHub</li>
-                <li>Read the Docs</li>
-                <li>Get Started</li>
+                            <li>Read the Docs</li>
+                            <li>Get Started</li>
+
             </ul>
+            -->
         </div>
     </div>
 </div>
 
+<!--
 {{ $testimonials := site.Data.testimonials }}
-
 <section class="testimonials">
     <div class="container">
         <h2>What developers say about Llamatik</h2>
@@ -226,6 +228,7 @@
         </div>
     </div>
 </section>
+-->
 
 {{ if .Site.Params.showPricing }}
 {{ $pricing := where (where .Site.RegularPages "Type" "pricing") ".Params.featured" true }}

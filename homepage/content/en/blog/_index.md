@@ -1,6 +1,6 @@
 ---
-title: "Llamatik Blog"
-description: "Updates, announcements, and insights from the creators of Llamatik — Kotlin-native bindings for llama.cpp."
+title: "Blog"
+description: "Updates, announcements, and insights from the creators of Llamatik."
 weight: 20
 ---
 

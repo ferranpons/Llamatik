@@ -1,82 +1,32 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>Homepage on Llamatik</title>
-    <link>//localhost:1313/</link>
-    <description>Recent content in Homepage on Llamatik</description>
-    <generator>Hugo</generator>
-    <language>en-US</language>
-    <lastBuildDate>Tue, 25 Nov 2025 09:00:00 -0500</lastBuildDate>
-    <atom:link href="//localhost:1313/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Basic</title>
-      <link>//localhost:1313/pricing/free/</link>
-      <pubDate>Wed, 28 Nov 2018 15:15:26 +1000</pubDate>
-      <guid>//localhost:1313/pricing/free/</guid>
-      <description>&lt;p&gt;Basic template is &lt;strong&gt;free forever&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Access to the template and be part of the community. All basic features include:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Basic Login/Register&lt;/li&gt;&#xA;&lt;li&gt;Composable Components&lt;/li&gt;&#xA;&lt;li&gt;Server with CRUD API&lt;/li&gt;&#xA;&lt;li&gt;Internationalization&lt;/li&gt;&#xA;&lt;li&gt;CI/CD&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
-    </item>
-    <item>
-      <title>Ferran Pons</title>
-      <link>//localhost:1313/about/ferran-pons/</link>
-      <pubDate>Mon, 19 Nov 2018 10:47:58 +1000</pubDate>
-      <guid>//localhost:1313/about/ferran-pons/</guid>
-      <description>&lt;p&gt;With almost 20 years of experience as a programmer, my experience covers a lot of different kinds of applications, from web app development to desktop, mobile apps, and videogames.&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Adoptme</title>
-      <link>//localhost:1313/templates/adoptme/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>//localhost:1313/templates/adoptme/</guid>
-      <description>&lt;p&gt;&lt;img src=&#34;//localhost:1313/images/screenshots/pet-app-android.png&#34; alt=&#34;screenshot1&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Adoptme is a premium Kotlin Multiplatform template for building marketplace style applications.&#xA;It&amp;rsquo;s build using the Kotlin Multiplatform framework and styled with Compose multiplatform, offering a fast, modern user interface.&#xA;With Adoptme, you can create a professional-looking marketplace application with ease, saving you time and effort.&lt;/p&gt;&#xA;&lt;h2 id=&#34;features&#34;&gt;Features&lt;/h2&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Shared UI and Logic for all platforms&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Multiplatform&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Compose Multiplatform&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Coroutines&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Serialization&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kotlin Datetime&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Voyager&lt;/strong&gt; for Navigation and View Models&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Koin&lt;/strong&gt; as Dependency Injection&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Detekt&lt;/strong&gt; for static code analysis&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Ktlint&lt;/strong&gt; linter&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Ktor&lt;/strong&gt; for Client&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Multiplatform-settings&lt;/strong&gt; for storage&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kamel&lt;/strong&gt; for Images&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Kermit&lt;/strong&gt; for logging&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Version Catalogs&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Ktor for Server&lt;/strong&gt; (PostgresSQL+Tomcat)&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Swagger Codegen&lt;/strong&gt; for &lt;strong&gt;OpenAPI&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;Adoptme is a powerful and flexible marketplace application template that offers a range of features to help you build a professional looking application.&#xA;With its design and customizable options, Adoptme is an excellent choice for anyone looking to create a marketplace.&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Starter Pack</title>
-      <link>//localhost:1313/pricing/starter/</link>
-      <pubDate>Wed, 28 Nov 2018 15:15:26 +1000</pubDate>
-      <guid>//localhost:1313/pricing/starter/</guid>
-      <description>&lt;p&gt;&lt;strong&gt;Perfect for startups&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Buy the &lt;em&gt;Starter&lt;/em&gt; pack and gain &lt;strong&gt;access&lt;/strong&gt; to 2 of the &lt;strong&gt;latest PRO templates&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;All Free Features&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;PRO features&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Constantly improved&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Developer Plan&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Advanced Integrations&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Slack channel access&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
-    </item>
-    <item>
-      <title>Business</title>
-      <link>//localhost:1313/pricing/business/</link>
-      <pubDate>Wed, 28 Nov 2018 15:15:26 +1000</pubDate>
-      <guid>//localhost:1313/pricing/business/</guid>
-      <description>&lt;p&gt;&lt;strong&gt;For serious businesses&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Shape the roadmap and get &lt;strong&gt;priority access&lt;/strong&gt; to the &lt;strong&gt;new app templates&lt;/strong&gt;.&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Slack channel access&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Access to all PRO templates&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Developer plan&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Advanced integrations&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Roadmap shaping&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Priority access&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Email support&lt;/strong&gt;&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
-    </item>
-    <item>
-      <title>“Introducing the Llamatik App an Offline AI Chat on Your Mobile Device”</title>
-      <link>//localhost:1313/blog/llamatik-app-android-published/</link>
-      <pubDate>Tue, 25 Nov 2025 09:00:00 -0500</pubDate>
-      <guid>//localhost:1313/blog/llamatik-app-android-published/</guid>
-      <description>&lt;p&gt;🚀 Introducing the Llamatik App: Offline AI Chat on Your Mobile Device&lt;/p&gt;&#xA;&lt;p&gt;We’re excited to announce the launch of the Llamatik App, a fully offline AI chatbot designed to showcase the power and versatility of the Llamatik Kotlin Multiplatform library.&#xA;Whether you’re a developer curious about on-device AI or a user who wants a private, fast, and modern chatbot experience, the Llamatik app brings the full potential of lightweight LLMs directly to your mobile device.&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>“Introducing Llamatik Offline LLMs for Kotlin Multiplatform”</title>
-      <link>//localhost:1313/blog/llamatik-introduction/</link>
-      <pubDate>Tue, 22 Jul 2025 09:00:00 -0500</pubDate>
-      <guid>//localhost:1313/blog/llamatik-introduction/</guid>
-      <description>&lt;p&gt;🦙 Introducing Llamatik: Offline LLMs for Kotlin Multiplatform&lt;/p&gt;&#xA;&lt;p&gt;We’re thrilled to introduce Llamatik — an open-source Kotlin Multiplatform library that brings local&#xA;Large Language Models (LLMs) to Android, iOS, desktop, and beyond using the power of llama.cpp.&lt;/p&gt;&#xA;&lt;p&gt;Llamatik makes it simple and efficient to integrate offline, on-device inference and embeddings into&#xA;your KMP apps, whether you’re building an AI assistant, a RAG chatbot, or an edge intelligence tool.&lt;/p&gt;&#xA;&lt;p&gt;⸻&lt;/p&gt;&#xA;&lt;p&gt;✨ Why Llamatik?&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Software License Agreement</title>
-      <link>//localhost:1313/license/</link>
-      <pubDate>Wed, 25 Oct 2023 17:01:34 +0700</pubDate>
-      <guid>//localhost:1313/license/</guid>
-      <description>&lt;p&gt;Last updated: November 22nd, 2023&lt;/p&gt;&#xA;&lt;h2 id=&#34;license-agreement&#34;&gt;License Agreement&lt;/h2&gt;&#xA;&lt;p&gt;This License Agreement (“Agreement”) is a legal agreement between Multiplatform Kickstarter and you, the end user (“Licensee”), for the Multiplatform Kickstarter product (“Software”). By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this Agreement. If you do not agree to the terms of this Agreement, the Software should be immediately removed from your devices and you should not use the Software in any way.&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Software License Agreement</title>
-      <link>//localhost:1313/privacy/</link>
-      <pubDate>Wed, 25 Oct 2023 17:01:34 +0700</pubDate>
-      <guid>//localhost:1313/privacy/</guid>
-      <description>&lt;p&gt;#Software License Agreement&#xA;Last updated: June 1th, 2023&lt;/p&gt;&#xA;&lt;p&gt;##License Agreement&#xA;This License Agreement (“Agreement”) is a legal agreement between Multiplatform Kickstarter and you, the end user (“Licensee”), for the Multiplatform Kickstarter product (“Software”). By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this Agreement. If you do not agree to the terms of this Agreement, the Software should be immediately removed from your devices and you should not use the Software in any way.&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title>Contact</title>
-      <link>//localhost:1313/contact/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>//localhost:1313/contact/</guid>
-      <description>&lt;p&gt;Have a question about Llamatik? Want to contribute, collaborate, or integrate llama.cpp into your&#xA;project using Kotlin? We’d love to hear from you.&lt;/p&gt;&#xA;&lt;p&gt;💬 General inquiries: &lt;a href=&#34;mailto:hello@multiplatformkickstarter.com&#34;&gt;hello@multiplatformkickstarter.com&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;🛠️ Technical&#xA;support: &lt;a href=&#34;mailto:support@@multiplatformkickstarter.com&#34;&gt;support@multiplatformkickstarter.com&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;🧑‍💻 Interested in contributing? Check out&#xA;our &lt;a href=&#34;https://github.com/ferranpons/llamatik&#34;&gt;GitHub repository&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;📰 For announcements, follow us on &lt;a href=&#34;https://twitter.com/LlamatikAI&#34;&gt;Twitter&lt;/a&gt;&#xA;or &lt;a href=&#34;https://twitter.com/mpkickstarter&#34;&gt;Multiplatform Kickstarter Twitter&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;We’re always excited to connect with developers, researchers, and companies who believe in open,&#xA;offline-friendly AI.&lt;/p&gt;</description>
-    </item>
-  </channel>
+    <channel>
+        <title>Llamatik</title>
+        <link>//localhost:1313/</link>
+        <description>Recent blog posts on Llamatik</description>
+        <generator>Hugo</generator>
+        <language>en-US</language>
+        <lastBuildDate>Fri, 16 Jan 2026 18:14:00 &#43;0100</lastBuildDate>
+        <atom:link href="//localhost:1313/index.xml" rel="self" type="application/rss+xml"/>
+        <item>
+            <title>“Introducing the Llamatik App an Offline AI Chat on Your Mobile Device”</title>
+            <link>//localhost:1313/blog/llamatik-app-android-published/</link>
+            <pubDate>Tue, 25 Nov 2025 09:00:00 -0500</pubDate>
+            <guid>//localhost:1313/blog/llamatik-app-android-published/</guid>
+            <description>🚀 Introducing the Llamatik App: Offline AI Chat on Your Mobile Device
+We’re excited to announce the launch of the Llamatik App, a fully offline AI chatbot designed to showcase the power and versatility of the Llamatik Kotlin Multiplatform library. Whether you’re a developer curious about on-device AI or a user who wants a private, fast, and modern chatbot experience, the Llamatik app brings the full potential of lightweight LLMs directly to your mobile device.
+</description>
+        </item>
+        <item>
+            <title>“Introducing Llamatik Offline LLMs for Kotlin Multiplatform”</title>
+            <link>//localhost:1313/blog/llamatik-introduction/</link>
+            <pubDate>Tue, 22 Jul 2025 09:00:00 -0500</pubDate>
+            <guid>//localhost:1313/blog/llamatik-introduction/</guid>
+            <description>🦙 Introducing Llamatik: Offline LLMs for Kotlin Multiplatform
+We’re thrilled to introduce Llamatik — an open-source Kotlin Multiplatform library that brings local Large Language Models (LLMs) to Android, iOS, desktop, and beyond using the power of llama.cpp.
+Llamatik makes it simple and efficient to integrate offline, on-device inference and embeddings into your KMP apps, whether you’re building an AI assistant, a RAG chatbot, or an edge intelligence tool.
+⸻
+✨ Why Llamatik?
+</description>
+        </item>
+    </channel>
 </rss>
