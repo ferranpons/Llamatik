@@ -15,13 +15,13 @@
     <loc>//localhost:1313/pricing/business/</loc>
     <lastmod>2018-11-28T15:15:26+10:00</lastmod>
   </url><url>
-    <loc>//localhost:1313/blog/</loc>
-    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
-  </url><url>
     <loc>//localhost:1313/blog/llamatik-app-android-published/</loc>
     <lastmod>2025-11-25T09:00:00-05:00</lastmod>
   </url><url>
     <loc>//localhost:1313/tags/app/</loc>
+    <lastmod>2025-11-25T09:00:00-05:00</lastmod>
+  </url><url>
+    <loc>//localhost:1313/blog/</loc>
     <lastmod>2025-11-25T09:00:00-05:00</lastmod>
   </url><url>
     <loc>//localhost:1313/</loc>

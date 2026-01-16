@@ -1,0 +1,21 @@
+{{ define "main" }}
+<div class="container pt-6 pb-3">
+    <div class="blog-header">
+        <h1 class="blog-header__title">{{ .Title }}</h1>
+        {{ with .Params.description }}
+        <p class="blog-header__subtitle">{{ . }}</p>
+        {{ end }}
+        {{ with .Content }}
+        <div class="blog-header__content">{{ . }}</div>
+        {{ end }}
+    </div>
+</div>
+
+<div class="container pb-6">
+    <div class="blog-grid">
+        {{ range .Pages.ByDate.Reverse }}
+        {{ .Render "summary" }}
+        {{ end }}
+    </div>
+</div>
+{{ end }}

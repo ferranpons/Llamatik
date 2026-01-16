@@ -1,0 +1,21 @@
+<article class="blog-card">
+    <a class="blog-card__link" href="{{ .RelPermalink }}">
+        <h2 class="blog-card__title">{{ .Title }}</h2>
+
+        <div class="blog-card__meta">
+            <time datetime="{{ .Date }}">{{ .Date.Format "Jan 2, 2006" }}</time>
+            <span class="blog-card__dot">•</span>
+            <span>{{ .ReadingTime }} min read</span>
+        </div>
+
+        <p class="blog-card__summary">
+            {{ with .Params.description }}
+            {{ . }}
+            {{ else }}
+            {{ .Summary | plainify }}
+            {{ end }}
+        </p>
+
+        <span class="blog-card__cta">Read post →</span>
+    </a>
+</article>
