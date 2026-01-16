@@ -25,7 +25,11 @@
     <div class="container pt-6 pb-6 pb-md-10">
         <div class="row justify-content-start">
             <h3 class="pricing-centered">Powered by proven technology</h3>
-            <br/><br/><br/>
+            <br/>
+            <p class="pricing-centered">
+                Built on battle-tested, production-ready technologies
+            </p>
+            <br/><br/>
             <p class="pricing-centered">
                 <img src="/images/logo/KotlinFullColorLogoOnWhiteRGB.png" width="120" title=""
                      alt="Kotlin Language Logo"/>
@@ -71,17 +75,24 @@
     <div class="container pt-3 pb-3 pb-md-10">
         <div class="row justify-content-center">
             <div class="pricing-intro">
-                <h1>Designed for AI, Built for Kotlin</h1>
+                <h1>Why developers choose Llamatik</h1>
             </div>
             <p class="pricing-centered">
-                Llamatik is designed for developers who want to integrate large language models
-                without sacrificing performance, privacy, or control. Built on top of proven
-                technologies like Kotlin Multiplatform, llama.cpp, and Compose Multiplatform, it
-                fits naturally into modern Kotlin applications.
-                <br><br>
-                Whether you’re building mobile, desktop, or backend software, Llamatik gives you a
-                clean, consistent API to run LLMs locally or remotely — without forcing
-                architectural compromises.
+                Llamatik removes the complexity of integrating LLMs into Kotlin apps.<br>
+                You get a single, consistent API across platforms, native performance via llama.cpp, and full control over where inference runs — without rewriting your app or compromising on privacy.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="strip strip">
+    <div class="container pt-3 pb-3 pb-md-10">
+        <div class="row justify-content-center">
+            <div class="pricing-intro">
+                <h1>A private, offline-first AI app — powered by Llamatik</h1>
+            </div>
+            <p class="pricing-centered">
+                The Llamatik app demonstrates what’s possible with on-device LLMs: fast, private AI chat running fully offline on your device. No accounts. No tracking. No cloud.
             </p>
             <p class="pricing-centered">
                 <img src="/images/screenshots/phoneScreenshot1.png" width="200"
@@ -93,9 +104,49 @@
                 <img src="/images/screenshots/phoneScreenshot3.png" width="200"
                      title="" alt="Llamatik Screenshot 3"/>
             </p>
+            <br><br><br><br>
+            <p class="pricing-centered">
+                <a class="button button-secondary" href="/download" rel="noopener noreferrer">📲 Download the app</a>
+            </p>
         </div>
     </div>
 </div>
+
+{{if .Site.Data.features}}
+<div class="strip strip-grey">
+    <div class="container pt-3 pb-3 pb-md-10">
+        <div class="row justify-content-center">
+            <div class="pricing-intro">
+                <h1>Everything you need to ship LLM features 🚀</h1>
+            </div>
+            <p class="pricing-centered">
+                Used in production apps across mobile and desktop
+            </p>
+            <p class="pricing-centered">
+                <b>Llamatik focuses on the hard parts of integrating large language models — so you
+                    can focus on building great products.</b>
+                <br><br>
+                Instead of stitching together native code, bindings, and platform-specific logic,
+                Llamatik provides a unified Kotlin-first abstraction that works across platforms and
+                environments.
+                <br/><br/>
+            </p>
+            {{ range .Site.Data.features }}
+            <div class="col-12 col-md-6 col-lg-4 mb-2">
+                <div class="feature">
+                    <h2 class="feature-title">{{ .title }}</h2>
+                    <div class="feature-content">
+                        <p>{{ .description }}</p>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
+            Get from implementation("com.llamatik:library") to your first inference in minutes.
+        </div>
+    </div>
+</div>
+{{end}}
 
 <div class="strip strip">
     <div class="container pt-3 pb-3 pb-md-10">
@@ -103,6 +154,9 @@
             <div class="pricing-intro">
                 <h1>Why run LLMs on-device?</h1>
             </div>
+            <p class="pricing-centered">
+                Local-first beats cloud-first when it matters
+            </p>
 
             <p class="pricing-centered">
                 <img src="/images/llamatik_ondevice_llms.png" width="400" title="" alt=""/>
@@ -126,48 +180,17 @@
                 This reframes cost as:
             </p>
             <ul>
-                <li>Infrastructure cost</li>
-                <li>Privacy cost</li>
-                <li>Architectural complexity</li>
+                <li>💸 Lower infrastructure costs</li>
+                <li>🔒 Privacy by default</li>
+                <li>🧠 Simpler architecture</li>
             </ul>
 
-            Much stronger for your audience.
+            Local by default. Remote when needed. Same Kotlin API.
         </div>
     </div>
 </div>
 
-{{if .Site.Data.features}}
 <div class="strip strip-grey">
-    <div class="container pt-3 pb-3 pb-md-10">
-        <div class="row justify-content-center">
-            <div class="pricing-intro">
-                <h1>Everything you need to ship LLM features 🚀</h1>
-            </div>
-            <p class="pricing-centered">
-                <b>Llamatik focuses on the hard parts of integrating large language models — so you
-                    can focus on building great products.</b>
-                <br><br>
-                Instead of stitching together native code, bindings, and platform-specific logic,
-                Llamatik provides a unified Kotlin-first abstraction that works across platforms and
-                environments.
-                <br/><br/>
-            </p>
-            {{ range .Site.Data.features }}
-            <div class="col-12 col-md-6 col-lg-4 mb-2">
-                <div class="feature">
-                    <h2 class="feature-title">{{ .title }}</h2>
-                    <div class="feature-content">
-                        <p>{{ .description }}</p>
-                    </div>
-                </div>
-            </div>
-            {{end}}
-        </div>
-    </div>
-</div>
-{{end}}
-
-<div class="strip strip">
     <div class="container pt-3 pb-3 pb-md-10">
         <div class="row justify-content-center">
             <div class="pricing-intro">

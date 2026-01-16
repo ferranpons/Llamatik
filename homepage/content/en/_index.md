@@ -8,9 +8,9 @@ intro_image_hide_on_mobile: true
 is_pricing: false
 ---
 
-# Build LLM-powered apps in Kotlin. Anywhere.
+# Run LLMs locally. Build in Kotlin. Stay in control.
 
-Llamatik is a Kotlin-first library that lets you run large language models directly inside your applications — on-device or remotely — using a single, shared API across Android, iOS, desktop, and server.
+Llamatik is a Kotlin-first, open-source library for running large language models on-device or remotely — powering private, offline-first AI apps across Android, iOS, desktop, and server.
 
-Run models locally with offline inference powered by llama.cpp, keep user data private by default, and fall back to remote inference only when you choose. With built-in support for text generation, embeddings, and GGUF models like LLaMA, Mistral, and Phi, Llamatik gives you full control over how and where AI runs in your Kotlin apps — without cloud lock-in or heavy dependencies.
+No cloud lock-in. No data leakage. Just Kotlin + llama.cpp.
 
