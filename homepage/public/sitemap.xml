@@ -60,11 +60,11 @@
     <loc>//localhost:1313/about/</loc>
     <lastmod>2018-11-19T10:47:58+10:00</lastmod>
   </url><url>
-    <loc>//localhost:1313/download/</loc>
-  </url><url>
     <loc>//localhost:1313/categories/</loc>
   </url><url>
     <loc>//localhost:1313/contact/</loc>
+  </url><url>
+    <loc>//localhost:1313/download/</loc>
   </url><url>
     <loc>//localhost:1313/faq/</loc>
   </url><url>

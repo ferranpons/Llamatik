@@ -1,0 +1,46 @@
+{{ define "main" }}
+<div class="container pt-6 pb-6">
+    <div class="download-header">
+        <h1>{{ .Title }}</h1>
+        <p>{{ .Params.description }}</p>
+    </div>
+
+    <div class="download-grid">
+        <!-- ANDROID -->
+        <div class="download-card">
+            <h2>Android</h2>
+            <p>
+                Download the Llamatik app for Android and run LLMs fully offline
+                on your device.
+            </p>
+
+            <a
+                    class="download-button primary"
+                    href="https://play.google.com/store/apps/details?id=com.llamatik.app.android"
+                    target="_blank"
+                    rel="noopener"
+            >
+                Download on Google Play
+            </a>
+        </div>
+
+        <!-- IOS -->
+        <div class="download-card">
+            <h2>iOS</h2>
+            <p>
+                Experience private, on-device AI on iPhone and iPad
+                with no cloud dependency.
+            </p>
+
+            <a
+                    class="download-button secondary"
+                    href="https://apple.co/3Md7EIh"
+                    target="_blank"
+                    rel="noopener"
+            >
+                Download on the App Store
+            </a>
+        </div>
+    </div>
+</div>
+{{ end }}

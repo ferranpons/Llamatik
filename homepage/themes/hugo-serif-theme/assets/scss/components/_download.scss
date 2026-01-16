@@ -1,0 +1,79 @@
+.download-header {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 3rem;
+
+  h1 {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+  }
+
+  p {
+    font-size: 1.2rem;
+    color: #5c5a5a;
+  }
+}
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+@media (max-width: 800px) {
+  .download-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.download-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  text-align: center;
+
+  h2 {
+    font-size: 1.6rem;
+    margin-bottom: 0.75rem;
+  }
+
+  p {
+    color: #5c5a5a;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.download-button {
+  display: inline-block;
+  padding: 0.9rem 1.4rem;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  margin-bottom: 0.75rem;
+
+  &.primary {
+    background: #f59e0b;
+    color: #fff;
+  }
+
+  &.secondary {
+    background: #2f2f41;
+    color: #fff;
+  }
+}
+
+.download-link {
+  display: block;
+  margin-top: 0.5rem;
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.download-note {
+  font-size: 0.9rem;
+  color: #777;
+}

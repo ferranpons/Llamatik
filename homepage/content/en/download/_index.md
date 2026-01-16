@@ -1,15 +1,16 @@
 ---
-title: 'Apps'
-description: "Check out all the download developed using Multiplatform Kickstarter"
-intro_image: "images/illustrations/personal-settings-pana.svg"
-intro_image_absolute: false
-intro_image_hide_on_mobile: false
-is_pricing: false
+title: "Download"
+description: "Get the Llamatik app for Android and iOS."
 ---
 
+## Llamatik App
 
-** Unofficial DCS Companion** 
+A private, offline-first AI app powered by on-device large language models.
 
-*Unofficial DCS Companion* is a lightweight app designed for fans of DCS World that combines convenience and entertainment. Whether you’re looking for quick access to essential flight manuals or a fun way to pass the time between flights, this app has you covered.
+The Llamatik app showcases what’s possible with local LLM inference:
+- Runs **fully on-device**
+- Works **offline**
+- No accounts, no tracking
+- Powered by **Llamatik + llama.cpp**
 
-https://dcs.multiplatformkickstarter.com
+Choose your platform below to get started.
