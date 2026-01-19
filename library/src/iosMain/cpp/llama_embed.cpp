@@ -1,3 +1,6 @@
+#include "common/json-schema-to-grammar.h"
+#include "nlohmann/json.hpp"
+
 #include "llama.h"
 
 #include <cstring>
@@ -59,6 +62,49 @@ static std::atomic<int>   g_top_k{40};
 static std::atomic<float> g_repeat_penalty{1.10f};
 
 // ===================== Helpers =====================
+
+static bool build_json_grammar(const char *json_schema, std::string &out_grammar, std::string &out_err) {
+    try {
+        const std::string schema_str = (json_schema && json_schema[0]) ? std::string(json_schema) : std::string("{}");
+        nlohmann::ordered_json schema = nlohmann::ordered_json::parse(schema_str);
+        out_grammar = json_schema_to_grammar(schema, /*force_gbnf=*/false);
+        return !out_grammar.empty();
+    } catch (const std::exception &e) {
+        out_err = e.what();
+        return false;
+    }
+}
+
+static std::string build_json_prompt_single(const char *prompt) {
+    std::string p = prompt ? prompt : "";
+    p += "\n\nReturn ONLY JSON. No markdown, no prose.";
+    return p;
+}
+
+static std::string build_json_prompt_chat(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema) {
+    (void)system_prompt;
+    std::string ctxb = context_block ? context_block : "";
+    std::string usr  = user_prompt   ? user_prompt   : "";
+
+    std::string p;
+    if (!ctxb.empty()) {
+        p += "Context:\n";
+        p += ctxb;
+        p += "\n\n";
+    }
+    p += "Request:\n";
+    p += usr;
+    p += "\n\n";
+    if (json_schema && json_schema[0]) {
+        p += "Return ONLY JSON matching the provided JSON Schema. No markdown, no prose.";
+    } else {
+        p += "Return ONLY valid JSON. No markdown, no prose.";
+    }
+    return p;
+}
 
 static int tokenize_with_retry(const llama_vocab *vocab,
         const char *text,
@@ -606,6 +652,145 @@ char *llama_generate_chat(const char *system_prompt,
     return raw; // already sanitized inside llama_generate
 }
 
+
+char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
+    if (!gen_ctx || !gen_model || !prompt) return nullptr;
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+    llama_memory_clear(llama_get_memory(gen_ctx), false);
+
+    std::string grammar;
+    std::string err;
+    if (!build_json_grammar(json_schema, grammar, err)) {
+        DBG("json_schema_to_grammar failed: %s", err.c_str());
+        return nullptr;
+    }
+
+    std::string wrapped = build_json_prompt_single(prompt);
+
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ true, /*parse_special*/ true);
+    if (n_tokens <= 0) return nullptr;
+    tokens.resize(n_tokens);
+
+    const unsigned int n_ctx = llama_n_ctx(gen_ctx);
+    if (n_tokens > (int) n_ctx - 8) {
+        truncate_to_ctx(tokens, (int) n_ctx, 8);
+        DBG("generate_json: prompt truncated");
+    }
+
+    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
+    batch.n_tokens = (int)tokens.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i]    = (i == batch.n_tokens - 1);
+    }
+
+    if (llama_decode(gen_ctx, batch) != 0) {
+        llama_batch_free(batch);
+        DBG("generate_json: decode prompt failed");
+        return nullptr;
+    }
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) {
+        llama_batch_free(batch);
+        return nullptr;
+    }
+
+    // Grammar first: hard constraint
+    llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    std::vector<llama_token> out;
+    int cur_pos = batch.n_tokens;
+    const int safety = 16;
+    int remaining_ctx = (int)n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
+
+    for (int i = 0; i < max_new_tokens; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) {
+            DBG("generate_json: cancelled at token %d", i);
+            break;
+        }
+
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0) break;
+        if (llama_vocab_is_eog(v, tok)) {
+            DBG("generate_json: hit EOS");
+            break;
+        }
+
+        llama_sampler_accept(sampler, tok);
+        out.push_back(tok);
+
+        if (cur_pos >= (int)n_ctx) {
+            DBG("generate_json: context full at %d positions", cur_pos);
+            break;
+        }
+
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens      = 1;
+        step.token[0]      = tok;
+        step.pos[0]        = cur_pos;
+        step.n_seq_id[0]   = 1;
+        step.seq_id[0][0]  = 0;
+        step.logits[0]     = true;
+
+        if (llama_decode(gen_ctx, step) != 0) {
+            DBG("generate_json: decode step failed at pos=%d", cur_pos);
+            llama_batch_free(step);
+            break;
+        }
+        cur_pos++;
+        llama_batch_free(step);
+    }
+
+    llama_batch_free(batch);
+    llama_sampler_free(sampler);
+
+    std::string text;
+    char buf[8192];
+    for (llama_token t : out) {
+        int n = llama_token_to_piece(v, t, buf, (int)sizeof(buf), 0, /*special*/ false);
+        if (n > 0) {
+            if (n >= (int)sizeof(buf)) buf[sizeof(buf)-1] = '\0';
+            text.append(buf, n);
+        }
+    }
+
+    // JSON mode: do NOT sanitize (sanitizers can corrupt JSON)
+    text = trim_ios(text);
+
+    char *result = (char *) std::malloc(text.size() + 1);
+    if (!result) return nullptr;
+    std::memcpy(result, text.c_str(), text.size() + 1);
+    return result;
+}
+
+char *llama_generate_chat_json_schema(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema) {
+    std::string prompt2 = build_json_prompt_chat(system_prompt, context_block, user_prompt, json_schema);
+    return llama_generate_json_schema(prompt2.c_str(), json_schema);
+}
+
 // ===================== Streaming APIs (iOS) =====================
 
 typedef void (*llm_on_delta)(const char *utf8, void *user);
@@ -774,6 +959,164 @@ void llama_generate_chat_stream(const char *system_prompt,
             user_prompt ? user_prompt : "");
     llama_generate_stream(prompt2.c_str(), on_delta, on_done, on_error, user);
 }
+
+void llama_generate_json_schema_stream(const char *prompt,
+        const char *json_schema,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    if (!gen_ctx || !gen_model || !prompt) { if (on_error) on_error("generator not ready", user); return; }
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+    llama_memory_clear(llama_get_memory(gen_ctx), false);
+
+    std::string grammar;
+    std::string err;
+    if (!build_json_grammar(json_schema, grammar, err)) {
+        if (on_error) on_error(err.c_str(), user);
+        return;
+    }
+
+    std::string wrapped = build_json_prompt_single(prompt);
+
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ true, /*parse_special*/ true);
+    if (n_tokens <= 0) { if (on_error) on_error("tokenize failed", user); return; }
+    tokens.resize(n_tokens);
+
+    const unsigned int n_ctx = llama_n_ctx(gen_ctx);
+    if (n_tokens > (int)n_ctx - 8) {
+        truncate_to_ctx(tokens, (int)n_ctx, 8);
+    }
+
+    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
+    batch.n_tokens = (int)tokens.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i]    = (i == batch.n_tokens - 1);
+    }
+
+    if (llama_decode(gen_ctx, batch) != 0) {
+        llama_batch_free(batch);
+        if (on_error) on_error("decode prompt failed", user);
+        return;
+    }
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) {
+        llama_batch_free(batch);
+        if (on_error) on_error("sampler init failed", user);
+        return;
+    }
+
+    llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    std::string pending;
+    bool started = false;
+    size_t start_at = 0;
+
+    int cur_pos = batch.n_tokens;
+    const int safety = 16;
+    int remaining_ctx = (int)n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
+
+    for (int i = 0; i < max_new_tokens; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) {
+            break;
+        }
+
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0) break;
+        if (llama_vocab_is_eog(v, tok)) break;
+
+        llama_sampler_accept(sampler, tok);
+
+        if (cur_pos >= (int)n_ctx) break;
+
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens      = 1;
+        step.token[0]      = tok;
+        step.pos[0]        = cur_pos;
+        step.n_seq_id[0]   = 1;
+        step.seq_id[0][0]  = 0;
+        step.logits[0]     = true;
+
+        if (llama_decode(gen_ctx, step) != 0) {
+            llama_batch_free(step);
+            break;
+        }
+        llama_batch_free(step);
+        cur_pos++;
+
+        char buf[256];
+        int n = llama_token_to_piece(v, tok, buf, (int)sizeof(buf), 0, /*special*/ false);
+        if (n <= 0) continue;
+
+        pending.append(buf, (size_t)n);
+
+        if (!started) {
+            size_t st = find_stream_start(pending);
+            if (st == std::string::npos) {
+                continue;
+            }
+            started = true;
+            start_at = st;
+        }
+
+        if (started && pending.size() > start_at) {
+            std::string chunk = pending.substr(start_at);
+            pending.clear();
+            start_at = 0;
+            if (on_delta) on_delta(chunk.c_str(), user);
+        }
+    }
+
+    if (!pending.empty()) {
+        if (!started) {
+            size_t st = find_stream_start(pending);
+            if (st != std::string::npos) {
+                if (on_delta) on_delta(pending.substr(st).c_str(), user);
+            }
+        } else {
+            if (on_delta) on_delta(pending.c_str(), user);
+        }
+    }
+
+    llama_batch_free(batch);
+    llama_sampler_free(sampler);
+
+    if (on_done) on_done(user);
+}
+
+void llama_generate_chat_json_schema_stream(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    std::string prompt2 = build_json_prompt_chat(system_prompt, context_block, user_prompt, json_schema);
+    llama_generate_json_schema_stream(prompt2.c_str(), json_schema, on_delta, on_done, on_error, user);
+}
+
 
 void llama_generate_set_params(float temperature,
         int max_tokens,

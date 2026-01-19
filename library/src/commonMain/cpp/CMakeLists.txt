@@ -16,6 +16,9 @@ set(CMAKE_SHARED_LINKER_FLAGS
         "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--section-start=.note.gnu.build-id=0x4000 -Wl,--no-rosegment"
 )
 
+get_filename_component(REPO_ROOT "${CMAKE_SOURCE_DIR}/../../../../" ABSOLUTE)
+set(LLAMA_CPP_DIR "${REPO_ROOT}/llama.cpp")
+
 # (Optional) If supported by your ggml version:
 option(GGML_CPU_ARM_USE_DOTPROD "Enable ARM dot product" OFF)
 option(GGML_CPU_ARM_USE_I8MM    "Enable ARM i8mm"       OFF)
@@ -31,6 +34,8 @@ add_library(llama_jni SHARED
 find_library(log-lib log)
 
 target_include_directories(llama_jni PRIVATE
+        "${LLAMA_CPP_DIR}/common"
+        "${LLAMA_CPP_DIR}/vendor"
         ${CMAKE_SOURCE_DIR}/../c_interop/include
 )
 

@@ -32,8 +32,27 @@ actual object LlamaBridge {
     actual external fun initGenerateModel(modelPath: String): Boolean
     actual external fun generate(prompt: String): String
     actual external fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
+    actual external fun generateJson(prompt: String, jsonSchema: String?): String
+
+    actual external fun generateJsonWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String?
+    ): String
+
     private external fun nativeGenerateStream(prompt: String, callback: GenStream)
     private external fun nativeGenerateWithContextStream(system: String, context: String, user: String, callback: GenStream)
+    private external fun nativeGenerateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream)
+
+    private external fun nativeGenerateJsonWithContextStream(
+        system: String,
+        context: String,
+        user: String,
+        jsonSchema: String?,
+        callback: GenStream
+    )
+
     private external fun nativeUpdateGenerationParams(
         temperature: Float,
         maxTokens: Int,
@@ -54,6 +73,20 @@ actual object LlamaBridge {
 
     actual fun generateStream(prompt: String, callback: GenStream) {
         nativeGenerateStream(prompt, callback)
+    }
+
+    actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) {
+        nativeGenerateJsonStream(prompt, jsonSchema, callback)
+    }
+
+    actual fun generateJsonStreamWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String?,
+        callback: GenStream
+    ) {
+        nativeGenerateJsonWithContextStream(systemPrompt, contextBlock, userPrompt, jsonSchema, callback)
     }
 
     // Compose the same chat prompt you use on native. This mirrors your Gemma-style tags

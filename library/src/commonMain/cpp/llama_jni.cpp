@@ -2,6 +2,9 @@
 #include "llama.h"
 #include "llama_jni.h"
 
+#include "json-schema-to-grammar.h"
+#include "nlohmann/json.hpp"
+
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -61,11 +64,11 @@ static bool g_backend_inited = false;
 // Streaming cancel flag (for generateStream)
 static std::atomic<bool> g_cancel_requested{false};
 
-static std::atomic<float> g_temperature     = 0.55f;
-static std::atomic<float> g_top_p          = 0.80f;
-static std::atomic<int>   g_top_k          = 20;
+static std::atomic<float> g_temperature = 0.55f;
+static std::atomic<float> g_top_p = 0.80f;
+static std::atomic<int> g_top_k = 20;
 static std::atomic<float> g_repeat_penalty = 1.10f;
-static std::atomic<int>   g_max_new_tokens = 640;
+static std::atomic<int> g_max_new_tokens = 640;
 
 // ===================================================================================
 //                              SMALL HELPERS
@@ -254,6 +257,42 @@ static std::string sanitize_generation(std::string s) {
     }
 
     return s;
+}
+
+static bool build_json_grammar(const char *json_schema, std::string &out_grammar, std::string &out_err) {
+    try {
+        const std::string schema_str = (json_schema && json_schema[0]) ? std::string(json_schema) : std::string("{}");
+        nlohmann::ordered_json schema = nlohmann::ordered_json::parse(schema_str);
+        out_grammar = json_schema_to_grammar(schema, /*force_gbnf=*/false);
+        return !out_grammar.empty();
+    } catch (const std::exception &e) {
+        out_err = e.what();
+        return false;
+    }
+}
+
+static std::string build_json_prompt_single(const char *prompt) {
+    std::string p = prompt ? prompt : "";
+    p += "\n\nReturn ONLY JSON. No markdown, no prose.";
+    return p;
+}
+
+static std::string build_json_prompt_chat(const std::string &system, const std::string &ctx, const std::string &user, bool has_schema) {
+    std::string p;
+    if (!ctx.empty()) {
+        p += "Context:\n";
+        p += ctx;
+        p += "\n\n";
+    }
+    p += "Request:\n";
+    p += user;
+    p += "\n\n";
+    if (has_schema) {
+        p += "Return ONLY JSON matching the provided JSON Schema. No markdown, no prose.";
+    } else {
+        p += "Return ONLY valid JSON. No markdown, no prose.";
+    }
+    return p;
 }
 
 // ---------- Chat templating ----------
@@ -445,6 +484,106 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     return JNI_TRUE;
 }
 
+static std::string generate_with_optional_grammar(const char *prompt, const char *grammar, bool sanitize) {
+    if (!gen_ctx || !gen_model || !prompt) return "";
+
+    llama_memory_clear(llama_get_memory(gen_ctx), false);
+
+    const llama_vocab *vocab = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(vocab, prompt, tokens, /*add_bos*/ true, /*parse_special*/ true);
+    if (n_tokens <= 0) return "";
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int) llama_n_ctx(gen_ctx);
+    if ((int) tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+
+    llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
+    batch.n_tokens = (int) tokens.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i] = tokens[i];
+        batch.pos[i] = i;
+        batch.n_seq_id[i] = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i] = (i == batch.n_tokens - 1);
+    }
+
+    if (llama_decode(gen_ctx, batch) != 0) {
+        llama_batch_free(batch);
+        return "";
+    }
+
+    float temperature = g_temperature.load();
+    float top_p = g_top_p.load();
+    int top_k = g_top_k.load();
+    float repeat_penalty = g_repeat_penalty.load();
+    int max_new_tokens = g_max_new_tokens.load();
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (grammar && grammar[0]) {
+        // Hard constraint first
+        llama_sampler_chain_add(sampler, llama_sampler_init_grammar(vocab, grammar, "root"));
+    }
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    int cur_pos = batch.n_tokens;
+    std::string output;
+    char buf[8192];
+    char sp[64];
+
+    for (int i = 0; i < max_new_tokens; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) {
+            break;
+        }
+
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0) break;
+        if (tok == llama_vocab_eos(vocab)) break;
+
+        // early stop on chat EOT tokens if they appear
+        int sn = llama_token_to_piece(vocab, tok, sp, (int) sizeof(sp), 0, /*special*/ 1);
+        if (sn > 0) {
+            sp[std::min(sn, (int) sizeof(sp) - 1)] = '\0';
+            if (std::strcmp(sp, "<end_of_turn>") == 0 || std::strcmp(sp, "<|eot_id|>") == 0 || std::strcmp(sp, "<start_of_turn>") == 0) {
+                break;
+            }
+        }
+
+        llama_sampler_accept(sampler, tok);
+
+        int nn = llama_token_to_piece(vocab, tok, buf, (int) sizeof(buf), 0, /*special*/ 0);
+        if (nn > 0) output.append(buf, nn);
+
+        if (cur_pos >= n_ctx) break;
+
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1;
+        step.token[0] = tok;
+        step.pos[0] = cur_pos++;
+        step.n_seq_id[0] = 1;
+        step.seq_id[0][0] = 0;
+        step.logits[0] = true;
+
+        if (llama_decode(gen_ctx, step) != 0) {
+            llama_batch_free(step);
+            break;
+        }
+        llama_batch_free(step);
+    }
+
+    llama_sampler_free(sampler);
+    llama_batch_free(batch);
+
+    if (sanitize) {
+        return sanitize_generation(output);
+    }
+    return trim(output);
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, jstring input) {
@@ -579,6 +718,112 @@ Java_com_llamatik_library_platform_LlamaBridge_generateWithContext(
     return r;
 }
 
+extern "C"
+JNIEXPORT jstring
+JNICALL
+        Java_com_llamatik_library_platform_LlamaBridge_generateJson(JNIEnv * env, jobject, jstring
+jPrompt,
+jstring jSchema
+) {
+const char *pprompt = jPrompt ? env->GetStringUTFChars(jPrompt, nullptr) : nullptr;
+const char *pschema = jSchema ? env->GetStringUTFChars(jSchema, nullptr) : nullptr;
+
+if (!pprompt) {
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, pschema
+);
+return nullptr;
+}
+
+std::string grammar;
+std::string err;
+if (!
+build_json_grammar(pschema, grammar, err
+)) {
+env->
+ReleaseStringUTFChars(jPrompt, pprompt
+);
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, pschema
+);
+return env->NewStringUTF("");
+}
+
+std::string prompt = build_json_prompt_single(pprompt);
+
+env->
+ReleaseStringUTFChars(jPrompt, pprompt
+);
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, pschema
+);
+
+std::string out = generate_with_optional_grammar(prompt.c_str(), grammar.c_str(), /*sanitize=*/false);
+return env->
+NewStringUTF(out
+.
+
+c_str()
+
+);
+}
+
+extern "C"
+JNIEXPORT jstring
+JNICALL
+        Java_com_llamatik_library_platform_LlamaBridge_generateJsonWithContext(
+        JNIEnv * env, jobject, jstring
+jSystem,
+jstring jContext, jstring
+jUser,
+jstring jSchema
+) {
+const char *psys = jSystem ? env->GetStringUTFChars(jSystem, nullptr) : nullptr;
+const char *pctx = jContext ? env->GetStringUTFChars(jContext, nullptr) : nullptr;
+const char *pusr = jUser ? env->GetStringUTFChars(jUser, nullptr) : nullptr;
+const char *pschema = jSchema ? env->GetStringUTFChars(jSchema, nullptr) : nullptr;
+
+std::string system = psys ? psys : "";
+std::string ctx = pctx ? pctx : "";
+std::string user = pusr ? pusr : "";
+
+if (jSystem) env->
+ReleaseStringUTFChars(jSystem, psys
+);
+if (jContext) env->
+ReleaseStringUTFChars(jContext, pctx
+);
+if (jUser) env->
+ReleaseStringUTFChars(jUser, pusr
+);
+
+std::string grammar;
+std::string err;
+if (!
+build_json_grammar(pschema, grammar, err
+)) {
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, pschema
+);
+return env->NewStringUTF("");
+}
+const bool has_schema = pschema && pschema[0];
+
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, pschema
+);
+
+std::string prompt = build_json_prompt_chat(system, ctx, user, has_schema);
+std::string out = generate_with_optional_grammar(prompt.c_str(), grammar.c_str(), /*sanitize=*/false);
+return env->
+NewStringUTF(out
+.
+
+c_str()
+
+);
+}
+
 // ===================================================================================
 //                        REAL TOKEN STREAMING (JNI CALLBACKS)
 // ===================================================================================
@@ -603,7 +848,11 @@ static inline bool is_eot_piece(const char *s) {
 }
 
 // Streams tokens from a prepared prompt string
-static void stream_from_prompt(JNIEnv *env, const char *prompt, jobject jCallback, const StreamMethods &m) {
+static void stream_from_prompt(JNIEnv *env,
+        const char *prompt,
+        jobject jCallback,
+        const StreamMethods &m,
+        const char *json_schema = nullptr) {
     if (!gen_ctx || !gen_model) {
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("model not initialized"));
         return;
@@ -741,6 +990,159 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateStream(
 
     stream_from_prompt(env, prompt, jCallback, m);
     env->ReleaseStringUTFChars(jPrompt, prompt);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateJsonStream(
+        JNIEnv
+*env, jobject /*thiz*/,
+jstring jPrompt, jstring
+jSchema,
+jobject jCallback
+) {
+if (!jPrompt || !jCallback) return;
+
+StreamMethods m{};
+if (!
+resolve_stream_methods(env, jCallback, m
+)) {
+LOGE("nativeGenerateJsonStream: failed to resolve callback methods");
+return;
+}
+
+const char *prompt = env->GetStringUTFChars(jPrompt, nullptr);
+const char *schema = jSchema ? env->GetStringUTFChars(jSchema, nullptr) : nullptr;
+if (!prompt) {
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, schema
+);
+env->
+CallVoidMethod(jCallback, m
+.onError, env->NewStringUTF("prompt decode failed"));
+return;
+}
+
+std::string grammar;
+std::string err;
+if (!
+build_json_grammar(schema, grammar, err
+)) {
+env->
+ReleaseStringUTFChars(jPrompt, prompt
+);
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, schema
+);
+env->
+CallVoidMethod(jCallback, m
+.onError, env->
+NewStringUTF(err
+.
+
+c_str()
+
+));
+return;
+}
+
+std::string wrapped = build_json_prompt_single(prompt);
+
+env->
+ReleaseStringUTFChars(jPrompt, prompt
+);
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, schema
+);
+
+stream_from_prompt(env, wrapped
+.
+
+c_str(), grammar
+
+.
+
+c_str(), jCallback, m
+
+);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateJsonWithContextStream(
+        JNIEnv
+*env, jobject /*thiz*/,
+jstring jSystem, jstring
+jContext,
+jstring jUser, jstring
+jSchema,
+jobject jCallback
+) {
+if (!jCallback) return;
+
+StreamMethods m{};
+if (!
+resolve_stream_methods(env, jCallback, m
+)) {
+LOGE("nativeGenerateJsonWithContextStream: failed to resolve callback methods");
+return;
+}
+
+const char *psys = jSystem ? env->GetStringUTFChars(jSystem, nullptr) : nullptr;
+const char *pctx = jContext ? env->GetStringUTFChars(jContext, nullptr) : nullptr;
+const char *pusr = jUser ? env->GetStringUTFChars(jUser, nullptr) : nullptr;
+const char *pschema = jSchema ? env->GetStringUTFChars(jSchema, nullptr) : nullptr;
+
+std::string system = psys ? psys : "";
+std::string ctx = pctx ? pctx : "";
+std::string user = pusr ? pusr : "";
+
+if (jSystem) env->
+ReleaseStringUTFChars(jSystem, psys
+);
+if (jContext) env->
+ReleaseStringUTFChars(jContext, pctx
+);
+if (jUser) env->
+ReleaseStringUTFChars(jUser, pusr
+);
+
+std::string grammar;
+std::string err;
+if (!
+build_json_grammar(pschema, grammar, err
+)) {
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, pschema
+);
+env->
+CallVoidMethod(jCallback, m
+.onError, env->
+NewStringUTF(err
+.
+
+c_str()
+
+));
+return;
+}
+const bool has_schema = pschema && pschema[0];
+
+if (jSchema) env->
+ReleaseStringUTFChars(jSchema, pschema
+);
+
+std::string prompt = build_json_prompt_chat(system, ctx, user, has_schema);
+stream_from_prompt(env, prompt
+.
+
+c_str(), grammar
+
+.
+
+c_str(), jCallback, m
+
+);
 }
 
 extern "C"

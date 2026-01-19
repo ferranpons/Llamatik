@@ -12,8 +12,23 @@ expect object LlamaBridge {
     fun initGenerateModel(modelPath: String): Boolean
     fun generate(prompt: String): String
     fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
+    fun generateJson(prompt: String, jsonSchema: String? = null): String
+    fun generateJsonWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String? = null
+    ): String
     fun generateStream(prompt: String, callback: GenStream)
     fun generateStreamWithContext(systemPrompt: String, contextBlock: String, userPrompt: String, callback: GenStream)
+    fun generateJsonStream(prompt: String, jsonSchema: String? = null, callback: GenStream)
+    fun generateJsonStreamWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String? = null,
+        callback: GenStream
+    )
     fun generateWithContextStream(
         system: String,
         context: String,

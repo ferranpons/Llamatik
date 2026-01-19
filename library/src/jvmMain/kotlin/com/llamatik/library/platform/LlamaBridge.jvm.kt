@@ -12,13 +12,6 @@ actual object LlamaBridge {
         println("🖥️ [JVM LlamaBridge] Loaded native library 'llama_jni'")
     }
 
-    // ----------------------------
-    // JNI: MUST match llama_jni.cpp
-    // ----------------------------
-
-    // These must exist as:
-    // Java_com_llamatik_library_platform_LlamaBridge_initModel
-    // Java_com_llamatik_library_platform_LlamaBridge_embed
     actual external fun initModel(modelPath: String): Boolean
     actual external fun embed(input: String): FloatArray
 
@@ -29,10 +22,6 @@ actual object LlamaBridge {
     @Composable
     actual fun getModelPath(modelFileName: String): String = modelFileName
 
-    // These must exist as:
-    // Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel
-    // Java_com_llamatik_library_platform_LlamaBridge_generate
-    // Java_com_llamatik_library_platform_LlamaBridge_generateWithContext
     actual external fun initGenerateModel(modelPath: String): Boolean
     actual external fun generate(prompt: String): String
     actual external fun generateWithContext(
@@ -41,9 +30,14 @@ actual object LlamaBridge {
         userPrompt: String
     ): String
 
-    // Streaming JNI exports in your C++ are named with "native..." prefix:
-    // Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateStream
-    // Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateWithContextStream
+    actual external fun generateJson(prompt: String, jsonSchema: String?): String
+    actual external fun generateJsonWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String?
+    ): String
+
     private external fun nativeGenerateStream(prompt: String, callback: GenStream)
     private external fun nativeGenerateWithContextStream(
         system: String,
@@ -52,9 +46,15 @@ actual object LlamaBridge {
         callback: GenStream
     )
 
-    // IMPORTANT: match your C++ exactly:
-    // Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams
-    // (note: GenerationParams, NOT GenerateParams)
+    private external fun nativeGenerateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream)
+    private external fun nativeGenerateJsonWithContextStream(
+        system: String,
+        context: String,
+        user: String,
+        jsonSchema: String?,
+        callback: GenStream
+    )
+
     private external fun nativeUpdateGenerationParams(
         temperature: Float,
         maxTokens: Int,
@@ -77,9 +77,6 @@ actual object LlamaBridge {
         nativeGenerateStream(prompt, callback)
     }
 
-    // Keep this consistent with the backend you want.
-    // If your desktop C++ already wraps prompts, you can simplify.
-    // For now we mirror your Android behavior.
     private fun buildChatPrompt(systemPrompt: String, contextBlock: String, userPrompt: String): String {
         return buildString {
             append("<start_of_turn>system\n")
@@ -105,6 +102,20 @@ actual object LlamaBridge {
         generateStream(prompt, callback)
     }
 
+    actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) {
+        nativeGenerateJsonStream(prompt, jsonSchema, callback)
+    }
+
+    actual fun generateJsonStreamWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String?,
+        callback: GenStream
+    ) {
+        nativeGenerateJsonWithContextStream(systemPrompt, contextBlock, userPrompt, jsonSchema, callback)
+    }
+
     actual fun generateWithContextStream(
         system: String,
         context: String,
@@ -121,9 +132,6 @@ actual object LlamaBridge {
         nativeGenerateWithContextStream(system, context, user, cb)
     }
 
-    // These must exist as:
-    // Java_com_llamatik_library_platform_LlamaBridge_shutdown
-    // Java_com_llamatik_library_platform_LlamaBridge_nativeCancelGenerate
     actual external fun shutdown()
     actual external fun nativeCancelGenerate()
 }

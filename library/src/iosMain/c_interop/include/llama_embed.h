@@ -67,6 +67,25 @@ char *llama_generate_chat(const char *system_prompt,
         const char *user_prompt);
 
 /**
+ * Generate JSON from a given prompt.
+ *
+ * If json_schema is NULL or empty, output is constrained to be valid JSON.
+ * If json_schema is provided, output is constrained to match (a supported subset of) JSON Schema.
+ *
+ * Returns a newly allocated null-terminated C string, or NULL on error. Free with free().
+ */
+char *llama_generate_json_schema(const char *prompt, const char *json_schema);
+
+/**
+ * Generate JSON from a (system, context, user) triplet with optional JSON Schema constraint.
+ * Returns a newly allocated null-terminated C string, or NULL on error. Free with free().
+ */
+char *llama_generate_chat_json_schema(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema);
+
+/**
  * Free all text generation-related resources.
  */
 void llama_generate_free(void);
@@ -117,6 +136,30 @@ void llama_generate_chat_stream(const char *system_prompt,
         llm_on_error on_error,
         void *user);
 
+
+/**
+ * Stream JSON generation from a single prompt with optional JSON Schema constraint.
+ * Semantics are identical to llama_generate_stream.
+ */
+void llama_generate_json_schema_stream(const char *prompt,
+        const char *json_schema,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user);
+
+/**
+ * Stream JSON generation from (system, context, user) inputs with optional JSON Schema constraint.
+ * Semantics are identical to llama_generate_chat_stream.
+ */
+void llama_generate_chat_json_schema_stream(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user);
 
 void llama_generate_set_params(float temperature,
         int max_tokens,

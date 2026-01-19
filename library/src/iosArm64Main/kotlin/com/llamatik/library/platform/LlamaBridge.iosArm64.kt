@@ -11,9 +11,13 @@ import com.llamatik.library.platform.llama.llama_free_embedding
 import com.llamatik.library.platform.llama.llama_generate
 import com.llamatik.library.platform.llama.llama_generate_cancel
 import com.llamatik.library.platform.llama.llama_generate_chat
+import com.llamatik.library.platform.llama.llama_generate_chat_json_schema
+import com.llamatik.library.platform.llama.llama_generate_chat_json_schema_stream
 import com.llamatik.library.platform.llama.llama_generate_chat_stream
 import com.llamatik.library.platform.llama.llama_generate_free
 import com.llamatik.library.platform.llama.llama_generate_init
+import com.llamatik.library.platform.llama.llama_generate_json_schema
+import com.llamatik.library.platform.llama.llama_generate_json_schema_stream
 import com.llamatik.library.platform.llama.llama_generate_set_params
 import com.llamatik.library.platform.llama.llama_generate_stream
 import kotlinx.cinterop.BetaInteropApi
@@ -142,6 +146,20 @@ actual object LlamaBridge {
         return out
     }
 
+    actual fun generateJson(prompt: String, jsonSchema: String?): String {
+        val c = llama_generate_json_schema(prompt, jsonSchema) ?: return ""
+        val out = c.toKString()
+        llama_generate_free()
+        return out
+    }
+
+    actual fun generateJsonWithContext(systemPrompt: String, contextBlock: String, userPrompt: String, jsonSchema: String?): String {
+        val c = llama_generate_chat_json_schema(systemPrompt, contextBlock, userPrompt, jsonSchema) ?: return ""
+        val out = c.toKString()
+        llama_generate_free()
+        return out
+    }
+
     actual fun shutdown() {
         llama_embed_free()
         llama_generate_free()
@@ -203,6 +221,71 @@ actual object LlamaBridge {
                     systemPrompt,
                     contextBlock,
                     userPrompt,
+                    onDelta,
+                    onDone,
+                    onError,
+                    ref.asCPointer()
+                )
+            } finally {
+                ref.dispose()
+            }
+        }
+    }
+
+    actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) {
+        memScoped {
+            val ref = StableRef.create(callback)
+            val onDelta = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val s = cstr?.toKString() ?: return@staticCFunction
+                cb.onDelta(s)
+            }
+            val onDone = staticCFunction { ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                cb.onComplete()
+            }
+            val onError = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val msg = cstr?.toKString() ?: "unknown error"
+                cb.onError(msg)
+            }
+            try {
+                llama_generate_json_schema_stream(prompt, jsonSchema, onDelta, onDone, onError, ref.asCPointer())
+            } finally {
+                ref.dispose()
+            }
+        }
+    }
+
+    actual fun generateJsonStreamWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String?,
+        callback: GenStream
+    ) {
+        memScoped {
+            val ref = StableRef.create(callback)
+            val onDelta = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val s = cstr?.toKString() ?: return@staticCFunction
+                cb.onDelta(s)
+            }
+            val onDone = staticCFunction { ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                cb.onComplete()
+            }
+            val onError = staticCFunction { cstr: CPointer<ByteVar>?, ud: COpaquePointer? ->
+                val cb = ud!!.asStableRef<GenStream>().get()
+                val msg = cstr?.toKString() ?: "unknown error"
+                cb.onError(msg)
+            }
+            try {
+                llama_generate_chat_json_schema_stream(
+                    systemPrompt,
+                    contextBlock,
+                    userPrompt,
+                    jsonSchema,
                     onDelta,
                     onDone,
                     onError,

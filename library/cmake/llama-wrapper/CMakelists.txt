@@ -37,6 +37,8 @@ add_library(llama_static_wrapper STATIC
 target_include_directories(llama_static_wrapper PUBLIC
         ${LLAMA_CPP_DIR}
         ${LLAMA_CPP_DIR}/src
+        ${LLAMA_CPP_DIR}/common
+        ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/ggml
         ${LLAMA_CPP_DIR}/ggml/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/c_interop/include

@@ -59,6 +59,8 @@ add_library(llama_jni SHARED "${JNI_SRC}")
 target_include_directories(llama_jni
         PRIVATE
         "${LLAMA_INCLUDE_DIR}"
+        "${LLAMA_CPP_DIR}/common"
+        "${LLAMA_CPP_DIR}/vendor"
         "${JNI_INCLUDE_DIR}"
         "${JNI_INCLUDE_DIR}/.."      # optional, depending on where llama_jni.h sits
         ${JNI_INCLUDE_DIRS}
