@@ -143,7 +143,9 @@ kotlin {
 
         arch.compilations.getByName("main").cinterops {
             create("llama") {
-                val defFileName = if (sdkName.contains("Simulator"))
+                val defFileName = if (archName == "x86_64")
+                    "llama_ios_x86_64.def"
+                else if (sdkName.contains("Simulator"))
                     "llama_ios_simulator.def"
                 else
                     "llama_ios_${archName}.def"

@@ -46,6 +46,12 @@ kotlin {
         }
     }
 
+    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
+        binaries.configureEach {
+            binaryOptions["osVersionMin"] = "16.6"
+        }
+    }
+
     sourceSets {
         all {
             languageSettings {
