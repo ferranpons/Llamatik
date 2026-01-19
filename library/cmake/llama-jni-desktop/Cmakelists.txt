@@ -7,11 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # -------------------------------
 # Paths
 # -------------------------------
-# This CMakeLists.txt lives at:
-#   library/cmake/llama-jni-desktop/CMakeLists.txt
-#
-# Repo root is three levels up:
-#   library/cmake/llama-jni-desktop -> library/cmake -> library -> repo root
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 
 set(LLAMA_CPP_DIR "${REPO_ROOT}/llama.cpp")
@@ -35,16 +30,21 @@ if(NOT EXISTS "${LLAMA_CPP_DIR}/CMakeLists.txt")
 endif()
 
 # -------------------------------
-# Build llama.cpp from your repo (NOT system headers)
+# Build llama.cpp (from repo)
 # -------------------------------
-# Disable stuff you don't need for a shared JNI lib build
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+
+# Important for schema->grammar: try to build llama.cpp common helpers
+set(LLAMA_BUILD_COMMON ON CACHE BOOL "" FORCE)
+
+# Disable curl for portability
 set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
+
+# Optional: avoid needing libomp on macOS
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
-# Build llama.cpp into a dedicated sub-build folder
 add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama-wrapper-build")
 
 # -------------------------------
@@ -52,32 +52,54 @@ add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama-wrapper-build")
 # -------------------------------
 find_package(JNI REQUIRED)
 
-add_library(llama_jni SHARED "${JNI_SRC}")
+# Some llama.cpp versions keep the schema-to-grammar implementation in different places.
+# We'll include only files that exist.
+set(LLAMA_SCHEMA_SOURCES "")
 
-# IMPORTANT:
-# Put *repo* llama.cpp/include FIRST so "llama.h" resolves to the correct one
+set(_cand1 "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
+set(_cand2 "${LLAMA_CPP_DIR}/common/json_schema_to_grammar.cpp")
+set(_cand3 "${LLAMA_CPP_DIR}/common/json-schema.cpp")
+
+foreach(f IN LISTS _cand1 _cand2 _cand3)
+    if(EXISTS "${f}")
+        list(APPEND LLAMA_SCHEMA_SOURCES "${f}")
+    endif()
+endforeach()
+
+if(LLAMA_SCHEMA_SOURCES STREQUAL "")
+    message(WARNING "No schema-to-grammar .cpp sources found in llama.cpp/common. Will rely on llama.cpp 'common' target if it exists.")
+else()
+    message(STATUS "Schema sources: ${LLAMA_SCHEMA_SOURCES}")
+endif()
+
+add_library(llama_jni SHARED
+        "${JNI_SRC}"
+        ${LLAMA_SCHEMA_SOURCES}
+)
+
 target_include_directories(llama_jni
         PRIVATE
         "${LLAMA_INCLUDE_DIR}"
         "${LLAMA_CPP_DIR}/common"
         "${LLAMA_CPP_DIR}/vendor"
+        "${LLAMA_CPP_DIR}/vendor/nlohmann"
         "${JNI_INCLUDE_DIR}"
-        "${JNI_INCLUDE_DIR}/.."      # optional, depending on where llama_jni.h sits
+        "${JNI_INCLUDE_DIR}/.."
         ${JNI_INCLUDE_DIRS}
 )
 
-# If you want to be extra-defensive against /usr/local/include picking the wrong header:
-# target_compile_options(llama_jni PRIVATE -Wno-deprecated-declarations)
-
-# Link against the llama.cpp targets we just built.
-# In llama.cpp builds, the main library target is typically "llama".
-# Your build log shows libllama.a being built, so target "llama" exists.
+# Link llama core
 target_link_libraries(llama_jni
         PRIVATE
         llama
 )
 
-# macOS convenience: make sure the output is libllama_jni.dylib
+# If llama.cpp exports a 'common' target, link it (this is where schema helpers often live).
+if(TARGET common)
+    target_link_libraries(llama_jni PRIVATE common)
+    message(STATUS "Linking llama.cpp target: common")
+endif()
+
 set_target_properties(llama_jni PROPERTIES
         OUTPUT_NAME "llama_jni"
 )
