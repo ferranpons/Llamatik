@@ -35,7 +35,7 @@ kotlin {
             isStatic = true
             linkerOpts("-Wl,-no_implicit_dylibs")
             freeCompilerArgs += listOf("-Xbinary=bundleId=com.llamatik.library")
-            freeCompilerArgs += "-Xoverride-konan-properties=osVersionMin.ios=17.2"
+            freeCompilerArgs += "-Xoverride-konan-properties=osVersionMin.ios=16.6"
         }
     }
 
@@ -133,11 +133,14 @@ kotlin {
                 "$libPath/libllama_static.a",
                 "$libPath/llama-local-build/src/libllama.a",
                 "$libPath/llama-local-build/ggml/src/libggml.a",
+                "$libPath/llama-local-build/ggml/src/libggml-base.a",
+                "$libPath/llama-local-build/ggml/src/libggml-cpu.a",
                 "$libPath/llama-local-build/ggml/src/ggml-blas/libggml-blas.a",
                 "$libPath/llama-local-build/ggml/src/ggml-metal/libggml-metal.a"
             )
         }
 
+        // Ensure cinterop runs after the native libs are built/merged
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
             dependsOn(mergeTask)
         }
@@ -150,16 +153,25 @@ kotlin {
                     "llama_ios_simulator.def"
                 else
                     "llama_ios_${archName}.def"
+
                 defFile("src/iosMain/c_interop/$defFileName")
                 packageName("com.llamatik.library.platform.llama")
+
                 compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
+
+                // ✅ this folder contains libllama_merged.a
+                extraOpts(
+                    "-libraryPath", libPath
+                )
+
                 tasks.named(interopProcessingTaskName).configure {
-                    dependsOn(compileTask)
+                    dependsOn(mergeTask) // ✅ must exist before cinterop
                 }
             }
         }
 
         val merged = "$libPath/libllama_merged.a"
+
         arch.binaries.getFramework("DEBUG").apply {
             baseName = "llamatik"
             isStatic = true

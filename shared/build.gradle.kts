@@ -39,16 +39,12 @@ kotlin {
 
             // Give it a bundle id to keep Xcode happy
             freeCompilerArgs += "-Xbinary=bundleId=com.llamatik.shared"
+            freeCompilerArgs += "-Xbinary=ios_version_min=16.6"
+            freeCompilerArgs += "-Xoverride-konan-properties=osVersionMin.ios=16.6"
 
             // NOTE:
             // We deliberately do NOT add custom linkerOpts here.
             // The native bits (llama/ggml) are linked & force-loaded in :library already.
-        }
-    }
-
-    targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
-        binaries.all {
-            freeCompilerArgs += "-Xoverride-konan-properties=osVersionMin.ios=17.2"
         }
     }
 

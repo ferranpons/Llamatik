@@ -1,20 +1,20 @@
 headers = llama_embed.h
 headerFilter = llama_embed.h
+
 compilerOpts = -I$PROJECT_DIR/../llama.cpp/include \
-                 -I$PROJECT_DIR/../llama.cpp \
-                 -I$PROJECT_DIR/../llama.cpp/src \
-                 -I$PROJECT_DIR/../llama.cpp/common \
-                 -I$PROJECT_DIR/../llama.cpp/vendor \
-                 -I$PROJECT_DIR/../llama.cpp/ggml/include \
-                 -I$PROJECT_DIR/../llama.cpp/ggml/src \
-                 -I$PROJECT_DIR/src/iosMain/c_interop/include
-linkerOpts = -Llibrary/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64 \
-             -force_load library/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64/libllama_static.a \
-             library/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64/llama-local-build/src/libllama.a \
-             library/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64/llama-local-build/ggml/src/libggml.a \
-             library/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64/llama-local-build/ggml/src/libggml-base.a \
-             library/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64/llama-local-build/ggml/src/libggml-cpu.a \
-             library/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64/llama-local-build/ggml/src/ggml-blas/libggml-blas.a \
-             library/build/llama-cmake/iPhoneSimulator/iosSimulatorArm64/llama-local-build/ggml/src/ggml-metal/libggml-metal.a \
-             -framework Accelerate -framework Metal -lc++ -ObjC
+               -I$PROJECT_DIR/../llama.cpp \
+               -I$PROJECT_DIR/../llama.cpp/src \
+               -I$PROJECT_DIR/../llama.cpp/common \
+               -I$PROJECT_DIR/../llama.cpp/vendor \
+               -I$PROJECT_DIR/../llama.cpp/ggml/include \
+               -I$PROJECT_DIR/../llama.cpp/ggml/src \
+               -I$PROJECT_DIR/src/iosMain/c_interop/include
+
+# IMPORTANT: do NOT hardcode library/build paths here anymore
+# and do NOT list individual .a files.
+# Just embed ONE archive:
+staticLibraries = libllama_merged.a
+
+linkerOpts = -framework Accelerate -framework Metal -lc++ -ObjC
+
 package = com.llamatik.library.platform.llama
