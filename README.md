@@ -80,7 +80,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 commonMain.dependencies {
-    implementation("com.llamatik:library:0.11.0")
+    implementation("com.llamatik:library:0.12.0")
 }
 ```
 
