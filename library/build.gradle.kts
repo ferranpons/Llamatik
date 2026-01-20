@@ -147,25 +147,19 @@ kotlin {
 
         arch.compilations.getByName("main").cinterops {
             create("llama") {
-                val defFileName = if (archName == "x86_64")
-                    "llama_ios_x86_64.def"
-                else if (sdkName.contains("Simulator"))
-                    "llama_ios_simulator.def"
-                else
-                    "llama_ios_${archName}.def"
+                val defFileName = "llama_ios_ios.def"
 
                 defFile("src/iosMain/c_interop/$defFileName")
                 packageName("com.llamatik.library.platform.llama")
 
                 compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
 
-                // ✅ this folder contains libllama_merged.a
                 extraOpts(
                     "-libraryPath", libPath
                 )
 
                 tasks.named(interopProcessingTaskName).configure {
-                    dependsOn(mergeTask) // ✅ must exist before cinterop
+                    dependsOn(mergeTask)
                 }
             }
         }

@@ -1,6 +1,5 @@
 headers = llama_embed.h
 headerFilter = llama_embed.h
-
 compilerOpts = -I$PROJECT_DIR/../llama.cpp/include \
                -I$PROJECT_DIR/../llama.cpp \
                -I$PROJECT_DIR/../llama.cpp/src \
@@ -9,12 +8,6 @@ compilerOpts = -I$PROJECT_DIR/../llama.cpp/include \
                -I$PROJECT_DIR/../llama.cpp/ggml/include \
                -I$PROJECT_DIR/../llama.cpp/ggml/src \
                -I$PROJECT_DIR/src/iosMain/c_interop/include
-
-# IMPORTANT: do NOT hardcode library/build paths here anymore
-# and do NOT list individual .a files.
-# Just embed ONE archive:
 staticLibraries = libllama_merged.a
-
 linkerOpts = -framework Accelerate -framework Metal -lc++ -ObjC
-
 package = com.llamatik.library.platform.llama
