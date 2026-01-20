@@ -147,7 +147,7 @@ kotlin {
 
         arch.compilations.getByName("main").cinterops {
             create("llama") {
-                val defFileName = "llama_ios_ios.def"
+                val defFileName = "llama_ios.def"
 
                 defFile("src/iosMain/c_interop/$defFileName")
                 packageName("com.llamatik.library.platform.llama")

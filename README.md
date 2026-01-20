@@ -25,6 +25,7 @@
 - ✅ Context-aware generation (system + conversation history)  
 - ✅ Works with GGUF models (e.g. Mistral, Phi, LLaMA)  
 - ✅ Lightweight and dependency-free runtime  
+- ✅ Schema-Constrained JSON Generation
 
 ##### Try it NOW
 
