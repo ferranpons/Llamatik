@@ -35,6 +35,7 @@ kotlin {
             isStatic = true
             linkerOpts("-Wl,-no_implicit_dylibs")
             freeCompilerArgs += listOf("-Xbinary=bundleId=com.llamatik.library")
+            freeCompilerArgs += "-Xoverride-konan-properties=osVersionMin.ios=17.2"
         }
     }
 
