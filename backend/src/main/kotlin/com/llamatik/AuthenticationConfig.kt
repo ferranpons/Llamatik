@@ -7,7 +7,6 @@ import com.llamatik.repository.DatabaseFactory
 import com.llamatik.repository.embeddings.EmbeddingRepositoryImpl
 import com.llamatik.repository.profile.ProfileRepositoryImpl
 import com.llamatik.repository.user.UserRepositoryImp
-import com.llamatik.routes.embeddings
 import com.llamatik.routes.profiles
 import com.llamatik.routes.users
 import io.ktor.server.application.Application
@@ -41,6 +40,5 @@ fun Application.configureAuthentication() {
     routing {
         users(userRepository, jwtService, hashFunction)
         profiles(profileRepository, userRepository)
-        embeddings(embeddingRepository)
     }
 }

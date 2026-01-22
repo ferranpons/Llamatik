@@ -1,39 +1,40 @@
 package com.llamatik.routes
 
 import com.llamatik.API_VERSION
-import com.llamatik.auth.JWT_CONFIGURATION
-import com.llamatik.repository.embeddings.EmbeddingRepository
+import com.llamatik.api.EmbedRequest
+import com.llamatik.api.EmbedResponse
+import com.llamatik.llama.LlamaService
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.resources.Resource
-import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
-import io.ktor.server.resources.get
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.post
 
 const val EMBEDDINGS = "$API_VERSION/embeddings"
+const val EMBEDDINGS_INIT = "$EMBEDDINGS/init"
 const val EMBEDDINGS_EMBED = "$EMBEDDINGS/embed"
 
-@Resource(EMBEDDINGS_EMBED)
-class EmbedRoute
-
-@Suppress("LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod")
-fun Route.embeddings(
-    embeddingRepository: EmbeddingRepository
-) {
-    authenticate(JWT_CONFIGURATION) {
-        // TODO: Add Authorized Embedding
+/**
+ * Mirrors the Llamatik library API for embeddings.
+ *
+ * POST /v1/embeddings/embed
+ */
+fun Route.embeddingRoutes() {
+    post(EMBEDDINGS_INIT) {
+        val req = call.receive<com.llamatik.api.InitModelRequest>()
+        val res = LlamaService.initModel(req.modelPath)
+        res.fold(
+            onSuccess = { call.respond(com.llamatik.api.InitModelResponse(ok = it)) },
+            onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Init failed") }
+        )
     }
 
-    get<GenerationRoute> {
-        try {
-            val parameters = call.receive<Parameters>()
-            val input = parameters["input"] ?: ""
-            val embedding = embeddingRepository.getEmbedding(input)
-            call.respond(embedding.getOrThrow())
-        } catch (e: Throwable) {
-            call.respond(HttpStatusCode.BadRequest, e.message.toString())
-        }
+    post(EMBEDDINGS_EMBED) {
+        val req = call.receive<EmbedRequest>()
+        val res = LlamaService.embed(req.input)
+        res.fold(
+            onSuccess = { call.respond(EmbedResponse(embedding = it.toList())) },
+            onFailure = { call.respond(HttpStatusCode.BadRequest, it.message ?: "Embedding failed") }
+        )
     }
 }

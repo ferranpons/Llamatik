@@ -1,7 +1,9 @@
 package com.llamatik.repository.generation
 
+import com.llamatik.llama.LlamaService
+
 class GenerationRepositoryImpl : GenerationRepository {
     override suspend fun generate(prompt: String): Result<String> {
-        TODO("Not yet implemented")
+        return LlamaService.generate(prompt)
     }
 }

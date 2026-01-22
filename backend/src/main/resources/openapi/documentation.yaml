@@ -1,42 +1,342 @@
 openapi: 3.1.1
 info:
   title: Llamatik API
-  description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
-  version: 0.0.1
+  description: |
+    Lightweight llama.cpp HTTP server exposing the same surface as the Llamatik `LlamaBridge` API.
+    
+    - JSON endpoints for embeddings and generation
+    - SSE streaming endpoints for token/delta streaming
+  version: 0.1.0
 servers:
   - url: http://api.llamatik.com/v1
     description: Lightweight llama.cpp HTTP server
 paths:
-  /embeddings:
-    get:
-      summary: Returns a list of embeddings.
-      description: Returns a list of embeddings.
+  /embeddings/init:
+    post:
+      summary: Initialize an embedding model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitModelRequest'
       responses:
-        '200': # status code
-          description: A list of embeddings.
+        '200':
+          description: Model initialization status
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: string
-  /generation:
-    get:
-      summary: Returns generated string.
-      description: Returns generated string.
+                $ref: '#/components/schemas/InitModelResponse'
+
+  /embeddings/embed:
+    post:
+      summary: Create an embedding for a given input string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbedRequest'
       responses:
-        '200': # status code
-          description: Generated string.
+        '200':
+          description: Embedding vector
           content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedResponse'
+
+  /generation/init:
+    post:
+      summary: Initialize a generation model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitModelRequest'
+      responses:
+        '200':
+          description: Model initialization status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitModelResponse'
+
+  /generation/generate:
+    post:
+      summary: Generate a completion for a prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '200':
+          description: Generated text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+
+  /generation/generateWithContext:
+    post:
+      summary: Generate a completion given system prompt + context + user prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateWithContextRequest'
+      responses:
+        '200':
+          description: Generated text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+
+  /generation/generateJson:
+    post:
+      summary: Generate JSON (optionally constrained by a JSON schema)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateJsonRequest'
+      responses:
+        '200':
+          description: Generated JSON as text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+
+  /generation/generateJsonWithContext:
+    post:
+      summary: Generate JSON with system prompt + context + user prompt (optionally constrained by schema)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateJsonWithContextRequest'
+      responses:
+        '200':
+          description: Generated JSON as text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+
+  /generation/params:
+    post:
+      summary: Update generation parameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateParamsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /generation/cancel:
+    post:
+      summary: Cancel an in-progress generation
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /generation/stream:
+    post:
+      summary: Stream a completion as Server-Sent Events (SSE)
+      description: Emits SSE events `delta`, then `done`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
               schema:
                 type: string
-                items:
-                  type: string
+
+  /generation/streamWithContext:
+    post:
+      summary: Stream a completion with context as Server-Sent Events (SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateWithContextRequest'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /generation/jsonStream:
+    post:
+      summary: Stream JSON generation as Server-Sent Events (SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateJsonRequest'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /generation/jsonStreamWithContext:
+    post:
+      summary: Stream JSON generation with context as Server-Sent Events (SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateJsonWithContextRequest'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
 components:
   securitySchemes:
     BasicAuth:
       type: http
       scheme: basic
+  schemas:
+    InitModelRequest:
+      type: object
+      required: [modelPath]
+      properties:
+        modelPath:
+          type: string
+          description: Absolute path to a GGUF/GGML model on the server
+
+    InitModelResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+
+    EmbedRequest:
+      type: object
+      required: [input]
+      properties:
+        input:
+          type: string
+
+    EmbedResponse:
+      type: object
+      required: [embedding]
+      properties:
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+
+    GenerateRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+
+    GenerateWithContextRequest:
+      type: object
+      required: [systemPrompt, contextBlock, userPrompt]
+      properties:
+        systemPrompt:
+          type: string
+        contextBlock:
+          type: string
+        userPrompt:
+          type: string
+
+    GenerateJsonRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+        jsonSchema:
+          type: string
+          nullable: true
+
+    GenerateJsonWithContextRequest:
+      type: object
+      required: [systemPrompt, contextBlock, userPrompt]
+      properties:
+        systemPrompt:
+          type: string
+        contextBlock:
+          type: string
+        userPrompt:
+          type: string
+        jsonSchema:
+          type: string
+          nullable: true
+
+    GenerateResponse:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+
+    UpdateParamsRequest:
+      type: object
+      required: [temperature, maxTokens, topP, topK, repeatPenalty]
+      properties:
+        temperature:
+          type: number
+          format: float
+        maxTokens:
+          type: integer
+        topP:
+          type: number
+          format: float
+        topK:
+          type: integer
+        repeatPenalty:
+          type: number
+          format: float
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+
 security:
   - BasicAuth: [ ]

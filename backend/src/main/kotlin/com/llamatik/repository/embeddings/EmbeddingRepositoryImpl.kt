@@ -1,7 +1,9 @@
 package com.llamatik.repository.embeddings
 
+import com.llamatik.llama.LlamaService
+
 class EmbeddingRepositoryImpl : EmbeddingRepository {
     override suspend fun getEmbedding(input: String): Result<FloatArray> {
-        TODO("Not yet implemented")
+        return LlamaService.embed(input)
     }
 }

@@ -1,5 +1,7 @@
 package com.llamatik
 
+import com.llamatik.routes.embeddingRoutes
+import com.llamatik.routes.generationRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -21,6 +23,14 @@ fun Application.configureGeneralRouting() {
         get("/") {
             call.respondText("Welcome to Llamatik Server!")
         }
+
+        // Llamatik inference API (mirrors the LlamaBridge surface)
+        embeddingRoutes()
+        generationRoutes()
+
+        // --- Llamatik LLM API ---
+        embeddingRoutes()
+        generationRoutes()
 
         openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml") {
             codegen = StaticHtmlCodegen()
