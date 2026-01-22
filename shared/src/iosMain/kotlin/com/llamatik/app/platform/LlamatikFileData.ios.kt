@@ -266,6 +266,7 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
         return path
     }
 
+    @OptIn(ExperimentalForeignApi::class)
     actual fun delete(path: String): Boolean {
         val fileManager = NSFileManager.defaultManager
         return try {

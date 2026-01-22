@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
 import androidx.compose.ui.unit.dp
 import kotlinx.cinterop.CValue
+import kotlinx.cinterop.ExperimentalForeignApi
 import platform.CoreGraphics.CGRect
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
@@ -22,6 +23,7 @@ import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 import platform.darwin.NSObject
 
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun WebViewLayout(
     htmlContent: String,
