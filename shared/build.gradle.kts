@@ -7,7 +7,6 @@ plugins {
     id("org.jetbrains.compose")
     kotlin("plugin.serialization")
     alias(libs.plugins.compose.compiler)
-    alias(libs.plugins.korge)
 }
 
 kotlin {

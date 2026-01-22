@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.LibraryExtension
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.compose.compiler)
@@ -68,7 +70,10 @@ kotlin {
         Triple(iosArm64(), "arm64", "iPhoneOS"),
         Triple(iosSimulatorArm64(), "arm64", "iPhoneSimulator")
     ).forEach { (arch, archName, sdkName) ->
-        val cmakeBuildDir = buildDir.resolve("llama-cmake/$sdkName/${arch.name}")
+        val cmakeBuildDir = layout.buildDirectory
+            .dir("llama-cmake/$sdkName/${arch.name}")
+            .get()
+            .asFile
         val buildTaskName = "buildLlamaCMake${arch.name.replaceFirstChar { it.uppercase() }}"
 
         tasks.register(buildTaskName, Exec::class) {
@@ -201,7 +206,10 @@ kotlin {
     // ---------- Desktop (macOS) JNI build for llama_jni ----------
 
     // This is where we'll output libllama_jni.dylib for desktop (via CMakeLists.txt)
-    val macJniBuildDir = buildDir.resolve("llama-jni/macos")
+    val macJniBuildDir = layout.buildDirectory
+        .dir("llama-jni/macos")
+        .get()
+        .asFile
 
     val buildLlamaJniDesktop by tasks.registering(Exec::class) {
         group = "llama-native"
@@ -262,25 +270,21 @@ compose.resources {
     publicResClass = true
 }
 
-android {
+extensions.configure<LibraryExtension> {
     namespace = "com.llamatik"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
+
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
         ndk {
-            abiFilters.add("arm64-v8a")
-            abiFilters.add("x86_64")
+            abiFilters += setOf("arm64-v8a", "x86_64")
         }
         consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
-        release {
-            isMinifyEnabled = false
-        }
-        debug {
-            isMinifyEnabled = false
-        }
+        release { isMinifyEnabled = false }
+        debug { isMinifyEnabled = false }
     }
 
     compileOptions {
@@ -289,16 +293,11 @@ android {
     }
 
     packaging {
-        jniLibs {
-            useLegacyPackaging = false
-        }
+        jniLibs { useLegacyPackaging = false }
     }
 
-    kotlin {
-        jvmToolchain(21)
-    }
+    sourceSets.getByName("main").jniLibs.srcDirs("src/commonMain/jniLibs")
 
-    sourceSets["main"].jniLibs.srcDirs("src/commonMain/jniLibs")
     externalNativeBuild {
         cmake {
             path = file("src/commonMain/cpp/CMakeLists.txt")
@@ -313,20 +312,20 @@ android {
     }
 }
 
-val dokkaPubHtml = tasks.named("dokkaGeneratePublicationHtml").orNull
-val dokkaAllHtml = tasks.named("dokkaGenerateHtml").orNull
+val dokkaPubHtmlTask: Task? = tasks.findByName("dokkaGeneratePublicationHtml")
+val dokkaAllHtmlTask: Task? = tasks.findByName("dokkaGenerateHtml")
 
-val dokkaHtmlDir =
-    if (dokkaPubHtml != null) {
-        layout.buildDirectory.dir("dokka/htmlPublication")
-    } else {
-        layout.buildDirectory.dir("dokka/html")
-    }
+val dokkaHtmlDir = if (dokkaPubHtmlTask != null) {
+    layout.buildDirectory.dir("dokka/htmlPublication")
+} else {
+    layout.buildDirectory.dir("dokka/html")
+}
 
 val javadocJar by tasks.registering(Jar::class) {
     group = JavaBasePlugin.DOCUMENTATION_GROUP
     archiveClassifier.set("javadoc")
-    if (dokkaPubHtml != null) dependsOn(dokkaPubHtml) else dependsOn(dokkaAllHtml)
+    dokkaPubHtmlTask?.let { dependsOn(it) } ?: dokkaAllHtmlTask?.let { dependsOn(it) }
+
     from(dokkaHtmlDir)
 }
 

@@ -49,7 +49,3 @@ dependencies {
     //testImplementation(libs.ktor.server.tests.jvm)
     testImplementation(libs.kotlin.test.junit)
 }
-
-tasks.shadowJar {
-    setProperty("zip64", true)
-}

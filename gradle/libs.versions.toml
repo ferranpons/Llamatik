@@ -12,7 +12,7 @@ voyager = "1.1.0-beta03"
 koin = "4.1.1"
 koin-compose = "4.1.1"
 junit = "4.13.2"
-androidGradlePlugin = "8.13.2"
+androidGradlePlugin = "9.0.0"
 composeMultiplatform = "1.9.3"
 exposed = "0.61.0"
 ktlint = "13.1.0"
@@ -163,11 +163,10 @@ ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-korge = { id = "com.soywiz.korge", version = "6.0.0" }
 
 #Backend
 #kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "kotlin" }
-shadow = { id = "com.github.johnrengelman.shadow", version = "8.1.1" }
+shadow = { id = "com.gradleup.shadow", version = "9.3.1" }
 
 [bundles]
 
