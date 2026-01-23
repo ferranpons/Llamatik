@@ -1,0 +1,165 @@
+name: Publish Desktop on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  desktop:
+    name: Build & Upload Desktop Apps
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-latest, windows-latest]
+
+    permissions:
+      contents: write  # needed to upload assets to the GitHub Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # CI-safe overrides (your repo gradle.properties uses very large Xmx values)
+      - name: Configure CI Gradle JVM args
+        shell: bash
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=768m -XX:+UseParallelGC -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx2g -XX:+UseParallelGC
+          org.gradle.caching=true
+          org.gradle.configuration-cache=false
+          EOF
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Linux deps (for Compose/Skiko)
+        if: ${{ runner.os == 'Linux' }}
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libgtk-3-dev \
+            libx11-dev \
+            libxext-dev \
+            libxrender-dev \
+            libxtst-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libxkbcommon-x11-0
+
+      - name: Install macOS deps
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          brew update
+          brew install cmake
+          cmake --version
+
+      - name: Build desktop distributables (Compose Multiplatform)
+        shell: bash
+        run: |
+          ./gradlew :composeApp:packageReleaseDistributionForCurrentOS --no-daemon --stacktrace
+
+      # --- FIX: macOS bash doesn't support "shopt -s globstar" (bash 3.x). Use find + pwsh on Windows. ---
+      - name: Collect artifacts (Linux/macOS)
+        if: ${{ runner.os != 'Windows' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="release-out"
+          mkdir -p "$OUT"
+
+          # Copy installers/archives produced by Compose Multiplatform
+          find composeApp/build -type f \( \
+            -iname "*.dmg" -o -iname "*.pkg" -o -iname "*.zip" -o -iname "*.tar.gz" -o \
+            -iname "*.deb" -o -iname "*.rpm" -o -iname "*.AppImage" -o \
+            -iname "*.msi" -o -iname "*.exe" \
+          \) -exec cp -v "{}" "$OUT/" \; || true
+
+          echo "Artifacts:"
+          ls -la "$OUT" || true
+
+      - name: Collect artifacts (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          $out = "release-out"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+
+          $patterns = @("*.msi","*.exe","*.zip","*.tar.gz","*.deb","*.AppImage")
+          foreach ($p in $patterns) {
+            Get-ChildItem -Path "composeApp\build" -Recurse -Include $p -ErrorAction SilentlyContinue | ForEach-Object {
+              Copy-Item -Path $_.FullName -Destination $out -Force
+              Write-Host "Copied $($_.FullName) to $out"
+            }
+          }
+
+          Write-Host "Artifacts:"
+          Get-ChildItem -Path $out | ForEach-Object { Write-Host $_.Name }
+
+      - name: Fail if no artifacts were collected
+        shell: bash
+        run: |
+          OUT="release-out"
+          COUNT=0
+          if [ -d "$OUT" ]; then
+            COUNT=$(ls -1 "$OUT" 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+          fi
+          echo "Artifact count: $COUNT"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "ERROR: No artifacts found. Inspecting composeApp/build output:"
+            find composeApp/build -maxdepth 8 -type f -print || true
+            exit 1
+          fi
+
+      - name: Generate SHA256SUMS (Linux/macOS)
+        if: ${{ runner.os != 'Windows' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="release-out"
+          command -v sha256sum >/dev/null 2>&1 || { echo "sha256sum not found"; exit 1; }
+          (cd "$OUT" && sha256sum * > "SHA256SUMS-${RUNNER_OS}.txt")
+          echo "SHA256SUMS-${RUNNER_OS}.txt:"
+          cat "$OUT/SHA256SUMS-${RUNNER_OS}.txt"
+
+      - name: Generate SHA256SUMS (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          $out = "release-out"
+          $hashFile = Join-Path $out "SHA256SUMS-Windows.txt"
+          Remove-Item -Path $hashFile -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $out -File | ForEach-Object {
+            $h = Get-FileHash -Path $_.FullName -Algorithm SHA256
+            "{0}  {1}" -f $h.Hash, $_.Name | Out-File -FilePath $hashFile -Append -Encoding utf8
+          }
+          Get-Content $hashFile
+
+      - name: Upload assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+
+          if [ ! -d "release-out" ] || [ -z "$(ls -A release-out || true)" ]; then
+            echo "ERROR: release-out is empty; nothing to upload"
+            exit 1
+          fi
+
+          gh release upload "$TAG" release-out/* --clobber
