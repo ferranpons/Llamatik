@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-latest, windows-latest]
+        os: [ macos-14, ubuntu-latest, windows-latest ]
 
     permissions:
       contents: write  # needed to upload assets to the GitHub Release
@@ -74,7 +74,6 @@ jobs:
         run: |
           ./gradlew :composeApp:packageReleaseDistributionForCurrentOS --no-daemon --stacktrace
 
-      # --- FIX: macOS bash doesn't support "shopt -s globstar" (bash 3.x). Use find + pwsh on Windows. ---
       - name: Collect artifacts (Linux/macOS)
         if: ${{ runner.os != 'Windows' }}
         shell: bash
@@ -82,14 +81,13 @@ jobs:
           set -euo pipefail
           OUT="release-out"
           mkdir -p "$OUT"
-
-          # Copy installers/archives produced by Compose Multiplatform
+          
           find composeApp/build -type f \( \
             -iname "*.dmg" -o -iname "*.pkg" -o -iname "*.zip" -o -iname "*.tar.gz" -o \
             -iname "*.deb" -o -iname "*.rpm" -o -iname "*.AppImage" -o \
             -iname "*.msi" -o -iname "*.exe" \
           \) -exec cp -v "{}" "$OUT/" \; || true
-
+          
           echo "Artifacts:"
           ls -la "$OUT" || true
 
@@ -99,7 +97,7 @@ jobs:
         run: |
           $out = "release-out"
           New-Item -ItemType Directory -Force -Path $out | Out-Null
-
+          
           $patterns = @("*.msi","*.exe","*.zip","*.tar.gz","*.deb","*.AppImage")
           foreach ($p in $patterns) {
             Get-ChildItem -Path "composeApp\build" -Recurse -Include $p -ErrorAction SilentlyContinue | ForEach-Object {
@@ -107,7 +105,7 @@ jobs:
               Write-Host "Copied $($_.FullName) to $out"
             }
           }
-
+          
           Write-Host "Artifacts:"
           Get-ChildItem -Path $out | ForEach-Object { Write-Host $_.Name }
 
@@ -132,8 +130,19 @@ jobs:
         run: |
           set -euo pipefail
           OUT="release-out"
-          command -v sha256sum >/dev/null 2>&1 || { echo "sha256sum not found"; exit 1; }
-          (cd "$OUT" && sha256sum * > "SHA256SUMS-${RUNNER_OS}.txt")
+          
+          if [ "${RUNNER_OS}" = "Linux" ]; then
+            command -v sha256sum >/dev/null 2>&1 || { echo "sha256sum not found"; exit 1; }
+            (cd "$OUT" && sha256sum * > "SHA256SUMS-${RUNNER_OS}.txt")
+          elif [ "${RUNNER_OS}" = "macOS" ]; then
+            # macOS doesn't ship sha256sum by default; use shasum
+            command -v shasum >/dev/null 2>&1 || { echo "shasum not found"; exit 1; }
+            (cd "$OUT" && shasum -a 256 * > "SHA256SUMS-${RUNNER_OS}.txt")
+          else
+            echo "Unsupported RUNNER_OS=${RUNNER_OS}"
+            exit 1
+          fi
+          
           echo "SHA256SUMS-${RUNNER_OS}.txt:"
           cat "$OUT/SHA256SUMS-${RUNNER_OS}.txt"
 
@@ -156,10 +165,10 @@ jobs:
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"
-
+          
           if [ ! -d "release-out" ] || [ -z "$(ls -A release-out || true)" ]; then
             echo "ERROR: release-out is empty; nothing to upload"
             exit 1
           fi
-
+          
           gh release upload "$TAG" release-out/* --clobber
