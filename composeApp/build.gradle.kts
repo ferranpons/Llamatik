@@ -56,7 +56,6 @@ kotlin {
 
             // Dependency Injection
             implementation(libs.koin.core)
-            implementation(libs.koin.test)
             implementation(libs.koin.compose)
         }
         desktopMain.dependencies {
@@ -97,11 +96,14 @@ kotlin {
 
             // Dependency Injection
             implementation(libs.koin.core)
-            implementation(libs.koin.test)
             implementation(libs.koin.compose)
 
             // Logging
             implementation(libs.kermit)
+        }
+
+        commonTest.dependencies {
+            implementation(libs.koin.test)
         }
     }
 }
@@ -217,6 +219,10 @@ compose.desktop {
             packageName = "Llamatik"
             packageVersion = "$versionMajor.$versionMinor.$versionPatch"
         }
+
+        buildTypes.release.proguard {
+            configurationFiles.from(file("proguard-rules.pro"))
+        }
     }
 
     dependencies {
@@ -258,7 +264,7 @@ compose.desktop {
 
         // Dependency Injection
         implementation(libs.koin.core)
-        implementation(libs.koin.test)
+        testImplementation(libs.koin.test)
         implementation(libs.koin.compose)
 
         // Logging

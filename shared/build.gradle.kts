@@ -93,7 +93,6 @@ kotlin {
 
             // Dependency Injection
             implementation(libs.koin.core)
-            implementation(libs.koin.test)
 
             // Logging
             implementation(libs.kermit)
@@ -131,6 +130,7 @@ kotlin {
         }
 
         commonTest.dependencies {
+            implementation(libs.junit)
             implementation(libs.koin.test)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.coroutines.test)

@@ -120,3 +120,10 @@
 -keepnames class io.kamel.core.**
 -dontwarn io.kamel.core.**
 
+-dontwarn nl.adaptivity.xmlutil.jdk.**
+-dontwarn java.lang.invoke.MethodHandle
+-dontwarn nl.adaptivity.xmlutil.XmlStreaming
+-dontwarn nl.adaptivity.xmlutil.StAXStreamingFactory
+-dontwarn nl.adaptivity.xmlutil.AndroidStreamingFactory
+-dontwarn org.codehaus.stax2.**
+-dontwarn io.ktor.utils.io.jvm.javaio.PollersKt
