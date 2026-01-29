@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
+import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.ui.theme.Typography
 import kotlin.math.roundToInt
 
@@ -89,16 +90,17 @@ private fun ParamsView(
     onApply: (GenerateSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val localization = getCurrentLocalization()
     val generateSettings = rememberGenerateSettingsState(initial)
 
     Text(
-        text = "Generation Settings",
+        text = localization.generationSettings,
         style = Typography.get().titleLarge
     )
     Spacer(Modifier.height(4.dp))
 
     ParamSlider(
-        label = "Temperature",
+        label = localization.temperature,
         value = generateSettings.value.temperature,
         valueRange = 0.0f..2.0f,
         step = 0.01f,
@@ -107,7 +109,7 @@ private fun ParamsView(
     )
 
     ParamIntField(
-        label = "Max tokens",
+        label = localization.maxTokens,
         value = generateSettings.value.maxTokens,
         min = 16,
         max = 8192,
@@ -115,7 +117,7 @@ private fun ParamsView(
     )
 
     ParamSlider(
-        label = "Top-p",
+        label = localization.topP,
         value = generateSettings.value.topP,
         valueRange = 0.0f..1.0f,
         step = 0.01f,
@@ -124,7 +126,7 @@ private fun ParamsView(
     )
 
     ParamIntField(
-        label = "Top-k",
+        label = localization.topK,
         value = generateSettings.value.topK,
         min = 1,
         max = 1000,
@@ -132,7 +134,7 @@ private fun ParamsView(
     )
 
     ParamSlider(
-        label = "Repeat penalty",
+        label = localization.repeatPenalty,
         value = generateSettings.value.repeatPenalty,
         valueRange = 0.8f..2.0f,
         step = 0.01f,
@@ -146,14 +148,14 @@ private fun ParamsView(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
     ) {
-        TextButton(onClick = onDismiss) { Text("Close") }
+        TextButton(onClick = onDismiss) { Text(localization.close) }
         Spacer(Modifier.width(8.dp))
         Button(
             onClick = {
                 onApply(generateSettings.value)
                 onDismiss()
             }
-        ) { Text("Apply") }
+        ) { Text(localization.apply) }
     }
 
     Spacer(Modifier.height(16.dp))

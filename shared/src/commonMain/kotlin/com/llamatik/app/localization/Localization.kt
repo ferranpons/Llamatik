@@ -67,6 +67,55 @@ interface Localization {
     val change: String
     val language: String
 
+    val viewAll: String
+    val welcomeToThe: String
+
+    val onboardingMainText: String
+    val actionContinue: String
+    val settingUpLlamatik: String
+    val downloadingMainModels: String
+    val progress: String
+    val me: String
+
+    val suggestion1: String
+    val suggestion2: String
+    val suggestion3: String
+    val suggestion4: String
+    val suggestion5: String
+    val suggestion6: String
+    val askMeAnything: String
+    val stop: String
+    val send: String
+    val noModelSelected: String
+    val current: String
+    val select: String
+    val delete: String
+    val download: String
+    val downloading: String
+    val generateModels: String
+    val generationSettings: String
+    val temperature: String
+    val maxTokens: String
+    val topP: String
+    val topK: String
+    val repeatPenalty: String
+    val apply: String
+
+    val defaultSystemPrompt: String
+    val downloadFinished: String
+
+    val gemma3SystemPrompt: String
+    val smolVLM256SystemPrompt: String
+    val smolVLM500SystemPrompt: String
+    val qwen25BSystemPrompt: String
+    val phi15SystemPrompt: String
+    val llama32SystemPrompt: String
+
+    val relevantContext: String
+    val system: String
+    val user: String
+    val assistant: String
+    val defaultSystemPromptRendererMessage: String
 }
 
 enum class AvailableLanguages {

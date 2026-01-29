@@ -9,34 +9,21 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -46,7 +33,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,16 +41,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.chatbot.ui.ChatInputBox
 import com.llamatik.app.feature.chatbot.ui.ModelSelectorBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
@@ -84,10 +67,11 @@ import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
 class ChatBotTabScreen : Screen {
+    val localization = getCurrentLocalization()
+
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val localization = getCurrentLocalization()
         val isLoading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
         val showSettingsSheet = remember { mutableStateOf(false) }
@@ -155,17 +139,16 @@ class ChatBotTabScreen : Screen {
                                 modifier = Modifier.size(48.dp),
                             )
                             Text(
-                                text = "Setting up Llamatik…",
+                                text = localization.settingUpLlamatik,
                                 style = Typography.get().titleMedium
                             )
-                            val modelName = state.initialSetupModelName ?: "AI model"
                             Text(
-                                text = "Downloading $modelName for the first time.\nThis may take a few minutes.",
+                                text = localization.downloadingMainModels,
                                 style = Typography.get().bodyMedium
                             )
                             if (state.initialSetupProgress > 0) {
                                 Text(
-                                    text = "Progress: ${state.initialSetupProgress.coerceIn(0, 100)}%",
+                                    text = "${localization.progress}: ${state.initialSetupProgress.coerceIn(0, 100)}%",
                                     style = Typography.get().labelMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -440,6 +423,7 @@ class ChatBotTabScreen : Screen {
                 }
             }
             ChatInputBox(
+                localization = localization,
                 state = state,
                 viewModel = viewModel,
                 showSuggestions = showSuggestions,
@@ -488,7 +472,7 @@ class ChatBotTabScreen : Screen {
             ) {
                 Text(
                     modifier = Modifier.align(Alignment.CenterVertically),
-                    text = if (message.isFromMe) "\uD83D\uDEE9 Me" else "\uD83D\uDC68\uD83C\uDFFB\u200D✈\uFE0F Llamatik AI",
+                    text = if (message.isFromMe) localization.me else "Llamatik AI",
                     style = Typography.get().titleSmall,
                     color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer
                     else MaterialTheme.colorScheme.onSurface,
@@ -523,7 +507,7 @@ class ChatBotTabScreen : Screen {
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)
                 )
                 Text(
-                    text = "View All",
+                    text = localization.viewAll,
                     style = Typography.get().titleMedium,
                     modifier = Modifier
                         .padding(start = 16.dp, end = 16.dp, top = 16.dp)
@@ -548,241 +532,6 @@ class ChatBotTabScreen : Screen {
                         Spacer(modifier = Modifier.size(16.dp))
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun ChatInputBox(
-    state: ChatBotState,
-    viewModel: ChatBotViewModel,
-    showSuggestions: MutableState<Boolean>,
-    suggestions: List<String> = listOf(
-        "Create a simple receipt for a videogame console sale",
-        "Draft a polite reply to someone asking for a discount",
-        "Provide a brief overview of the most recent world news",
-        "Create a list of tips for selling items online",
-        "Give me a list of steps to prepare a simple invoice",
-        "Write a short story about a magical forest"
-    ),
-    onOpenModelSelector: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-            mutableStateOf(TextFieldValue())
-        }
-
-        val isGenerating = state.isGenerating
-        Column(
-            horizontalAlignment = Alignment.Start,
-        ) {
-            if (showSuggestions.value && suggestions.isNotEmpty()) {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    items(suggestions.size) { index ->
-                        val hint = suggestions[index]
-                        if (index == 0) {
-                            Spacer(modifier = Modifier.size(16.dp))
-                        }
-
-                        Surface(
-                            onClick = {
-                                input = TextFieldValue(hint)
-                                val message = input.text.trim()
-                                if (message.isNotEmpty()) {
-                                    input = TextFieldValue()
-                                    viewModel.onMessageSendDirect(message)
-                                    showSuggestions.value = false
-                                }
-                            },
-                            shape = RoundedCornerShape(9.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            tonalElevation = 1.dp,
-                            modifier = Modifier
-                                .padding(end = 8.dp, bottom = 6.dp)
-                                .widthIn(max = 200.dp)
-                        ) {
-                            Text(
-                                text = hint,
-                                style = Typography.get().labelMedium,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                        if (index == suggestions.size - 1) {
-                            Spacer(modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                tonalElevation = 1.dp,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                val keyboardController = LocalSoftwareKeyboardController.current
-                val canSend = input.text.isNotBlank()
-                TextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 2.dp),
-                    placeholder = { Text("Ask me something…") },
-                    textStyle = Typography.get().bodyMedium,
-                    singleLine = false,
-                    minLines = 1,
-                    maxLines = 6,
-                    shape = RoundedCornerShape(20.dp),
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Send,
-                        capitalization = KeyboardCapitalization.Sentences
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (!isGenerating && canSend) {
-                                val message = input.text.trim()
-                                input = TextFieldValue()
-                                viewModel.onMessageSendDirect(message)
-                                showSuggestions.value = false
-                                keyboardController?.hide()
-                            }
-                        },
-                    ),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    trailingIcon = {
-                        if (isGenerating) {
-                            IconButton(
-                                onClick = {
-                                    viewModel.stopGeneration()
-                                },
-                                modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(MaterialTheme.colorScheme.errorContainer)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Stop,
-                                    contentDescription = "Stop",
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        } else {
-                            IconButton(
-                                onClick = {
-                                    if (canSend) {
-                                        val message = input.text.trim()
-                                        input = TextFieldValue()
-                                        viewModel.onMessageSendDirect(message)
-                                        showSuggestions.value = false
-                                        keyboardController?.hide()
-                                    }
-                                },
-                                enabled = canSend,
-                                modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(
-                                        if (canSend) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surfaceVariant
-                                    )
-                            ) {
-                                Icon(
-                                    imageVector = LlamatikIcons.Send,
-                                    contentDescription = "Send",
-                                    tint = if (canSend) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    },
-                )
-            }
-
-            GenerateModelSelector(
-                selectedModelName = state.selectedGenerateModelName,
-                onOpenModelSelector = onOpenModelSelector,
-                onOpenSettings = onOpenSettings
-            )
-        }
-    }
-}
-
-@Composable
-fun GenerateModelSelector(
-    selectedModelName: String?,
-    onOpenModelSelector: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        Box {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
-                    onClick = onOpenModelSelector,
-                    shape = RoundedCornerShape(999.dp),
-                    tonalElevation = 1.dp,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.defaultMinSize(minHeight = 32.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Memory,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = selectedModelName ?: "no model selected",
-                            style = Typography.get().labelMedium
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.size(8.dp))
-
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.size(24.dp),
-                    content = {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
             }
         }
     }

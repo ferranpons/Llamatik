@@ -1,10 +1,13 @@
 package com.llamatik.app.feature.chatbot.utils
 
+import com.llamatik.app.localization.getCurrentLocalization
+
 /**
  * Renders (System + optional RAG context + messages + Assistant prefix) -> single prompt string.
  * No C++ templating — the JNI just gets a plain string to continue from.
  */
 object PromptRenderer {
+    val localization = getCurrentLocalization()
 
     /**
      * @param system Optional system message. If null, we provide a conservative default.
@@ -18,7 +21,7 @@ object PromptRenderer {
         messages: List<ChatMessage>,
         template: PromptTemplate = Gemma3
     ): String {
-        val sys = (system ?: DEFAULT_SYSTEM).trim()
+        val sys = (system ?: localization.defaultSystemPromptRendererMessage).trim()
         val ragBlock = buildRagBlock(contexts)
 
         return when (template) {
@@ -33,7 +36,7 @@ object PromptRenderer {
         if (contexts.isEmpty()) return ""
         // Keep RAG stable and predictable; the label helps any model understand the section.
         val joined = contexts.joinToString(separator = "\n\n—\n") { it.trim() }
-        return "Relevant context:\n$joined"
+        return "${localization.relevantContext}:\n$joined"
     }
 
     private fun renderGemma3(
@@ -107,17 +110,17 @@ object PromptRenderer {
         prefix.forEach { msg ->
             when (msg.role) {
                 ChatMessage.Role.System -> {
-                    sb.append("### System\n")
+                    sb.append("### ${localization.system.capitalize()}\n")
                     sb.append(msg.content.trim())
                     sb.append("\n\n")
                 }
                 ChatMessage.Role.User -> {
-                    sb.append("### User\n")
+                    sb.append("### ${localization.user.capitalize()}\n")
                     sb.append(msg.content.trim())
                     sb.append("\n\n")
                 }
                 ChatMessage.Role.Assistant -> {
-                    sb.append("### Assistant\n")
+                    sb.append("### ${localization.assistant.capitalize()}\n")
                     sb.append(msg.content.trim())
                     sb.append("\n\n")
                 }
@@ -126,12 +129,12 @@ object PromptRenderer {
 
         // Last user + RAG
         val lastUser = if (last?.role == ChatMessage.Role.User) last.content.trim() else ""
-        sb.append("### User\n")
+        sb.append("### ${localization.user.capitalize()}\n")
         if (rag.isNotBlank()) {
             sb.append(rag).append("\n\n")
         }
         sb.append(lastUser).append("\n\n")
-        sb.append("### Assistant\n") // prefix for assistant completion
+        sb.append("### ${localization.assistant.capitalize()}\n") // prefix for assistant completion
 
         return sb.toString()
     }
@@ -170,7 +173,7 @@ object PromptRenderer {
 
         sb.append("<|im_start|>user\n")
         if (rag.isNotBlank()) {
-            sb.append("Relevant context:\n")
+            sb.append("${localization.relevantContext}:\n")
             sb.append(rag.trim())
             sb.append("\n\n")
         }
@@ -189,7 +192,7 @@ object PromptRenderer {
         messages: List<ChatMessage>
     ): String {
         val sb = StringBuilder()
-        sb.append("System:\n")
+        sb.append("${localization.system.capitalize()}:\n")
         sb.append(system)
         sb.append("\n\n")
 
@@ -205,12 +208,12 @@ object PromptRenderer {
         }
 
         if (rag.isNotBlank()) {
-            sb.append("Relevant context:\n")
+            sb.append("${localization.relevantContext}:\n")
             sb.append(rag)
             sb.append("\n\n")
         }
 
-        sb.append("Assistant:\n") // completion prefix
+        sb.append("${localization.assistant.capitalize()}:\n") // completion prefix
         return sb.toString()
     }
 
@@ -219,8 +222,4 @@ object PromptRenderer {
         val prefix = this.subList(0, size - 1)
         return prefix to this.last()
     }
-
-    private const val DEFAULT_SYSTEM =
-        "You are a helpful assistant. Use the provided context if it is relevant. " +
-        "If the context is insufficient, say so briefly before answering."
 }

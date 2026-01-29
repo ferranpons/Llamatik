@@ -64,4 +64,6 @@ internal object SpanishLocalization : Localization {
     override val chooseLanguage = "Elegir idioma"
     override val change = "Cambiar"
     override val language = "Idioma: "
+
+    
 }

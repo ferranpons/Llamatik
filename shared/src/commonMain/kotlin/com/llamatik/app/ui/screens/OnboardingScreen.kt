@@ -38,7 +38,7 @@ class OnboardingScreen : Screen {
                 }
             val onboardingPromoLine1 =
                 buildAnnotatedString {
-                    append("Welcome to the ")
+                    append(localization.welcomeToThe)
                     appendLine()
                     withStyle(
                         style = SpanStyle(

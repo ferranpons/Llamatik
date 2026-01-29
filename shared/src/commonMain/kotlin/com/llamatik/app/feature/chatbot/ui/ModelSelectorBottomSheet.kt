@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.ui.theme.Typography
 
 @Composable
@@ -52,6 +53,7 @@ fun ModelSelectorBottomSheet(
     onCancelDownloadClicked: (LlamaModel) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val localization = getCurrentLocalization()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -67,7 +69,7 @@ fun ModelSelectorBottomSheet(
                     .verticalScroll(rememberScrollState())
         ) {
             Text(
-                text = "Generate Models",
+                text = localization.generateModels,
                 style = Typography.get().titleLarge
             )
             Spacer(Modifier.height(8.dp))
@@ -123,6 +125,7 @@ private fun ModelRow(
     onDeleteModelClicked: (LlamaModel) -> Unit,
     onCancelDownloadClicked: (LlamaModel) -> Unit,
 ) {
+    val localization = getCurrentLocalization()
     val hasLocalFile = !model.localPath.isNullOrEmpty() || !model.fileName.isNullOrEmpty()
     var localDownloading by remember(model.url, isDownloading) { mutableStateOf(isDownloading) }
     val effectiveDownloading = localDownloading || isDownloading
@@ -146,7 +149,7 @@ private fun ModelRow(
             if (hasLocalFile) {
                 if (isCurrent) {
                     FilledTonalButton(onClick = { /* no-op */ }, enabled = false) {
-                        Text("Current")
+                        Text(localization.current)
                     }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -161,17 +164,17 @@ private fun ModelRow(
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Loading…")
+                                    Text(localization.loading)
                                 }
                             } else {
-                                Text("Select")
+                                Text(localization.select)
                             }
                         }
                         FilledTonalButton(
                             onClick = { onDeleteModelClicked(model) },
                             enabled = !isSelecting
                         ) {
-                            Text("Delete")
+                            Text(localization.delete)
                         }
                     }
                 }
@@ -182,11 +185,11 @@ private fun ModelRow(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("Downloading…", style = Typography.get().labelSmall)
+                            Text(localization.downloading, style = Typography.get().labelSmall)
                             TextButton(
                                 onClick = { onCancelDownloadClicked(model) }
                             ) {
-                                Text("Stop")
+                                Text(localization.stop)
                             }
                         }
                         Spacer(Modifier.height(6.dp))
@@ -199,7 +202,7 @@ private fun ModelRow(
                     }
                 } else {
                     Button(onClick = { localDownloading = true; onDownloadModelClicked(model) }) {
-                        Text("Download")
+                        Text(localization.download)
                     }
                 }
             }

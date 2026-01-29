@@ -77,27 +77,14 @@ class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                 }
                 Text(
                     modifier = Modifier.padding(16.dp),
-                    text = "\uD83E\uDD99\nWelcome to Llamatik",
+                    text = "\uD83E\uDD99\n${localization.welcome}",
                     style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    text = "Llamatik ChatBot is an experimental local assistant, designed to help you quickly understand how Llamatik Library works.\n" +
-                            "\n" +
-                            "For more information please go to llamatik.com" +
-                            "\n" +
-                            "\n" +
-                            "\uD83D\uDD10 Privacy Notice\n\n" +
-                            "Your privacy is fully protected. This chatbot runs entirely on your device.\n" +
-                            "It does not collect, store, or share any personal data.\n" +
-                            "No information is sent to external servers.\n" +
-                            "\n" +
-                            "---\n" +
-                            "\n" +
-                            "By continuing, you accept that Llamatik ChatBot is provided for educational and informational purposes only, and complies with global privacy laws including GDPR, CCPA, and LGPD.\n" +
-                            "\n",
+                    text = localization.onboardingMainText,
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onBackground
@@ -113,7 +100,7 @@ class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                     shape = RoundedCornerShape(10)
                 ) {
                     Text(
-                        text = "Continue",
+                        text = localization.actionContinue,
                         style = Typography.get().titleMedium,
                         modifier = Modifier.padding(8.dp)
                     )

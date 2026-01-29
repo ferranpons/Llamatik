@@ -232,7 +232,7 @@ class HomeTabScreen : Screen {
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)
                 )
                 Text(
-                    text = "View All",
+                    text = localization.viewAll,
                     style = Typography.get().titleMedium,
                     modifier = Modifier
                         .padding(start = 16.dp, end = 16.dp, top = 16.dp)
