@@ -102,13 +102,13 @@ class NewsFeedScreen : Screen {
     ) {
         if (state.news.isNotEmpty()) {
             LazyColumn(
-                modifier = Modifier.Companion.padding(paddingValues).fillMaxWidth()
+                modifier = Modifier.padding(paddingValues).fillMaxWidth()
             ) {
                 items(state.news.size) { index ->
                     NewsFeedCard(state.news[index]) {
                         viewModel.onOpenFeedItemDetail(state.news[index].link)
                     }
-                    Spacer(modifier = Modifier.Companion.size(16.dp))
+                    Spacer(modifier = Modifier.size(16.dp))
                 }
             }
         } else {

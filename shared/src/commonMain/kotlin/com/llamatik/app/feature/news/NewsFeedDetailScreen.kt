@@ -116,7 +116,7 @@ class NewsFeedDetailScreen(private val link: String) : Screen {
                         ),
                         text = state.feedItem.title,
                         style = Typography.get().titleLarge,
-                        fontWeight = FontWeight.Companion.Bold
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
                         modifier = Modifier.padding(
