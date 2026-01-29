@@ -94,21 +94,22 @@ class NewsFeedDetailScreen(private val link: String) : Screen {
                 }
             ) { paddingValues ->
                 Column(
-                    modifier = Modifier.Companion.padding(paddingValues = paddingValues)
+                    modifier = Modifier.padding(paddingValues = paddingValues)
                         .padding(bottom = 80.dp).verticalScroll(scrollState)
                 ) {
-                    val imageHeight = 260.dp
+                    val imageHeight = 120.dp
                     Image(
-                        modifier = Modifier.Companion
+                        modifier = Modifier
                             .fillMaxWidth()
                             .height(imageHeight)
-                            .background(MaterialTheme.colorScheme.tertiaryContainer),
+                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                            .padding(24.dp),
                         painter = painterResource(Res.drawable.llamatik_icon_logo),
-                        contentScale = ContentScale.Companion.Inside,
+                        contentScale = ContentScale.Inside,
                         contentDescription = null,
                     )
                     Text(
-                        modifier = Modifier.Companion.padding(
+                        modifier = Modifier.padding(
                             top = 16.dp,
                             start = 16.dp,
                             end = 16.dp
@@ -118,7 +119,7 @@ class NewsFeedDetailScreen(private val link: String) : Screen {
                         fontWeight = FontWeight.Companion.Bold
                     )
                     Text(
-                        modifier = Modifier.Companion.padding(
+                        modifier = Modifier.padding(
                             top = 4.dp,
                             start = 16.dp,
                             end = 16.dp
@@ -127,7 +128,7 @@ class NewsFeedDetailScreen(private val link: String) : Screen {
                         style = Typography.get().bodySmall,
                     )
                     Text(
-                        modifier = Modifier.Companion.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth()
                             .padding(top = 16.dp, start = 16.dp, end = 16.dp),
                         text = state.feedItem.description.toRichHtmlString(),
                         style = Typography.get().bodyMedium

@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -94,12 +93,12 @@ fun NewsFeedCard(
                 Image(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(roundedCornerSize))
                         .height(imageHeight)
-                        .background(MaterialTheme.colorScheme.tertiaryContainer),
+                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                        .padding(24.dp),
                     painter = painterResource(Res.drawable.llamatik_icon_logo),
                     contentScale = ContentScale.Inside,
-                    contentDescription = "",
+                    contentDescription = null,
                 )
             }
             Text(
