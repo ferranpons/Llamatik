@@ -22,6 +22,14 @@ set(LLAMA_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
 set(LLAMA_TESTS OFF CACHE BOOL "Disable tests" FORCE)
 set(LLAMA_BENCHMARK OFF CACHE BOOL "Disable benchmarks" FORCE)
 
+if(ANDROID)
+    message(STATUS "Configuring llama.cpp for Android ABI: ${ANDROID_ABI}")
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(GGML_LLAMAFILE OFF CACHE BOOL "Disable GGML llamafile on armeabi-v7a" FORCE)
+        set(GGML_USE_LLAMAFILE OFF CACHE BOOL "" FORCE)
+    endif()
+endif()
+
 # Add llama.cpp as a subdirectory (builds ggml, llama, common, etc)
 add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama")
 
