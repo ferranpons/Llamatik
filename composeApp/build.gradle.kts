@@ -214,6 +214,7 @@ compose.desktop {
         nativeDistributions {
             macOS {
                 bundleID = "com.llamatik.app"
+                iconFile.set(project.file("src/desktopMain/resources/icons/mac/Llamatik.icns"))
             }
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Llamatik"
