@@ -56,12 +56,17 @@ add_subdirectory(${LLAMA_CPP_DIR} llama-local-build EXCLUDE_FROM_ALL)
 # -----------------------------------------------------------------------------
 
 set(LLAMA_COMMON_CPP      "${LLAMA_CPP_DIR}/common/common.cpp")
+set(LLAMA_SAMPLING_CPP    "${LLAMA_CPP_DIR}/common/sampling.cpp")
 set(LLAMA_LOG_CPP         "${LLAMA_CPP_DIR}/common/log.cpp")
 set(LLAMA_SCHEMA_CPP      "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
 set(LLAMA_BUILDINFO_IN    "${LLAMA_CPP_DIR}/common/build-info.cpp.in")
 
 if(NOT EXISTS "${LLAMA_COMMON_CPP}")
     message(FATAL_ERROR "Expected llama common source not found: ${LLAMA_COMMON_CPP}")
+endif()
+
+if(NOT EXISTS "${LLAMA_SAMPLING_CPP}")
+    message(FATAL_ERROR "Expected llama sampling source not found: ${LLAMA_SAMPLING_CPP}")
 endif()
 
 if(NOT EXISTS "${LLAMA_SCHEMA_CPP}")
@@ -122,6 +127,7 @@ endif()
 # ---- Object library with the common + schema + build-info -------------------
 add_library(llamatik_llama_common_obj OBJECT
         "${LLAMA_COMMON_CPP}"
+        "${LLAMA_SAMPLING_CPP}"
         "${LLAMA_SCHEMA_CPP}"
         "${LLAMA_BUILDINFO_CPP}"
 )
