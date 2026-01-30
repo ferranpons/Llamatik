@@ -32,11 +32,12 @@ class WebViewScreen(
     private val title: String? = null,
     private val url: String?
 ) : Screen {
-    private val localization = getCurrentLocalization()
     private lateinit var isLoading: MutableState<Boolean>
 
     @Composable
     override fun Content() {
+        val localization = getCurrentLocalization()
+
         LlamatikTheme {
             val currentNavigator = LocalNavigator.currentOrThrow
             /*val viewModel = koinScreenModel<WebViewModel>(

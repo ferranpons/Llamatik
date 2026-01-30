@@ -67,10 +67,10 @@ import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
 class ChatBotTabScreen : Screen {
-    val localization = getCurrentLocalization()
 
     @Composable
     override fun Content() {
+        val localization = getCurrentLocalization()
         val navigator = LocalNavigator.currentOrThrow
         val isLoading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
@@ -416,6 +416,7 @@ class ChatBotTabScreen : Screen {
                 ) {
                     items(chatUiModel.messages.size) { item ->
                         ChatItem(
+                            localization = localization,
                             message = chatUiModel.messages[item],
                             showLoading = isLoading.value && item == chatUiModel.messages.size - 1
                         )
@@ -434,7 +435,11 @@ class ChatBotTabScreen : Screen {
     }
 
     @Composable
-    fun ChatItem(message: ChatUiModel.Message, showLoading: Boolean) {
+    fun ChatItem(
+        localization: Localization,
+        message: ChatUiModel.Message,
+        showLoading: Boolean
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
