@@ -219,6 +219,7 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Llamatik"
             packageVersion = "$versionMajor.$versionMinor.$versionPatch"
+            includeAllModules = true
         }
 
         buildTypes.release.proguard {
