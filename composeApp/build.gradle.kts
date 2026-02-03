@@ -20,6 +20,9 @@ fun versionCode(): Int {
     return versionMajor * 10000 + versionMinor * 100 + versionPatch
 }
 
+val macNativeDir = project(":library").layout.buildDirectory.dir("llama-jni/macos")
+val generatedNativeResources = layout.buildDirectory.dir("generated/nativeResources")
+
 kotlin {
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
@@ -40,6 +43,8 @@ kotlin {
     }
     sourceSets {
         val desktopMain by getting
+        desktopMain.resources.srcDir(generatedNativeResources)
+
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
@@ -207,7 +212,7 @@ compose.desktop {
 
             jvmArgs(
                 "-Dapple.awt.application.name=Llamatik",
-                "-Djava.library.path=$nativeDir"
+                //"-Djava.library.path=$nativeDir"
             )
         }
 
@@ -295,3 +300,17 @@ tasks.withType(org.gradle.api.tasks.JavaExec::class.java).configureEach {
         )
     }
 }
+
+// Copy dylib into build/generated/nativeResources/native/macos/...
+val copyMacNativeLib by tasks.registering(Copy::class) {
+    dependsOn(":library:compileLlamaJniDesktop") // safest: matches your run dependency
+    from(macNativeDir)
+    include("libllama_jni.dylib")
+    into(generatedNativeResources.map { it.dir("native/macos") })
+}
+
+// Wire the copy into the Desktop JVM resources pipeline (task name differs by plugin versions)
+tasks.matching { it.name == "desktopProcessResources" || it.name == "processDesktopResources" }
+    .configureEach {
+        dependsOn(copyMacNativeLib)
+    }
