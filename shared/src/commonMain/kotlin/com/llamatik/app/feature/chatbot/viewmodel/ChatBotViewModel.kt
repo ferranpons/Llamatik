@@ -106,7 +106,11 @@ class ChatBotViewModel(
     init {
         // If privacy not accepted yet → show onboarding first.
         if (!hasAcceptedPrivacy) {
-            navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
+            navigator.push(
+                ChatBotOnboardingScreen { nav ->
+                    onPrivacyAccepted(nav)
+                }
+            )
         }
     }
 
@@ -795,7 +799,11 @@ class ChatBotViewModel(
     }
 
     fun onShowPrivacyScreen() {
-        navigator.push(ChatBotOnboardingScreen { onPrivacyAccepted() })
+        navigator.push(
+            ChatBotOnboardingScreen { nav ->
+                onPrivacyAccepted(nav)
+            }
+        )
     }
 
     fun onOpenFeedItemDetail(link: String) {
@@ -806,10 +814,13 @@ class ChatBotViewModel(
         navigator.push(NewsFeedScreen())
     }
 
-    private fun onPrivacyAccepted() {
+    private fun onPrivacyAccepted(currentNavigator: Navigator) {
+        navigator = currentNavigator
+
         settings.putBoolean(PRIVACY_CHATBOT_VIEWED_KEY, true)
         hasAcceptedPrivacy = true
-        navigator.pop()
+
+        currentNavigator.pop()
 
         // After onboarding is closed, start initial setup (Gemma 3 download) if needed.
         screenModelScope.launch(Dispatchers.IO) {

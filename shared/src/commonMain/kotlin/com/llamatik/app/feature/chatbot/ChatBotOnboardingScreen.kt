@@ -34,6 +34,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
@@ -41,19 +44,23 @@ import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import org.jetbrains.compose.resources.painterResource
 
-class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
+class ChatBotOnboardingScreen(
+    private val onAccept: (Navigator) -> Unit
+) : Screen {
 
     @Composable
     override fun Content() {
         val localization = getCurrentLocalization()
+        val navigator = LocalNavigator.currentOrThrow
+
         LlamatikTheme {
             val scrollState = rememberScrollState()
             Column(
                 modifier =
                     Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .verticalScroll(scrollState),
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -66,15 +73,17 @@ class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
 
                 Box {
                     Image(
-                        modifier = Modifier.fillMaxWidth().height(140.dp).onGloballyPositioned {
-                            sizeImage = it.size
-                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .onGloballyPositioned { sizeImage = it.size },
                         contentScale = ContentScale.FillWidth,
                         painter = painterResource(Res.drawable.a_pair_of_llamas_in_a_field_with_clouds_and_mounta),
                         contentDescription = null
                     )
                     Box(modifier = Modifier.matchParentSize().background(gradient))
                 }
+
                 Text(
                     modifier = Modifier.padding(16.dp),
                     text = "\uD83E\uDD99\n${localization.welcome}",
@@ -82,6 +91,7 @@ class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onBackground
                 )
+
                 Text(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     text = localization.onboardingMainText,
@@ -89,12 +99,15 @@ class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onBackground
                 )
+
                 Button(
-                    onClick = { onAccept.invoke() },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    onClick = { onAccept(navigator) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .size(50.dp)
+                        .height(50.dp)
                         .padding(start = 16.dp, end = 16.dp),
                     contentPadding = PaddingValues(0.dp),
                     shape = RoundedCornerShape(10)
@@ -105,6 +118,7 @@ class ChatBotOnboardingScreen(private val onAccept: () -> Unit) : Screen {
                         modifier = Modifier.padding(8.dp)
                     )
                 }
+
                 Spacer(modifier = Modifier.size(16.dp))
             }
         }
