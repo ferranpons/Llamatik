@@ -436,10 +436,6 @@ class ChatBotTabScreen : Screen {
                             localization = localization,
                             message = chatUiModel.messages[item],
                             showLoading = isLoading.value && item == chatUiModel.messages.size - 1,
-                            onPasteIntoInput = { text ->
-                                input = TextFieldValue(text)
-                                showSuggestions.value = false
-                            }
                         )
                     }
                 }
@@ -462,7 +458,6 @@ class ChatBotTabScreen : Screen {
         localization: Localization,
         message: ChatUiModel.Message,
         showLoading: Boolean,
-        onPasteIntoInput: (String) -> Unit
     ) {
         val clipboard = LocalClipboardManager.current
 
@@ -518,16 +513,6 @@ class ChatBotTabScreen : Screen {
                     Icon(
                         imageVector = LlamatikIcons.Copy,
                         contentDescription = localization.copy
-                    )
-                }
-
-                IconButton(
-                    onClick = { onPasteIntoInput(message.text) },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = LlamatikIcons.Paste,
-                        contentDescription = localization.paste
                     )
                 }
 
