@@ -81,6 +81,7 @@ urlencoder = { module = "net.thauvin.erik.urlencoder:urlencoder-lib", version.re
 compose-bom = "androidx.compose:compose-bom:2026.01.01"
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 
+androidx-work-routine-ktx = "androidx.work:work-runtime-ktx:2.11.1"
 androidx-core-ktx = "androidx.core:core-ktx:1.17.0"
 androidx-core-splashscreen = "androidx.core:core-splashscreen:1.2.0"
 androidx-tracing-ktx = "androidx.tracing:tracing-ktx:1.3.0"
