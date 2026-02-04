@@ -23,10 +23,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +43,8 @@ fun ChatInputBox(
     state: ChatBotState,
     viewModel: ChatBotViewModel,
     showSuggestions: MutableState<Boolean>,
+    input: TextFieldValue,
+    onInputChange: (TextFieldValue) -> Unit,
     suggestions: List<String> = listOf(
         localization.suggestion1,
         localization.suggestion2,
@@ -63,10 +61,6 @@ fun ChatInputBox(
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-            mutableStateOf(TextFieldValue())
-        }
-
         val isGenerating = state.isGenerating
         Column(
             horizontalAlignment = Alignment.Start,
@@ -83,10 +77,10 @@ fun ChatInputBox(
 
                         Surface(
                             onClick = {
-                                input = TextFieldValue(hint)
+                                onInputChange(TextFieldValue(hint))
                                 val message = input.text.trim()
                                 if (message.isNotEmpty()) {
-                                    input = TextFieldValue()
+                                    onInputChange(TextFieldValue())
                                     viewModel.onMessageSendDirect(message)
                                     showSuggestions.value = false
                                 }
@@ -123,7 +117,7 @@ fun ChatInputBox(
                 val canSend = input.text.isNotBlank()
                 TextField(
                     value = input,
-                    onValueChange = { input = it },
+                    onValueChange = { onInputChange(it) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 2.dp),
@@ -141,7 +135,7 @@ fun ChatInputBox(
                         onSend = {
                             if (!isGenerating && canSend) {
                                 val message = input.text.trim()
-                                input = TextFieldValue()
+                                onInputChange(TextFieldValue())
                                 viewModel.onMessageSendDirect(message)
                                 showSuggestions.value = false
                                 keyboardController?.hide()
@@ -178,7 +172,7 @@ fun ChatInputBox(
                                 onClick = {
                                     if (canSend) {
                                         val message = input.text.trim()
-                                        input = TextFieldValue()
+                                        onInputChange(TextFieldValue())
                                         viewModel.onMessageSendDirect(message)
                                         showSuggestions.value = false
                                         keyboardController?.hide()

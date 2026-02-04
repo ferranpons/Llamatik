@@ -41,6 +41,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -148,7 +151,12 @@ class ChatBotTabScreen : Screen {
                             )
                             if (state.initialSetupProgress > 0) {
                                 Text(
-                                    text = "${localization.progress}: ${state.initialSetupProgress.coerceIn(0, 100)}%",
+                                    text = "${localization.progress}: ${
+                                        state.initialSetupProgress.coerceIn(
+                                            0,
+                                            100
+                                        )
+                                    }%",
                                     style = Typography.get().labelMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -226,17 +234,21 @@ class ChatBotTabScreen : Screen {
                 ChatBotSideEffects.OnMessageLoaded -> {
                     isLoading.value = false
                 }
+
                 ChatBotSideEffects.OnMessageLoading -> {
                     isLoading.value = true
                 }
+
                 ChatBotSideEffects.OnNoResults -> {
                     isLoading.value = false
                 }
+
                 ChatBotSideEffects.ScrollToBottom -> {}
                 ChatBotSideEffects.OnEmbedModelLoaded -> {
                     loadingEmbedModelName.value = null
                     showModelSelectorSheet.value = false
                 }
+
                 ChatBotSideEffects.OnGenerateModelLoaded -> {
                     loadingGenerateModelName.value = null
                     showModelSelectorSheet.value = false
@@ -249,6 +261,7 @@ class ChatBotTabScreen : Screen {
                 ChatBotSideEffects.OnEmbedModelLoadError -> {
                     loadingEmbedModelName.value = null
                 }
+
                 ChatBotSideEffects.OnGenerateModelLoadError -> {
                     loadingGenerateModelName.value = null
                 }
@@ -386,6 +399,10 @@ class ChatBotTabScreen : Screen {
         showSettingsSheet: MutableState<Boolean>,
         showModelSelectorSheet: MutableState<Boolean>,
     ) {
+        var input by androidx.compose.runtime.saveable.rememberSaveable(stateSaver = TextFieldValue.Saver) {
+            androidx.compose.runtime.mutableStateOf(TextFieldValue())
+        }
+
         val listState = rememberLazyListState()
         LaunchedEffect(chatUiModel.messages.size) {
             if (chatUiModel.messages.isNotEmpty()) {
@@ -418,7 +435,11 @@ class ChatBotTabScreen : Screen {
                         ChatItem(
                             localization = localization,
                             message = chatUiModel.messages[item],
-                            showLoading = isLoading.value && item == chatUiModel.messages.size - 1
+                            showLoading = isLoading.value && item == chatUiModel.messages.size - 1,
+                            onPasteIntoInput = { text ->
+                                input = TextFieldValue(text)
+                                showSuggestions.value = false
+                            }
                         )
                     }
                 }
@@ -428,6 +449,8 @@ class ChatBotTabScreen : Screen {
                 state = state,
                 viewModel = viewModel,
                 showSuggestions = showSuggestions,
+                input = input,
+                onInputChange = { input = it },
                 onOpenModelSelector = { showModelSelectorSheet.value = true },
                 onOpenSettings = { showSettingsSheet.value = true }
             )
@@ -438,8 +461,11 @@ class ChatBotTabScreen : Screen {
     fun ChatItem(
         localization: Localization,
         message: ChatUiModel.Message,
-        showLoading: Boolean
+        showLoading: Boolean,
+        onPasteIntoInput: (String) -> Unit
     ) {
+        val clipboard = LocalClipboardManager.current
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -482,6 +508,29 @@ class ChatBotTabScreen : Screen {
                     color = if (message.isFromMe) MaterialTheme.colorScheme.onPrimaryContainer
                     else MaterialTheme.colorScheme.onSurface,
                 )
+
+                Spacer(modifier = Modifier.size(8.dp))
+
+                IconButton(
+                    onClick = { clipboard.setText(AnnotatedString(message.text)) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = LlamatikIcons.Copy,
+                        contentDescription = localization.copy
+                    )
+                }
+
+                IconButton(
+                    onClick = { onPasteIntoInput(message.text) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = LlamatikIcons.Paste,
+                        contentDescription = localization.paste
+                    )
+                }
+
                 if (showLoading) {
                     Spacer(modifier = Modifier.size(8.dp))
                     CircularProgressIndicator(
