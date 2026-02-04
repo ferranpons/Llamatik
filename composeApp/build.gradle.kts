@@ -212,7 +212,6 @@ compose.desktop {
 
             jvmArgs(
                 "-Dapple.awt.application.name=Llamatik",
-                //"-Djava.library.path=$nativeDir"
             )
         }
 
