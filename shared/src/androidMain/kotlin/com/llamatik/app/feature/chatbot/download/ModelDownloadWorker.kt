@@ -10,26 +10,24 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.llamatik.app.platform.ServiceClient
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsChannel
-import io.ktor.http.HttpHeaders
-import io.ktor.http.isSuccess
-import io.ktor.utils.io.core.isEmpty
-import io.ktor.utils.io.core.readBytes
-import io.ktor.utils.io.readRemaining
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.RandomAccessFile
+import java.util.concurrent.TimeUnit
 
 class ModelDownloadWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
+
+    private val client: OkHttpClient = OkHttpClient.Builder()
+        .retryOnConnectionFailure(true)
+        .callTimeout(0, TimeUnit.MILLISECONDS) // no overall timeout for big files
+        .build()
 
     override suspend fun doWork(): Result {
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
@@ -45,7 +43,6 @@ class ModelDownloadWorker(
             setForeground(foreground(modelId, 0))
 
             downloadResumable(url, partFile) { pct ->
-                // ✅ Ahora sí: estamos en suspend lambda
                 setForeground(foreground(modelId, pct))
                 setProgress(workDataOf(KEY_PROGRESS to pct))
             }
@@ -62,63 +59,62 @@ class ModelDownloadWorker(
     private suspend fun downloadResumable(
         url: String,
         partFile: File,
-        onProgress: suspend (Int) -> Unit // ✅ IMPORTANT: suspend
+        onProgress: suspend (Int) -> Unit
     ): String = withContext(Dispatchers.IO) {
 
         val already = if (partFile.exists()) partFile.length() else 0L
 
-        val resp: HttpResponse = ServiceClient.httpClient.get(url) {
-            if (already > 0) header(HttpHeaders.Range, "bytes=$already-")
-        }
+        val request = Request.Builder()
+            .url(url)
+            // Prevent transparent gzip which can lead to buffering / weird memory patterns
+            .header("Accept-Encoding", "identity")
+            .apply {
+                if (already > 0) header("Range", "bytes=$already-")
+            }
+            .build()
 
-        if (!resp.status.isSuccess()) error("HTTP ${resp.status.value}")
+        client.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) error("HTTP ${resp.code}")
 
-        val channel = resp.bodyAsChannel()
-        val total = parseTotalFromHeaders(resp, already) // ✅ no resp.contentLength()
+            // If we asked for Range but server ignored it (200 instead of 206), restart clean
+            if (already > 0 && resp.code == 200) {
+                partFile.delete()
+                return@withContext downloadResumable(url, partFile, onProgress)
+            }
 
-        RandomAccessFile(partFile, "rw").use { raf ->
-            raf.seek(already)
+            val body = resp.body
+            val contentLength = body.contentLength() // remaining bytes
+            val total = if (contentLength > 0) already + contentLength else -1L
 
-            var written = already
-            var lastPct = -1
+            RandomAccessFile(partFile, "rw").use { raf ->
+                raf.seek(already)
 
-            while (!channel.isClosedForRead) {
-                ensureActive()
+                val buffer = ByteArray(256 * 1024) // 256KB reusable buffer
+                var written = already
+                var lastPct = -1
 
-                // ✅ Compatible con más versiones de Ktor
-                val packet = channel.readRemaining(64 * 1024)
-                if (packet.isEmpty) break
+                body.byteStream().use { input ->
+                    while (true) {
+                        ensureActive()
+                        val read = input.read(buffer)
+                        if (read <= 0) break
 
-                val bytes = packet.readBytes()
-                raf.write(bytes)
-                written += bytes.size
+                        raf.write(buffer, 0, read)
+                        written += read
 
-                if (total > 0) {
-                    val pct = ((written * 100) / total).toInt().coerceIn(0, 100)
-                    if (pct != lastPct) {
-                        lastPct = pct
-                        onProgress(pct)
+                        if (total > 0) {
+                            val pct = ((written * 100) / total).toInt().coerceIn(0, 100)
+                            if (pct != lastPct) {
+                                lastPct = pct
+                                onProgress(pct)
+                            }
+                        }
                     }
                 }
             }
         }
 
         partFile.absolutePath
-    }
-
-    private fun parseTotalFromHeaders(resp: HttpResponse, already: Long): Long {
-        // Content-Range example: "bytes 100-999/12345"
-        val contentRange = resp.headers[HttpHeaders.ContentRange]
-        if (!contentRange.isNullOrBlank()) {
-            val slash = contentRange.lastIndexOf('/')
-            if (slash != -1 && slash + 1 < contentRange.length) {
-                contentRange.substring(slash + 1).toLongOrNull()?.let { return it }
-            }
-        }
-
-        // Content-Length here is "remaining"; total = already + remaining
-        val remaining = resp.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: -1L
-        return if (remaining > 0) already + remaining else -1L
     }
 
     private fun foreground(modelId: String, progress: Int): ForegroundInfo {
@@ -132,7 +128,6 @@ class ModelDownloadWorker(
             .build()
 
         val id = modelId.hashCode()
-
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ForegroundInfo(id, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
