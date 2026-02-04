@@ -80,8 +80,7 @@ fun ChatInputBox(
 
                         Surface(
                             onClick = {
-                                onInputChange(TextFieldValue(hint))
-                                val message = input.text.trim()
+                                val message = hint.trim()
                                 if (message.isNotEmpty()) {
                                     onInputChange(TextFieldValue())
                                     viewModel.onMessageSendDirect(message)
