@@ -17,6 +17,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ConnectingAirports
 import androidx.compose.material.icons.rounded.Construction
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Dns
@@ -103,6 +105,8 @@ object LlamatikIcons {
     val Microphone = Icons.Rounded.Mic
     val Send = Icons.Rounded.Send
     val Delete = Icons.Rounded.Delete
+    val Copy = Icons.Rounded.ContentCopy
+    val Paste = Icons.Rounded.ContentPaste
 }
 
 /**

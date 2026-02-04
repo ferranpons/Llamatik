@@ -169,4 +169,7 @@ pero evita salidas extensas salvo que se soliciten explícitamente.
     override val defaultSystemPromptRendererMessage =
         "Eres un asistente útil. Usa el contexto proporcionado si es relevante. " +
                 "Si el contexto es insuficiente, indícalo brevemente antes de responder."
+
+    override val copy = "Copiar"
+    override val paste = "Pegar"
 }

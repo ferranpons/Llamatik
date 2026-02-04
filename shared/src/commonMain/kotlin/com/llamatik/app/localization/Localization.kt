@@ -116,6 +116,9 @@ interface Localization {
     val user: String
     val assistant: String
     val defaultSystemPromptRendererMessage: String
+
+    val copy: String
+    val paste: String
 }
 
 enum class AvailableLanguages {

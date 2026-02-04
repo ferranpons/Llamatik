@@ -169,4 +169,7 @@ internal object RussianLocalization : Localization {
     override val defaultSystemPromptRendererMessage =
         "Вы — полезный ассистент. Используйте предоставленный контекст, если он релевантен. " +
                 "Если контекста недостаточно, кратко сообщите об этом перед ответом."
+
+    override val copy = "Копировать"
+    override val paste = "Вставить"
 }

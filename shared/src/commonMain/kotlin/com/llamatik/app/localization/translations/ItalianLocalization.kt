@@ -169,4 +169,7 @@ evitando comunque output eccessivi salvo richiesta esplicita.
     override val defaultSystemPromptRendererMessage =
         "Sei un assistente utile. Usa il contesto fornito se è rilevante. " +
                 "Se il contesto è insufficiente, dillo brevemente prima di rispondere."
+
+    override val copy = "Copia"
+    override val paste = "Incolla"
 }

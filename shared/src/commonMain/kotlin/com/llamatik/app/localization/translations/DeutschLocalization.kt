@@ -171,4 +171,7 @@ vermeide jedoch große Ausgaben, sofern sie nicht ausdrücklich angefordert werd
     override val defaultSystemPromptRendererMessage =
         "Du bist ein hilfreicher Assistent. Nutze den bereitgestellten Kontext, wenn er relevant ist. " +
                 "Wenn der Kontext nicht ausreicht, weise kurz darauf hin, bevor du antwortest."
+
+    override val copy = "Kopieren"
+    override val paste = "Einfügen"
 }

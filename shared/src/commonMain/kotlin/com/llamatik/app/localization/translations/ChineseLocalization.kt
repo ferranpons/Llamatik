@@ -171,4 +171,7 @@ internal object ChineseLocalization : Localization {
     override val relevantContext = "相关上下文"
     override val defaultSystemPromptRendererMessage =
         "你是一个有帮助的助手。如有相关上下文，请加以使用。若上下文不足，请在回答前简要说明。"
+
+    override val copy = "复制"
+    override val paste = "粘贴"
 }

@@ -170,4 +170,7 @@ internal object EnglishLocalization : Localization {
     override val relevantContext = "Relevant Context"
     override val defaultSystemPromptRendererMessage = "You are a helpful assistant. Use the provided context if it is relevant. " +
             "If the context is insufficient, say so briefly before answering."
+
+    override val copy = "Copy"
+    override val paste = "Paste"
 }
