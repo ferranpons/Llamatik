@@ -134,7 +134,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:0.14.0")
+    implementation("com.llamatik:library:0.15.0")
 }
 ```
 

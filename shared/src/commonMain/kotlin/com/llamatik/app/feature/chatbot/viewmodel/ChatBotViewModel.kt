@@ -386,28 +386,56 @@ class ChatBotViewModel(
         if (existingJob?.isActive == true) return
 
         val job = screenModelScope.launch(Dispatchers.IO) {
-            updateDownload(url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
+            updateDownload(url) {
+                it.copy(
+                    inProgress = true,
+                    progress = 0,
+                    done = false,
+                    error = null
+                )
+            }
 
             modelDownloadOrchestrator.download(model).collect { ev ->
                 when (ev) {
                     is DownloadEvent.Progress -> {
                         updateDownload(url) { it.copy(inProgress = true, progress = ev.percent) }
                     }
+
                     is DownloadEvent.Completed -> {
-                        updateDownload(url) { it.copy(inProgress = false, progress = 100, done = true, error = null) }
+                        updateDownload(url) {
+                            it.copy(
+                                inProgress = false,
+                                progress = 100,
+                                done = true,
+                                error = null
+                            )
+                        }
                         getModelsUseCase.saveModelPath(model.name, ev.localPath)
 
                         _state.value = _state.value.copy(
                             embedModels = _state.value.embedModels.map {
-                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                                if (it.url == url) it.copy(
+                                    fileName = ev.localPath,
+                                    localPath = ev.localPath
+                                ) else it
                             },
                             generateModels = _state.value.generateModels.map {
-                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                                if (it.url == url) it.copy(
+                                    fileName = ev.localPath,
+                                    localPath = ev.localPath
+                                ) else it
                             },
                         )
                     }
+
                     is DownloadEvent.Failed -> {
-                        updateDownload(url) { it.copy(inProgress = false, done = false, error = ev.message) }
+                        updateDownload(url) {
+                            it.copy(
+                                inProgress = false,
+                                done = false,
+                                error = ev.message
+                            )
+                        }
                     }
                 }
             }
@@ -626,69 +654,76 @@ class ChatBotViewModel(
                         val collapsed = tail.replace("\\s+".toRegex(), " ").trim()
                         val commas = collapsed.count { it == ',' }
                         if (commas > 60) return true
-                        val m = Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
+                        val m =
+                            Regex("""\b([A-Za-z0-9]{1,3})\b(?:[,\s]+\1\b){25,}""").find(collapsed)
                         return m != null
                     }
 
                     val generateSettings = _state.value.generateSettings
 
-                    ChatRunner.stream(
-                        system = currentSystemPrompt(),
-                        contexts = emptyList(),
-                        messages = chatHistory,
-                        template = currentGenerateTemplate(),
-                        maxTokens = generateSettings.maxTokens,
-                        onDelta = { chunk ->
-                            if (activeRequestId != requestId || completed) return@stream
-                            if (chunk.isEmpty()) return@stream
+                    try {
+                        ChatRunner.stream(
+                            system = currentSystemPrompt(),
+                            contexts = emptyList(),
+                            messages = chatHistory,
+                            template = currentGenerateTemplate(),
+                            maxTokens = generateSettings.maxTokens,
+                            onDelta = { chunk ->
+                                if (activeRequestId != requestId || completed) return@stream
+                                if (chunk.isEmpty()) return@stream
 
-                            acc.append(chunk)
-                            _conversation.value = _conversation.value.dropLast(1) +
-                                    ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
-                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
-
-                            if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
-                                val trimmed = trimLoop(acc.toString(), user = input)
+                                acc.append(chunk)
                                 _conversation.value = _conversation.value.dropLast(1) +
-                                        ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
+                                        ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
+                                _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+
+                                if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
+                                    val trimmed = trimLoop(acc.toString(), user = input)
+                                    _conversation.value = _conversation.value.dropLast(1) +
+                                            ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
+                                    completed = true
+                                    activeRequestId = null
+                                    _state.value = _state.value.copy(isGenerating = false)
+                                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                    return@stream
+                                }
+
+                                if (looksLikeBabble(acc.toString())) {
+                                    completed = true
+                                    activeRequestId = null
+                                    val cleaned = acc.toString().trim().trimEnd(',', ' ', '\n')
+                                    _conversation.value = _conversation.value.dropLast(1) +
+                                            ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
+                                    _state.value = _state.value.copy(isGenerating = false)
+                                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                }
+                            },
+                            onComplete = { final ->
+                                if (activeRequestId != requestId || completed) return@stream
                                 completed = true
                                 activeRequestId = null
-                                _state.value = _state.value.copy(isGenerating = false)
-                                _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                return@stream
-                            }
-
-                            if (looksLikeBabble(acc.toString())) {
-                                completed = true
-                                activeRequestId = null
-                                val cleaned = acc.toString().trim().trimEnd(',', ' ', '\n')
                                 _conversation.value = _conversation.value.dropLast(1) +
-                                        ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
+                                        ChatUiModel.Message(final, ChatUiModel.Author.bot)
                                 _state.value = _state.value.copy(isGenerating = false)
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                            },
+                            onError = { err ->
+                                if (activeRequestId != requestId) return@stream
+                                _conversation.value = _conversation.value.dropLast(1) +
+                                        ChatUiModel.Message(
+                                            "There is a problem with the AI: $err",
+                                            ChatUiModel.Author.bot
+                                        )
+                                activeRequestId = null
+                                _state.value = _state.value.copy(isGenerating = false)
+                                _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                             }
-                        },
-                        onComplete = { final ->
-                            if (activeRequestId != requestId || completed) return@stream
-                            completed = true
-                            activeRequestId = null
-                            _conversation.value = _conversation.value.dropLast(1) +
-                                    ChatUiModel.Message(final, ChatUiModel.Author.bot)
+                        )
+                    } finally {
+                        if (activeRequestId == null) { // stopped or finished
                             _state.value = _state.value.copy(isGenerating = false)
-                            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                        },
-                        onError = { err ->
-                            if (activeRequestId != requestId) return@stream
-                            _conversation.value = _conversation.value.dropLast(1) +
-                                    ChatUiModel.Message(
-                                        "There is a problem with the AI: $err",
-                                        ChatUiModel.Author.bot
-                                    )
-                            activeRequestId = null
-                            _state.value = _state.value.copy(isGenerating = false)
-                            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                         }
-                    )
+                    }
                 } catch (t: Throwable) {
                     emitBot("There is a problem with the AI: ${t.message ?: "Unknown error"}")
                     activeRequestId = null
@@ -705,6 +740,15 @@ class ChatBotViewModel(
         LlamaBridge.nativeCancelGenerate()
         activeRequestId = null
         _state.value = _state.value.copy(isGenerating = false)
+        val messages = _conversation.value
+        if (messages.isNotEmpty()) {
+            val last = messages.last()
+            if (last.author == ChatUiModel.Author.bot && last.text.isBlank()) {
+                _conversation.value = messages.dropLast(1)
+            }
+        }
+        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
     }
 
     private fun emitBot(text: String) {
