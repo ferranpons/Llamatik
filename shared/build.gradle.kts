@@ -118,7 +118,7 @@ kotlin {
             implementation(libs.ktor.client.android)
             implementation(libs.xmlutil.serialization.android)
             implementation(libs.bouquet)
-            implementation("com.squareup.okhttp3:okhttp:5.3.2")
+            implementation(libs.okhttp)
         }
 
         iosMain.dependencies {

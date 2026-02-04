@@ -27,15 +27,14 @@ class AndroidWorkManagerModelDownloadOrchestrator(
             )
             .build()
 
-        // ✅ Single queue: sequential downloads
         WorkManager.getInstance(context).enqueueUniqueWork(
-            DOWNLOAD_QUEUE_NAME,
-            ExistingWorkPolicy.APPEND,
+            uniqueNameFor(modelId),
+            ExistingWorkPolicy.KEEP,
             req
         )
 
         return WorkManager.getInstance(context)
-            .getWorkInfosByTagFlow(tagFor(modelId))
+            .getWorkInfosForUniqueWorkFlow(uniqueNameFor(modelId))
             .map { infos ->
                 val info = infos.firstOrNull() ?: return@map DownloadEvent.Progress(0)
                 val p = info.progress.getInt(ModelDownloadWorker.KEY_PROGRESS, 0)
@@ -56,15 +55,13 @@ class AndroidWorkManagerModelDownloadOrchestrator(
 
     override fun cancel(model: LlamaModel) {
         val modelId = safeId(model)
-        WorkManager.getInstance(context).cancelAllWorkByTag(tagFor(modelId))
+        WorkManager.getInstance(context)
+            .cancelUniqueWork(uniqueNameFor(modelId))
     }
+
+    private fun uniqueNameFor(modelId: String) = "download_work_$modelId"
+    private fun tagFor(modelId: String) = "download_$modelId"
 
     private fun safeId(model: LlamaModel): String =
         model.name.replace(Regex("[^A-Za-z0-9_\\-]"), "_")
-
-    private fun tagFor(modelId: String): String = "download_$modelId"
-
-    companion object {
-        private const val DOWNLOAD_QUEUE_NAME = "model_download_queue"
-    }
 }
