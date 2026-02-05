@@ -4,14 +4,10 @@ import android.app.Application
 import androidx.work.Configuration
 import com.llamatik.app.android.core.di.DependencyContainer
 
-private const val MAX_SCHEDULER_LIMIT = 1
-
 class LlamatikApplication : Application(), Configuration.Provider {
 
     override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setMaxSchedulerLimit(MAX_SCHEDULER_LIMIT)
-            .build()
+        get() = Configuration.Builder().build()
 
     override fun onCreate() {
         super.onCreate()

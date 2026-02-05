@@ -115,6 +115,8 @@ kotlin {
             implementation(libs.androidx.compose.runtime)
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.work.routine.ktx)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.activity.ktx)
             implementation(libs.ktor.client.android)
             implementation(libs.xmlutil.serialization.android)
             implementation(libs.bouquet)

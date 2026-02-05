@@ -59,6 +59,7 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.llamatik.app.ui.components.LlamatikDialog
@@ -79,6 +80,7 @@ class ChatBotTabScreen : Screen {
         val showSuggestions = remember { mutableStateOf(true) }
         val showSettingsSheet = remember { mutableStateOf(false) }
         val showModelSelectorSheet = remember { mutableStateOf(false) }
+        val notificationPermissionRequester = rememberNotificationPermissionRequester()
 
         val loadingEmbedModelName = remember { mutableStateOf<String?>(null) }
         val loadingGenerateModelName = remember { mutableStateOf<String?>(null) }
@@ -192,7 +194,9 @@ class ChatBotTabScreen : Screen {
                         viewModel.onGenerateModelSelected(model)
                     },
                     onDownloadModelClicked = { model ->
-                        viewModel.onDownloadModel(model)
+                        notificationPermissionRequester.requestAndRun(
+                            onGranted = { viewModel.onDownloadModel(model) },
+                        )
                     },
                     onDeleteModelClicked = { model ->
                         viewModel.onDeleteModel(model)
