@@ -1,5 +1,6 @@
 package com.llamatik.app.feature.chatbot.download
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -10,6 +11,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.llamatik.app.localization.getCurrentLocalization
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -23,6 +25,7 @@ class ModelDownloadWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
+    private val localization = getCurrentLocalization()
 
     private val client: OkHttpClient = OkHttpClient.Builder()
         .retryOnConnectionFailure(true)
@@ -30,6 +33,7 @@ class ModelDownloadWorker(
         .build()
 
     override suspend fun doWork(): Result {
+        setForeground(createForegroundInfo())
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
         val modelId = inputData.getString(KEY_MODEL_ID) ?: return Result.failure()
 
@@ -120,7 +124,7 @@ class ModelDownloadWorker(
     private fun foreground(modelId: String, progress: Int): ForegroundInfo {
         val n = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("Downloading model")
+            .setContentTitle(localization.downloading)
             .setContentText("$modelId • $progress%")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -142,11 +146,59 @@ class ModelDownloadWorker(
         )
     }
 
+    private fun createForegroundInfo(): ForegroundInfo {
+        val notification = createNotification()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            ForegroundInfo(
+                NOTIFICATION_ID,
+                notification
+            )
+        }
+    }
+
+    private fun createNotification(): Notification {
+        createNotificationChannel()
+
+        return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle(localization.downloadingMainModels)
+            .setContentText(localization.downloading)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(
+                NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE
+            )
+            .build()
+    }
+
+    private fun createNotificationChannel() {
+        val manager =
+            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            localization.downloadingMainModels,
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Downloads AI models for offline use"
+            setShowBadge(false)
+        }
+
+        manager.createNotificationChannel(channel)
+    }
+
     companion object {
         const val CHANNEL_ID = "model_downloads"
         const val KEY_MODEL_ID = "modelId"
         const val KEY_URL = "url"
         const val KEY_PROGRESS = "progress"
         const val KEY_PATH = "path"
+        private const val NOTIFICATION_ID = 1001
     }
 }

@@ -400,7 +400,7 @@ class ChatBotTabScreen : Screen {
         showModelSelectorSheet: MutableState<Boolean>,
     ) {
         var input by androidx.compose.runtime.saveable.rememberSaveable(stateSaver = TextFieldValue.Saver) {
-            androidx.compose.runtime.mutableStateOf(TextFieldValue())
+            mutableStateOf(TextFieldValue())
         }
 
         val listState = rememberLazyListState()
