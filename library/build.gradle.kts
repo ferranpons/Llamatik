@@ -203,44 +203,94 @@ kotlin {
         }
     }
 
-    // ---------- Desktop (macOS) JNI build for llama_jni ----------
+    // ---------- Desktop (JVM) JNI build for llama_jni (macOS/Linux/Windows) ----------
 
-    // This is where we'll output libllama_jni.dylib for desktop (via CMakeLists.txt)
-    val macJniBuildDir = layout.buildDirectory
-        .dir("llama-jni/macos")
+    // Detect host OS (for build output folder naming only)
+    val hostOsName = System.getProperty("os.name").lowercase()
+    val desktopPlatform = when {
+        hostOsName.contains("mac") -> "macos"
+        hostOsName.contains("linux") -> "linux"
+        hostOsName.contains("win") -> "windows"
+        else -> error("Unsupported desktop OS: $hostOsName")
+    }
+
+    // Output: library/build/llama-jni/<platform>/{libllama_jni.dylib|so|dll}
+    val desktopJniBuildDir = layout.buildDirectory
+        .dir("llama-jni/$desktopPlatform")
         .get()
         .asFile
 
+    val desktopJniSourceDir = projectDir.resolve("cmake/llama-jni-desktop")
+
     val buildLlamaJniDesktop by tasks.registering(Exec::class) {
         group = "llama-native"
-        description = "Configure CMake for desktop (macOS) llama_jni"
+        description = "Configure CMake for desktop ($desktopPlatform) llama_jni"
 
         doFirst {
-            // CMakeLists.txt should live here and build a SHARED library called 'llama_jni'
-            // which ends up as: library/build/llama-jni/macos/libllama_jni.dylib
-            val sourceDir = projectDir.resolve("cmake/llama-jni-desktop")
-            macJniBuildDir.mkdirs()
+            if (!desktopJniSourceDir.resolve("CMakeLists.txt").exists()) {
+                throw GradleException(
+                    "Desktop JNI CMakeLists.txt not found at: ${desktopJniSourceDir.resolve("CMakeLists.txt").absolutePath}\n" +
+                            "Expected a CMake project under library/src/commonMain/cpp"
+                )
+            }
 
-            commandLine(
+            desktopJniBuildDir.mkdirs()
+
+            val args = mutableListOf(
                 cmakePath,
-                "-S", sourceDir.absolutePath,
-                "-B", macJniBuildDir.absolutePath,
-                "-DCMAKE_BUILD_TYPE=Release",
-                "-DCMAKE_SYSTEM_NAME=Darwin"
+                "-S", desktopJniSourceDir.absolutePath,
+                "-B", desktopJniBuildDir.absolutePath,
+                "-DCMAKE_BUILD_TYPE=Release"
             )
+
+            // Optional: help CMake on macOS when run from CI
+            if (desktopPlatform == "macos") {
+                args += listOf("-DCMAKE_SYSTEM_NAME=Darwin")
+            }
+
+            commandLine(args)
         }
     }
 
     val compileLlamaJniDesktop by tasks.registering(Exec::class) {
         group = "llama-native"
-        description = "Build desktop (macOS) libllama_jni.dylib"
+        description = "Build desktop ($desktopPlatform) llama_jni native library"
         dependsOn(buildLlamaJniDesktop)
 
         commandLine(
             cmakePath,
-            "--build", macJniBuildDir.absolutePath,
+            "--build", desktopJniBuildDir.absolutePath,
             "--config", "Release"
         )
+    }
+
+    val libFileName = System.mapLibraryName("llama_jni") // mac: libllama_jni.dylib, linux: libllama_jni.so, win: llama_jni.dll
+
+    val generatedNativeResourcesDir = layout.buildDirectory.dir("generated/native-resources").get().asFile
+
+    val copyDesktopJniToResources by tasks.registering(Copy::class) {
+        group = "llama-native"
+        dependsOn(compileLlamaJniDesktop)
+
+        val outDir = generatedNativeResourcesDir.resolve("native/$desktopPlatform")
+        from(desktopJniBuildDir.resolve(libFileName))
+        into(outDir)
+
+        outputs.dir(outDir) // ✅ helps Gradle validation
+
+        doFirst {
+            val f = desktopJniBuildDir.resolve(libFileName)
+            if (!f.exists()) throw GradleException("Desktop JNI output not found: ${f.absolutePath}")
+        }
+    }
+
+    tasks.matching { it.name == "jvmProcessResources" }.configureEach {
+        dependsOn(copyDesktopJniToResources)
+    }
+
+    tasks.matching { it.name == "compileKotlinJvm" }.configureEach {
+        dependsOn(compileLlamaJniDesktop)
+        dependsOn(copyDesktopJniToResources)
     }
 
     sourceSets {
@@ -258,12 +308,10 @@ kotlin {
             dependencies { implementation(libs.kotlin.test) }
         }
         val androidMain by getting
+        val jvmMain by getting {
+            resources.srcDir(generatedNativeResourcesDir)
+        }
     }
-}
-
-// Make sure building the library also builds the desktop JNI
-tasks.named("build").configure {
-    dependsOn("compileLlamaJniDesktop")
 }
 
 compose.resources {
