@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.5)
 project(llama_jni_desktop LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -47,6 +47,16 @@ set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama-wrapper-build")
 
+
+set(WHISPER_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../whisper.cpp")
+
+# whisper.cpp options
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+
+add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
+
 # -------------------------------
 # JNI
 # -------------------------------
@@ -75,6 +85,8 @@ endif()
 add_library(llama_jni SHARED
         "${JNI_SRC}"
         ${LLAMA_SCHEMA_SOURCES}
+        whisper_stt.cpp
+        whisper_jni.cpp
 )
 
 target_include_directories(llama_jni
@@ -86,12 +98,15 @@ target_include_directories(llama_jni
         "${JNI_INCLUDE_DIR}"
         "${JNI_INCLUDE_DIR}/.."
         ${JNI_INCLUDE_DIRS}
+        ${WHISPER_CPP_DIR}
+        ${WHISPER_CPP_DIR}/include
 )
 
 # Link llama core
 target_link_libraries(llama_jni
         PRIVATE
         llama
+        whisper
 )
 
 # If llama.cpp exports a 'common' target, link it (this is where schema helpers often live).

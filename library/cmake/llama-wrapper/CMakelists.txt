@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.5)
 project(llama_kmp_bridge CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -124,6 +124,17 @@ else()
     )
 endif()
 
+
+set(WHISPER_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../whisper.cpp")
+
+# whisper.cpp options
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+
+add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
+
+
 # ---- Object library with the common + schema + build-info -------------------
 add_library(llamatik_llama_common_obj OBJECT
         "${LLAMA_COMMON_CPP}"
@@ -145,6 +156,8 @@ target_include_directories(llamatik_llama_common_obj PRIVATE
         ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/ggml/include
         ${LLAMA_CPP_DIR}/ggml/src
+        ${WHISPER_CPP_DIR}
+        ${WHISPER_CPP_DIR}/include
 )
 
 target_compile_features(llamatik_llama_common_obj PRIVATE cxx_std_17)
@@ -162,6 +175,8 @@ target_include_directories(llama_static_wrapper PUBLIC
         ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/ggml/include
         ${LLAMA_CPP_DIR}/ggml/src
+        ${WHISPER_CPP_DIR}
+        ${WHISPER_CPP_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/c_interop/include
 )
 
@@ -171,6 +186,7 @@ target_compile_features(llama_static_wrapper PUBLIC cxx_std_17)
 target_link_libraries(llama_static_wrapper
         PRIVATE
         llama
+        whisper
         Threads::Threads
 )
 

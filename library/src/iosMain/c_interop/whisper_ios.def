@@ -1,0 +1,3 @@
+headers = whisper_stt.h
+package = com.llamatik.library.platform
+compilerOpts = -Isrc/iosMain/c_interop/include

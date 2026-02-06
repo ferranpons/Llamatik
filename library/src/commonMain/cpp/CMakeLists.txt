@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.5)
 project(llama_jni)
 
 set(CMAKE_C_STANDARD 11)
@@ -33,6 +33,15 @@ endif()
 # Add llama.cpp as a subdirectory (builds ggml, llama, common, etc)
 add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama")
 
+set(WHISPER_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../whisper.cpp")
+
+# whisper.cpp options
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+
+add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
+
 find_library(log-lib log)
 
 add_library(
@@ -40,6 +49,8 @@ add_library(
         SHARED
         llama_jni.cpp
         llama_embed.cpp
+        whisper_stt.cpp
+        whisper_jni.cpp
 )
 
 target_include_directories(
@@ -53,6 +64,8 @@ target_include_directories(
         # nlohmann headers live under llama.cpp/vendor in many revisions
         ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/vendor/nlohmann
+        ${WHISPER_CPP_DIR}
+        ${WHISPER_CPP_DIR}/include
 )
 
 target_link_libraries(
@@ -60,5 +73,6 @@ target_link_libraries(
         PRIVATE
         llama
         common
+        whisper
         ${log-lib}
 )
