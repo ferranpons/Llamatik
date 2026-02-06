@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +61,7 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.permissions.rememberNotificationPermissionRequester
+import com.llamatik.app.platform.AudioRecorder
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.llamatik.app.ui.components.LlamatikDialog
@@ -67,6 +69,10 @@ import com.llamatik.app.ui.components.NewsCardSmall
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
+import com.llamatik.library.platform.WhisperBridge
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
@@ -444,6 +450,25 @@ class ChatBotTabScreen : Screen {
                     }
                 }
             }
+
+            val scope = rememberCoroutineScope()
+            val recorder = remember { AudioRecorder() }
+            var isListening by remember { mutableStateOf(false) }
+            var isTranscribing by remember { mutableStateOf(false) }
+            var whisperReady by remember { mutableStateOf(false) }
+            val whisperModelPath =
+                WhisperBridge.getModelPath("ggml-tiny-q8_0.bin") // <- rename to your actual bundled model filename
+
+            LaunchedEffect(whisperModelPath) {
+                if (!whisperReady) {
+                    whisperReady = withContext(Dispatchers.Default) {
+                        WhisperBridge.initModel(whisperModelPath)
+                    }
+                }
+            }
+
+            val tempWavPath = "llamatik_recording_16k_mono.wav"
+
             ChatInputBox(
                 localization = localization,
                 state = state,
@@ -452,7 +477,42 @@ class ChatBotTabScreen : Screen {
                 input = input,
                 onInputChange = { input = it },
                 onOpenModelSelector = { showModelSelectorSheet.value = true },
-                onOpenSettings = { showSettingsSheet.value = true }
+                onOpenSettings = { showSettingsSheet.value = true },
+                onMicClick = {
+                    if (!whisperReady || isTranscribing) return@ChatInputBox
+
+                    scope.launch {
+                        try {
+                            if (!recorder.isRecording) {
+                                // Start recording
+                                isListening = true
+                                showSuggestions.value = false
+                                recorder.start(tempWavPath)
+                            } else {
+                                // Stop recording and transcribe
+                                isListening = false
+                                isTranscribing = true
+
+                                val wavPath = recorder.stop()
+
+                                val text = withContext(Dispatchers.Default) {
+                                    WhisperBridge.transcribeWav(wavPath, language = null).trim()
+                                }
+
+                                if (text.isNotBlank()) {
+                                    // Append to existing input (more user-friendly than replace)
+                                    val newText = if (input.text.isBlank()) text else "${input.text.trimEnd()} $text"
+                                    input = input.copy(text = newText)
+                                }
+                            }
+                        } catch (t: Throwable) {
+                            // Ensure UI resets on error
+                            isListening = false
+                        } finally {
+                            isTranscribing = false
+                        }
+                    }
+                }
             )
         }
     }

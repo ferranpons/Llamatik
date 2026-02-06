@@ -58,6 +58,7 @@ fun ChatInputBox(
     ),
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
+    onMicClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -186,6 +187,23 @@ fun ChatInputBox(
                                 }
 
                                 Spacer(modifier = Modifier.size(6.dp))
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    onMicClick()
+                                },
+                                modifier = Modifier
+                                    .padding(end = 6.dp)
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Icon(
+                                    imageVector = LlamatikIcons.Microphone,
+                                    contentDescription = localization.paste,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
 
                             if (isGenerating) {
