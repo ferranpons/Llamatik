@@ -55,7 +55,7 @@ val commonModule = module {
     }
 
     factory { (navigator: Navigator) ->
-        ChatBotViewModel(navigator, get(), get(), get(), get())
+        ChatBotViewModel(navigator, get(), get(), get(), get(), get())
     }
 
     single { (navigator: Navigator, tabNavigator: TabNavigator) ->
