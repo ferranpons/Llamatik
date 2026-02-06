@@ -11,11 +11,14 @@ fun initKoin() {
         modules(appModule())
     }
 
+    // Bind ReviewRequestManager into ReviewEntryPoint after Koin is started.
     bindReviewEntryPointToKoin()
 }
 
-fun bindReviewEntryPointToKoin() {
-    val koin = KoinPlatformTools.defaultContext().get()
-    val manager = koin.get<ReviewRequestManager>()
-    ReviewEntryPoint.setManager(manager)
+private fun bindReviewEntryPointToKoin() {
+    runCatching {
+        val koin = KoinPlatformTools.defaultContext().get()
+        val manager = koin.get<ReviewRequestManager>()
+        ReviewEntryPoint.setManager(manager)
+    }
 }
