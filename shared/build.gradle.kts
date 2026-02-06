@@ -120,7 +120,11 @@ kotlin {
             implementation(libs.ktor.client.android)
             implementation(libs.xmlutil.serialization.android)
             implementation(libs.bouquet)
-            implementation(libs.okhttp)
+
+            // In-app reviews (Play In-App Review)
+            implementation(libs.android.play.review)
+            implementation(libs.android.play.review.ktx)
+            implementation(libs.kotlinx.coroutines.play.services)
         }
 
         iosMain.dependencies {

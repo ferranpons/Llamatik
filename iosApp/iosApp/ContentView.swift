@@ -4,7 +4,9 @@ import shared
 
 struct ContentView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        return Main_iosKt.homeScreenViewController()
+        let vc = Main_iosKt.homeScreenViewController()
+        ReviewEntryPoint.shared.setContext(context: vc)
+        return vc
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {

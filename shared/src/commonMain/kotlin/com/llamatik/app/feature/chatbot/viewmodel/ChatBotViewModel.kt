@@ -21,6 +21,7 @@ import com.llamatik.app.feature.news.NewsFeedDetailScreen
 import com.llamatik.app.feature.news.NewsFeedScreen
 import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
+import com.llamatik.app.feature.reviews.ReviewRequestManager
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.library.platform.LlamaBridge
@@ -55,6 +56,7 @@ class ChatBotViewModel(
     private val getAllNewsUseCase: GetAllNewsUseCase,
     private val getModelsUseCase: GetModelsUseCase,
     private val modelDownloadOrchestrator: ModelDownloadOrchestrator,
+    private val reviewRequestManager: ReviewRequestManager,
 ) : ScreenModel {
 
     data class DownloadState(
@@ -181,6 +183,7 @@ class ChatBotViewModel(
                                         isGenerateModelLoaded = true
                                     )
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                                notifyGenerateModelLoadedForReview()
                                 break
                             } else {
                                 Logger.e { "LlamaVM - failed to load generate model ${model.name}" }
@@ -290,6 +293,7 @@ class ChatBotViewModel(
                     initialSetupProgress = 100
                 )
                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                notifyGenerateModelLoadedForReview()
             } else {
                 _state.value = _state.value.copy(
                     isInitialSetup = false
@@ -369,6 +373,7 @@ class ChatBotViewModel(
                 if (isLoaded) {
                     _state.value = _state.value.copy(selectedGenerateModelName = model.name)
                     _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                    notifyGenerateModelLoadedForReview()
                 } else {
                     Logger.e { "LlamaVM - failed to load generate model ${model.name}" }
                     _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
@@ -591,6 +596,7 @@ class ChatBotViewModel(
                                 activeRequestId = null
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                                notifyChatCompletedForReview()
                             }
                         },
                         onComplete = { final ->
@@ -599,6 +605,7 @@ class ChatBotViewModel(
                                     ChatUiModel.Message(final, ChatUiModel.Author.bot)
                             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                            notifyChatCompletedForReview()
                         },
                         onError = { err ->
                             if (activeRequestId != requestId) return@stream
@@ -685,6 +692,7 @@ class ChatBotViewModel(
                                     activeRequestId = null
                                     _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                    notifyChatCompletedForReview()
                                     return@stream
                                 }
 
@@ -696,6 +704,7 @@ class ChatBotViewModel(
                                             ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
                                     _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                    notifyChatCompletedForReview()
                                 }
                             },
                             onComplete = { final ->
@@ -706,6 +715,7 @@ class ChatBotViewModel(
                                         ChatUiModel.Message(final, ChatUiModel.Author.bot)
                                 _state.value = _state.value.copy(isGenerating = false)
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                                notifyChatCompletedForReview()
                             },
                             onError = { err ->
                                 if (activeRequestId != requestId) return@stream
@@ -749,6 +759,7 @@ class ChatBotViewModel(
         }
         _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+        notifyChatCompletedForReview()
     }
 
     private fun emitBot(text: String) {
@@ -902,6 +913,18 @@ class ChatBotViewModel(
             if (out.isNotEmpty()) return out.toString().trim()
         }
         return f
+    }
+
+    private fun notifyChatCompletedForReview() {
+        screenModelScope.launch {
+            runCatching { reviewRequestManager.onChatCompleted() }
+        }
+    }
+
+    private fun notifyGenerateModelLoadedForReview() {
+        screenModelScope.launch {
+            runCatching { reviewRequestManager.onGenerateModelLoaded() }
+        }
     }
 }
 

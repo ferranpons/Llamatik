@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import com.llamatik.app.MainApp
 import com.llamatik.app.common.model.theme.DarkThemeConfig
+import com.llamatik.app.feature.reviews.ReviewEntryPoint
 import com.llamatik.app.ui.theme.LlamatikTheme
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.init
@@ -21,6 +22,9 @@ import java.io.File
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Provide the current Activity to the shared review system.
+        ReviewEntryPoint.setContext(this)
         FileKit.init(this)
 
         val uiState: MainActivityUiState by mutableStateOf(MainActivityUiState.Loading)
@@ -79,6 +83,12 @@ class MainActivity : ComponentActivity() {
             }
         }
         return file.absolutePath
+    }
+
+    override fun onDestroy() {
+        // Avoid holding a stale Activity reference in shared code.
+        ReviewEntryPoint.clearContext()
+        super.onDestroy()
     }
 }
 

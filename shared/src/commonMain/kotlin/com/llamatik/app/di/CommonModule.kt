@@ -15,6 +15,9 @@ import com.llamatik.app.feature.news.repositories.NewsRepository
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.feature.news.viewmodel.FeedItemDetailViewModel
 import com.llamatik.app.feature.news.viewmodel.NewsFeedViewModel
+import com.llamatik.app.feature.reviews.ReviewRequestManager
+import com.llamatik.app.feature.reviews.ReviewService
+import com.llamatik.app.feature.reviews.createReviewService
 import com.llamatik.app.feature.webview.viewmodel.WebViewModel
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikEventTracker
@@ -77,6 +80,10 @@ val commonModule = module {
 
     singleOf(::DownloadFileRepository)
     singleOf(::Settings)
+
+    single<ReviewService> { createReviewService() }
+    singleOf(::ReviewRequestManager)
+
     single { ServiceClient }
     single { getCurrentLocalization() }
 

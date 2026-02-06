@@ -36,6 +36,7 @@ kotlinTest = "2.2.21"
 runner = "1.6.2"
 core = "1.6.1"
 runtime = "1.10.2"
+android-play-review = "2.0.2"
 
 [libraries]
 # Common
@@ -58,6 +59,10 @@ kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1
 kotlinx-datetime = "org.jetbrains.kotlinx:kotlinx-datetime:0.7.1"
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines" }
+
+android-play-review = { module = "com.google.android.play:review", version.ref = "android-play-review" }
+android-play-review-ktx = { module = "com.google.android.play:review-ktx", version.ref = "android-play-review" }
 kotlinx-io = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 
 voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
