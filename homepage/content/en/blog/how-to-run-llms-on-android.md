@@ -1,7 +1,7 @@
 ---
-title: “How to Run LLMs Offline on Android Using Kotlin”
+title: "How to Run LLMs Offline on Android Using Kotlin"
 date: 2026-02-11T00:00:00-05:00
-description: “This article shows how to run LLMs offline on Android using Kotlin, with no servers, no API keys, and full user privacy-using Llamatik, a Kotlin-first wrapper around llama.cpp.”
+description: "This article shows how to run LLMs offline on Android using Kotlin, with no servers, no API keys, and full user privacy-using Llamatik, a Kotlin-first wrapper around llama.cpp."
 tags: ["Kotlin", "Multiplatform", "LLM", "llama.cpp", "Offline AI", "Android"]
 showDate: true
 draft: false
