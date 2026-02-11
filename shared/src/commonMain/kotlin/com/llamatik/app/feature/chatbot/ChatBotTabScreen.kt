@@ -634,16 +634,12 @@ class ChatBotTabScreen : Screen {
                     imageVector = LlamatikIcons.TemporaryChat,
                     contentDescription = localization.temporaryChat,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(24.dp)
                 )
 
                 Spacer(modifier = Modifier.size(8.dp))
 
                 Column {
-                    Text(
-                        text = localization.temporaryChat,
-                        style = Typography.get().labelMedium
-                    )
                     Text(
                         text = localization.temporaryChatExplanation,
                         style = Typography.get().bodySmall,
