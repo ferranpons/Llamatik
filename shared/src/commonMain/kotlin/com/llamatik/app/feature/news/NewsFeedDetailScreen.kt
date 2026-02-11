@@ -2,6 +2,7 @@ package com.llamatik.app.feature.news
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,11 +35,15 @@ import com.llamatik.app.feature.news.viewmodel.FeedItemDetailViewModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.formatRssPubDateToLocalDate
+import com.llamatik.app.platform.shimmerLoadingAnimation
+import com.llamatik.app.platform.toLlamatikURL
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.components.toRichHtmlString
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
+import io.kamel.image.KamelImage
+import io.kamel.image.asyncPainterResource
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
@@ -100,16 +105,48 @@ class NewsFeedDetailScreen(private val link: String) : Screen {
                         .verticalScroll(scrollState)
                 ) {
                     val imageHeight = 120.dp
-                    Image(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(imageHeight)
-                            .background(MaterialTheme.colorScheme.tertiaryContainer)
-                            .padding(24.dp),
-                        painter = painterResource(Res.drawable.llamatik_icon_logo),
-                        contentScale = ContentScale.Inside,
-                        contentDescription = null,
-                    )
+                    if (state.feedItem.image != null) {
+                        KamelImage(
+                            resource = asyncPainterResource(data = state.feedItem.image.toLlamatikURL()),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(imageHeight),
+                            onLoading = {
+                                Box(
+                                    modifier = Modifier
+                                        .background(color = MaterialTheme.colorScheme.primaryContainer)
+                                        .height(imageHeight)
+                                        .fillMaxWidth()
+                                        .shimmerLoadingAnimation(isLoadingCompleted = false)
+                                )
+                            },
+                            onFailure = {
+                                Image(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(imageHeight)
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                        .padding(8.dp),
+                                    painter = painterResource(Res.drawable.llamatik_icon_logo),
+                                    contentScale = ContentScale.Inside,
+                                    contentDescription = null,
+                                )
+                            }
+                        )
+                    } else {
+                        Image(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(imageHeight)
+                                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                .padding(24.dp),
+                            painter = painterResource(Res.drawable.llamatik_icon_logo),
+                            contentScale = ContentScale.Inside,
+                            contentDescription = null,
+                        )
+                    }
                     Text(
                         modifier = Modifier.padding(
                             top = 16.dp,

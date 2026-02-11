@@ -77,9 +77,7 @@ fun NewsCardSmall(
                                 .shimmerLoadingAnimation(isLoadingCompleted = false)
                         )
                     },
-                    onFailure = { e ->
-                        println("KamelImage failed for ${feedItem.image}: ${e.message}")
-                        e.printStackTrace()
+                    onFailure = {
                         Image(
                             modifier = Modifier
                                 .fillMaxWidth()
