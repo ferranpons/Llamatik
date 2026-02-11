@@ -335,7 +335,7 @@ class ChatBotTabScreen : Screen {
                                 }
                             ) {
                                 Icon(
-                                    imageVector = LlamatikIcons.Delete,
+                                    imageVector = LlamatikIcons.NewConversation,
                                     contentDescription = "Delete Conversation"
                                 )
                             }
