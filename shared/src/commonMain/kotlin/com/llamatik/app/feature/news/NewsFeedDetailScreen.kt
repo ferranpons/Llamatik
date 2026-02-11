@@ -33,6 +33,7 @@ import com.llamatik.app.feature.news.viewmodel.FeedItemDetailScreenState
 import com.llamatik.app.feature.news.viewmodel.FeedItemDetailViewModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.platform.formatRssPubDateToLocalDate
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.components.toRichHtmlString
@@ -94,8 +95,9 @@ class NewsFeedDetailScreen(private val link: String) : Screen {
                 }
             ) { paddingValues ->
                 Column(
-                    modifier = Modifier.padding(paddingValues = paddingValues)
-                        .padding(bottom = 80.dp).verticalScroll(scrollState)
+                    modifier = Modifier
+                        .padding(paddingValues = paddingValues)
+                        .verticalScroll(scrollState)
                 ) {
                     val imageHeight = 120.dp
                     Image(
@@ -124,15 +126,17 @@ class NewsFeedDetailScreen(private val link: String) : Screen {
                             start = 16.dp,
                             end = 16.dp
                         ),
-                        text = state.feedItem.pubDate,
+                        text = state.feedItem.pubDate.formatRssPubDateToLocalDate(),
                         style = Typography.get().bodySmall,
                     )
-                    Text(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(top = 16.dp, start = 16.dp, end = 16.dp),
-                        text = state.feedItem.description.toRichHtmlString(),
-                        style = Typography.get().bodyMedium
-                    )
+                    state.feedItem.contentEncoded?.let {
+                        Text(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(16.dp),
+                            text = it.toRichHtmlString(),
+                            style = Typography.get().bodyMedium
+                        )
+                    }
                 }
             }
         }

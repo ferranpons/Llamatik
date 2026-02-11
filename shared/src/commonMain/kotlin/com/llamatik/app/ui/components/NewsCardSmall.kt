@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.news.repositories.FeedItem
+import com.llamatik.app.platform.formatRssPubDateToLocalDate
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.theme.Typography
@@ -112,7 +113,7 @@ fun NewsCardSmall(
             )
             Text(
                 modifier = Modifier.padding(top = 4.dp),
-                text = feedItem.pubDate,
+                text = feedItem.pubDate.formatRssPubDateToLocalDate(),
                 style = Typography.get().labelSmall,
             )
             Text(
