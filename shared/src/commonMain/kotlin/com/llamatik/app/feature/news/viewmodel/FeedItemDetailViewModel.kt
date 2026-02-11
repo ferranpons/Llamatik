@@ -43,6 +43,7 @@ data class FeedItemDetailScreenState(
     val feedItem: FeedItem = FeedItem(
         title = "",
         link = "",
+        image = "",
         description = "",
         pubDate = "",
         contentEncoded = ""

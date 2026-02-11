@@ -90,6 +90,10 @@ data class ShimmerAnimationData(
     }
 }
 
+fun String.toLlamatikURL(): String {
+    return "https://www.llamatik.com/$this"
+}
+
 @OptIn(ExperimentalTime::class)
 fun String.formatRssPubDateToLocalDate(): String {
     if (this.isBlank()) return ""
