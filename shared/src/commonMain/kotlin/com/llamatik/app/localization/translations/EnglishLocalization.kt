@@ -173,4 +173,9 @@ internal object EnglishLocalization : Localization {
 
     override val copy = "Copy"
     override val paste = "Paste"
+
+    override val chatHistory = "Chat history"
+    override val noChatsYet = "No chats yet"
+    override val temporaryChat = "Temporary chat"
+    override val messages = "messages"
 }

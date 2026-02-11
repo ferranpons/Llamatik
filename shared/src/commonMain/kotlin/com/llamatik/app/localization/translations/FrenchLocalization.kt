@@ -173,4 +173,9 @@ tout en évitant les sorties volumineuses sauf demande explicite.
 
     override val copy = "Copier"
     override val paste = "Coller"
+
+    override val chatHistory = "Historique des chats"
+    override val noChatsYet = "Aucune discussion pour l’instant"
+    override val temporaryChat = "Chat temporaire"
+    override val messages = "messages"
 }

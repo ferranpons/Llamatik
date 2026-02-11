@@ -56,6 +56,7 @@ fun ChatInputBox(
         localization.suggestion5,
         localization.suggestion6
     ),
+    onOpenChatHistory: () -> Unit,
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -108,135 +109,158 @@ fun ChatInputBox(
                 }
             }
 
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                tonalElevation = 1.dp,
-                color = MaterialTheme.colorScheme.secondaryContainer,
+            Row(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
-                val keyboardController = LocalSoftwareKeyboardController.current
-                val clipboard = LocalClipboardManager.current
-
-                val canSend = input.text.isNotBlank()
-                val clipboardText = clipboard.getText()?.text?.trim().orEmpty()
-                val canPaste = clipboardText.isNotBlank()
-
-                TextField(
-                    value = input,
-                    onValueChange = { onInputChange(it) },
+                IconButton(
+                    onClick = onOpenChatHistory,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 2.dp),
-                    placeholder = { Text(localization.askMeAnything) },
-                    textStyle = com.llamatik.app.ui.theme.Typography.get().bodyMedium,
-                    singleLine = false,
-                    minLines = 1,
-                    maxLines = 6,
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .align(Alignment.CenterVertically)
+                ) {
+                    Icon(
+                        imageVector = LlamatikIcons.ChatHistory,
+                        contentDescription = localization.chatHistory,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.size(8.dp))
+
+                Surface(
                     shape = RoundedCornerShape(20.dp),
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Send,
-                        capitalization = KeyboardCapitalization.Sentences
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (!isGenerating && canSend) {
-                                val message = input.text.trim()
-                                onInputChange(TextFieldValue())
-                                viewModel.onMessageSendDirect(message)
-                                showSuggestions.value = false
-                                keyboardController?.hide()
+                    tonalElevation = 1.dp,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    val keyboardController = LocalSoftwareKeyboardController.current
+                    val clipboard = LocalClipboardManager.current
+
+                    val canSend = input.text.isNotBlank()
+                    val clipboardText = clipboard.getText()?.text?.trim().orEmpty()
+                    val canPaste = clipboardText.isNotBlank()
+
+                    TextField(
+                        value = input,
+                        onValueChange = { onInputChange(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 2.dp),
+                        placeholder = { Text(localization.askMeAnything) },
+                        textStyle = com.llamatik.app.ui.theme.Typography.get().bodyMedium,
+                        singleLine = false,
+                        minLines = 1,
+                        maxLines = 6,
+                        shape = RoundedCornerShape(20.dp),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Send,
+                            capitalization = KeyboardCapitalization.Sentences
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSend = {
+                                if (!isGenerating && canSend) {
+                                    val message = input.text.trim()
+                                    onInputChange(TextFieldValue())
+                                    viewModel.onMessageSendDirect(message)
+                                    showSuggestions.value = false
+                                    keyboardController?.hide()
+                                }
+                            },
+                        ),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (canPaste) {
+                                    IconButton(
+                                        onClick = {
+                                            val text = clipboard.getText()?.text?.trim().orEmpty()
+                                            if (text.isNotBlank()) {
+                                                onInputChange(
+                                                    TextFieldValue(
+                                                        text = text,
+                                                        selection = TextRange(text.length)
+                                                    )
+                                                )
+                                                showSuggestions.value = false
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .padding(end = 6.dp)
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    ) {
+                                        Icon(
+                                            imageVector = LlamatikIcons.Paste,
+                                            contentDescription = localization.paste,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.size(6.dp))
+                                }
+
+                                if (isGenerating) {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.stopGeneration()
+                                        },
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(MaterialTheme.colorScheme.errorContainer)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Stop,
+                                            contentDescription = localization.stop,
+                                            tint = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                } else {
+                                    IconButton(
+                                        onClick = {
+                                            if (canSend) {
+                                                val message = input.text.trim()
+                                                onInputChange(TextFieldValue())
+                                                viewModel.onMessageSendDirect(message)
+                                                showSuggestions.value = false
+                                                keyboardController?.hide()
+                                            }
+                                        },
+                                        enabled = canSend,
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(
+                                                if (canSend) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                    ) {
+                                        Icon(
+                                            imageVector = LlamatikIcons.Send,
+                                            contentDescription = localization.send,
+                                            tint = if (canSend) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         },
-                    ),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    trailingIcon = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (canPaste) {
-                                IconButton(
-                                    onClick = {
-                                        val text = clipboard.getText()?.text?.trim().orEmpty()
-                                        if (text.isNotBlank()) {
-                                            onInputChange(
-                                                TextFieldValue(
-                                                    text = text,
-                                                    selection = TextRange(text.length)
-                                                )
-                                            )
-                                            showSuggestions.value = false
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .padding(end = 6.dp)
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                ) {
-                                    Icon(
-                                        imageVector = LlamatikIcons.Paste,
-                                        contentDescription = localization.paste,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.size(6.dp))
-                            }
-
-                            if (isGenerating) {
-                                IconButton(
-                                    onClick = {
-                                        viewModel.stopGeneration()
-                                    },
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(MaterialTheme.colorScheme.errorContainer)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Stop,
-                                        contentDescription = localization.stop,
-                                        tint = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                            } else {
-                                IconButton(
-                                    onClick = {
-                                        if (canSend) {
-                                            val message = input.text.trim()
-                                            onInputChange(TextFieldValue())
-                                            viewModel.onMessageSendDirect(message)
-                                            showSuggestions.value = false
-                                            keyboardController?.hide()
-                                        }
-                                    },
-                                    enabled = canSend,
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(
-                                            if (canSend) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.surfaceVariant
-                                        )
-                                ) {
-                                    Icon(
-                                        imageVector = LlamatikIcons.Send,
-                                        contentDescription = localization.send,
-                                        tint = if (canSend) MaterialTheme.colorScheme.onPrimary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    },
-                )
+                    )
+                }
             }
 
             GenerateModelSelector(

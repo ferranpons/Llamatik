@@ -9,6 +9,11 @@ import com.llamatik.app.feature.chatbot.download.DownloadEvent
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
+import com.llamatik.app.feature.chatbot.repositories.ChatSession
+import com.llamatik.app.feature.chatbot.repositories.ChatSessionSummary
+import com.llamatik.app.feature.chatbot.repositories.PersistedAuthor
+import com.llamatik.app.feature.chatbot.repositories.PersistedChatMessage
 import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.utils.ChatMessage
 import com.llamatik.app.feature.chatbot.utils.ChatRunner
@@ -57,6 +62,7 @@ class ChatBotViewModel(
     private val getModelsUseCase: GetModelsUseCase,
     private val modelDownloadOrchestrator: ModelDownloadOrchestrator,
     private val reviewRequestManager: ReviewRequestManager,
+    private val chatHistoryRepository: ChatHistoryRepository,
 ) : ScreenModel {
 
     data class DownloadState(
@@ -102,6 +108,8 @@ class ChatBotViewModel(
     private var started = false
 
     private val downloadJobs = mutableMapOf<String, Job>()
+
+    private var currentChatId: String? = null
 
     /** Whether the user has already accepted the privacy/onboarding */
     private var hasAcceptedPrivacy: Boolean =
@@ -168,6 +176,9 @@ class ChatBotViewModel(
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
                 }
+
+            val summaries = chatHistoryRepository.getSummaries()
+            _state.value = _state.value.copy(chatSessions = summaries)
 
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess { models ->
@@ -635,6 +646,10 @@ class ChatBotViewModel(
         if (input.isBlank()) return
 
         screenModelScope.launch {
+            if (!_state.value.isTemporaryChat && currentChatId == null) {
+                currentChatId = kotlin.random.Random.nextLong().toString()
+            }
+
             // 1) Add user message
             _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
@@ -643,6 +658,8 @@ class ChatBotViewModel(
 
             withContext(Dispatchers.IO) {
                 try {
+                    persistCurrentConversationIfNeeded()
+
                     // 2) Reserve an empty bot bubble
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
@@ -730,6 +747,7 @@ class ChatBotViewModel(
                             }
                         )
                     } finally {
+                        persistCurrentConversationIfNeeded()
                         if (activeRequestId == null) { // stopped or finished
                             _state.value = _state.value.copy(isGenerating = false)
                         }
@@ -796,6 +814,7 @@ class ChatBotViewModel(
 
     fun onClearConversation() {
         stopGeneration()
+        currentChatId = null
         screenModelScope.launch { _conversation.emit(emptyList()) }
     }
 
@@ -813,6 +832,42 @@ class ChatBotViewModel(
 
     fun onOpenNewsClicked() {
         navigator.push(NewsFeedScreen())
+    }
+
+    fun onToggleTemporaryChat() {
+        stopGeneration()
+        currentChatId = null
+        _conversation.value = emptyList()
+        _state.value = _state.value.copy(isTemporaryChat = !_state.value.isTemporaryChat)
+    }
+
+    fun onLoadChatSession(chatId: String) {
+        screenModelScope.launch(Dispatchers.IO) {
+            val session = chatHistoryRepository.getSession(chatId) ?: return@launch
+            stopGeneration()
+            currentChatId = chatId
+
+            val restored = session.messages.map {
+                ChatUiModel.Message(
+                    text = it.text,
+                    author = if (it.author == PersistedAuthor.ME) ChatUiModel.Author.me else ChatUiModel.Author.bot
+                )
+            }
+
+            _conversation.value = restored
+            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+        }
+    }
+
+    fun onDeleteChatSession(chatId: String) {
+        screenModelScope.launch(Dispatchers.IO) {
+            chatHistoryRepository.delete(chatId)
+            if (currentChatId == chatId) {
+                currentChatId = null
+                _conversation.value = emptyList()
+            }
+            refreshSessions()
+        }
     }
 
     private fun onPrivacyAccepted(currentNavigator: Navigator) {
@@ -926,6 +981,50 @@ class ChatBotViewModel(
             runCatching { reviewRequestManager.onGenerateModelLoaded() }
         }
     }
+
+    private fun buildTitle(firstUserMessage: String): String {
+        val t = firstUserMessage.trim().replace("\n", " ")
+        return if (t.length <= 40) t else t.take(40) + "…"
+    }
+
+    private suspend fun refreshSessions() {
+        _state.value = _state.value.copy(chatSessions = chatHistoryRepository.getSummaries())
+    }
+
+    private fun toPersistedMessages(messages: List<ChatUiModel.Message>): List<PersistedChatMessage> {
+        return messages
+            .filter { it.text.isNotBlank() }
+            .map {
+                PersistedChatMessage(
+                    text = it.text,
+                    author = if (it.author == ChatUiModel.Author.me) PersistedAuthor.ME else PersistedAuthor.BOT
+                )
+            }
+    }
+
+    @OptIn(ExperimentalTime::class)
+    private suspend fun persistCurrentConversationIfNeeded() {
+        if (_state.value.isTemporaryChat) return
+        val id = currentChatId ?: return
+
+        val now = System.now().toEpochMilliseconds()
+        val existing = chatHistoryRepository.getSession(id)
+        val createdAt = existing?.createdAtEpochMs ?: now
+        val title = existing?.title ?: buildTitle(
+            _conversation.value.firstOrNull { it.author == ChatUiModel.Author.me }?.text.orEmpty()
+        )
+
+        val session = ChatSession(
+            id = id,
+            title = title,
+            createdAtEpochMs = createdAt,
+            updatedAtEpochMs = now,
+            messages = toPersistedMessages(_conversation.value)
+        )
+
+        chatHistoryRepository.upsert(session)
+        refreshSessions()
+    }
 }
 
 data class ChatUiModel(
@@ -974,6 +1073,8 @@ data class ChatBotState(
     val initialSetupProgress: Int = 0,
 
     val generateSettings: GenerateSettings = GenerateSettings(),
+    val chatSessions: List<ChatSessionSummary> = emptyList(),
+    val isTemporaryChat: Boolean = false,
 )
 
 sealed class ChatBotSideEffects {

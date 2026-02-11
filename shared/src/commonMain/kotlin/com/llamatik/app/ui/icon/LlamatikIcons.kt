@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Assistant
 import androidx.compose.material.icons.rounded.Book
 import androidx.compose.material.icons.rounded.BrokenImage
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ConnectingAirports
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Mic
@@ -107,6 +109,8 @@ object LlamatikIcons {
     val Delete = Icons.Rounded.Delete
     val Copy = Icons.Rounded.ContentCopy
     val Paste = Icons.Rounded.ContentPaste
+    val ChatHistory = Icons.Rounded.History
+    val TemporaryChat = Icons.Rounded.ChatBubbleOutline
 }
 
 /**

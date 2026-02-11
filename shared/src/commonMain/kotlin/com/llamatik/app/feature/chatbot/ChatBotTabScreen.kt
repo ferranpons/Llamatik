@@ -50,6 +50,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.chatbot.ui.ChatHistoryBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ChatInputBox
 import com.llamatik.app.feature.chatbot.ui.ModelSelectorBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
@@ -317,6 +318,16 @@ class ChatBotTabScreen : Screen {
                                     contentDescription = "Info about Llamatik AI"
                                 )
                             }
+                            IconButton(onClick = { viewModel.onToggleTemporaryChat() }) {
+                                Icon(
+                                    imageVector = LlamatikIcons.TemporaryChat,
+                                    contentDescription = localization.temporaryChat,
+                                    tint = if (state.isTemporaryChat)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                             IconButton(
                                 onClick = {
                                     showSuggestions.value = true
@@ -403,6 +414,7 @@ class ChatBotTabScreen : Screen {
         showSettingsSheet: MutableState<Boolean>,
         showModelSelectorSheet: MutableState<Boolean>,
     ) {
+        val showChatHistorySheet = remember { mutableStateOf(false) }
         var input by androidx.compose.runtime.saveable.rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue())
         }
@@ -451,9 +463,25 @@ class ChatBotTabScreen : Screen {
                 showSuggestions = showSuggestions,
                 input = input,
                 onInputChange = { input = it },
+                onOpenChatHistory = { showChatHistorySheet.value = true },
                 onOpenModelSelector = { showModelSelectorSheet.value = true },
                 onOpenSettings = { showSettingsSheet.value = true }
             )
+
+            if (showChatHistorySheet.value) {
+                ChatHistoryBottomSheet(
+                    localization = localization,
+                    sessions = state.chatSessions,
+                    onLoad = { id ->
+                        viewModel.onLoadChatSession(id)
+                        showChatHistorySheet.value = false
+                    },
+                    onDelete = { id ->
+                        viewModel.onDeleteChatSession(id)
+                    },
+                    onDismiss = { showChatHistorySheet.value = false }
+                )
+            }
         }
     }
 

@@ -174,4 +174,9 @@ vermeide jedoch große Ausgaben, sofern sie nicht ausdrücklich angefordert werd
 
     override val copy = "Kopieren"
     override val paste = "Einfügen"
+
+    override val chatHistory = "Chatverlauf"
+    override val noChatsYet = "Noch keine Chats"
+    override val temporaryChat = "Temporärer Chat"
+    override val messages = "Nachrichten"
 }
