@@ -1,0 +1,32 @@
+{{- $pages := where site.RegularPages "Section" "blog" -}}
+    {{- $pages = $pages.ByDate.Reverse -}}
+    {{- $pages = first 20 $pages -}}
+
+<rss version="2.0"
+    xmlns:atom="http://www.w3.org/2005/Atom"
+    xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>{{ .Site.Title }}</title>
+        <link>{{ .Site.BaseURL }}</link>
+        <description>{{ with .Site.Params.description }}{{ . }}{{ else }}Recent blog posts on {{ .Site.Title }}{{ end }}</description>
+        <generator>Hugo</generator>
+        <language>{{ .Site.Language.LanguageCode }}</language>
+        <lastBuildDate>{{ now.Format "Mon, 02 Jan 2006 15:04:05 -0700" }}</lastBuildDate>
+        <atom:link href="{{ .Permalink }}index.xml" rel="self" type="application/rss+xml"/>
+
+        {{- range $pages }}
+        <item>
+            <title>{{ .Title }}</title>
+            <link>{{ .Permalink }}</link>
+            <pubDate>{{ .Date.Format "Mon, 02 Jan 2006 15:04:05 -0700" }}</pubDate>
+            <guid>{{ .Permalink }}</guid>
+
+            {{- $desc := .Params.description | default .Summary -}}
+            <description>{{ $desc | plainify }}</description>
+
+            {{- $content := .Content -}}
+            {{- printf "<content:encoded><![CDATA[%s]]></content:encoded>" $content | safeHTML }}
+        </item>
+        {{- end }}
+    </channel>
+</rss>
