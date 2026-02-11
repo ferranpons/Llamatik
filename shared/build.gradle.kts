@@ -79,6 +79,7 @@ kotlin {
 
             // Kamel for image loading
             implementation(libs.kamel)
+            implementation(libs.kamel.default)
 
             // Voyager for Navigation
             implementation(libs.voyager.navigator)
@@ -118,7 +119,6 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.activity.ktx)
             implementation(libs.ktor.client.android)
-            implementation(libs.xmlutil.serialization.android)
             implementation(libs.bouquet)
             implementation(libs.okhttp)
 

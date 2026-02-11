@@ -37,7 +37,6 @@ data class RssChannel(
     val syUpdateFrequency: String?,
     @XmlElement(true)
     val generator: String? = null,
-    @XmlElement val image: FeedImage?,
     @XmlElement(true)
     @XmlSerialName("link", "http://www.w3.org/2005/Atom", "atom")
     val atomLink: AtomLink? = null,
@@ -57,6 +56,7 @@ data class AtomLink(
 data class FeedItem(
     @XmlElement val title: String,
     @XmlElement val link: String,
+    @XmlElement(true) val image: String? = null,
     @XmlElement val description: String,
     @XmlElement val pubDate: String,
     @XmlElement(true) val comments: String? = null,

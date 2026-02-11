@@ -5,6 +5,7 @@ package com.llamatik.app.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,9 +28,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.platform.formatRssPubDateToLocalDate
+import com.llamatik.app.platform.shimmerLoadingAnimation
+import com.llamatik.app.platform.toLlamatikURL
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.theme.Typography
+import io.kamel.image.KamelImage
+import io.kamel.image.asyncPainterResource
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
@@ -53,10 +58,9 @@ fun NewsCardSmall(
         interactionSource = remember { MutableInteractionSource() }
     ) {
         Column {
-            /*
-            if (feedItem.enclosure?.url != null) {
+            if (feedItem.image != null) {
                 KamelImage(
-                    resource = asyncPainterResource(data = feedItem.enclosure.url),
+                    resource = asyncPainterResource(data = feedItem.image.toLlamatikURL()),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -74,25 +78,20 @@ fun NewsCardSmall(
                         )
                     },
                     onFailure = {
-                        Box(
+                        Image(
                             modifier = Modifier
-                                .clip(shape = RoundedCornerShape(roundedCornerSize))
-                                .background(color = MaterialTheme.colorScheme.primaryContainer)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(roundedCornerSize))
                                 .height(imageHeight)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                modifier = Modifier.size(36.dp),
-                                imageVector = LlamatikIcons.BrokenImage,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
+                                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                .padding(8.dp),
+                            painter = painterResource(Res.drawable.llamatik_icon_logo),
+                            contentScale = ContentScale.Inside,
+                            contentDescription = null,
+                        )
                     }
                 )
             } else {
-                */
                 Image(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -123,6 +122,6 @@ fun NewsCardSmall(
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis
             )
-        //}
+        }
     }
 }

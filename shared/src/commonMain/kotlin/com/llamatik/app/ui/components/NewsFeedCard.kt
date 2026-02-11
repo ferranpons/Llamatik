@@ -5,6 +5,7 @@ package com.llamatik.app.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,10 +26,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.platform.formatRssPubDateToLocalDate
+import com.llamatik.app.platform.shimmerLoadingAnimation
+import com.llamatik.app.platform.toLlamatikURL
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.theme.Typography
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
+import io.kamel.image.KamelImage
+import io.kamel.image.asyncPainterResource
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
@@ -50,20 +55,17 @@ fun NewsFeedCard(
         interactionSource = remember { MutableInteractionSource() }
     ) {
         Column {
-            /*
-            if (feedItem.enclosure?.url != null) {
+            if (feedItem.image != null) {
                 KamelImage(
-                    resource = asyncPainterResource(data = feedItem.enclosure.url),
-                    contentDescription = "image",
+                    resource = asyncPainterResource(data = feedItem.image.toLlamatikURL()),
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(roundedCornerSize))
                         .height(imageHeight),
                     onLoading = {
                         Box(
                             modifier = Modifier
-                                .clip(shape = RoundedCornerShape(roundedCornerSize))
                                 .background(color = MaterialTheme.colorScheme.primaryContainer)
                                 .height(imageHeight)
                                 .fillMaxWidth()
@@ -71,26 +73,19 @@ fun NewsFeedCard(
                         )
                     },
                     onFailure = {
-                        Box(
+                        Image(
                             modifier = Modifier
-                                .clip(shape = RoundedCornerShape(roundedCornerSize))
-                                .background(color = MaterialTheme.colorScheme.primaryContainer)
+                                .fillMaxWidth()
                                 .height(imageHeight)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                modifier = Modifier.size(36.dp),
-                                imageVector = LlamatikIcons.BrokenImage,
-                                contentDescription = "image",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
+                                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                .padding(8.dp),
+                            painter = painterResource(Res.drawable.llamatik_icon_logo),
+                            contentScale = ContentScale.Inside,
+                            contentDescription = null,
+                        )
                     }
                 )
             } else {
-
-             */
                 Image(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -102,23 +97,23 @@ fun NewsFeedCard(
                     contentDescription = null,
                 )
             }
-            Text(
-                modifier = Modifier.padding(top = 16.dp),
-                text = feedItem.title,
-                style = Typography.get().titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                modifier = Modifier.padding(top = 4.dp),
-                text = feedItem.pubDate.formatRssPubDateToLocalDate(),
-                style = Typography.get().bodySmall,
-            )
-            Text(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                text = feedItem.description.toRichHtmlString(),
-                style = Typography.get().bodyMedium
-            )
-        //}
+        }
+        Text(
+            modifier = Modifier.padding(top = 16.dp),
+            text = feedItem.title,
+            style = Typography.get().titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = feedItem.pubDate.formatRssPubDateToLocalDate(),
+            style = Typography.get().bodySmall,
+        )
+        Text(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            text = feedItem.description.toRichHtmlString(),
+            style = Typography.get().bodyMedium
+        )
     }
 }
 
