@@ -1,5 +1,11 @@
 <article class="blog-card">
     <a class="blog-card__link" href="{{ .RelPermalink }}">
+        {{- with .Params.image }}
+        <figure class="blog-card__image">
+            <img src="{{ . | absURL }}" alt="{{ $.Title }}" loading="lazy" />
+        </figure>
+        {{- end }}
+
         <h2 class="blog-card__title">{{ .Title }}</h2>
 
         <div class="blog-card__meta">

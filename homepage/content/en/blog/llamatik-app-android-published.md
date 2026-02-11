@@ -2,6 +2,7 @@
 title: "Introducing the Llamatik App an Offline AI Chat on Your Mobile Device"
 date: 2025-11-25T09:00:00-05:00
 description: "We are excited to announce the launch of the Llamatik App, a fully offline AI chatbot designed to showcase the power and versatility of the Llamatik Kotlin Multiplatform library. Whether you are a developer curious about on-device AI or a user who wants a private, fast, and modern chatbot experience, the Llamatik app brings the full potential of lightweight LLMs directly to your mobile device."
+image: "images/blog/llamatik_new_app_hero.png"
 tags: ["Kotlin", "Multiplatform", "LLM", "llama.cpp", "Offline AI", "App"]
 showDate: true
 draft: false

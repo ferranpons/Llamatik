@@ -2,6 +2,7 @@
 title: "Introducing Llamatik Offline LLMs for Kotlin Multiplatform"
 date: 2025-07-22T09:00:00-05:00
 description: "Meet Llamatik — a multiplatform Kotlin library to run llama.cpp locally on Android, iOS, and desktop, complete with an HTTP server."
+image: "images/blog/a-pair-of-llamas-in-a-field-with-clouds-and-mountain.svg"
 tags: ["Kotlin", "Multiplatform", "LLM", "llama.cpp", "Offline AI"]
 showDate: true
 draft: false
