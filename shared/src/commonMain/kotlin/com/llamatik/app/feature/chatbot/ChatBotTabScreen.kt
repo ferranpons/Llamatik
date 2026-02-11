@@ -438,9 +438,15 @@ class ChatBotTabScreen : Screen {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     ChatHeader()
+                    if (state.isTemporaryChat) {
+                        TemporaryChatIndicator(localization = localization)
+                    }
                     LatestNewsCarousel(viewModel, localization, state)
                 }
             } else {
+                if (state.isTemporaryChat) {
+                    TemporaryChatIndicator(localization = localization)
+                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -602,6 +608,47 @@ class ChatBotTabScreen : Screen {
                     if (index == state.latestNews.size - 1) {
                         Spacer(modifier = Modifier.size(16.dp))
                     }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TemporaryChatIndicator(
+        localization: Localization,
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = LlamatikIcons.TemporaryChat,
+                    contentDescription = localization.temporaryChat,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+
+                Spacer(modifier = Modifier.size(8.dp))
+
+                Column {
+                    Text(
+                        text = localization.temporaryChat,
+                        style = Typography.get().labelMedium
+                    )
+                    Text(
+                        text = localization.temporaryChatExplanation,
+                        style = Typography.get().bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

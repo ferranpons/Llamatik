@@ -177,4 +177,5 @@ evitando comunque output eccessivi salvo richiesta esplicita.
     override val noChatsYet = "Nessuna chat ancora"
     override val temporaryChat = "Chat temporanea"
     override val messages = "messaggi"
+    override val temporaryChatExplanation = "La chat temporanea è attiva: questa conversazione non verrà salvata sul dispositivo."
 }

@@ -179,4 +179,5 @@ internal object ChineseLocalization : Localization {
     override val noChatsYet = "暂无聊天"
     override val temporaryChat = "临时聊天"
     override val messages = "条消息"
+    override val temporaryChatExplanation = "已开启临时聊天，本次对话不会保存在设备上。"
 }
