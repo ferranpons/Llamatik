@@ -318,7 +318,12 @@ class ChatBotTabScreen : Screen {
                                     contentDescription = "Info about Llamatik AI"
                                 )
                             }
-                            IconButton(onClick = { viewModel.onToggleTemporaryChat() }) {
+                            IconButton(
+                                onClick = {
+                                    showSuggestions.value = false
+                                    viewModel.onToggleTemporaryChat()
+                                }
+                            ) {
                                 Icon(
                                     imageVector = LlamatikIcons.TemporaryChat,
                                     contentDescription = localization.temporaryChat,
@@ -480,6 +485,7 @@ class ChatBotTabScreen : Screen {
                     sessions = state.chatSessions,
                     onLoad = { id ->
                         viewModel.onLoadChatSession(id)
+                        showSuggestions.value = false
                         showChatHistorySheet.value = false
                     },
                     onDelete = { id ->
