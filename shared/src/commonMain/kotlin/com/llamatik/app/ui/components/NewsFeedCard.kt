@@ -24,6 +24,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.news.repositories.FeedItem
+import com.llamatik.app.platform.formatRssPubDateToLocalDate
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.ui.theme.Typography
@@ -109,7 +110,7 @@ fun NewsFeedCard(
             )
             Text(
                 modifier = Modifier.padding(top = 4.dp),
-                text = feedItem.pubDate,
+                text = feedItem.pubDate.formatRssPubDateToLocalDate(),
                 style = Typography.get().bodySmall,
             )
             Text(

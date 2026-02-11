@@ -44,7 +44,8 @@ data class FeedItemDetailScreenState(
         title = "",
         link = "",
         description = "",
-        pubDate = ""
+        pubDate = "",
+        contentEncoded = ""
     )
 )
 
