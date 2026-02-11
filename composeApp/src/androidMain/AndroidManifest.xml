@@ -27,8 +27,7 @@
             tools:node="merge">
 
             <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                tools:node="remove" />
+                android:name="androidx.work.WorkManagerInitializer" />
         </provider>
 
         <activity
