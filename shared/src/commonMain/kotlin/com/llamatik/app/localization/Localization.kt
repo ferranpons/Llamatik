@@ -119,6 +119,12 @@ interface Localization {
 
     val copy: String
     val paste: String
+
+    val chatHistory: String
+    val noChatsYet: String
+    val temporaryChat: String
+    val messages: String
+    val temporaryChatExplanation: String
 }
 
 enum class AvailableLanguages {

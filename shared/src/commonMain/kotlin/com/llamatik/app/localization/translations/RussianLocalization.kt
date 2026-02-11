@@ -172,4 +172,10 @@ internal object RussianLocalization : Localization {
 
     override val copy = "Копировать"
     override val paste = "Вставить"
+
+    override val chatHistory = "История чатов"
+    override val noChatsYet = "Пока нет чатов"
+    override val temporaryChat = "Временный чат"
+    override val messages = "сообщений"
+    override val temporaryChatExplanation = "Включён временный чат — этот диалог не будет сохранён на устройстве."
 }

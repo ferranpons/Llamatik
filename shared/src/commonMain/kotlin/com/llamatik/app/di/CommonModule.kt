@@ -6,6 +6,7 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import com.llamatik.app.data.repositories.DownloadFileRepository
 import com.llamatik.app.feature.chatbot.download.DefaultModelDownloadOrchestrator
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
+import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
 import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
 import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
@@ -55,7 +56,7 @@ val commonModule = module {
     }
 
     factory { (navigator: Navigator) ->
-        ChatBotViewModel(navigator, get(), get(), get(), get(), get())
+        ChatBotViewModel(navigator, get(), get(), get(), get(), get(), get())
     }
 
     single { (navigator: Navigator, tabNavigator: TabNavigator) ->
@@ -88,4 +89,6 @@ val commonModule = module {
     single { getCurrentLocalization() }
 
     single<ModelDownloadOrchestrator> { DefaultModelDownloadOrchestrator(get()) }
+
+    singleOf(::ChatHistoryRepository)
 }

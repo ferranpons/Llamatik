@@ -6,9 +6,12 @@ import androidx.compose.material.icons.automirrored.rounded.AirplaneTicket
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.Help
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.automirrored.rounded.TextSnippet
+import androidx.compose.material.icons.outlined.AddComment
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Assistant
 import androidx.compose.material.icons.rounded.Book
@@ -30,8 +33,8 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Password
 import androidx.compose.material.icons.rounded.People
@@ -63,7 +66,7 @@ object LlamatikIcons {
     val Close = Icons.Rounded.Close
     val Person = Icons.Rounded.Person
     val Settings = Icons.Rounded.Settings
-    val Info = Icons.Rounded.Info
+    val Info = Icons.Outlined.Info
     val Home = Icons.Rounded.Home
     val Inbox = Icons.Rounded.Email
     val Favorite = Icons.Rounded.Favorite
@@ -107,6 +110,9 @@ object LlamatikIcons {
     val Delete = Icons.Rounded.Delete
     val Copy = Icons.Rounded.ContentCopy
     val Paste = Icons.Rounded.ContentPaste
+    val ChatHistory = Icons.AutoMirrored.Rounded.List
+    val TemporaryChat = Icons.Rounded.HistoryToggleOff
+    val NewConversation = Icons.Outlined.AddComment
 }
 
 /**

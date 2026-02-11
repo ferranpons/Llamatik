@@ -174,4 +174,10 @@ internal object ChineseLocalization : Localization {
 
     override val copy = "复制"
     override val paste = "粘贴"
+
+    override val chatHistory = "聊天记录"
+    override val noChatsYet = "暂无聊天"
+    override val temporaryChat = "临时聊天"
+    override val messages = "条消息"
+    override val temporaryChatExplanation = "已开启临时聊天，本次对话不会保存在设备上。"
 }

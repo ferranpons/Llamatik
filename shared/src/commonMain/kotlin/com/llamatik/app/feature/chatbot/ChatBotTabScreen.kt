@@ -51,6 +51,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.chatbot.ui.ChatHistoryBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ChatInputBox
 import com.llamatik.app.feature.chatbot.ui.ModelSelectorBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
@@ -325,12 +326,27 @@ class ChatBotTabScreen : Screen {
                             }
                             IconButton(
                                 onClick = {
+                                    showSuggestions.value = false
+                                    viewModel.onToggleTemporaryChat()
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = LlamatikIcons.TemporaryChat,
+                                    contentDescription = localization.temporaryChat,
+                                    tint = if (state.isTemporaryChat)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            IconButton(
+                                onClick = {
                                     showSuggestions.value = true
                                     viewModel.onClearConversation()
                                 }
                             ) {
                                 Icon(
-                                    imageVector = LlamatikIcons.Delete,
+                                    imageVector = LlamatikIcons.NewConversation,
                                     contentDescription = "Delete Conversation"
                                 )
                             }
@@ -409,6 +425,7 @@ class ChatBotTabScreen : Screen {
         showSettingsSheet: MutableState<Boolean>,
         showModelSelectorSheet: MutableState<Boolean>,
     ) {
+        val showChatHistorySheet = remember { mutableStateOf(false) }
         var input by androidx.compose.runtime.saveable.rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue())
         }
@@ -432,9 +449,15 @@ class ChatBotTabScreen : Screen {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     ChatHeader()
+                    if (state.isTemporaryChat) {
+                        TemporaryChatIndicator(localization = localization)
+                    }
                     LatestNewsCarousel(viewModel, localization, state)
                 }
             } else {
+                if (state.isTemporaryChat) {
+                    TemporaryChatIndicator(localization = localization)
+                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -476,6 +499,7 @@ class ChatBotTabScreen : Screen {
                 showSuggestions = showSuggestions,
                 input = input,
                 onInputChange = { input = it },
+                onOpenChatHistory = { showChatHistorySheet.value = true },
                 onOpenModelSelector = { showModelSelectorSheet.value = true },
                 onOpenSettings = { showSettingsSheet.value = true },
                 onMicClick = {
@@ -514,6 +538,22 @@ class ChatBotTabScreen : Screen {
                     }
                 }
             )
+
+            if (showChatHistorySheet.value) {
+                ChatHistoryBottomSheet(
+                    localization = localization,
+                    sessions = state.chatSessions,
+                    onLoad = { id ->
+                        viewModel.onLoadChatSession(id)
+                        showSuggestions.value = false
+                        showChatHistorySheet.value = false
+                    },
+                    onDelete = { id ->
+                        viewModel.onDeleteChatSession(id)
+                    },
+                    onDismiss = { showChatHistorySheet.value = false }
+                )
+            }
         }
     }
 
@@ -634,6 +674,43 @@ class ChatBotTabScreen : Screen {
                     if (index == state.latestNews.size - 1) {
                         Spacer(modifier = Modifier.size(16.dp))
                     }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TemporaryChatIndicator(
+        localization: Localization,
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = LlamatikIcons.TemporaryChat,
+                    contentDescription = localization.temporaryChat,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Spacer(modifier = Modifier.size(8.dp))
+
+                Column {
+                    Text(
+                        text = localization.temporaryChatExplanation,
+                        style = Typography.get().bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
