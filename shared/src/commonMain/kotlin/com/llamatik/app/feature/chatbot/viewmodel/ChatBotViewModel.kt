@@ -31,6 +31,7 @@ import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.library.platform.LlamaBridge
+import com.llamatik.library.platform.WhisperBridge
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -153,7 +154,6 @@ class ChatBotViewModel(
         )
 
         if (migrated.isNotBlank() && migrated != rawPath) {
-            // Persist the new stable path so next start is clean
             runCatching { getModelsUseCase.saveModelPath(model.name, migrated) }
         }
 
@@ -165,9 +165,7 @@ class ChatBotViewModel(
         embedFilePath: String? = null,
         generatorFilePath: String? = null
     ) {
-        navigator?.let {
-            this.navigator = it
-        }
+        navigator?.let { this.navigator = it }
         if (started) return
         started = true
 
@@ -182,35 +180,54 @@ class ChatBotViewModel(
             }
 
             getAllNewsUseCase.invoke()
-                .onSuccess {
-                    _state.value = _state.value.copy(latestNews = it)
-                }
-                .onFailure { error ->
-                    Logger.e(error.message ?: "Unknown error")
-                }
+                .onSuccess { _state.value = _state.value.copy(latestNews = it) }
+                .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             getModelsUseCase.getDefaultEmbedModels()
-                .onSuccess {
-                    _state.value = _state.value.copy(embedModels = it)
-                }
-                .onFailure { error ->
-                    Logger.e(error.message ?: "Unknown error")
-                }
+                .onSuccess { _state.value = _state.value.copy(embedModels = it) }
+                .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
+            // --- STT models list + attempt load any already-downloaded model ---
             getModelsUseCase.getDefaultSTTModels()
-                .onSuccess {
-                    _state.value = _state.value.copy(sttModels = it)
+                .onSuccess { models ->
+                    // Try to init any already-downloaded STT models
+                    for (model in models) {
+                        val path = resolveAndMigratePath(model) ?: continue
+                        Logger.d("LlamaVM - Init STT Model: ${model.name} at $path")
+                        val loaded = WhisperBridge.initModel(path)
+                        if (loaded) {
+                            _state.value = _state.value.copy(
+                                selectedSttModelName = model.name,
+                                isSttModelLoaded = true
+                            )
+                            _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoaded)
+                            break
+                        } else {
+                            Logger.e { "LlamaVM - failed to load STT model ${model.name}" }
+                            _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoadError)
+                        }
+                    }
+
+                    val normalized = models.map { m ->
+                        val path = resolveAndMigratePath(m)
+                        if (!path.isNullOrBlank()) m.copy(localPath = path, fileName = path) else m
+                    }
+
+                    _state.value = _state.value.copy(sttModels = normalized)
+
+                    // If privacy already accepted, start STT initial setup if needed (after list is ready)
+                    if (hasAcceptedPrivacy) {
+                        startSttInitialSetupIfNeeded(normalized)
+                    }
                 }
-                .onFailure { error ->
-                    Logger.e(error.message ?: "Unknown error")
-                }
+                .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             val summaries = chatHistoryRepository.getSummaries()
             _state.value = _state.value.copy(chatSessions = summaries)
 
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess { models ->
-                    // Try to init any already-downloaded generate models (from state or Settings)
+                    // Try to init any already-downloaded generate models
                     for (model in models) {
                         val path = resolveAndMigratePath(model) ?: continue
 
@@ -231,7 +248,6 @@ class ChatBotViewModel(
                         }
                     }
 
-                    // Update localPath in state with the resolved (migrated) one so UI shows it
                     val normalized = models.map { m ->
                         val path = resolveAndMigratePath(m)
                         if (!path.isNullOrBlank()) m.copy(localPath = path, fileName = path) else m
@@ -241,6 +257,7 @@ class ChatBotViewModel(
 
                     if (hasAcceptedPrivacy) {
                         startInitialSetupIfNeeded(normalized)
+                        // (STT setup is also launched when STT list loads; this ensures both paths are covered)
                     }
                 }
                 .onFailure { error ->
@@ -261,23 +278,17 @@ class ChatBotViewModel(
     }
 
     /**
-     * Check if we already have at least one generate model locally.
-     * If not, automatically download and initialize the default model.
-     * We prefer Gemma 3 by name if available.
+     * Initial setup: download default generate model if none exists.
      */
     private suspend fun startInitialSetupIfNeeded(models: List<LlamaModel>) {
         if (models.isEmpty()) return
 
-        // Do we already have a local path for any generate model?
         val hasLocal = models.any { model ->
             val resolved = resolveAndMigratePath(model)
             !resolved.isNullOrEmpty()
         }
-        if (hasLocal) {
-            return
-        }
+        if (hasLocal) return
 
-        // ---- Prefer Gemma 3 model by default ----
         val defaultModel = models.firstOrNull {
             it.name.contains("gemma 3", ignoreCase = true) ||
                     it.name.contains("gemma3", ignoreCase = true)
@@ -292,26 +303,13 @@ class ChatBotViewModel(
             initialSetupProgress = 0
         )
 
-        updateDownload(url) {
-            it.copy(
-                inProgress = true,
-                progress = 0,
-                done = false,
-                error = null
-            )
-        }
+        updateDownload(url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
 
         getModelsUseCase.downloadModel(url) { bytes, totalBytes ->
             val progress = if (totalBytes > 0) {
                 ((bytes.toFloat() / totalBytes.toFloat()) * 100f).toInt()
             } else 0
-
-            updateDownload(url) {
-                it.copy(
-                    inProgress = true,
-                    progress = progress
-                )
-            }
+            updateDownload(url) { it.copy(inProgress = true, progress = progress) }
             _state.value = _state.value.copy(initialSetupProgress = progress)
         }.onSuccess { tempFile ->
             Logger.d("LlamaVM - initial setup download finished for ${defaultModel.name}")
@@ -321,10 +319,7 @@ class ChatBotViewModel(
 
             _state.value = _state.value.copy(
                 generateModels = _state.value.generateModels.map {
-                    if (it.url == url) it.copy(
-                        fileName = path,
-                        localPath = path
-                    ) else it
+                    if (it.url == url) it.copy(fileName = path, localPath = path) else it
                 }
             )
 
@@ -339,34 +334,88 @@ class ChatBotViewModel(
                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
                 notifyGenerateModelLoadedForReview()
             } else {
-                _state.value = _state.value.copy(
-                    isInitialSetup = false
-                )
+                _state.value = _state.value.copy(isInitialSetup = false)
                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
             }
 
-            updateDownload(url) {
-                it.copy(
-                    inProgress = false,
-                    progress = 100,
-                    done = true,
-                    error = null
-                )
-            }
+            updateDownload(url) { it.copy(inProgress = false, progress = 100, done = true, error = null) }
         }.onFailure { error ->
             Logger.e(error.message ?: "Unknown error") {
                 "LlamaVM - initial setup download failed for ${defaultModel.name}"
             }
+            _state.value = _state.value.copy(isInitialSetup = false)
+            updateDownload(url) { it.copy(inProgress = false, error = error.message, done = false) }
+        }
+    }
+
+    /**
+     * Initial setup: download default STT model if none exists.
+     * Same logic as generate initial setup, but loads WhisperBridge.
+     */
+    private suspend fun startSttInitialSetupIfNeeded(models: List<LlamaModel>) {
+        if (models.isEmpty()) return
+
+        val hasLocal = models.any { model ->
+            val resolved = resolveAndMigratePath(model)
+            !resolved.isNullOrEmpty()
+        }
+        if (hasLocal) return
+
+        val defaultModel = models.firstOrNull {
+            it.name.contains("whisper", ignoreCase = true) ||
+                    it.name.contains("tiny", ignoreCase = true)
+        } ?: models.first()
+
+        val url = defaultModel.url
+        Logger.d("LlamaVM - initial setup: downloading default STT model ${defaultModel.name}")
+
+        _state.value = _state.value.copy(
+            isInitialSetup = true,
+            initialSetupModelName = defaultModel.name,
+            initialSetupProgress = 0
+        )
+
+        updateDownload(url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
+
+        getModelsUseCase.downloadModel(url) { bytes, totalBytes ->
+            val progress = if (totalBytes > 0) {
+                ((bytes.toFloat() / totalBytes.toFloat()) * 100f).toInt()
+            } else 0
+            updateDownload(url) { it.copy(inProgress = true, progress = progress) }
+            _state.value = _state.value.copy(initialSetupProgress = progress)
+        }.onSuccess { tempFile ->
+            Logger.d("LlamaVM - initial setup download finished for STT ${defaultModel.name}")
+            val path = tempFile.absolutePath()
+
+            getModelsUseCase.saveModelPath(defaultModel.name, path)
+
             _state.value = _state.value.copy(
-                isInitialSetup = false
+                sttModels = _state.value.sttModels.map {
+                    if (it.url == url) it.copy(fileName = path, localPath = path) else it
+                }
             )
-            updateDownload(url) {
-                it.copy(
-                    inProgress = false,
-                    error = error.message,
-                    done = false
+
+            val loaded = WhisperBridge.initModel(path)
+            if (loaded) {
+                _state.value = _state.value.copy(
+                    selectedSttModelName = defaultModel.name,
+                    isSttModelLoaded = true,
+                    isInitialSetup = false,
+                    initialSetupProgress = 100
                 )
+                _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoaded)
+            } else {
+                _state.value = _state.value.copy(isInitialSetup = false)
+                _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoadError)
             }
+
+            updateDownload(url) { it.copy(inProgress = false, progress = 100, done = true, error = null) }
+        }.onFailure { error ->
+            Logger.e(error.message ?: "Unknown error") {
+                "LlamaVM - initial setup STT download failed for ${defaultModel.name}"
+            }
+            _state.value = _state.value.copy(isInitialSetup = false)
+            updateDownload(url) { it.copy(inProgress = false, error = error.message, done = false) }
         }
     }
 
@@ -423,20 +472,35 @@ class ChatBotViewModel(
         }
     }
 
+    fun onSttModelSelected(model: LlamaModel) {
+        screenModelScope.launch(Dispatchers.IO) {
+            val path = resolveAndMigratePath(model)
+            if (!path.isNullOrEmpty()) {
+                Logger.d("LlamaVM - initSttModel $path")
+                val isLoaded = WhisperBridge.initModel(path)
+                if (isLoaded) {
+                    _state.value = _state.value.copy(
+                        selectedSttModelName = model.name,
+                        isSttModelLoaded = true
+                    )
+                    _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoadError)
+                }
+            } else {
+                Logger.e { "LlamaVM - no local path for STT model ${model.name}" }
+                _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoadError)
+            }
+        }
+    }
+
     fun onDownloadModel(model: LlamaModel) {
         val url = model.url
         val existingJob = downloadJobs[url]
         if (existingJob?.isActive == true) return
 
         val job = screenModelScope.launch(Dispatchers.IO) {
-            updateDownload(url) {
-                it.copy(
-                    inProgress = true,
-                    progress = 0,
-                    done = false,
-                    error = null
-                )
-            }
+            updateDownload(url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
 
             modelDownloadOrchestrator.download(model).collect { ev ->
                 when (ev) {
@@ -446,38 +510,26 @@ class ChatBotViewModel(
 
                     is DownloadEvent.Completed -> {
                         updateDownload(url) {
-                            it.copy(
-                                inProgress = false,
-                                progress = 100,
-                                done = true,
-                                error = null
-                            )
+                            it.copy(inProgress = false, progress = 100, done = true, error = null)
                         }
                         getModelsUseCase.saveModelPath(model.name, ev.localPath)
 
                         _state.value = _state.value.copy(
                             embedModels = _state.value.embedModels.map {
-                                if (it.url == url) it.copy(
-                                    fileName = ev.localPath,
-                                    localPath = ev.localPath
-                                ) else it
+                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
                             },
                             generateModels = _state.value.generateModels.map {
-                                if (it.url == url) it.copy(
-                                    fileName = ev.localPath,
-                                    localPath = ev.localPath
-                                ) else it
+                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                            },
+                            sttModels = _state.value.sttModels.map {
+                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
                             },
                         )
                     }
 
                     is DownloadEvent.Failed -> {
                         updateDownload(url) {
-                            it.copy(
-                                inProgress = false,
-                                done = false,
-                                error = ev.message
-                            )
+                            it.copy(inProgress = false, done = false, error = ev.message)
                         }
                     }
                 }
@@ -508,7 +560,6 @@ class ChatBotViewModel(
 
                 if (!path.isNullOrEmpty()) {
                     Logger.d("LlamaVM - delete model file at $path")
-
                     try {
                         LlamatikTempFile(model.name).delete(path)
                     } catch (e: Throwable) {
@@ -519,17 +570,17 @@ class ChatBotViewModel(
                 getModelsUseCase.deleteModelPath(model)
                 _state.value = _state.value.copy(
                     embedModels = _state.value.embedModels.map {
-                        if (it.url == model.url) it.copy(
-                            fileName = null,
-                            localPath = null
-                        ) else it
+                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
                     },
                     generateModels = _state.value.generateModels.map {
-                        if (it.url == model.url) it.copy(
-                            fileName = null,
-                            localPath = null
-                        ) else it
+                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
                     },
+                    sttModels = _state.value.sttModels.map {
+                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
+                    },
+                    // If user deleted the currently selected STT model, mark not loaded
+                    selectedSttModelName = if (_state.value.selectedSttModelName == model.name) null else _state.value.selectedSttModelName,
+                    isSttModelLoaded = if (_state.value.selectedSttModelName == model.name) false else _state.value.isSttModelLoaded
                 )
             } catch (t: Throwable) {
                 Logger.e(t) { "LlamaVM - error deleting model ${model.name}" }
@@ -770,7 +821,7 @@ class ChatBotViewModel(
                         )
                     } finally {
                         persistCurrentConversationIfNeeded()
-                        if (activeRequestId == null) { // stopped or finished
+                        if (activeRequestId == null) {
                             _state.value = _state.value.copy(isGenerating = false)
                         }
                     }
@@ -902,10 +953,15 @@ class ChatBotViewModel(
 
         // After onboarding is closed, start initial setup (Gemma 3 download) if needed.
         screenModelScope.launch(Dispatchers.IO) {
-            val models = _state.value.generateModels.ifEmpty {
+            val genModels = _state.value.generateModels.ifEmpty {
                 getModelsUseCase.getDefaultGenerateModels().getOrElse { emptyList() }
             }
-            startInitialSetupIfNeeded(models)
+            startInitialSetupIfNeeded(genModels)
+
+            val sttModels = _state.value.sttModels.ifEmpty {
+                getModelsUseCase.getDefaultSTTModels().getOrElse { emptyList() }
+            }
+            startSttInitialSetupIfNeeded(sttModels)
         }
     }
 
@@ -941,17 +997,6 @@ class ChatBotViewModel(
     private fun currentSystemPrompt(): String {
         return currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
     }
-
-    private fun buildDirectPrompt(input: String): String {
-        return buildString {
-            append(currentSystemPrompt())
-            append("\n\nUser:\n")
-            append(input.trim())
-            append("\n\nAssistant:")
-        }
-    }
-
-    // --- Echo/loop guard utilities ---
 
     private fun looksLikeEchoOrLoop(full: String, user: String): Boolean {
         val f = full.trim()
@@ -1086,15 +1131,14 @@ data class ChatBotState(
     val sttModels: List<LlamaModel> = emptyList(),
     val isEmbedModelLoaded: Boolean = false,
     val isGenerateModelLoaded: Boolean = false,
+    val isSttModelLoaded: Boolean = false,
     val selectedEmbedModelName: String? = null,
     val selectedGenerateModelName: String? = null,
+    val selectedSttModelName: String? = null,
     val isGenerating: Boolean = false,
-
-    // Initial setup overlay state
     val isInitialSetup: Boolean = false,
     val initialSetupModelName: String? = null,
     val initialSetupProgress: Int = 0,
-
     val generateSettings: GenerateSettings = GenerateSettings(),
     val chatSessions: List<ChatSessionSummary> = emptyList(),
     val isTemporaryChat: Boolean = false,
@@ -1112,5 +1156,7 @@ sealed class ChatBotSideEffects {
     data object OnEmbedModelLoadError : ChatBotSideEffects()
     data object OnGenerateModelLoaded : ChatBotSideEffects()
     data object OnGenerateModelLoadError : ChatBotSideEffects()
+    data object OnSttModelLoaded : ChatBotSideEffects()
+    data object OnSttModelLoadError : ChatBotSideEffects()
     data object OnSettingsChanged : ChatBotSideEffects()
 }

@@ -96,6 +96,7 @@ class ChatBotTabScreen : Screen {
 
         val loadingEmbedModelName = remember { mutableStateOf<String?>(null) }
         val loadingGenerateModelName = remember { mutableStateOf<String?>(null) }
+        val loadingSttModelName = remember { mutableStateOf<String?>(null) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
@@ -121,6 +122,7 @@ class ChatBotTabScreen : Screen {
             showModelSelectorSheet = showModelSelectorSheet,
             loadingEmbedModelName = loadingEmbedModelName,
             loadingGenerateModelName = loadingGenerateModelName,
+            loadingSttModelName = loadingSttModelName,
         )
 
         LlamatikTheme {
@@ -189,12 +191,19 @@ class ChatBotTabScreen : Screen {
                 ModelSelectorBottomSheet(
                     downloadingMap = downloadingMap,
                     progressMap = progressMap,
+
                     selectedEmbedModelName = state.selectedEmbedModelName,
                     selectedGenerateModelName = state.selectedGenerateModelName,
+                    selectedSttModelName = state.selectedSttModelName,
+
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
+                    sttModels = state.sttModels,
+
                     loadingEmbedModelName = loadingEmbedModelName.value,
                     loadingGenerateModelName = loadingGenerateModelName.value,
+                    loadingSttModelName = loadingSttModelName.value,
+
                     onEmbedModelSelectedClicked = { model ->
                         loadingEmbedModelName.value = model.name
                         viewModel.onEmbedModelSelected(model)
@@ -203,6 +212,11 @@ class ChatBotTabScreen : Screen {
                         loadingGenerateModelName.value = model.name
                         viewModel.onGenerateModelSelected(model)
                     },
+                    onSttModelSelectedClicked = { model ->
+                        loadingSttModelName.value = model.name
+                        viewModel.onSttModelSelected(model)
+                    },
+
                     onDownloadModelClicked = { model ->
                         notificationPermissionRequester.requestAndRun(
                             onGranted = { viewModel.onDownloadModel(model) },
@@ -238,6 +252,7 @@ class ChatBotTabScreen : Screen {
         showSettingsSheet: MutableState<Boolean>,
         loadingEmbedModelName: MutableState<String?>,
         loadingGenerateModelName: MutableState<String?>,
+        loadingSttModelName: MutableState<String?>,
     ) {
         val sideEffects = viewModel.sideEffects.collectAsState(ChatBotSideEffects.Initial)
         sideEffects.value.apply {
@@ -258,6 +273,7 @@ class ChatBotTabScreen : Screen {
                 }
 
                 ChatBotSideEffects.ScrollToBottom -> {}
+
                 ChatBotSideEffects.OnEmbedModelLoaded -> {
                     loadingEmbedModelName.value = null
                     showModelSelectorSheet.value = false
@@ -265,6 +281,11 @@ class ChatBotTabScreen : Screen {
 
                 ChatBotSideEffects.OnGenerateModelLoaded -> {
                     loadingGenerateModelName.value = null
+                    showModelSelectorSheet.value = false
+                }
+
+                ChatBotSideEffects.OnSttModelLoaded -> {
+                    loadingSttModelName.value = null
                     showModelSelectorSheet.value = false
                 }
 
@@ -278,6 +299,10 @@ class ChatBotTabScreen : Screen {
 
                 ChatBotSideEffects.OnGenerateModelLoadError -> {
                     loadingGenerateModelName.value = null
+                }
+
+                ChatBotSideEffects.OnSttModelLoadError -> {
+                    loadingSttModelName.value = null
                 }
             }
         }
@@ -482,19 +507,8 @@ class ChatBotTabScreen : Screen {
             val recorder = remember { AudioRecorder() }
             var isListening by remember { mutableStateOf(false) }
             var isTranscribing by remember { mutableStateOf(false) }
-            var whisperReady by remember { mutableStateOf(false) }
 
-            val whisperModelPath =
-                WhisperBridge.getModelPath("ggml-tiny-q8_0.bin") // <- rename to your actual bundled model filename
-
-            LaunchedEffect(whisperModelPath) {
-                if (!whisperReady) {
-                    whisperReady = withContext(Dispatchers.Default) {
-                        WhisperBridge.initModel(whisperModelPath)
-                    }
-                }
-            }
-
+            val whisperReady = state.isSttModelLoaded
             val tempWavPath = AudioPaths.tempWavPath()
 
             ChatInputBox(
@@ -517,7 +531,7 @@ class ChatBotTabScreen : Screen {
                             scope.launch {
                                 try {
                                     if (!recorder.isRecording) {
-                                        // Start recording (set UI state only after it succeeds to avoid "flash then hide")
+                                        // Start recording
                                         showSuggestions.value = false
                                         recorder.start(tempWavPath)
                                         isListening = true
@@ -529,6 +543,7 @@ class ChatBotTabScreen : Screen {
                                         val wavPath = recorder.stop()
 
                                         val text = withContext(Dispatchers.Default) {
+                                            // Model already selected + loaded by the VM
                                             WhisperBridge.transcribeWav(wavPath, language = null).trim()
                                         }
 
@@ -540,7 +555,6 @@ class ChatBotTabScreen : Screen {
                                         }
                                     }
                                 } catch (t: Throwable) {
-                                    // Ensure UI resets on error + avoid leaked recorder state
                                     isListening = false
                                     isTranscribing = false
                                     runCatching { if (recorder.isRecording) recorder.stop() }

@@ -183,4 +183,6 @@ internal object ChineseLocalization : Localization {
     override val voiceInput = "语音输入"
     override val listening = "正在聆听…"
     override val transcribing = "正在转写…"
+    override val embedModels = "嵌入模型"
+    override val sttModels = "语音转文本模型"
 }

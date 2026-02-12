@@ -182,4 +182,6 @@ tout en évitant les sorties volumineuses sauf demande explicite.
     override val voiceInput = "Saisie vocale"
     override val listening = "Écoute en cours…"
     override val transcribing = "Transcription en cours…"
+    override val embedModels = "Modèles d'embedding"
+    override val sttModels = "Modèles de reconnaissance vocale"
 }

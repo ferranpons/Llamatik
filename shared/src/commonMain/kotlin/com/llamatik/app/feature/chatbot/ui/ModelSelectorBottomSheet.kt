@@ -42,12 +42,16 @@ fun ModelSelectorBottomSheet(
     progressMap: Map<String, Float>,
     selectedEmbedModelName: String?,
     selectedGenerateModelName: String?,
+    selectedSttModelName: String?,
     embedModels: List<LlamaModel>,
     generateModels: List<LlamaModel>,
+    sttModels: List<LlamaModel>,
     loadingEmbedModelName: String?,
     loadingGenerateModelName: String?,
+    loadingSttModelName: String?,
     onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
     onGenerateModelSelectedClicked: (LlamaModel) -> Unit,
+    onSttModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit,
     onDeleteModelClicked: (LlamaModel) -> Unit,
     onCancelDownloadClicked: (LlamaModel) -> Unit,
@@ -68,6 +72,7 @@ fun ModelSelectorBottomSheet(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .verticalScroll(rememberScrollState())
         ) {
+            // --- Generate models ---
             Text(
                 text = localization.generateModels,
                 style = Typography.get().titleLarge
@@ -88,11 +93,11 @@ fun ModelSelectorBottomSheet(
                 )
                 Spacer(Modifier.height(12.dp))
             }
-/*
-            Spacer(Modifier.height(32.dp))
 
+            // --- Embed models ---
+            Spacer(Modifier.height(24.dp))
             Text(
-                text = "Embed Models",
+                text = localization.embedModels,
                 style = Typography.get().titleLarge
             )
             Spacer(Modifier.height(8.dp))
@@ -103,12 +108,37 @@ fun ModelSelectorBottomSheet(
                     isCurrent = (model.name == selectedEmbedModelName),
                     isDownloading = downloadingMap[model.url] == true,
                     progress = progressMap[model.url] ?: 0f,
+                    isSelecting = (model.name == loadingEmbedModelName),
                     onModelSelectedClicked = onEmbedModelSelectedClicked,
-                    onDownloadModelClicked = onDownloadModelClicked
+                    onDownloadModelClicked = onDownloadModelClicked,
+                    onDeleteModelClicked = onDeleteModelClicked,
+                    onCancelDownloadClicked = onCancelDownloadClicked,
                 )
                 Spacer(Modifier.height(12.dp))
             }
- */
+
+            // --- STT models ---
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = "Speech to Text Models",
+                style = Typography.get().titleLarge
+            )
+            Spacer(Modifier.height(8.dp))
+
+            sttModels.forEach { model ->
+                ModelRow(
+                    model = model,
+                    isCurrent = (model.name == selectedSttModelName),
+                    isDownloading = downloadingMap[model.url] == true,
+                    progress = progressMap[model.url] ?: 0f,
+                    isSelecting = (model.name == loadingSttModelName),
+                    onModelSelectedClicked = onSttModelSelectedClicked,
+                    onDownloadModelClicked = onDownloadModelClicked,
+                    onDeleteModelClicked = onDeleteModelClicked,
+                    onCancelDownloadClicked = onCancelDownloadClicked,
+                )
+                Spacer(Modifier.height(12.dp))
+            }
         }
     }
 }

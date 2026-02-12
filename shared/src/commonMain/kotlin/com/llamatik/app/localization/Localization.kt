@@ -128,6 +128,8 @@ interface Localization {
     val voiceInput: String
     val listening: String
     val transcribing: String
+    val embedModels: String
+    val sttModels: String
 }
 
 enum class AvailableLanguages {

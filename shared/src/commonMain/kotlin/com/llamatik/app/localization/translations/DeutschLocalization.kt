@@ -183,4 +183,6 @@ vermeide jedoch große Ausgaben, sofern sie nicht ausdrücklich angefordert werd
     override val voiceInput = "Spracheingabe"
     override val listening = "Hört zu…"
     override val transcribing = "Transkribiert…"
+    override val embedModels = "Embedding-Modelle"
+    override val sttModels = "Spracherkennungsmodelle"
 }
