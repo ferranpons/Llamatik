@@ -47,6 +47,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -160,7 +161,8 @@ class ChatBotTabScreen : Screen {
                             )
                             Text(
                                 text = localization.downloadingMainModels,
-                                style = Typography.get().bodyMedium
+                                style = Typography.get().bodyMedium,
+                                textAlign = TextAlign.Center
                             )
                             if (state.initialSetupProgress > 0) {
                                 Text(

@@ -22,49 +22,75 @@ actual class AudioRecorder actual constructor() {
     private var thread: Thread? = null
 
     actual suspend fun start(outputWavPath: String) = withContext(Dispatchers.IO) {
-        if (recording.get()) return@withContext
+        if (!recording.compareAndSet(false, true)) return@withContext
 
         val file = File(outputWavPath)
         file.parentFile?.mkdirs()
         if (file.exists()) file.delete()
 
-        val info = DataLine.Info(TargetDataLine::class.java, format)
-        val target = (AudioSystem.getLine(info) as TargetDataLine).apply {
-            open(format)
-            start()
-        }
-
-        line = target
-        outputPath = outputWavPath
-        recording.set(true)
-
-        thread = Thread {
-            try {
-                AudioInputStream(target, format, AudioSystem.NOT_SPECIFIED).use { ais ->
-                    AudioSystem.write(ais, AudioFileFormat.Type.WAVE, file)
-                }
-            } catch (t: Throwable) {
-                t.printStackTrace()
+        try {
+            val info = DataLine.Info(TargetDataLine::class.java, format)
+            val target = (AudioSystem.getLine(info) as TargetDataLine).apply {
+                open(format)
+                start()
             }
-        }.apply { start() }
+
+            line = target
+            outputPath = outputWavPath
+
+            thread = Thread({
+                try {
+                    // ✅ This constructor exists reliably on JDKs:
+                    AudioInputStream(target).use { ais ->
+                        AudioSystem.write(ais, AudioFileFormat.Type.WAVE, file)
+                    }
+                } catch (t: Throwable) {
+                    println("[AudioRecorder] Error while writing audio: ${t.message}")
+                    t.printStackTrace()
+                } finally {
+                    // Ensure the line is closed no matter what
+                    try {
+                        if (target.isOpen) {
+                            target.stop()
+                            target.close()
+                        }
+                    } catch (_: Throwable) {
+                    }
+                    recording.set(false)
+                }
+            }, "AudioRecorder-Writer").apply {
+                isDaemon = true
+                start()
+            }
+        } catch (t: Throwable) {
+            recording.set(false)
+            line = null
+            outputPath = null
+            thread = null
+            throw t
+        }
     }
 
     actual suspend fun stop(): String = withContext(Dispatchers.IO) {
         val p = outputPath ?: ""
-        if (!recording.get()) return@withContext p
+        if (!recording.get() && line == null) return@withContext p
 
         recording.set(false)
 
         try {
-            line?.stop()
-            line?.close()
+            line?.let {
+                if (it.isOpen) {
+                    it.stop()
+                    it.close()
+                }
+            }
         } catch (_: Throwable) {
         } finally {
             line = null
         }
 
         try {
-            thread?.join(1500)
+            thread?.join(2500)
         } catch (_: Throwable) {
         } finally {
             thread = null

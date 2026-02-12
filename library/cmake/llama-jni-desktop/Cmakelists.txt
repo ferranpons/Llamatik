@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(llama_jni_desktop LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,11 +15,21 @@ set(LLAMA_INCLUDE_DIR "${LLAMA_CPP_DIR}/include")
 set(JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/llama_jni.cpp")
 set(JNI_INCLUDE_DIR "${REPO_ROOT}/library/src/commonMain/c_interop/include")
 
+# These MUST be absolute or CMake will look in the cmake folder
+set(WHISPER_STT_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_stt.cpp")
+set(WHISPER_JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_jni.cpp")
+
+# Prefer repo-root whisper.cpp
+set(WHISPER_CPP_DIR "${REPO_ROOT}/whisper.cpp")
+
 message(STATUS "REPO_ROOT        = ${REPO_ROOT}")
 message(STATUS "LLAMA_CPP_DIR    = ${LLAMA_CPP_DIR}")
 message(STATUS "LLAMA_INCLUDE_DIR= ${LLAMA_INCLUDE_DIR}")
 message(STATUS "JNI_SRC          = ${JNI_SRC}")
 message(STATUS "JNI_INCLUDE_DIR  = ${JNI_INCLUDE_DIR}")
+message(STATUS "WHISPER_CPP_DIR  = ${WHISPER_CPP_DIR}")
+message(STATUS "WHISPER_STT_SRC  = ${WHISPER_STT_SRC}")
+message(STATUS "WHISPER_JNI_SRC  = ${WHISPER_JNI_SRC}")
 
 if(NOT EXISTS "${JNI_SRC}")
     message(FATAL_ERROR "JNI source not found: ${JNI_SRC}")
@@ -35,37 +45,36 @@ endif()
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
-
-# Important for schema->grammar: try to build llama.cpp common helpers
 set(LLAMA_BUILD_COMMON ON CACHE BOOL "" FORCE)
-
-# Disable curl for portability
 set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
-
-# Optional: avoid needing libomp on macOS
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama-wrapper-build")
 
+# -------------------------------
+# Whisper (optional but enabled if present)
+# -------------------------------
+set(HAVE_WHISPER OFF)
 
-set(WHISPER_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../whisper.cpp")
+if(EXISTS "${WHISPER_CPP_DIR}/CMakeLists.txt")
+    set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 
-# whisper.cpp options
-set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
-
-add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
+    add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
+    set(HAVE_WHISPER ON)
+else()
+    message(WARNING "whisper.cpp not found at ${WHISPER_CPP_DIR}. Desktop will build without Whisper.")
+    add_compile_definitions(LLAMATIK_NO_WHISPER=1)
+endif()
 
 # -------------------------------
 # JNI
 # -------------------------------
 find_package(JNI REQUIRED)
 
-# Some llama.cpp versions keep the schema-to-grammar implementation in different places.
-# We'll include only files that exist.
+# schema->grammar helper sources (optional)
 set(LLAMA_SCHEMA_SOURCES "")
-
 set(_cand1 "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
 set(_cand2 "${LLAMA_CPP_DIR}/common/json_schema_to_grammar.cpp")
 set(_cand3 "${LLAMA_CPP_DIR}/common/json-schema.cpp")
@@ -82,39 +91,60 @@ else()
     message(STATUS "Schema sources: ${LLAMA_SCHEMA_SOURCES}")
 endif()
 
-add_library(llama_jni SHARED
-        "${JNI_SRC}"
-        ${LLAMA_SCHEMA_SOURCES}
-        whisper_stt.cpp
-        whisper_jni.cpp
+# Collect sources
+set(LLAMA_JNI_SOURCES
+    "${JNI_SRC}"
+    ${LLAMA_SCHEMA_SOURCES}
 )
+
+# Only add whisper glue sources if they exist AND whisper is enabled
+if(HAVE_WHISPER)
+    if(NOT EXISTS "${WHISPER_STT_SRC}")
+        message(FATAL_ERROR "Whisper glue source not found: ${WHISPER_STT_SRC}")
+    endif()
+    if(NOT EXISTS "${WHISPER_JNI_SRC}")
+        message(FATAL_ERROR "Whisper glue source not found: ${WHISPER_JNI_SRC}")
+    endif()
+
+    list(APPEND LLAMA_JNI_SOURCES
+        "${WHISPER_STT_SRC}"
+        "${WHISPER_JNI_SRC}"
+    )
+endif()
+
+add_library(llama_jni SHARED ${LLAMA_JNI_SOURCES})
 
 target_include_directories(llama_jni
-        PRIVATE
-        "${LLAMA_INCLUDE_DIR}"
-        "${LLAMA_CPP_DIR}/common"
-        "${LLAMA_CPP_DIR}/vendor"
-        "${LLAMA_CPP_DIR}/vendor/nlohmann"
-        "${JNI_INCLUDE_DIR}"
-        "${JNI_INCLUDE_DIR}/.."
-        ${JNI_INCLUDE_DIRS}
-        ${WHISPER_CPP_DIR}
-        ${WHISPER_CPP_DIR}/include
+    PRIVATE
+    "${LLAMA_INCLUDE_DIR}"
+    "${LLAMA_CPP_DIR}/common"
+    "${LLAMA_CPP_DIR}/vendor"
+    "${LLAMA_CPP_DIR}/vendor/nlohmann"
+    "${JNI_INCLUDE_DIR}"
+    "${JNI_INCLUDE_DIR}/.."
+    ${JNI_INCLUDE_DIRS}
 )
 
-# Link llama core
+if(HAVE_WHISPER)
+    target_include_directories(llama_jni
+        PRIVATE
+        "${WHISPER_CPP_DIR}"
+        "${WHISPER_CPP_DIR}/include"
+    )
+endif()
+
 target_link_libraries(llama_jni
-        PRIVATE
-        llama
-        whisper
+    PRIVATE
+    llama
 )
 
-# If llama.cpp exports a 'common' target, link it (this is where schema helpers often live).
+if(HAVE_WHISPER)
+    target_link_libraries(llama_jni PRIVATE whisper)
+endif()
+
 if(TARGET common)
     target_link_libraries(llama_jni PRIVATE common)
     message(STATUS "Linking llama.cpp target: common")
 endif()
 
-set_target_properties(llama_jni PROPERTIES
-        OUTPUT_NAME "llama_jni"
-)
+set_target_properties(llama_jni PROPERTIES OUTPUT_NAME "llama_jni")
