@@ -69,11 +69,8 @@ fun ChatInputBox(
     onOpenChatHistory: () -> Unit,
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
-
-    // --- NEW: voice feedback ---
     isListening: Boolean,
     isTranscribing: Boolean,
-
     onMicClick: () -> Unit,
 ) {
     Box(
@@ -271,10 +268,7 @@ fun ChatInputBox(
                                     Spacer(modifier = Modifier.size(6.dp))
                                 }
 
-                                // Mic only when empty (your behavior), BUT:
-                                // - show Stop while listening
-                                // - disable while transcribing
-                                if (!canSend) {
+                                if (!canSend && !isGenerating && !isTranscribing) {
                                     val micEnabled = !isTranscribing && !isGenerating
                                     IconButton(
                                         onClick = { if (micEnabled) onMicClick() },

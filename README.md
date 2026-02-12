@@ -134,7 +134,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:0.15.0")
+    implementation("com.llamatik:library:0.16.0")
 }
 ```
 
@@ -232,6 +232,59 @@ interface GenStream {
     fun onError(message: String)
 }
 ```
+
+### Speech-to-Text (WhisperBridge)
+
+WhisperBridge exposes a small, platform-friendly wrapper around whisper.cpp for on-device speech-to-text.
+
+The workflow is:
+1.	Download a Whisper ggml model (e.g. ggml-tiny-q8_0.bin) to local storage (the app does this for you).
+2.	Initialize Whisper once with the local model path.
+3.	Record audio to a WAV file and transcribe it.
+
+### Whisper API surface
+
+```
+object WhisperBridge {
+    /** Returns a platform-specific absolute path for the model filename. */
+    fun getModelPath(modelFileName: String): String
+
+    /** Loads the model at [modelPath]. Returns true if loaded. */
+    fun initModel(modelPath: String): Boolean
+
+    /**
+     * Transcribes a WAV file and returns text.
+     * Tip: record WAV as 16 kHz, mono, 16-bit PCM for best compatibility.
+     */
+    fun transcribeWav(wavPath: String, language: String? = null): String
+
+    /** Frees native resources. */
+    fun release()
+}
+```
+
+#### Example
+
+```
+import com.llamatik.library.platform.WhisperBridge
+
+val modelPath = WhisperBridge.getModelPath("ggml-tiny-q8_0.bin")
+
+// 1) Init once (e.g. app start)
+check(WhisperBridge.initModel(modelPath)) { "Failed to load Whisper model at $modelPath" }
+
+// 2) Record to a WAV file (16kHz mono PCM16) using your own recorder
+val wavPath: String = "/path/to/recording.wav"
+
+// 3) Transcribe
+val text = WhisperBridge.transcribeWav(wavPath, language = null).trim()
+println(text)
+
+// 4) Optional: release on app shutdown
+WhisperBridge.release()
+```
+
+**Note**: WhisperBridge expects a WAV file path. Llamatik’s app uses AudioRecorder + AudioPaths.tempWavPath() to generate the WAV before calling transcribeWav(...).
 
 ## 🧑‍💻 Backend Usage
 
