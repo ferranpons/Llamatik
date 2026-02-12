@@ -24,8 +24,12 @@
 
 ## ✨ What is Llamatik?
 
-**Llamatik** is a **Kotlin Multiplatform library** that lets you run **large language models locally**
-using **llama.cpp**, with optional remote inference — all behind a **unified Kotlin API**.
+**Llamatik** is a Kotlin Multiplatform library that lets you run:
+
+- 🧠 **Large Language Models (LLMs)** via `llama.cpp`
+- 🎙 **Speech-to-Text (STT)** via `whisper.cpp`
+
+...fully **on-device**, with optional remote inference — all behind a **unified Kotlin API**.
 
 No Python.  
 No mandatory servers.  
@@ -42,19 +46,29 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 
 ### 🔐 On-device & Private
 - ✅ Fully offline inference via **llama.cpp**
-- ✅ No network, no data exfiltration
-- ✅ Works with **GGUF** models (Mistral, Phi, LLaMA, etc.)
-
-### 🧩 Kotlin Multiplatform
-- ✅ Shared Kotlin API across **Android, iOS, Desktop**
-- ✅ Native performance via Kotlin/Native + C++
-- ✅ Lightweight, dependency-free runtime
+- ✅ On-device speech recognition via **whisper.cpp**
+- ✅ No network required
+- ✅ No data exfiltration
+- ✅ Works with **GGUF** (LLMs) and **GGML** (Whisper) models
 
 ### 🧠 LLM Capabilities
 - ✅ Text generation (non-streaming & streaming)
 - ✅ Context-aware generation (system + history)
 - ✅ **Schema-constrained JSON generation**
 - ✅ Embeddings for vector search & RAG
+
+### 🎙 Speech-to-Text (whisper.cpp)
+- ✅ On-device transcription
+- ✅ Works fully offline
+- ✅ 16kHz mono WAV support
+- ✅ Selectable Whisper models
+- ✅ Integrated model download + management
+
+### 🧩 Kotlin Multiplatform
+- ✅ Shared API across **Android, iOS, Desktop**
+- ✅ Native C++ integration via Kotlin/Native
+- ✅ Static frameworks for iOS
+- ✅ JNI for Desktop
 
 ### 🌐 Hybrid & Remote
 - ✅ Optional HTTP client for remote inference
@@ -70,7 +84,9 @@ Want to see Llamatik in action before integrating it?
 The **Llamatik App** showcases:
 - On-device inference
 - Streaming generation
+- Speech-to-text (Whisper)
 - Privacy-first AI (no cloud required)
+- Downloadable models
 
 <a href="https://play.google.com/store/apps/details?id=com.llamatik.app.android"><img src="assets/google-play-button.png" width="200px"/></a>
 <a href="https://apple.co/3Md7EIh"><img src="assets/app-store-button.png" width="200px"/></a>
@@ -86,7 +102,7 @@ The **Llamatik App** showcases:
 
 ---
 
-## 🧱 Architecture
+## 🧱 Architecture (WIP)
 
 ```
 Your App
@@ -112,6 +128,7 @@ only configuration.
 ## 📦 Current Versions
 
 - llama.cpp version: [b7815](https://github.com/ggml-org/llama.cpp/releases/tag/b7815)
+- whisper.cpp version [v1.8.3](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.3)
 
 ---
 
@@ -294,7 +311,7 @@ Please go to the [Backend README.md](./backend/README.md) for more information.
 
 ## 🔍 Why Llamatik?
 
-- ✅ Built directly on llama.cpp
+- ✅ Built directly on llama.cpp and whisper.cpp
 - ✅ Offline-first & privacy-preserving
 - ✅ No runtime dependencies
 - ✅ Open-source (MIT)
