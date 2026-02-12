@@ -63,6 +63,7 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.permissions.rememberAudioPermissionRequester
 import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import com.llamatik.app.platform.AudioPaths
 import com.llamatik.app.platform.AudioRecorder
@@ -426,6 +427,7 @@ class ChatBotTabScreen : Screen {
         showModelSelectorSheet: MutableState<Boolean>,
     ) {
         val showChatHistorySheet = remember { mutableStateOf(false) }
+        val audioPermissionRequester = rememberAudioPermissionRequester()
         var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue())
         }
@@ -491,7 +493,6 @@ class ChatBotTabScreen : Screen {
                 }
             }
 
-            // ✅ Use an absolute temp file path per-platform (Android needs this; relative paths may fail)
             val tempWavPath = AudioPaths.tempWavPath()
 
             ChatInputBox(
@@ -507,48 +508,47 @@ class ChatBotTabScreen : Screen {
                 isListening = isListening,
                 isTranscribing = isTranscribing,
                 onMicClick = {
-                    if (!whisperReady || isTranscribing) return@ChatInputBox
+                    audioPermissionRequester.requestAndRun(
+                        onGranted = {
+                            if (!whisperReady || isTranscribing) return@requestAndRun
 
-                    scope.launch {
-                        try {
-                            if (!recorder.isRecording) {
-                                // Start recording
-                                isListening = true
-                                showSuggestions.value = false
-                                recorder.start(tempWavPath)
-                            } else {
-                                // Stop recording and transcribe
-                                isListening = false
-                                isTranscribing = true
+                            scope.launch {
+                                try {
+                                    if (!recorder.isRecording) {
+                                        // Start recording (set UI state only after it succeeds to avoid "flash then hide")
+                                        showSuggestions.value = false
+                                        recorder.start(tempWavPath)
+                                        isListening = true
+                                    } else {
+                                        // Stop recording and transcribe
+                                        isListening = false
+                                        isTranscribing = true
 
-                                val wavPath = recorder.stop()
+                                        val wavPath = recorder.stop()
 
-                                val text = withContext(Dispatchers.Default) {
-                                    WhisperBridge.transcribeWav(wavPath, language = null).trim()
-                                }
+                                        val text = withContext(Dispatchers.Default) {
+                                            WhisperBridge.transcribeWav(wavPath, language = null).trim()
+                                        }
 
-                                if (text.isNotBlank()) {
-                                    // Append to existing input
-                                    val newText =
-                                        if (input.text.isBlank()) text
-                                        else "${input.text.trimEnd()} $text"
-                                    input = input.copy(text = newText)
+                                        if (text.isNotBlank()) {
+                                            val newText =
+                                                if (input.text.isBlank()) text
+                                                else "${input.text.trimEnd()} $text"
+                                            input = input.copy(text = newText)
+                                        }
+                                    }
+                                } catch (t: Throwable) {
+                                    // Ensure UI resets on error + avoid leaked recorder state
+                                    isListening = false
+                                    isTranscribing = false
+                                    runCatching { if (recorder.isRecording) recorder.stop() }
+                                    println("[VoiceInput] Error: ${t.message}\n${t.stackTraceToString()}")
+                                } finally {
+                                    isTranscribing = false
                                 }
                             }
-                        } catch (t: Throwable) {
-                            // Ensure UI resets on error
-                            isListening = false
-                            isTranscribing = false
-
-                            // If recording started but we failed later, stop and release resources
-                            runCatching { if (recorder.isRecording) recorder.stop() }
-
-                            // Useful while integrating on-device audio I/O
-                            println("[VoiceInput] Error: ${t.message}\n${t.stackTraceToString()}")
-                        } finally {
-                            isTranscribing = false
                         }
-                    }
+                    )
                 }
             )
 

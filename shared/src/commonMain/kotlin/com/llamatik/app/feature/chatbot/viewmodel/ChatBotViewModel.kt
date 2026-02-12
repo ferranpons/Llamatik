@@ -29,6 +29,7 @@ import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.feature.reviews.ReviewRequestManager
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikTempFile
+import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.library.platform.LlamaBridge
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Dispatchers
@@ -140,6 +141,25 @@ class ChatBotViewModel(
         }
     }
 
+    private fun resolveAndMigratePath(model: LlamaModel): String? {
+        val pathFromState = model.localPath
+        val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name).takeIf { it.isNotEmpty() }
+        val rawPath = pathFromState ?: pathFromStorage
+        if (rawPath.isNullOrBlank()) return null
+
+        val migrated = migrateModelPathIfNeeded(
+            modelNameOrFileName = model.name,
+            savedPath = rawPath
+        )
+
+        if (migrated.isNotBlank() && migrated != rawPath) {
+            // Persist the new stable path so next start is clean
+            runCatching { getModelsUseCase.saveModelPath(model.name, migrated) }
+        }
+
+        return migrated
+    }
+
     fun onStarted(
         navigator: Navigator? = null,
         embedFilePath: String? = null,
@@ -182,30 +202,37 @@ class ChatBotViewModel(
 
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess { models ->
-                    // Try to init any already-downloaded generate models
+                    // Try to init any already-downloaded generate models (from state or Settings)
                     for (model in models) {
-                        model.localPath?.let { path ->
-                            Logger.d("LlamaVM - Init Generate Model: ${model.name}")
-                            val isLoaded = LlamaBridge.initGenerateModel(path)
-                            if (isLoaded) {
-                                _state.value =
-                                    _state.value.copy(
-                                        selectedGenerateModelName = model.name,
-                                        isGenerateModelLoaded = true
-                                    )
-                                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
-                                notifyGenerateModelLoadedForReview()
-                                break
-                            } else {
-                                Logger.e { "LlamaVM - failed to load generate model ${model.name}" }
-                                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
-                            }
+                        val path = resolveAndMigratePath(model) ?: continue
+
+                        Logger.d("LlamaVM - Init Generate Model: ${model.name} at $path")
+                        val isLoaded = LlamaBridge.initGenerateModel(path)
+                        if (isLoaded) {
+                            _state.value =
+                                _state.value.copy(
+                                    selectedGenerateModelName = model.name,
+                                    isGenerateModelLoaded = true
+                                )
+                            _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                            notifyGenerateModelLoadedForReview()
+                            break
+                        } else {
+                            Logger.e { "LlamaVM - failed to load generate model ${model.name}" }
+                            _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                         }
                     }
-                    _state.value = _state.value.copy(generateModels = models)
+
+                    // Update localPath in state with the resolved (migrated) one so UI shows it
+                    val normalized = models.map { m ->
+                        val path = resolveAndMigratePath(m)
+                        if (!path.isNullOrBlank()) m.copy(localPath = path, fileName = path) else m
+                    }
+
+                    _state.value = _state.value.copy(generateModels = normalized)
 
                     if (hasAcceptedPrivacy) {
-                        startInitialSetupIfNeeded(models)
+                        startInitialSetupIfNeeded(normalized)
                     }
                 }
                 .onFailure { error ->
@@ -235,10 +262,8 @@ class ChatBotViewModel(
 
         // Do we already have a local path for any generate model?
         val hasLocal = models.any { model ->
-            val fromState = model.localPath
-            val fromStorage = getModelsUseCase.getSavedModelPath(model.name)
-                .takeIf { it.isNotEmpty() }
-            !fromState.isNullOrEmpty() || !fromStorage.isNullOrEmpty()
+            val resolved = resolveAndMigratePath(model)
+            !resolved.isNullOrEmpty()
         }
         if (hasLocal) {
             return
@@ -350,10 +375,7 @@ class ChatBotViewModel(
 
     fun onEmbedModelSelected(model: LlamaModel) {
         screenModelScope.launch(Dispatchers.IO) {
-            val pathFromState = model.localPath
-            val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name)
-                .takeIf { it.isNotEmpty() }
-            val path = pathFromState ?: pathFromStorage
+            val path = resolveAndMigratePath(model)
 
             if (!path.isNullOrEmpty()) {
                 Logger.d("LlamaVM - initEmbedModel $path")
@@ -373,10 +395,7 @@ class ChatBotViewModel(
 
     fun onGenerateModelSelected(model: LlamaModel) {
         screenModelScope.launch(Dispatchers.IO) {
-            val pathFromState = model.localPath
-            val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name)
-                .takeIf { it.isNotEmpty() }
-            val path = pathFromState ?: pathFromStorage
+            val path = resolveAndMigratePath(model)
 
             if (!path.isNullOrEmpty()) {
                 Logger.d("LlamaVM - initGenerateModel $path")
@@ -477,18 +496,13 @@ class ChatBotViewModel(
             try {
                 Logger.d("LlamaVM - deleting model ${model.name}")
 
-                val pathFromState = model.localPath
-                val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name)
-                    .takeIf { it.isNotEmpty() }
-                val path = pathFromState ?: pathFromStorage
+                val path = resolveAndMigratePath(model)
 
                 if (!path.isNullOrEmpty()) {
                     Logger.d("LlamaVM - delete model file at $path")
 
                     try {
-                        model.fileName?.let { fileName ->
-                            LlamatikTempFile(fileName).delete(path)
-                        }
+                        LlamatikTempFile(model.name).delete(path)
                     } catch (e: Throwable) {
                         Logger.e(e) { "LlamaVM - failed to delete file at $path" }
                     }

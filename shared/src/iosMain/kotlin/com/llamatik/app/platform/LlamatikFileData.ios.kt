@@ -9,6 +9,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
+import platform.Foundation.NSApplicationSupportDirectory
 import platform.Foundation.NSData
 import platform.Foundation.NSDataBase64DecodingIgnoreUnknownCharacters
 import platform.Foundation.NSDataBase64Encoding64CharacterLineLength
@@ -18,7 +19,10 @@ import platform.Foundation.NSFileHandle
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSString
 import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.NSUUID
+import platform.Foundation.NSUserDomainMask
 import platform.Foundation.base64EncodedStringWithOptions
 import platform.Foundation.closeFile
 import platform.Foundation.create
@@ -281,4 +285,100 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
             false
         }
     }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+actual fun migrateModelPathIfNeeded(
+    modelNameOrFileName: String,
+    savedPath: String
+): String {
+    if (savedPath.isBlank()) return savedPath
+
+    val fm = NSFileManager.defaultManager
+
+    // If it doesn't exist, nothing we can do (keep old path so caller can handle it)
+    if (!fm.fileExistsAtPath(savedPath)) return savedPath
+
+    val persistentDir = modelsDirIos().path ?: return savedPath
+
+    // Already in persistent models dir
+    if (savedPath.startsWith(persistentDir)) return savedPath
+
+    val destPath = stableModelFileIos(modelNameOrFileName).path ?: return savedPath
+
+    // Ensure parent dir exists
+    ensureDirExistsIos(modelsDirIos())
+
+    // If destination exists, replace it
+    if (fm.fileExistsAtPath(destPath)) {
+        runCatching { fm.removeItemAtPath(destPath, null) }
+    }
+
+    // Try move first (fast)
+    val movedOk = fm.moveItemAtPath(savedPath, destPath, null)
+    if (movedOk) {
+        // cleanup leftover .part next to final file
+        runCatching { fm.removeItemAtPath(destPath + ".part", null) }
+        return destPath
+    }
+
+    // Fallback: copy + delete
+    val copiedOk = fm.copyItemAtPath(savedPath, destPath, null)
+    if (copiedOk) {
+        runCatching { fm.removeItemAtPath(savedPath, null) }
+        runCatching { fm.removeItemAtPath(destPath + ".part", null) }
+        return destPath
+    }
+
+    return savedPath
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun modelsDirIos(): NSURL {
+    val fm = NSFileManager.defaultManager
+    val base = fm.URLForDirectory(
+        directory = NSApplicationSupportDirectory,
+        inDomain = NSUserDomainMask,
+        appropriateForURL = null,
+        create = true,
+        error = null
+    ) ?: run {
+        // very defensive fallback: use tmp-ish unique dir under Application Support if URLForDirectory fails
+        val tmp = NSURL.fileURLWithPath("/tmp").URLByAppendingPathComponent("llamatik", true)!!
+        ensureDirExistsIos(tmp)
+        return tmp
+    }
+
+    // Application Support / Llamatik / models
+    val app = base.URLByAppendingPathComponent("Llamatik", true)!!
+    val models = app.URLByAppendingPathComponent("models", true)!!
+    ensureDirExistsIos(models)
+    return models
+}
+
+private fun stableModelFileIos(modelNameOrFileName: String): NSURL {
+    val safeName = sanitizeFileName(modelNameOrFileName).ifBlank { "model_${NSUUID.UUID().UUIDString}" }
+    return modelsDirIos().URLByAppendingPathComponent("$safeName.gguf", false)!!
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun ensureDirExistsIos(dir: NSURL) {
+    val fm = NSFileManager.defaultManager
+    runCatching {
+        fm.createDirectoryAtURL(
+            url = dir,
+            withIntermediateDirectories = true,
+            attributes = null,
+            error = null
+        )
+    }
+}
+
+private fun sanitizeFileName(input: String): String {
+    // close enough to your Android sanitize: keep alnum . _ - ; replace others with _
+    var out = input
+    val invalid = Regex("[^A-Za-z0-9._-]")
+    out = out.replace(invalid, "_")
+    out = out.take(64)
+    return out
 }

@@ -63,11 +63,11 @@ class ModelsRepository(private val service: ServiceClient) {
             return file
         } catch (e: CancellationException) {
             Logger.d(e) { "Download cancelled for $url" }
-            runCatching { LlamatikTempFile(fileName).delete(file.absolutePath()) }
+            runCatching { file.delete(file.absolutePath()) }
             throw e
         } catch (t: Throwable) {
             Logger.e(t) { "Download failed for $url" }
-            runCatching { LlamatikTempFile(fileName).delete(file.absolutePath()) }
+            runCatching { file.delete(file.absolutePath()) }
             throw t
         }
     }
