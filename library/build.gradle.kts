@@ -127,22 +127,44 @@ kotlin {
         }
 
         val libPath = cmakeBuildDir.absolutePath
+
         val mergeTask = tasks.register(
             "mergeLlamaStatic${arch.name.replaceFirstChar { it.uppercase() }}",
             Exec::class
         ) {
             dependsOn(compileTask)
-            commandLine(
-                libtoolPath, "-static",
-                "-o", "$libPath/libllama_merged.a",
-                "$libPath/libllama_static.a",
-                "$libPath/llama-local-build/src/libllama.a",
-                "$libPath/llama-local-build/ggml/src/libggml.a",
-                "$libPath/llama-local-build/ggml/src/libggml-base.a",
-                "$libPath/llama-local-build/ggml/src/libggml-cpu.a",
-                "$libPath/llama-local-build/ggml/src/ggml-blas/libggml-blas.a",
-                "$libPath/llama-local-build/ggml/src/ggml-metal/libggml-metal.a"
-            )
+
+            doFirst {
+                // ---- Add whisper into the merged archive (so the symbols exist at link time) ----
+                val whisperCandidates = listOf(
+                    "$libPath/whisper/src/libwhisper.a",
+                    "$libPath/whisper/libwhisper.a",
+                    "$libPath/whisper-build/src/libwhisper.a",
+                    "$libPath/whisper-build/libwhisper.a"
+                )
+
+                val whisperLib = whisperCandidates.firstOrNull { file(it).exists() }
+
+                val args = mutableListOf(
+                    libtoolPath, "-static",
+                    "-o", "$libPath/libllama_merged.a",
+                    "$libPath/libllama_static.a",
+                    "$libPath/llama-local-build/src/libllama.a",
+                    "$libPath/llama-local-build/ggml/src/libggml.a",
+                    "$libPath/llama-local-build/ggml/src/libggml-base.a",
+                    "$libPath/llama-local-build/ggml/src/libggml-cpu.a",
+                    "$libPath/llama-local-build/ggml/src/ggml-blas/libggml-blas.a",
+                    "$libPath/llama-local-build/ggml/src/ggml-metal/libggml-metal.a"
+                )
+
+                if (whisperLib != null) {
+                    args += whisperLib
+                } else {
+                    logger.warn("Whisper static library not found in $libPath. iOS voice/STT symbols will NOT be linked.")
+                }
+
+                commandLine(args)
+            }
         }
 
         // Ensure cinterop runs after the native libs are built/merged
@@ -156,6 +178,23 @@ kotlin {
 
                 defFile("src/iosMain/c_interop/$defFileName")
                 packageName("com.llamatik.library.platform.llama")
+
+                compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
+
+                extraOpts(
+                    "-libraryPath", libPath
+                )
+
+                tasks.named(interopProcessingTaskName).configure {
+                    dependsOn(mergeTask)
+                }
+            }
+
+            create("whisper") {
+                val defFileName = "whisper_ios.def"
+
+                defFile("src/iosMain/c_interop/$defFileName")
+                packageName("com.llamatik.library.platform.whisper")
 
                 compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
 
