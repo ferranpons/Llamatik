@@ -197,6 +197,14 @@ class ChatBotViewModel(
                     Logger.e(error.message ?: "Unknown error")
                 }
 
+            getModelsUseCase.getDefaultSTTModels()
+                .onSuccess {
+                    _state.value = _state.value.copy(sttModels = it)
+                }
+                .onFailure { error ->
+                    Logger.e(error.message ?: "Unknown error")
+                }
+
             val summaries = chatHistoryRepository.getSummaries()
             _state.value = _state.value.copy(chatSessions = summaries)
 
@@ -1075,6 +1083,7 @@ data class ChatBotState(
     val latestNews: List<FeedItem>,
     val embedModels: List<LlamaModel> = emptyList(),
     val generateModels: List<LlamaModel> = emptyList(),
+    val sttModels: List<LlamaModel> = emptyList(),
     val isEmbedModelLoaded: Boolean = false,
     val isGenerateModelLoaded: Boolean = false,
     val selectedEmbedModelName: String? = null,
