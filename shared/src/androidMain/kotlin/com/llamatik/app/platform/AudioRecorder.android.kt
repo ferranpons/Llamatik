@@ -33,7 +33,7 @@ actual class AudioRecorder actual constructor() {
         require(minBuf > 0) { "AudioRecord.getMinBufferSize failed: $minBuf" }
 
         val record = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            MediaRecorder.AudioSource.MIC,
             sampleRate,
             channelConfig,
             encoding,

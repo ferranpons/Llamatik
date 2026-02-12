@@ -1,11 +1,18 @@
 package com.llamatik.app.feature.chatbot.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -24,9 +31,12 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -59,6 +69,11 @@ fun ChatInputBox(
     onOpenChatHistory: () -> Unit,
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
+
+    // --- NEW: voice feedback ---
+    isListening: Boolean,
+    isTranscribing: Boolean,
+
     onMicClick: () -> Unit,
 ) {
     Box(
@@ -67,13 +82,10 @@ fun ChatInputBox(
             .background(MaterialTheme.colorScheme.background)
     ) {
         val isGenerating = state.isGenerating
-        Column(
-            horizontalAlignment = Alignment.Start,
-        ) {
+
+        Column(horizontalAlignment = Alignment.Start) {
             if (showSuggestions.value && suggestions.isNotEmpty()) {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
+                LazyRow(modifier = Modifier.fillMaxWidth()) {
                     items(suggestions.size) { index ->
                         val hint = suggestions[index]
                         if (index == 0) {
@@ -105,6 +117,54 @@ fun ChatInputBox(
                         }
                         if (index == suggestions.size - 1) {
                             Spacer(modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+
+            // --- NEW: status pill + waveform (only when listening/transcribing) ---
+            if (isListening || isTranscribing) {
+                Surface(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = LlamatikIcons.Microphone,
+                            contentDescription = localization.voiceInput,
+                            tint = if (isListening) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+
+                        Spacer(modifier = Modifier.size(8.dp))
+
+                        Text(
+                            text = when {
+                                isTranscribing -> localization.transcribing
+                                else -> localization.listening
+                            },
+                            style = com.llamatik.app.ui.theme.Typography.get().labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.size(10.dp))
+
+                        if (isListening) {
+                            RecordingWaveform(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(18.dp)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -211,21 +271,32 @@ fun ChatInputBox(
                                     Spacer(modifier = Modifier.size(6.dp))
                                 }
 
+                                // Mic only when empty (your behavior), BUT:
+                                // - show Stop while listening
+                                // - disable while transcribing
                                 if (!canSend) {
+                                    val micEnabled = !isTranscribing && !isGenerating
                                     IconButton(
-                                        onClick = {
-                                            onMicClick()
-                                        },
+                                        onClick = { if (micEnabled) onMicClick() },
+                                        enabled = micEnabled,
                                         modifier = Modifier
                                             .padding(end = 8.dp)
                                             .size(40.dp)
                                             .clip(RoundedCornerShape(20.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .background(
+                                                when {
+                                                    isListening -> MaterialTheme.colorScheme.errorContainer
+                                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                                }
+                                            )
                                     ) {
                                         Icon(
-                                            imageVector = LlamatikIcons.Microphone,
-                                            contentDescription = localization.paste,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            imageVector = if (isListening) Icons.Filled.Stop else LlamatikIcons.Microphone,
+                                            contentDescription = localization.voiceInput,
+                                            tint = when {
+                                                isListening -> MaterialTheme.colorScheme.onErrorContainer
+                                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                            }
                                         )
                                     }
                                     Spacer(modifier = Modifier.size(6.dp))
@@ -233,9 +304,7 @@ fun ChatInputBox(
 
                                 if (isGenerating) {
                                     IconButton(
-                                        onClick = {
-                                            viewModel.stopGeneration()
-                                        },
+                                        onClick = { viewModel.stopGeneration() },
                                         modifier = Modifier
                                             .padding(end = 8.dp)
                                             .size(40.dp)
@@ -287,6 +356,47 @@ fun ChatInputBox(
                 selectedModelName = state.selectedGenerateModelName,
                 onOpenModelSelector = onOpenModelSelector,
                 onOpenSettings = onOpenSettings
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecordingWaveform(
+    modifier: Modifier = Modifier,
+) {
+    val transition = rememberInfiniteTransition(label = "wave")
+    val phase = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700, easing = LinearEasing)
+        ),
+        label = "phase"
+    )
+
+    val bars = remember { 22 }
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val barW = (w / (bars * 2f)).coerceAtLeast(2f)
+        val gap = barW
+        val radius = CornerRadius(barW / 2f, barW / 2f)
+
+        for (i in 0 until bars) {
+            // Smooth moving amplitude
+            val t = (i.toFloat() / bars.toFloat()) + phase.value
+            val amp = (kotlin.math.sin(t * 2f * kotlin.math.PI).toFloat() * 0.5f + 0.5f) // 0..1
+            val barH = (h * (0.25f + 0.75f * amp)).coerceAtLeast(2f)
+
+            val x = i * (barW + gap)
+            val y = (h - barH) / 2f
+
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.85f),
+                topLeft = Offset(x, y),
+                size = androidx.compose.ui.geometry.Size(barW, barH),
+                cornerRadius = radius
             )
         }
     }

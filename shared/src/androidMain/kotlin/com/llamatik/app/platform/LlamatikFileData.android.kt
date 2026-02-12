@@ -3,15 +3,14 @@ package com.llamatik.app.platform
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.OutputStream
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 import java.util.Base64
-import kotlin.io.path.appendBytes
-import kotlin.io.path.bufferedReader
 import kotlin.io.path.createTempFile
-import kotlin.io.path.outputStream
 import kotlin.io.path.pathString
 import kotlin.io.path.writeBytes
 
@@ -37,8 +36,12 @@ actual suspend fun ByteArray.writeToFile(fileName: String) {
 
 actual suspend fun ByteArray.addBytesToFile(fileName: String) {
     val safePrefix = sanitizeTempPrefix(fileName)
-    val file = createTempFile(prefix = safePrefix, suffix = ".gguf")
-    file.writeBytes(this)
+    val file = createTempFile(prefix = safePrefix, suffix = ".gguf").toFile()
+
+    file.parentFile?.mkdirs()
+    if (!file.exists()) file.createNewFile()
+
+    FileOutputStream(file, true).use { it.write(this) }
 }
 
 @Suppress(names = ["EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING"])
@@ -46,19 +49,17 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
 
     private val safePrefix = sanitizeTempPrefix(fileName)
 
-    private val file = createTempFile(
-        prefix = safePrefix, suffix = ".gguf"
-    )
+    private val filePath = createTempFile(prefix = safePrefix, suffix = ".gguf")
+    private val file: File = filePath.toFile()
 
-    private val base64file = createTempFile(
-        prefix = safePrefix, suffix = ".txt"
-    )
+    private val base64filePath = createTempFile(prefix = safePrefix, suffix = ".txt")
+    private val base64file: File = base64filePath.toFile()
 
     private val base64fileStream = base64file.outputStream()
     private val base64Encoder = Base64.getEncoder().wrap(base64fileStream)
 
     actual fun readBytes(): ByteArray {
-        RandomAccessFile(file.pathString, "r").use { raf ->
+        RandomAccessFile(file.path, "r").use { raf ->
             val channel: FileChannel = raf.channel
             val buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size())
             val byteArray = ByteArray(buffer.remaining())
@@ -68,7 +69,15 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
     }
 
     actual fun appendBytes(bytes: ByteArray) {
-        file.appendBytes(bytes)
+        file.parentFile?.mkdirs()
+        if (!file.exists()) {
+            file.createNewFile()
+        }
+
+        FileOutputStream(file, /* append = */ true).use { out ->
+            out.write(bytes)
+            out.flush()
+        }
     }
 
     actual fun getBase64String(): String {
@@ -81,7 +90,7 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
         val buffer = ByteArray(4096) // 4 KB buffer
         val localBase64Encoder = Base64.getEncoder().wrap(output)
 
-        FileInputStream(base64file.pathString).use { inputStream ->
+        FileInputStream(base64file.path).use { inputStream ->
             var bytesRead: Int
             while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                 localBase64Encoder.write(buffer, 0, bytesRead)
@@ -112,7 +121,7 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
 
     actual fun delete(path: String): Boolean {
         return try {
-            val f = java.io.File(path)
+            val f = File(path)
             if (f.exists()) f.delete() else true
         } catch (_: Throwable) {
             false

@@ -178,4 +178,7 @@ evitando comunque output eccessivi salvo richiesta esplicita.
     override val temporaryChat = "Chat temporanea"
     override val messages = "messaggi"
     override val temporaryChatExplanation = "La chat temporanea è attiva: questa conversazione non verrà salvata sul dispositivo."
+    override val voiceInput = "Input vocale"
+    override val listening = "In ascolto…"
+    override val transcribing = "Trascrizione in corso…"
 }

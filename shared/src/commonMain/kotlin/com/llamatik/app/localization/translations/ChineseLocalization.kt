@@ -180,4 +180,7 @@ internal object ChineseLocalization : Localization {
     override val temporaryChat = "临时聊天"
     override val messages = "条消息"
     override val temporaryChatExplanation = "已开启临时聊天，本次对话不会保存在设备上。"
+    override val voiceInput = "语音输入"
+    override val listening = "正在聆听…"
+    override val transcribing = "正在转写…"
 }

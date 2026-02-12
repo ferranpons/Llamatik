@@ -1,23 +1,11 @@
 package com.llamatik.app.platform
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import platform.AVFAudio.AVAudioQualityHigh
-import platform.AVFAudio.AVAudioRecorder
-import platform.AVFAudio.AVAudioSession
-import platform.AVFAudio.AVAudioSessionCategoryPlayAndRecord
-import platform.AVFAudio.AVAudioSessionModeDefault
-import platform.AVFAudio.AVEncoderAudioQualityKey
-import platform.AVFAudio.AVFormatIDKey
-import platform.AVFAudio.AVLinearPCMBitDepthKey
-import platform.AVFAudio.AVLinearPCMIsBigEndianKey
-import platform.AVFAudio.AVLinearPCMIsFloatKey
-import platform.AVFAudio.AVNumberOfChannelsKey
-import platform.AVFAudio.AVSampleRateKey
-import platform.AudioToolbox.kAudioFormatLinearPCM
-import platform.Foundation.NSError
-import platform.Foundation.NSURL
-import platform.Foundation.mutableDictionaryOf
+import platform.AVFAudio.*
+import platform.CoreAudioTypes.kAudioFormatLinearPCM
+import platform.Foundation.*
 
 actual class AudioRecorder actual constructor() {
 
@@ -27,10 +15,10 @@ actual class AudioRecorder actual constructor() {
     actual val isRecording: Boolean
         get() = recorder?.recording() == true
 
+    @OptIn(ExperimentalForeignApi::class)
     actual suspend fun start(outputWavPath: String) = withContext(Dispatchers.Main) {
         if (isRecording) return@withContext
 
-        // Configure audio session
         val session = AVAudioSession.sharedInstance()
         session.setCategory(
             category = AVAudioSessionCategoryPlayAndRecord,
@@ -52,7 +40,7 @@ actual class AudioRecorder actual constructor() {
             AVEncoderAudioQualityKey to AVAudioQualityHigh
         )
 
-        val errPtr = kotlin.native.internal.createNullableVar<NSError>()
+        val errPtr = createNullableVar<NSError>()
         val rec = AVAudioRecorder(url, settings, errPtr.ptr)
         val err = errPtr.value
         require(err == null) { "AVAudioRecorder init error: ${err?.localizedDescription}" }

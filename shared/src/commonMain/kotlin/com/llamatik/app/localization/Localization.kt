@@ -125,6 +125,9 @@ interface Localization {
     val temporaryChat: String
     val messages: String
     val temporaryChatExplanation: String
+    val voiceInput: String
+    val listening: String
+    val transcribing: String
 }
 
 enum class AvailableLanguages {

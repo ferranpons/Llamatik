@@ -16,8 +16,7 @@ actual class AudioRecorder actual constructor() {
     private val recording = AtomicBoolean(false)
     actual val isRecording: Boolean get() = recording.get()
 
-    private val sampleRate = 16000f
-    private val format = AudioFormat(sampleRate, 16, 1, true, false) // little endian
+    private val format = AudioFormat(16000f, 16, 1, true, false)
     private var line: TargetDataLine? = null
     private var outputPath: String? = null
     private var thread: Thread? = null
@@ -44,8 +43,8 @@ actual class AudioRecorder actual constructor() {
                 AudioInputStream(target, format, AudioSystem.NOT_SPECIFIED).use { ais ->
                     AudioSystem.write(ais, AudioFileFormat.Type.WAVE, file)
                 }
-            } catch (_: Throwable) {
-                // ignore
+            } catch (t: Throwable) {
+                t.printStackTrace()
             }
         }.apply { start() }
     }
