@@ -18,7 +18,6 @@ import platform.Foundation.NSDataBase64EncodingOptions
 import platform.Foundation.NSFileHandle
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSString
-import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUUID
@@ -32,45 +31,55 @@ import platform.Foundation.truncateFileAtOffset
 import platform.Foundation.writeData
 import platform.posix.memcpy
 
-/**
- * iOS implementation optimized for large streaming downloads.
- *
- * Key points:
- * - All writing uses NSFileHandle (no repeated read+concat into a single NSData).
- * - Base64 helpers still use NSData, but only on-demand.
- * - Files are stored under NSTemporaryDirectory().
- */
+// ------------------------------
+// Paths
+// ------------------------------
 
-// ---------- Name & path helpers ----------
+@OptIn(ExperimentalForeignApi::class)
+private fun modelsDirIos(): NSURL {
+    val fm = NSFileManager.defaultManager
+    val base = fm.URLForDirectory(
+        directory = NSApplicationSupportDirectory,
+        inDomain = NSUserDomainMask,
+        appropriateForURL = null,
+        create = true,
+        error = null
+    ) ?: error("Cannot resolve Application Support directory")
 
-/**
- * Normalize a model file name:
- * - If it already contains a dot (e.g. ".gguf"), keep it.
- * - Else, assume it's a GGUF model and append ".gguf".
- */
-private fun normalizedModelName(fileName: String): String =
-    if (fileName.contains('.')) fileName else "$fileName.gguf"
-
-/**
- * Base temp directory for model files.
- * Example (simulator):
- * /Users/.../Containers/Data/Application/<UUID>/tmp/
- */
-private fun tempBaseDir(): String {
-    val baseDir = NSTemporaryDirectory() ?: "/tmp/"
-    return if (baseDir.endsWith("/")) baseDir else "$baseDir/"
+    val app = base.URLByAppendingPathComponent("Llamatik", true)!!
+    val models = app.URLByAppendingPathComponent("models", true)!!
+    ensureDirExistsIos(models)
+    return models
 }
 
-/**
- * Full path for a given model file name under the temp directory.
- */
-private fun tempPathFor(fileName: String): String {
-    val base = tempBaseDir()
-    val normalized = normalizedModelName(fileName)
-    return base + normalized
+@OptIn(ExperimentalForeignApi::class)
+private fun ensureDirExistsIos(dir: NSURL) {
+    val fm = NSFileManager.defaultManager
+    fm.createDirectoryAtURL(
+        url = dir,
+        withIntermediateDirectories = true,
+        attributes = null,
+        error = null
+    )
 }
 
-// ---------- Small helpers ----------
+private fun sanitizeFileName(input: String): String {
+    val invalid = Regex("[^A-Za-z0-9._-]")
+    return input.replace(invalid, "_").take(128).ifBlank { "model_${NSUUID.UUID().UUIDString}" }
+}
+
+/** Preserve extension exactly as provided. */
+private fun finalModelPath(fileName: String): String {
+    val safe = sanitizeFileName(fileName)
+    return modelsDirIos().URLByAppendingPathComponent(safe, false)!!.path!!
+}
+
+private fun partModelPath(fileName: String): String =
+    finalModelPath(fileName) + ".part"
+
+// ------------------------------
+// NSData helpers
+// ------------------------------
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private fun byteArrayToNSData(bytes: ByteArray): NSData =
@@ -91,9 +100,6 @@ private fun nsDataToByteArray(data: NSData): ByteArray {
 private fun fileExists(path: String): Boolean =
     NSFileManager.defaultManager.fileExistsAtPath(path)
 
-/**
- * Create an empty file at [path] if it does not already exist.
- */
 private fun ensureFileExists(path: String) {
     val fm = NSFileManager.defaultManager
     if (!fm.fileExistsAtPath(path)) {
@@ -101,18 +107,11 @@ private fun ensureFileExists(path: String) {
     }
 }
 
-// ---------- Low-level write helpers using NSFileHandle ----------
-
-/**
- * Write [data] (NSData) to [path] using NSFileHandle.
- *
- * @param append If true, seek to end of file; otherwise truncate to 0 first.
- */
 @OptIn(ExperimentalForeignApi::class)
 private fun writeNSDataToFile(path: String, data: NSData, append: Boolean) {
     ensureFileExists(path)
 
-    val handle: NSFileHandle? = NSFileHandle.fileHandleForWritingAtPath(path)
+    val handle = NSFileHandle.fileHandleForWritingAtPath(path)
     if (handle == null) {
         println("🔴 [iOS] writeNSDataToFile: cannot open handle for $path")
         return
@@ -120,10 +119,8 @@ private fun writeNSDataToFile(path: String, data: NSData, append: Boolean) {
 
     try {
         if (!append) {
-            // Truncate to 0
             handle.truncateFileAtOffset(0uL)
         } else {
-            // Seek to end
             handle.seekToEndOfFile()
         }
         handle.writeData(data)
@@ -132,29 +129,34 @@ private fun writeNSDataToFile(path: String, data: NSData, append: Boolean) {
     }
 }
 
-// ---------- actuals for extension functions ----------
+// ------------------------------
+// actuals
+// ------------------------------
 
 /**
- * Stream download to file using a single NSFileHandle opened once.
- * This is the hot path used when downloading models.
+ * Stream download to a persistent .part file and then atomically rename to final.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual suspend fun ByteReadChannel.writeToFile(fileName: String) {
-    val path = tempPathFor(fileName)
-    println("🔵 [iOS] ByteReadChannel.writeToFile → $path")
+    val part = partModelPath(fileName)
+    val final = finalModelPath(fileName)
+
+    println("🔵 [iOS] ByteReadChannel.writeToFile → part=$part")
 
     val fm = NSFileManager.defaultManager
-    // Create an empty file (or overwrite if exists)
-    fm.createFileAtPath(path, null, null)
 
-    val handle: NSFileHandle? = NSFileHandle.fileHandleForWritingAtPath(path)
+    // remove old part
+    if (fm.fileExistsAtPath(part)) runCatching { fm.removeItemAtPath(part, null) }
+    // create empty part
+    fm.createFileAtPath(part, null, null)
+
+    val handle = NSFileHandle.fileHandleForWritingAtPath(part)
     if (handle == null) {
-        println("🔴 [iOS] ByteReadChannel.writeToFile: cannot open handle for $path")
+        println("🔴 [iOS] writeToFile: cannot open handle for $part")
         return
     }
 
     try {
-        // Ensure we start from offset 0
         handle.truncateFileAtOffset(0uL)
 
         val buffer = ByteArray(256 * 1024)
@@ -163,56 +165,66 @@ actual suspend fun ByteReadChannel.writeToFile(fileName: String) {
             val read = readAvailable(buffer, 0, buffer.size)
             if (read <= 0) break
 
-            val chunk = if (read == buffer.size) {
-                buffer
-            } else {
-                buffer.copyOf(read)
-            }
-
-            val data = byteArrayToNSData(chunk)
-            handle.writeData(data)
+            val chunk = if (read == buffer.size) buffer else buffer.copyOf(read)
+            handle.writeData(byteArrayToNSData(chunk))
         }
     } finally {
         handle.closeFile()
     }
 
-    val exists = fileExists(path)
-    val size = NSData.create(contentsOfFile = path)?.length ?: -1
-    println("✅ [iOS] Download finished. Exists=$exists, sizeBytes=$size")
+    // finalize: remove old final and rename part -> final (atomic on same volume)
+    if (fm.fileExistsAtPath(final)) runCatching { fm.removeItemAtPath(final, null) }
+
+    val moved = fm.moveItemAtPath(part, final, null)
+    if (!moved) {
+        println("🔴 [iOS] finalize failed: could not rename $part -> $final")
+        return
+    }
+
+    val size = NSData.create(contentsOfFile = final)?.length ?: -1
+    println("✅ [iOS] Download finalized: $final sizeBytes=$size")
 }
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun ByteArray.writeToFile(fileName: String) {
-    val path = tempPathFor(fileName)
-    println("🔵 [iOS] ByteArray.writeToFile → $path")
-    val data = byteArrayToNSData(this)
-    writeNSDataToFile(path, data, append = false)
-    val exists = fileExists(path)
-    val size = NSData.create(contentsOfFile = path)?.length ?: -1
-    println("✅ [iOS] ByteArray.writeToFile done. Exists=$exists, sizeBytes=$size")
+    val part = partModelPath(fileName)
+    val final = finalModelPath(fileName)
+
+    println("🔵 [iOS] ByteArray.writeToFile → part=$part")
+    writeNSDataToFile(part, byteArrayToNSData(this), append = false)
+
+    val fm = NSFileManager.defaultManager
+    if (fm.fileExistsAtPath(final)) runCatching { fm.removeItemAtPath(final, null) }
+
+    val moved = fm.moveItemAtPath(part, final, null)
+    if (!moved) {
+        println("🔴 [iOS] finalize failed: could not rename $part -> $final")
+        return
+    }
+
+    val size = NSData.create(contentsOfFile = final)?.length ?: -1
+    println("✅ [iOS] ByteArray.writeToFile finalized: $final sizeBytes=$size")
 }
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun ByteArray.addBytesToFile(fileName: String) {
-    val path = tempPathFor(fileName)
-    println("🔵 [iOS] ByteArray.addBytesToFile → $path")
-    val data = byteArrayToNSData(this)
-    writeNSDataToFile(path, data, append = true)
-    val exists = fileExists(path)
-    val size = NSData.create(contentsOfFile = path)?.length ?: -1
-    println("✅ [iOS] ByteArray.addBytesToFile done. Exists=$exists, sizeBytes=$size")
+    val part = partModelPath(fileName)
+    println("🔵 [iOS] ByteArray.addBytesToFile → $part")
+    writeNSDataToFile(part, byteArrayToNSData(this), append = true)
 }
 
-// ---------- LlamatikTempFile implementation ----------
+// ------------------------------
+// LlamatikTempFile
+// ------------------------------
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class LlamatikTempFile actual constructor(fileName: String) {
 
-    private val path: String = tempPathFor(fileName)
+    private val finalPath: String = finalModelPath(fileName)
+    private val partPath: String = partModelPath(fileName)
 
     init {
-        val exists = fileExists(path)
-        println("🟢 [iOS] LlamatikTempFile.init path=$path exists=$exists")
+        println("🟢 [iOS] LlamatikTempFile.init final=$finalPath exists=${fileExists(finalPath)} part=$partPath exists=${fileExists(partPath)}")
     }
 
     @OptIn(ExperimentalForeignApi::class)
@@ -233,13 +245,12 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
     }
 
     actual fun appendBytes(bytes: ByteArray) {
-        // println("🔵 [iOS] LlamatikTempFile.appendBytes → $path (len=${bytes.size})")
         val data = byteArrayToNSData(bytes)
-        writeNSDataToFile(path, data, append = true)
+        writeNSDataToFile(partPath, data, append = true)
     }
 
     actual fun readBytes(): ByteArray {
-        // println("🔵 [iOS] LlamatikTempFile.readBytes ← $path")
+        val path = if (fileExists(finalPath)) finalPath else partPath
         val data = NSData.create(contentsOfFile = path) ?: return ByteArray(0)
         return nsDataToByteArray(data)
     }
@@ -253,39 +264,41 @@ actual class LlamatikTempFile actual constructor(fileName: String) {
             encoding = NSUTF8StringEncoding
         ) ?: return
         val decoded = base64Decode(nsString as String)
-        if (decoded.isNotEmpty()) {
-            appendBytes(decoded)
-        }
+        if (decoded.isNotEmpty()) appendBytes(decoded)
     }
 
+    @OptIn(ExperimentalForeignApi::class)
     actual fun close() {
-        // No persistent handles – everything is opened/closed per call.
+        // finalize part -> final if present
+        val fm = NSFileManager.defaultManager
+        if (fm.fileExistsAtPath(partPath)) {
+            if (fm.fileExistsAtPath(finalPath)) runCatching { fm.removeItemAtPath(finalPath, null) }
+            fm.moveItemAtPath(partPath, finalPath, null)
+        }
     }
 
     actual fun readBase64String(): String = getBase64String()
 
     actual fun absolutePath(): String {
-        val exists = fileExists(path)
-        println("🔵 [iOS] LlamatikTempFile.absolutePath → $path (exists=$exists)")
+        val path = if (fileExists(finalPath)) finalPath else partPath
+        println("🔵 [iOS] LlamatikTempFile.absolutePath → $path (exists=${fileExists(path)})")
         return path
     }
 
     @OptIn(ExperimentalForeignApi::class)
     actual fun delete(path: String): Boolean {
-        val fileManager = NSFileManager.defaultManager
+        val fm = NSFileManager.defaultManager
         return try {
-            if (!fileManager.fileExistsAtPath(path)) {
-                // Already gone, treat as success
-                true
-            } else {
-                // removeItemAtPath returns true on success
-                fileManager.removeItemAtPath(path, error = null)
-            }
+            if (fm.fileExistsAtPath(path)) fm.removeItemAtPath(path, null) else true
         } catch (_: Throwable) {
             false
         }
     }
 }
+
+// ------------------------------
+// Migration (keep extension)
+// ------------------------------
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun migrateModelPathIfNeeded(
@@ -295,90 +308,28 @@ actual fun migrateModelPathIfNeeded(
     if (savedPath.isBlank()) return savedPath
 
     val fm = NSFileManager.defaultManager
-
-    // If it doesn't exist, nothing we can do (keep old path so caller can handle it)
     if (!fm.fileExistsAtPath(savedPath)) return savedPath
 
     val persistentDir = modelsDirIos().path ?: return savedPath
-
-    // Already in persistent models dir
     if (savedPath.startsWith(persistentDir)) return savedPath
 
-    val destPath = stableModelFileIos(modelNameOrFileName).path ?: return savedPath
+    val destPath = finalModelPath(modelNameOrFileName)
 
-    // Ensure parent dir exists
-    ensureDirExistsIos(modelsDirIos())
+    // Ensure parent dir exists (already)
+    if (fm.fileExistsAtPath(destPath)) runCatching { fm.removeItemAtPath(destPath, null) }
 
-    // If destination exists, replace it
-    if (fm.fileExistsAtPath(destPath)) {
-        runCatching { fm.removeItemAtPath(destPath, null) }
-    }
-
-    // Try move first (fast)
     val movedOk = fm.moveItemAtPath(savedPath, destPath, null)
     if (movedOk) {
-        // cleanup leftover .part next to final file
-        runCatching { fm.removeItemAtPath(destPath + ".part", null) }
+        runCatching { fm.removeItemAtPath("$destPath.part", null) }
         return destPath
     }
 
-    // Fallback: copy + delete
     val copiedOk = fm.copyItemAtPath(savedPath, destPath, null)
     if (copiedOk) {
         runCatching { fm.removeItemAtPath(savedPath, null) }
-        runCatching { fm.removeItemAtPath(destPath + ".part", null) }
+        runCatching { fm.removeItemAtPath("$destPath.part", null) }
         return destPath
     }
 
     return savedPath
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private fun modelsDirIos(): NSURL {
-    val fm = NSFileManager.defaultManager
-    val base = fm.URLForDirectory(
-        directory = NSApplicationSupportDirectory,
-        inDomain = NSUserDomainMask,
-        appropriateForURL = null,
-        create = true,
-        error = null
-    ) ?: run {
-        // very defensive fallback: use tmp-ish unique dir under Application Support if URLForDirectory fails
-        val tmp = NSURL.fileURLWithPath("/tmp").URLByAppendingPathComponent("llamatik", true)!!
-        ensureDirExistsIos(tmp)
-        return tmp
-    }
-
-    // Application Support / Llamatik / models
-    val app = base.URLByAppendingPathComponent("Llamatik", true)!!
-    val models = app.URLByAppendingPathComponent("models", true)!!
-    ensureDirExistsIos(models)
-    return models
-}
-
-private fun stableModelFileIos(modelNameOrFileName: String): NSURL {
-    val safeName = sanitizeFileName(modelNameOrFileName).ifBlank { "model_${NSUUID.UUID().UUIDString}" }
-    return modelsDirIos().URLByAppendingPathComponent("$safeName.gguf", false)!!
-}
-
-@OptIn(ExperimentalForeignApi::class)
-private fun ensureDirExistsIos(dir: NSURL) {
-    val fm = NSFileManager.defaultManager
-    runCatching {
-        fm.createDirectoryAtURL(
-            url = dir,
-            withIntermediateDirectories = true,
-            attributes = null,
-            error = null
-        )
-    }
-}
-
-private fun sanitizeFileName(input: String): String {
-    // close enough to your Android sanitize: keep alnum . _ - ; replace others with _
-    var out = input
-    val invalid = Regex("[^A-Za-z0-9._-]")
-    out = out.replace(invalid, "_")
-    out = out.take(64)
-    return out
 }
