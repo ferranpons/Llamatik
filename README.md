@@ -178,7 +178,7 @@ val output = LlamaBridge.generate(
 
 The public Kotlin API is defined in `LlamaBridge` (an `expect object` with platform-specific `actual` implementations).
 
-### API surface
+### API surface (LlamaBridge)
 
 ```kotlin
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
@@ -261,7 +261,7 @@ The workflow is:
 
 ### Whisper API surface
 
-```
+```kotlin
 object WhisperBridge {
     /** Returns a platform-specific absolute path for the model filename. */
     fun getModelPath(modelFileName: String): String
@@ -282,13 +282,13 @@ object WhisperBridge {
 
 #### Example
 
-```
+```kotlin
 import com.llamatik.library.platform.WhisperBridge
 
 val modelPath = WhisperBridge.getModelPath("ggml-tiny-q8_0.bin")
 
 // 1) Init once (e.g. app start)
-check(WhisperBridge.initModel(modelPath)) { "Failed to load Whisper model at $modelPath" }
+WhisperBridge.initModel(modelPath)
 
 // 2) Record to a WAV file (16kHz mono PCM16) using your own recorder
 val wavPath: String = "/path/to/recording.wav"
