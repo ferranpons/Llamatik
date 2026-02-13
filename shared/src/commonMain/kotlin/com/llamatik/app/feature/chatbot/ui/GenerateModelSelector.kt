@@ -1,5 +1,6 @@
 package com.llamatik.app.feature.chatbot.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,11 +40,12 @@ fun GenerateModelSelector(
     ) {
         Box {
             Row(
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
                     onClick = onOpenModelSelector,
-                    shape = RoundedCornerShape(999.dp),
+                    shape = RoundedCornerShape(16.dp),
                     tonalElevation = 1.dp,
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier.defaultMinSize(minHeight = 32.dp)
