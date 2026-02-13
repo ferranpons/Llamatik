@@ -50,6 +50,9 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.ui.icon.LlamatikIcons
 
+private const val ROUNDED_CORNER_SIZE = 16
+private const val BUTTON_SIZE = 40
+
 @Composable
 fun ChatInputBox(
     localization: Localization,
@@ -98,7 +101,7 @@ fun ChatInputBox(
                                     showSuggestions.value = false
                                 }
                             },
-                            shape = RoundedCornerShape(9.dp),
+                            shape = RoundedCornerShape(ROUNDED_CORNER_SIZE.dp),
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             tonalElevation = 1.dp,
                             modifier = Modifier
@@ -125,7 +128,7 @@ fun ChatInputBox(
                     modifier = Modifier
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                         .fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(ROUNDED_CORNER_SIZE.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     tonalElevation = 1.dp
                 ) {
@@ -176,8 +179,8 @@ fun ChatInputBox(
                 IconButton(
                     onClick = onOpenChatHistory,
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(20.dp))
+                        .size(58.dp)
+                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .align(Alignment.CenterVertically)
                 ) {
@@ -191,7 +194,7 @@ fun ChatInputBox(
                 Spacer(modifier = Modifier.size(8.dp))
 
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(ROUNDED_CORNER_SIZE.dp),
                     tonalElevation = 1.dp,
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier.weight(1f)
@@ -214,7 +217,7 @@ fun ChatInputBox(
                         singleLine = false,
                         minLines = 1,
                         maxLines = 6,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(ROUNDED_CORNER_SIZE.dp),
                         keyboardOptions = KeyboardOptions(
                             imeAction = ImeAction.Send,
                             capitalization = KeyboardCapitalization.Sentences
@@ -255,8 +258,8 @@ fun ChatInputBox(
                                         },
                                         modifier = Modifier
                                             .padding(end = 6.dp)
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(20.dp))
+                                            .size(BUTTON_SIZE.dp)
+                                            .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                             .background(MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
                                         Icon(
@@ -274,9 +277,8 @@ fun ChatInputBox(
                                         onClick = { if (micEnabled) onMicClick() },
                                         enabled = micEnabled,
                                         modifier = Modifier
-                                            .padding(end = 8.dp)
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(20.dp))
+                                            .size(BUTTON_SIZE.dp)
+                                            .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                             .background(
                                                 when {
                                                     isListening -> MaterialTheme.colorScheme.errorContainer
@@ -301,8 +303,8 @@ fun ChatInputBox(
                                         onClick = { viewModel.stopGeneration() },
                                         modifier = Modifier
                                             .padding(end = 8.dp)
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(20.dp))
+                                            .size(BUTTON_SIZE.dp)
+                                            .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                             .background(MaterialTheme.colorScheme.errorContainer)
                                     ) {
                                         Icon(
@@ -324,8 +326,8 @@ fun ChatInputBox(
                                             enabled = canSend,
                                             modifier = Modifier
                                                 .padding(end = 8.dp)
-                                                .size(40.dp)
-                                                .clip(RoundedCornerShape(20.dp))
+                                                .size(BUTTON_SIZE.dp)
+                                                .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                                 .background(
                                                     if (canSend) MaterialTheme.colorScheme.primary
                                                     else MaterialTheme.colorScheme.surfaceVariant
