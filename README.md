@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/Kotlin-Multiplatform-blueviolet" alt="kmp badge"/>
   <img src="https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Desktop-green" alt="platforms badge"/>
   <img src="https://img.shields.io/badge/LLM-llama.cpp-orange" alt="llama.cpp badge"/>
-  <img src="https://img.shields.io/badge/STT-whisper.cpp-blue"/>
+  <img src="https://img.shields.io/badge/STT-whisper.cpp-blue" alt="whisper.cpp badge"/>
   <img src="https://img.shields.io/badge/License-MIT-lightgrey" alt="license badge"/>
 </p>
 
