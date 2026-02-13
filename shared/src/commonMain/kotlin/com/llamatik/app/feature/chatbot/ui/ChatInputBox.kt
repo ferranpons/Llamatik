@@ -52,6 +52,7 @@ import com.llamatik.app.ui.icon.LlamatikIcons
 
 private const val ROUNDED_CORNER_SIZE = 16
 private const val BUTTON_SIZE = 40
+private const val HORIZONTAL_PADDING = 16
 
 @Composable
 fun ChatInputBox(
@@ -89,7 +90,7 @@ fun ChatInputBox(
                     items(suggestions.size) { index ->
                         val hint = suggestions[index]
                         if (index == 0) {
-                            Spacer(modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.size(HORIZONTAL_PADDING.dp))
                         }
 
                         Surface(
@@ -116,7 +117,7 @@ fun ChatInputBox(
                             )
                         }
                         if (index == suggestions.size - 1) {
-                            Spacer(modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.size(HORIZONTAL_PADDING.dp))
                         }
                     }
                 }
@@ -126,7 +127,7 @@ fun ChatInputBox(
             if (isListening || isTranscribing) {
                 Surface(
                     modifier = Modifier
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .padding(horizontal = HORIZONTAL_PADDING.dp, vertical = 4.dp)
                         .fillMaxWidth(),
                     shape = RoundedCornerShape(ROUNDED_CORNER_SIZE.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
@@ -173,7 +174,7 @@ fun ChatInputBox(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = HORIZONTAL_PADDING.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 IconButton(
