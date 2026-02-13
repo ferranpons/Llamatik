@@ -134,6 +134,13 @@ class ModelsRepository(private val service: ServiceClient) {
     fun getDefaultSTTModel(): List<LlamaModel> {
         return listOf(
             LlamaModel(
+                name = "Whisper Base q8_0",
+                sizeMb = 82,
+                url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q8_0.bin?download=true",
+                template = Plain,
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
+            ),
+            LlamaModel(
                 name = "Whisper Tiny q8_0",
                 sizeMb = 44,
                 url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q8_0.bin?download=true",
