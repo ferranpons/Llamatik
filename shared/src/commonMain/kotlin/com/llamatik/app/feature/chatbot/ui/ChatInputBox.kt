@@ -49,6 +49,7 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.ui.icon.LlamatikIcons
+import com.llamatik.app.ui.theme.Typography
 
 private const val ROUNDED_CORNER_SIZE = 16
 private const val BUTTON_SIZE = 40
@@ -111,7 +112,7 @@ fun ChatInputBox(
                         ) {
                             Text(
                                 text = hint,
-                                style = com.llamatik.app.ui.theme.Typography.get().labelMedium,
+                                style = Typography.get().labelMedium,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -152,7 +153,7 @@ fun ChatInputBox(
                                 isTranscribing -> localization.transcribing
                                 else -> localization.listening
                             },
-                            style = com.llamatik.app.ui.theme.Typography.get().labelMedium,
+                            style = Typography.get().labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
@@ -214,7 +215,7 @@ fun ChatInputBox(
                             .fillMaxWidth()
                             .padding(horizontal = 2.dp),
                         placeholder = { Text(localization.askMeAnything) },
-                        textStyle = com.llamatik.app.ui.theme.Typography.get().bodyMedium,
+                        textStyle = Typography.get().bodyMedium,
                         singleLine = false,
                         minLines = 1,
                         maxLines = 6,
