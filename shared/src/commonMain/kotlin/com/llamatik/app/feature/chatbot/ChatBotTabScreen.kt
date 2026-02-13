@@ -62,7 +62,9 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
+import com.llamatik.app.localization.AvailableLanguages
 import com.llamatik.app.localization.Localization
+import com.llamatik.app.localization.getCurrentLanguage
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.permissions.rememberAudioPermissionRequester
 import com.llamatik.app.permissions.rememberNotificationPermissionRequester
@@ -241,6 +243,20 @@ class ChatBotTabScreen : Screen {
                     dismissButtonText = localization.dismiss
                 )
             }
+        }
+    }
+
+    private fun whisperLanguageCode(): String? {
+        // Whisper expects ISO 639-1 language codes (e.g., "en", "es", "fr", "de", "it", "ru", "zh")
+        // Return null to allow auto-detection.
+        return when (getCurrentLanguage()) {
+            AvailableLanguages.EN -> "en"
+            AvailableLanguages.ES -> "es"
+            AvailableLanguages.IT -> "it"
+            AvailableLanguages.FR -> "fr"
+            AvailableLanguages.DE -> "de"
+            AvailableLanguages.RU -> "ru"
+            AvailableLanguages.CN -> "zh"
         }
     }
 
@@ -543,8 +559,8 @@ class ChatBotTabScreen : Screen {
                                         val wavPath = recorder.stop()
 
                                         val text = withContext(Dispatchers.Default) {
-                                            // Model already selected + loaded by the VM
-                                            WhisperBridge.transcribeWav(wavPath, language = null).trim()
+                                            val lang = whisperLanguageCode()
+                                            WhisperBridge.transcribeWav(wavPath, language = lang).trim()
                                         }
 
                                         if (text.isNotBlank()) {
