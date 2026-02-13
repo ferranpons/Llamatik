@@ -7,14 +7,13 @@
 #include <string>
 #include <vector>
 
-// On Apple platforms detect simulator to avoid Metal simulator issues
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #endif
 
 static struct whisper_context *g_whisper_ctx = nullptr;
 
-// Minimal WAV reader for PCM16 LE (what AVAudioRecorder produces in your settings).
+// Minimal WAV reader for PCM16 LE.
 // Converts to mono float32 [-1, 1]. Returns true on success.
 static bool read_wav_pcm16le_to_f32_mono(const char *path, std::vector<float> &out) {
     out.clear();
@@ -45,10 +44,7 @@ static bool read_wav_pcm16le_to_f32_mono(const char *path, std::vector<float> &o
     }
 
     uint32_t riff_size = 0;
-    if (!rd_u32(riff_size)) {
-        std::fclose(f);
-        return false;
-    }
+    if (!rd_u32(riff_size)) { std::fclose(f); return false; }
 
     char wave[4];
     if (std::fread(wave, 1, 4, f) != 4 || std::memcmp(wave, "WAVE", 4) != 0) {
@@ -66,7 +62,6 @@ static bool read_wav_pcm16le_to_f32_mono(const char *path, std::vector<float> &o
 
     std::vector<uint8_t> data_bytes;
 
-    // Parse chunks
     while (!have_data) {
         char chunk_id[4];
         if (std::fread(chunk_id, 1, 4, f) != 4) break;
@@ -75,18 +70,15 @@ static bool read_wav_pcm16le_to_f32_mono(const char *path, std::vector<float> &o
         if (!rd_u32(chunk_size)) break;
 
         if (std::memcmp(chunk_id, "fmt ", 4) == 0) {
-            if (chunk_size < 16) {
-                std::fclose(f);
-                return false;
-            }
+            if (chunk_size < 16) { std::fclose(f); return false; }
 
             if (!rd_u16(audio_format)) { std::fclose(f); return false; }
             if (!rd_u16(num_channels)) { std::fclose(f); return false; }
-            if (!rd_u32(sample_rate)) { std::fclose(f); return false; }
+            if (!rd_u32(sample_rate))  { std::fclose(f); return false; }
 
             uint32_t byte_rate = 0;
             uint16_t block_align = 0;
-            if (!rd_u32(byte_rate)) { std::fclose(f); return false; }
+            if (!rd_u32(byte_rate))   { std::fclose(f); return false; }
             if (!rd_u16(block_align)) { std::fclose(f); return false; }
 
             if (!rd_u16(bits_per_sample)) { std::fclose(f); return false; }
@@ -115,12 +107,11 @@ static bool read_wav_pcm16le_to_f32_mono(const char *path, std::vector<float> &o
     std::fclose(f);
 
     if (!have_fmt || !have_data) return false;
-    if (audio_format != 1) return false;                 // PCM only
-    if (bits_per_sample != 16) return false;             // PCM16 only
+    if (audio_format != 1) return false;      // PCM only
+    if (bits_per_sample != 16) return false;  // PCM16 only
     if (num_channels < 1 || num_channels > 2) return false;
 
-    const size_t frame_size = (size_t)num_channels * 2;  // 2 bytes per sample per channel
-    if (frame_size == 0) return false;
+    const size_t frame_size = (size_t)num_channels * 2;
     if (data_bytes.size() < frame_size) return false;
 
     const size_t n_frames = data_bytes.size() / frame_size;
@@ -151,14 +142,14 @@ static bool read_wav_pcm16le_to_f32_mono(const char *path, std::vector<float> &o
 
 extern "C" {
 
-// Returns 1 on success, 0 on failure. Never aborts.
+// Returns 1 on success, 0 on failure.
 int32_t whisper_stt_init(const char *model_path) {
     if (g_whisper_ctx) {
         whisper_free(g_whisper_ctx);
         g_whisper_ctx = nullptr;
     }
 
-    if (model_path == nullptr || model_path[0] == '\0') {
+    if (!model_path || model_path[0] == '\0') {
         std::fprintf(stderr, "whisper_stt_init: model_path is null/empty\n");
         return 0;
     }
@@ -167,7 +158,7 @@ int32_t whisper_stt_init(const char *model_path) {
 
     struct whisper_context_params cparams = whisper_context_default_params();
 
-    // Disable GPU/flash_attn on simulator to avoid Metal simulator crashes.
+    // Simulator: disable GPU/flash_attn (Metal simulator can be flaky)
 #if defined(__APPLE__) && defined(TARGET_OS_SIMULATOR) && TARGET_OS_SIMULATOR
     cparams.use_gpu = false;
     cparams.flash_attn = false;
@@ -176,7 +167,7 @@ int32_t whisper_stt_init(const char *model_path) {
     cparams.flash_attn = true;
 #endif
 
-    g_whisper_ctx = whisper_init_from_file_with_params_no_state(model_path, cparams);
+    g_whisper_ctx = whisper_init_from_file_with_params(model_path, cparams);
     if (!g_whisper_ctx) {
         std::fprintf(stderr, "whisper_stt_init: FAILED to load model from '%s'\n", model_path);
         return 0;
@@ -185,8 +176,7 @@ int32_t whisper_stt_init(const char *model_path) {
     return 1;
 }
 
-// language may be null => auto-detect
-// Returns malloc'ed UTF-8 string. Kotlin/Native reads it with toKString().
+// Returns malloc'ed UTF-8 string. Caller must free via whisper_stt_free_string.
 char *whisper_stt_transcribe_wav(const char *wav_path, const char *language) {
     if (!g_whisper_ctx) {
         std::fprintf(stderr, "whisper_stt_transcribe_wav: context not initialized\n");
@@ -217,8 +207,9 @@ char *whisper_stt_transcribe_wav(const char *wav_path, const char *language) {
         params.translate = false;
     }
 
-    if (whisper_full(g_whisper_ctx, params, pcmf32.data(), (int)pcmf32.size()) != 0) {
-        std::fprintf(stderr, "whisper_stt_transcribe_wav: whisper_full failed\n");
+    const int rc = whisper_full(g_whisper_ctx, params, pcmf32.data(), (int)pcmf32.size());
+    if (rc != 0) {
+        std::fprintf(stderr, "whisper_stt_transcribe_wav: whisper_full failed rc=%d\n", rc);
         return ::strdup("");
     }
 
