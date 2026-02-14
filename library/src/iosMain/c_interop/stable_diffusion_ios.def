@@ -1,0 +1,12 @@
+headers = stable_diffusion.h
+headerFilter = stable_diffusion.h
+
+# We link against the merged archive that now also contains stable-diffusion.cpp symbols.
+staticLibraries = libllama_merged.a
+
+compilerOpts = -I$PROJECT_DIR/src/iosMain/c_interop/include \
+               -I$PROJECT_DIR/../stable-diffusion.cpp/include
+
+linkerOpts = -framework Accelerate -framework Metal -lc++ -ObjC
+
+package = com.llamatik.library.platform.sd

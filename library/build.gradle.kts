@@ -163,6 +163,20 @@ kotlin {
                     logger.warn("Whisper static library not found in $libPath. iOS voice/STT symbols will NOT be linked.")
                 }
 
+                // ---- Add stable-diffusion.cpp into the merged archive (optional) ----
+                val sdLib = file("$libPath/libstable-diffusion.a").takeIf { it.exists() }?.absolutePath
+                if (sdLib != null) {
+                    args += sdLib
+                } else {
+                    logger.warn("stable-diffusion static library not found in $libPath. iOS image generation symbols will NOT be linked.")
+                }
+
+                // stable-diffusion.cpp links a small static 'zip' lib (thirdparty)
+                val zipLib = file("$libPath/libzip.a").takeIf { it.exists() }?.absolutePath
+                if (zipLib != null) {
+                    args += zipLib
+                }
+
                 commandLine(args)
             }
         }
@@ -197,6 +211,26 @@ kotlin {
                 packageName("com.llamatik.library.platform.whisper")
 
                 compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
+
+                extraOpts(
+                    "-libraryPath", libPath
+                )
+
+                tasks.named(interopProcessingTaskName).configure {
+                    dependsOn(mergeTask)
+                }
+            }
+
+            create("stableDiffusion") {
+                val defFileName = "stable_diffusion_ios.def"
+
+                defFile("src/iosMain/c_interop/$defFileName")
+                packageName("com.llamatik.library.platform.sd")
+
+                compilerOpts(
+                    "-I${projectDir}/src/iosMain/c_interop/include",
+                    "-I${rootDir}/stable-diffusion.cpp/include"
+                )
 
                 extraOpts(
                     "-libraryPath", libPath

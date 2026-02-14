@@ -42,6 +42,16 @@ set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
 
+# stable-diffusion.cpp (repo-root submodule)
+set(STABLE_DIFFUSION_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../stable-diffusion.cpp")
+set(SD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SD_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
+set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
+
+add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
+
 find_library(log-lib log)
 
 add_library(
@@ -51,6 +61,7 @@ add_library(
         llama_embed.cpp
         whisper_stt.cpp
         whisper_jni.cpp
+        stable_diffusion_jni.cpp
 )
 
 target_include_directories(
@@ -66,6 +77,7 @@ target_include_directories(
         ${LLAMA_CPP_DIR}/vendor/nlohmann
         ${WHISPER_CPP_DIR}
         ${WHISPER_CPP_DIR}/include
+        ${STABLE_DIFFUSION_CPP_DIR}/include
 )
 
 target_link_libraries(
@@ -74,5 +86,6 @@ target_link_libraries(
         llama
         common
         whisper
+        stable-diffusion
         ${log-lib}
 )

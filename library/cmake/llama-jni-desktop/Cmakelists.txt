@@ -4,9 +4,6 @@ project(llama_jni_desktop LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# -------------------------------
-# Paths
-# -------------------------------
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 
 set(LLAMA_CPP_DIR "${REPO_ROOT}/llama.cpp")
@@ -15,12 +12,13 @@ set(LLAMA_INCLUDE_DIR "${LLAMA_CPP_DIR}/include")
 set(JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/llama_jni.cpp")
 set(JNI_INCLUDE_DIR "${REPO_ROOT}/library/src/commonMain/c_interop/include")
 
-# These MUST be absolute or CMake will look in the cmake folder
 set(WHISPER_STT_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_stt.cpp")
 set(WHISPER_JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_jni.cpp")
 
-# Prefer repo-root whisper.cpp
 set(WHISPER_CPP_DIR "${REPO_ROOT}/whisper.cpp")
+
+# repo-root stable-diffusion.cpp
+set(STABLE_DIFFUSION_CPP_DIR "${REPO_ROOT}/stable-diffusion.cpp")
 
 message(STATUS "REPO_ROOT        = ${REPO_ROOT}")
 message(STATUS "LLAMA_CPP_DIR    = ${LLAMA_CPP_DIR}")
@@ -39,9 +37,6 @@ if(NOT EXISTS "${LLAMA_CPP_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "llama.cpp not found at: ${LLAMA_CPP_DIR}")
 endif()
 
-# -------------------------------
-# Build llama.cpp (from repo)
-# -------------------------------
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
@@ -51,11 +46,7 @@ set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama-wrapper-build")
 
-# -------------------------------
-# Whisper (optional but enabled if present)
-# -------------------------------
 set(HAVE_WHISPER OFF)
-
 if(EXISTS "${WHISPER_CPP_DIR}/CMakeLists.txt")
     set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -68,12 +59,24 @@ else()
     add_compile_definitions(LLAMATIK_NO_WHISPER=1)
 endif()
 
-# -------------------------------
-# JNI
-# -------------------------------
+# stable-diffusion.cpp (optional)
+set(HAVE_SD OFF)
+if(EXISTS "${STABLE_DIFFUSION_CPP_DIR}/CMakeLists.txt")
+    set(SD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(SD_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
+    set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
+
+    add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
+    set(HAVE_SD ON)
+else()
+    message(WARNING "stable-diffusion.cpp not found at ${STABLE_DIFFUSION_CPP_DIR}. Desktop will build without SD.")
+    add_compile_definitions(LLAMATIK_NO_SD=1)
+endif()
+
 find_package(JNI REQUIRED)
 
-# schema->grammar helper sources (optional)
 set(LLAMA_SCHEMA_SOURCES "")
 set(_cand1 "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
 set(_cand2 "${LLAMA_CPP_DIR}/common/json_schema_to_grammar.cpp")
@@ -91,13 +94,19 @@ else()
     message(STATUS "Schema sources: ${LLAMA_SCHEMA_SOURCES}")
 endif()
 
-# Collect sources
 set(LLAMA_JNI_SOURCES
     "${JNI_SRC}"
     ${LLAMA_SCHEMA_SOURCES}
 )
 
-# Only add whisper glue sources if they exist AND whisper is enabled
+set(SD_JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/stable_diffusion_jni.cpp")
+if(HAVE_SD)
+    if(NOT EXISTS "${SD_JNI_SRC}")
+        message(FATAL_ERROR "StableDiffusion JNI source not found: ${SD_JNI_SRC}")
+    endif()
+    list(APPEND LLAMA_JNI_SOURCES "${SD_JNI_SRC}")
+endif()
+
 if(HAVE_WHISPER)
     if(NOT EXISTS "${WHISPER_STT_SRC}")
         message(FATAL_ERROR "Whisper glue source not found: ${WHISPER_STT_SRC}")
@@ -125,6 +134,10 @@ target_include_directories(llama_jni
     ${JNI_INCLUDE_DIRS}
 )
 
+if(HAVE_SD)
+    target_include_directories(llama_jni PRIVATE "${STABLE_DIFFUSION_CPP_DIR}/include")
+endif()
+
 if(HAVE_WHISPER)
     target_include_directories(llama_jni
         PRIVATE
@@ -137,6 +150,10 @@ target_link_libraries(llama_jni
     PRIVATE
     llama
 )
+
+if(HAVE_SD)
+    target_link_libraries(llama_jni PRIVATE stable-diffusion)
+endif()
 
 if(HAVE_WHISPER)
     target_link_libraries(llama_jni PRIVATE whisper)
