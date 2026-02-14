@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Password
 import androidx.compose.material.icons.rounded.People
@@ -113,6 +114,8 @@ object LlamatikIcons {
     val ChatHistory = Icons.AutoMirrored.Rounded.List
     val TemporaryChat = Icons.Rounded.HistoryToggleOff
     val NewConversation = Icons.Outlined.AddComment
+    val Image = Icons.Rounded.Image
+    val Text = Icons.AutoMirrored.Rounded.TextSnippet
 }
 
 /**

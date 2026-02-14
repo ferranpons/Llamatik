@@ -99,6 +99,7 @@ class ChatBotTabScreen : Screen {
         val loadingEmbedModelName = remember { mutableStateOf<String?>(null) }
         val loadingGenerateModelName = remember { mutableStateOf<String?>(null) }
         val loadingSttModelName = remember { mutableStateOf<String?>(null) }
+        val loadingStableDiffusionModelName = remember { mutableStateOf<String?>(null) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
@@ -125,6 +126,7 @@ class ChatBotTabScreen : Screen {
             loadingEmbedModelName = loadingEmbedModelName,
             loadingGenerateModelName = loadingGenerateModelName,
             loadingSttModelName = loadingSttModelName,
+            loadingStableDiffusionModelName = loadingStableDiffusionModelName,
         )
 
         LlamatikTheme {
@@ -197,14 +199,17 @@ class ChatBotTabScreen : Screen {
                     selectedEmbedModelName = state.selectedEmbedModelName,
                     selectedGenerateModelName = state.selectedGenerateModelName,
                     selectedSttModelName = state.selectedSttModelName,
+                    selectedStableDiffusionModelName = state.selectedStableDiffusionModelName,
 
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
                     sttModels = state.sttModels,
+                    stableDiffusionModels = state.stableDiffusionModels,
 
                     loadingEmbedModelName = loadingEmbedModelName.value,
                     loadingGenerateModelName = loadingGenerateModelName.value,
                     loadingSttModelName = loadingSttModelName.value,
+                    loadingStableDiffusionModelName = loadingStableDiffusionModelName.value,
 
                     onEmbedModelSelectedClicked = { model ->
                         loadingEmbedModelName.value = model.name
@@ -217,6 +222,10 @@ class ChatBotTabScreen : Screen {
                     onSttModelSelectedClicked = { model ->
                         loadingSttModelName.value = model.name
                         viewModel.onSttModelSelected(model)
+                    },
+                    onStableDiffusionModelSelectedClicked = { model ->
+                        loadingStableDiffusionModelName.value = model.name
+                        viewModel.onStableDiffusionModelSelected(model)
                     },
 
                     onDownloadModelClicked = { model ->
@@ -269,6 +278,7 @@ class ChatBotTabScreen : Screen {
         loadingEmbedModelName: MutableState<String?>,
         loadingGenerateModelName: MutableState<String?>,
         loadingSttModelName: MutableState<String?>,
+        loadingStableDiffusionModelName: MutableState<String?>,
     ) {
         val sideEffects = viewModel.sideEffects.collectAsState(ChatBotSideEffects.Initial)
         sideEffects.value.apply {
@@ -305,6 +315,11 @@ class ChatBotTabScreen : Screen {
                     showModelSelectorSheet.value = false
                 }
 
+                ChatBotSideEffects.OnStableDiffusionModelLoaded -> {
+                    loadingStableDiffusionModelName.value = null
+                    showModelSelectorSheet.value = false
+                }
+
                 ChatBotSideEffects.OnSettingsChanged -> {
                     showSettingsSheet.value = false
                 }
@@ -319,6 +334,10 @@ class ChatBotTabScreen : Screen {
 
                 ChatBotSideEffects.OnSttModelLoadError -> {
                     loadingSttModelName.value = null
+                }
+
+                ChatBotSideEffects.OnStableDiffusionModelLoadError -> {
+                    loadingStableDiffusionModelName.value = null
                 }
             }
         }

@@ -41,6 +41,17 @@ class GetModelsUseCase(
         }
     }
 
+    fun getDefaultStableDiffusionModels(): Result<List<LlamaModel>> = runCatching {
+        return@runCatching modelsRepository.getDefaultStableDiffusionModels().map { model ->
+            val localFilePath = modelsRepository.getSavedModelPath(modelName = model.name)
+            if (localFilePath.isNotEmpty()) {
+                model.copy(localPath = localFilePath)
+            } else {
+                model
+            }
+        }
+    }
+
     // --- Legacy-style download returning bytes + base64 (kept as-is) ---
 
     suspend fun downloadModel(modelUrl: String): Result<Pair<ByteArray?, String>> =

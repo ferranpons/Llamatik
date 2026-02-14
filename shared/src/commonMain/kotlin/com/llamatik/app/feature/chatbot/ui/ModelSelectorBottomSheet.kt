@@ -43,15 +43,19 @@ fun ModelSelectorBottomSheet(
     selectedEmbedModelName: String?,
     selectedGenerateModelName: String?,
     selectedSttModelName: String?,
+    selectedStableDiffusionModelName: String?,
     embedModels: List<LlamaModel>,
     generateModels: List<LlamaModel>,
     sttModels: List<LlamaModel>,
+    stableDiffusionModels: List<LlamaModel>,
     loadingEmbedModelName: String?,
     loadingGenerateModelName: String?,
     loadingSttModelName: String?,
+    loadingStableDiffusionModelName: String?,
     onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
     onGenerateModelSelectedClicked: (LlamaModel) -> Unit,
     onSttModelSelectedClicked: (LlamaModel) -> Unit,
+    onStableDiffusionModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit,
     onDeleteModelClicked: (LlamaModel) -> Unit,
     onCancelDownloadClicked: (LlamaModel) -> Unit,
@@ -120,7 +124,7 @@ fun ModelSelectorBottomSheet(
             // --- STT models ---
             Spacer(Modifier.height(24.dp))
             Text(
-                text = "Speech to Text Models",
+                text = localization.sttModels,
                 style = Typography.get().titleLarge
             )
             Spacer(Modifier.height(8.dp))
@@ -133,6 +137,29 @@ fun ModelSelectorBottomSheet(
                     progress = progressMap[model.url] ?: 0f,
                     isSelecting = (model.name == loadingSttModelName),
                     onModelSelectedClicked = onSttModelSelectedClicked,
+                    onDownloadModelClicked = onDownloadModelClicked,
+                    onDeleteModelClicked = onDeleteModelClicked,
+                    onCancelDownloadClicked = onCancelDownloadClicked,
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
+            // --- Stable Diffusion (image) models ---
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = "Stable Diffusion Models",
+                style = Typography.get().titleLarge
+            )
+            Spacer(Modifier.height(8.dp))
+
+            stableDiffusionModels.forEach { model ->
+                ModelRow(
+                    model = model,
+                    isCurrent = (model.name == selectedStableDiffusionModelName),
+                    isDownloading = downloadingMap[model.url] == true,
+                    progress = progressMap[model.url] ?: 0f,
+                    isSelecting = (model.name == loadingStableDiffusionModelName),
+                    onModelSelectedClicked = onStableDiffusionModelSelectedClicked,
                     onDownloadModelClicked = onDownloadModelClicked,
                     onDeleteModelClicked = onDeleteModelClicked,
                     onCancelDownloadClicked = onCancelDownloadClicked,

@@ -47,9 +47,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
+import com.llamatik.app.feature.chatbot.viewmodel.GenerationMode
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.Typography
+import kotlin.math.PI
+import kotlin.math.sin
 
 private const val ROUNDED_CORNER_SIZE = 16
 private const val BUTTON_SIZE = 40
@@ -99,7 +102,10 @@ fun ChatInputBox(
                                 val message = hint.trim()
                                 if (message.isNotEmpty()) {
                                     onInputChange(TextFieldValue())
-                                    viewModel.onMessageSendDirect(message)
+                                    when (state.generationMode) {
+                                        GenerationMode.TEXT -> viewModel.onMessageSendDirect(message)
+                                        GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
+                                    }
                                     showSuggestions.value = false
                                 }
                             },
@@ -229,7 +235,10 @@ fun ChatInputBox(
                                 if (!isGenerating && canSend) {
                                     val message = input.text.trim()
                                     onInputChange(TextFieldValue())
-                                    viewModel.onMessageSendDirect(message)
+                                    when (state.generationMode) {
+                                        GenerationMode.TEXT -> viewModel.onMessageSendDirect(message)
+                                        GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
+                                    }
                                     showSuggestions.value = false
                                     keyboardController?.hide()
                                 }
@@ -272,6 +281,29 @@ fun ChatInputBox(
                                     }
                                     Spacer(modifier = Modifier.size(6.dp))
                                 }
+
+                                // Toggle between text generation and image generation
+                                IconButton(
+                                    onClick = {
+                                        val next =
+                                            if (state.generationMode == GenerationMode.TEXT) GenerationMode.IMAGE
+                                            else GenerationMode.TEXT
+                                        viewModel.setGenerationMode(next)
+                                    },
+                                    enabled = !isGenerating && !isTranscribing,
+                                    modifier = Modifier
+                                        .size(BUTTON_SIZE.dp)
+                                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Icon(
+                                        imageVector = if (state.generationMode == GenerationMode.TEXT) LlamatikIcons.Image else LlamatikIcons.Text,
+                                        contentDescription =
+                                            if (state.generationMode == GenerationMode.TEXT) "Image generation" else "Text generation",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.size(6.dp))
 
                                 if (!canSend && !isGenerating && !isTranscribing) {
                                     val micEnabled = !isTranscribing && !isGenerating
@@ -321,7 +353,10 @@ fun ChatInputBox(
                                             onClick = {
                                                 val message = input.text.trim()
                                                 onInputChange(TextFieldValue())
-                                                viewModel.onMessageSendDirect(message)
+                                                when (state.generationMode) {
+                                                    GenerationMode.TEXT -> viewModel.onMessageSendDirect(message)
+                                                    GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
+                                                }
                                                 showSuggestions.value = false
                                                 keyboardController?.hide()
                                             },
@@ -382,9 +417,8 @@ private fun RecordingWaveform(
         val radius = CornerRadius(barW / 2f, barW / 2f)
 
         for (i in 0 until bars) {
-            // Smooth moving amplitude
             val t = (i.toFloat() / bars.toFloat()) + phase.value
-            val amp = (kotlin.math.sin(t * 2f * kotlin.math.PI).toFloat() * 0.5f + 0.5f) // 0..1
+            val amp = (sin(t * 2f * PI).toFloat() * 0.5f + 0.5f)
             val barH = (h * (0.25f + 0.75f * amp)).coerceAtLeast(2f)
 
             val x = i * (barW + gap)

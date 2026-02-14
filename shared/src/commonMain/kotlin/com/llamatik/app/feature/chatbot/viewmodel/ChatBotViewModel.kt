@@ -31,6 +31,7 @@ import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.library.platform.LlamaBridge
+import com.llamatik.library.platform.StableDiffusionBridge
 import com.llamatik.library.platform.WhisperBridge
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,7 @@ private const val DEFAULT_SYSTEM_PROMPT = """
 You are Llamatik, a privacy-first local AI assistant running fully on-device.
 Be clear, honest, and concise. Answer in the user's language.
 """
+enum class GenerationMode { TEXT, IMAGE }
 
 class ChatBotViewModel(
     private var navigator: Navigator,
@@ -185,6 +187,10 @@ class ChatBotViewModel(
 
             getModelsUseCase.getDefaultEmbedModels()
                 .onSuccess { _state.value = _state.value.copy(embedModels = it) }
+                .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
+
+            getModelsUseCase.getDefaultStableDiffusionModels()
+                .onSuccess { _state.value = _state.value.copy(stableDiffusionModels = it) }
                 .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             // --- STT models list + attempt load any already-downloaded model ---
@@ -490,6 +496,101 @@ class ChatBotViewModel(
             } else {
                 Logger.e { "LlamaVM - no local path for STT model ${model.name}" }
                 _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoadError)
+            }
+        }
+    }
+
+    fun setGenerationMode(mode: GenerationMode) {
+        _state.value = _state.value.copy(generationMode = mode)
+    }
+
+    fun onStableDiffusionModelSelected(model: LlamaModel) {
+        screenModelScope.launch(Dispatchers.IO) {
+            val path = resolveAndMigratePath(model) ?: return@launch
+
+            Logger.d("StableDiffusion - selecting model ${model.name} at $path")
+            val loaded = StableDiffusionBridge.initModel(path)
+            if (loaded) {
+                _state.value = _state.value.copy(
+                    selectedStableDiffusionModelName = model.name,
+                    isStableDiffusionModelLoaded = true
+                )
+                _sideEffects.trySend(ChatBotSideEffects.OnStableDiffusionModelLoaded)
+            } else {
+                _sideEffects.trySend(ChatBotSideEffects.OnStableDiffusionModelLoadError)
+            }
+        }
+    }
+
+    @OptIn(ExperimentalTime::class)
+    fun onImagePromptSendDirect(prompt: String) {
+        val input = prompt.trim()
+        if (input.isBlank()) return
+
+        screenModelScope.launch {
+            if (!_state.value.isTemporaryChat && currentChatId == null) {
+                currentChatId = kotlin.random.Random.nextLong().toString()
+            }
+
+            _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
+            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
+            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+            _state.value = _state.value.copy(isGenerating = true)
+
+            withContext(Dispatchers.IO) {
+                try {
+                    persistCurrentConversationIfNeeded()
+
+                    _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
+
+                    if (!_state.value.isStableDiffusionModelLoaded) {
+                        updateLastBotMessage("🖼️ Image mode is enabled, but no Stable Diffusion model is loaded. Open Models and select a SD model.")
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        return@withContext
+                    }
+
+                    val pngBytes = StableDiffusionBridge.txt2img(
+                        prompt = input,
+                        negativePrompt = "",
+                        width = 512,
+                        height = 512,
+                        steps = 20,
+                        seed = -1,
+                    )
+
+                    if (pngBytes.isEmpty()) {
+                        updateLastBotMessage("🖼️ Image generation failed (empty output).")
+                    } else {
+                        val fileName = "sd_${kotlin.random.Random.nextInt()}_${System.now().toString().replace(":", "_")}.png"
+                        val tmp = LlamatikTempFile(fileName)
+                        tmp.appendBytes(pngBytes)
+                        tmp.close()
+                        val path = tmp.absolutePath()
+                        updateLastBotMessage("🖼️ Generated image saved to:\n$path")
+                    }
+
+                    persistCurrentConversationIfNeeded()
+                } catch (t: Throwable) {
+                    Logger.e(t.message ?: "Image generation error")
+                    updateLastBotMessage("🖼️ Error: ${t.message ?: "unknown"}")
+                } finally {
+                    _state.value = _state.value.copy(isGenerating = false)
+                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                    _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                }
+            }
+        }
+    }
+
+    private fun updateLastBotMessage(text: String) {
+        val messages = _conversation.value
+        if (messages.isEmpty()) return
+        val lastIndex = messages.lastIndex
+        val last = messages[lastIndex]
+        if (last.author == ChatUiModel.Author.bot) {
+            _conversation.value = messages.toMutableList().apply {
+                this[lastIndex] = ChatUiModel.Message(text, ChatUiModel.Author.bot)
             }
         }
     }
@@ -1129,12 +1230,15 @@ data class ChatBotState(
     val embedModels: List<LlamaModel> = emptyList(),
     val generateModels: List<LlamaModel> = emptyList(),
     val sttModels: List<LlamaModel> = emptyList(),
+    val stableDiffusionModels: List<LlamaModel> = emptyList(),
     val isEmbedModelLoaded: Boolean = false,
     val isGenerateModelLoaded: Boolean = false,
     val isSttModelLoaded: Boolean = false,
+    val isStableDiffusionModelLoaded: Boolean = false,
     val selectedEmbedModelName: String? = null,
     val selectedGenerateModelName: String? = null,
     val selectedSttModelName: String? = null,
+    val selectedStableDiffusionModelName: String? = null,
     val isGenerating: Boolean = false,
     val isInitialSetup: Boolean = false,
     val initialSetupModelName: String? = null,
@@ -1142,6 +1246,7 @@ data class ChatBotState(
     val generateSettings: GenerateSettings = GenerateSettings(),
     val chatSessions: List<ChatSessionSummary> = emptyList(),
     val isTemporaryChat: Boolean = false,
+    val generationMode: GenerationMode = GenerationMode.TEXT,
 )
 
 sealed class ChatBotSideEffects {
@@ -1159,4 +1264,6 @@ sealed class ChatBotSideEffects {
     data object OnSttModelLoaded : ChatBotSideEffects()
     data object OnSttModelLoadError : ChatBotSideEffects()
     data object OnSettingsChanged : ChatBotSideEffects()
+    data object OnStableDiffusionModelLoaded : ChatBotSideEffects()
+    data object OnStableDiffusionModelLoadError : ChatBotSideEffects()
 }
