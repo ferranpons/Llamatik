@@ -50,7 +50,7 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ On-device speech recognition via **whisper.cpp**
 - ✅ No network required
 - ✅ No data exfiltration
-- ✅ Works with **GGUF** (LLMs) and **GGML** (Whisper) models
+- ✅ Works with **GGUF** (LLMs) and **BIN** (Whisper) models
 
 ### 🧠 LLM Capabilities
 - ✅ Text generation (non-streaming & streaming)

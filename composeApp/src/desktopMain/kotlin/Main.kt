@@ -4,7 +4,7 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.llamatik.app.MainApp
-import com.llamatik.app.di.commonModule
+import com.llamatik.app.di.appModule
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.llamatik_icon_logo
@@ -17,7 +17,7 @@ import org.koin.core.context.startKoin
 fun main() =
     application {
         startKoin {
-            modules(commonModule)
+            modules(appModule())
         }
         val windowState = rememberWindowState(placement = WindowPlacement.Maximized)
         val localization = getCurrentLocalization()

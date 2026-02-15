@@ -184,4 +184,5 @@ internal object EnglishLocalization : Localization {
     override val transcribing = "Transcribing…"
     override val embedModels = "Embed Models"
     override val sttModels = "Speech to Text Models"
+    override val speak = "Speak"
 }

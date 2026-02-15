@@ -183,4 +183,5 @@ internal object RussianLocalization : Localization {
     override val transcribing = "Выполняется расшифровка…"
     override val embedModels = "Модели эмбеддингов"
     override val sttModels = "Модели распознавания речи"
+    override val speak = "Озвучить"
 }
