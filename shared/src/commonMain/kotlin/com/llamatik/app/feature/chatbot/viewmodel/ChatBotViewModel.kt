@@ -627,6 +627,9 @@ class ChatBotViewModel(
                             sttModels = _state.value.sttModels.map {
                                 if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
                             },
+                            stableDiffusionModels = _state.value.stableDiffusionModels.map {
+                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                            },
                         )
                     }
 
@@ -683,7 +686,10 @@ class ChatBotViewModel(
                     },
                     // If user deleted the currently selected STT model, mark not loaded
                     selectedSttModelName = if (_state.value.selectedSttModelName == model.name) null else _state.value.selectedSttModelName,
-                    isSttModelLoaded = if (_state.value.selectedSttModelName == model.name) false else _state.value.isSttModelLoaded
+                    isSttModelLoaded = if (_state.value.selectedSttModelName == model.name) false else _state.value.isSttModelLoaded,
+                    // If user deleted the currently selected SD model, mark not loaded
+                    selectedStableDiffusionModelName = if (_state.value.selectedStableDiffusionModelName == model.name) null else _state.value.selectedStableDiffusionModelName,
+                    isStableDiffusionModelLoaded = if (_state.value.selectedStableDiffusionModelName == model.name) false else _state.value.isStableDiffusionModelLoaded
                 )
             } catch (t: Throwable) {
                 Logger.e(t) { "LlamaVM - error deleting model ${model.name}" }
