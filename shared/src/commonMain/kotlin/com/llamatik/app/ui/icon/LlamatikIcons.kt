@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.automirrored.rounded.TextSnippet
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.outlined.AddComment
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -113,6 +114,7 @@ object LlamatikIcons {
     val ChatHistory = Icons.AutoMirrored.Rounded.List
     val TemporaryChat = Icons.Rounded.HistoryToggleOff
     val NewConversation = Icons.Outlined.AddComment
+    val Sound = Icons.AutoMirrored.Rounded.VolumeUp
 }
 
 /**

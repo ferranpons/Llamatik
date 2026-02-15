@@ -30,6 +30,7 @@ import com.llamatik.app.feature.reviews.ReviewRequestManager
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.migrateModelPathIfNeeded
+import com.llamatik.app.platform.tts.TtsEngine
 import com.llamatik.library.platform.LlamaBridge
 import com.llamatik.library.platform.WhisperBridge
 import com.russhwolf.settings.Settings
@@ -65,6 +66,7 @@ class ChatBotViewModel(
     private val modelDownloadOrchestrator: ModelDownloadOrchestrator,
     private val reviewRequestManager: ReviewRequestManager,
     private val chatHistoryRepository: ChatHistoryRepository,
+    private val ttsEngine: TtsEngine,
 ) : ScreenModel {
 
     data class DownloadState(
@@ -586,6 +588,21 @@ class ChatBotViewModel(
                 Logger.e(t) { "LlamaVM - error deleting model ${model.name}" }
             }
         }
+    }
+
+    fun onSpeak(text: String) {
+        if (!ttsEngine.isAvailable) return
+        screenModelScope.launch {
+            runCatching {
+                ttsEngine.speak(text, interrupt = true)
+            }.onFailure {
+                Logger.withTag("TTS").w(it) { "TTS speak failed" }
+            }
+        }
+    }
+
+    fun onStopSpeaking() {
+        runCatching { ttsEngine.stop() }
     }
 
     fun String.urlToFileName(): String {

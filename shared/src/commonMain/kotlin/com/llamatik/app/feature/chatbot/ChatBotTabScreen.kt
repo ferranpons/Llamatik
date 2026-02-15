@@ -514,6 +514,7 @@ class ChatBotTabScreen : Screen {
                             localization = localization,
                             message = chatUiModel.messages[item],
                             showLoading = isLoading.value && item == chatUiModel.messages.size - 1,
+                            onSpeak = { viewModel.onSpeak(it) },
                         )
                     }
                 }
@@ -607,6 +608,7 @@ class ChatBotTabScreen : Screen {
         localization: Localization,
         message: ChatUiModel.Message,
         showLoading: Boolean,
+        onSpeak: (String) -> Unit,
     ) {
         val clipboard = LocalClipboardManager.current
 
@@ -662,6 +664,16 @@ class ChatBotTabScreen : Screen {
                     Icon(
                         imageVector = LlamatikIcons.Copy,
                         contentDescription = localization.copy
+                    )
+                }
+
+                IconButton(
+                    onClick = { onSpeak(message.text) },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = LlamatikIcons.Sound,
+                        contentDescription = "Speak"
                     )
                 }
 
