@@ -130,6 +130,7 @@ interface Localization {
     val transcribing: String
     val embedModels: String
     val sttModels: String
+    val speak: String
 }
 
 enum class AvailableLanguages {

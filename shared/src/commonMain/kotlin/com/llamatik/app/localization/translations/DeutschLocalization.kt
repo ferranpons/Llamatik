@@ -185,4 +185,5 @@ vermeide jedoch große Ausgaben, sofern sie nicht ausdrücklich angefordert werd
     override val transcribing = "Transkribiert…"
     override val embedModels = "Embedding-Modelle"
     override val sttModels = "Spracherkennungsmodelle"
+    override val speak = "Vorlesen"
 }

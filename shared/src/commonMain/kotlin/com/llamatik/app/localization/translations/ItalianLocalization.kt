@@ -183,4 +183,5 @@ evitando comunque output eccessivi salvo richiesta esplicita.
     override val transcribing = "Trascrizione in corso…"
     override val embedModels = "Modelli di embedding"
     override val sttModels = "Modelli di riconoscimento vocale"
+    override val speak = "Parla"
 }

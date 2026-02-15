@@ -183,4 +183,5 @@ pero evita salidas extensas salvo que se soliciten explícitamente.
     override val transcribing = "Transcribiendo…"
     override val embedModels = "Modelos de embeddings"
     override val sttModels = "Modelos de reconocimiento de voz"
+    override val speak = "Hablar"
 }

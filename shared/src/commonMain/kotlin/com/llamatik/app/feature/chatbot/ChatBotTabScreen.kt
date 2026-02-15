@@ -474,6 +474,7 @@ class ChatBotTabScreen : Screen {
         var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue())
         }
+        val speakingMessageKey = remember { mutableStateOf<String?>(null) }
 
         val listState = rememberLazyListState()
         LaunchedEffect(chatUiModel.messages.size) {
@@ -510,11 +511,20 @@ class ChatBotTabScreen : Screen {
                         .weight(1f)
                 ) {
                     items(chatUiModel.messages.size) { item ->
+                        val messageKey = "msg_$item"
                         ChatItem(
                             localization = localization,
                             message = chatUiModel.messages[item],
                             showLoading = isLoading.value && item == chatUiModel.messages.size - 1,
-                            onSpeak = { viewModel.onSpeak(it) },
+                            isSpeaking = speakingMessageKey.value == messageKey,
+                            onSpeak = { text ->
+                                speakingMessageKey.value = messageKey
+                                viewModel.onSpeak(text)
+                            },
+                            onStop = {
+                                speakingMessageKey.value = null
+                                viewModel.onStopSpeaking()
+                            }
                         )
                     }
                 }
@@ -608,7 +618,9 @@ class ChatBotTabScreen : Screen {
         localization: Localization,
         message: ChatUiModel.Message,
         showLoading: Boolean,
+        isSpeaking: Boolean,
         onSpeak: (String) -> Unit,
+        onStop: () -> Unit,
     ) {
         val clipboard = LocalClipboardManager.current
 
@@ -668,12 +680,18 @@ class ChatBotTabScreen : Screen {
                 }
 
                 IconButton(
-                    onClick = { onSpeak(message.text) },
+                    onClick = {
+                        if (isSpeaking) onStop() else onSpeak(message.text)
+                    },
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
-                        imageVector = LlamatikIcons.Sound,
-                        contentDescription = "Speak"
+                        imageVector = if (isSpeaking) LlamatikIcons.Stop else LlamatikIcons.Sound,
+                        contentDescription = if (isSpeaking) {
+                            localization.stop
+                        } else {
+                            localization.speak
+                        }
                     )
                 }
 

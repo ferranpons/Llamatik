@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.ShoppingBasket
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.Surfing
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -115,6 +116,7 @@ object LlamatikIcons {
     val TemporaryChat = Icons.Rounded.HistoryToggleOff
     val NewConversation = Icons.Outlined.AddComment
     val Sound = Icons.AutoMirrored.Rounded.VolumeUp
+    val Stop = Icons.Rounded.StopCircle
 }
 
 /**
