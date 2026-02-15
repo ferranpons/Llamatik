@@ -70,6 +70,7 @@ import com.llamatik.app.permissions.rememberAudioPermissionRequester
 import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import com.llamatik.app.platform.AudioPaths
 import com.llamatik.app.platform.AudioRecorder
+import com.llamatik.app.platform.decodePngToImageBitmap
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.llamatik.app.ui.components.LlamatikDialog
@@ -643,6 +644,10 @@ class ChatBotTabScreen : Screen {
     ) {
         val clipboard = LocalClipboardManager.current
 
+        val imageBitmap = remember(message.imagePng) {
+            message.imagePng?.let { decodePngToImageBitmap(it) }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -672,8 +677,25 @@ class ChatBotTabScreen : Screen {
                     )
                     .padding(16.dp)
             ) {
-                Text(text = message.text)
+                if (message.hasImage && message.imagePng != null) {
+                    if (imageBitmap != null) {
+                        Image(
+                            bitmap = imageBitmap,
+                            contentDescription = message.imageFileName ?: "Generated image",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    } else {
+                        Text("🖼️ Failed to decode image.")
+                    }
+                } else {
+                    Text(text = message.text)
+                }
             }
+
             Row(
                 modifier = Modifier.align(if (message.isFromMe) Alignment.End else Alignment.Start),
                 verticalAlignment = Alignment.CenterVertically
@@ -688,39 +710,36 @@ class ChatBotTabScreen : Screen {
 
                 Spacer(modifier = Modifier.size(8.dp))
 
-                IconButton(
-                    onClick = { clipboard.setText(AnnotatedString(message.text)) },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = LlamatikIcons.Copy,
-                        contentDescription = localization.copy
-                    )
-                }
+                if (!(message.hasImage && message.imagePng != null)) {
+                    IconButton(
+                        onClick = { clipboard.setText(AnnotatedString(message.text)) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = LlamatikIcons.Copy,
+                            contentDescription = localization.copy
+                        )
+                    }
 
-                IconButton(
-                    onClick = {
-                        if (isSpeaking) onStop() else onSpeak(message.text)
-                    },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isSpeaking) LlamatikIcons.Stop else LlamatikIcons.Sound,
-                        contentDescription = if (isSpeaking) {
-                            localization.stop
-                        } else {
-                            localization.speak
-                        }
-                    )
+                    IconButton(
+                        onClick = {
+                            if (isSpeaking) onStop() else onSpeak(message.text)
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isSpeaking) LlamatikIcons.Stop else LlamatikIcons.Sound,
+                            contentDescription = if (isSpeaking) localization.stop else localization.speak
+                        )
+                    }
                 }
 
                 if (showLoading) {
                     Spacer(modifier = Modifier.size(8.dp))
                     CircularProgressIndicator(
-                        modifier =
-                            Modifier
-                                .size(10.dp)
-                                .align(Alignment.CenterVertically)
+                        modifier = Modifier
+                            .size(10.dp)
+                            .align(Alignment.CenterVertically)
                     )
                 }
             }

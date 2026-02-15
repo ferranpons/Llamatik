@@ -50,6 +50,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import net.thauvin.erik.urlencoder.UrlEncoderUtil
 import kotlin.concurrent.Volatile
+import kotlin.random.Random
 import kotlin.time.Clock.System
 import kotlin.time.ExperimentalTime
 
@@ -564,12 +565,8 @@ class ChatBotViewModel(
                     if (pngBytes.isEmpty()) {
                         updateLastBotMessage("🖼️ Image generation failed (empty output).")
                     } else {
-                        val fileName = "sd_${kotlin.random.Random.nextInt()}_${System.now().toString().replace(":", "_")}.png"
-                        val tmp = LlamatikTempFile(fileName)
-                        tmp.appendBytes(pngBytes)
-                        tmp.close()
-                        val path = tmp.absolutePath()
-                        updateLastBotMessage("🖼️ Generated image saved to:\n$path")
+                        val fileName = "sd_${Random.nextInt()}_${System.now().toString().replace(":", "_")}.png"
+                        updateLastBotImage(pngBytes = pngBytes, fileName = fileName)
                     }
 
                     persistCurrentConversationIfNeeded()
@@ -592,7 +589,23 @@ class ChatBotViewModel(
         val last = messages[lastIndex]
         if (last.author == ChatUiModel.Author.bot) {
             _conversation.value = messages.toMutableList().apply {
-                this[lastIndex] = ChatUiModel.Message(text, ChatUiModel.Author.bot)
+                this[lastIndex] = last.copy(text = text, imagePng = null, imageFileName = null)
+            }
+        }
+    }
+
+    private fun updateLastBotImage(pngBytes: ByteArray, fileName: String) {
+        val messages = _conversation.value
+        if (messages.isEmpty()) return
+        val lastIndex = messages.lastIndex
+        val last = messages[lastIndex]
+        if (last.author == ChatUiModel.Author.bot) {
+            _conversation.value = messages.toMutableList().apply {
+                this[lastIndex] = last.copy(
+                    text = "",
+                    imagePng = pngBytes,
+                    imageFileName = fileName,
+                )
             }
         }
     }
@@ -1225,8 +1238,37 @@ data class ChatUiModel(
     data class Message(
         val text: String,
         val author: Author,
+        val imagePng: ByteArray? = null,
+        val imageFileName: String? = null,
     ) {
         val isFromMe: Boolean get() = author.id == MY_ID
+        val hasImage: Boolean get() = imagePng != null
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other == null || this::class != other::class) return false
+
+            other as Message
+
+            if (text != other.text) return false
+            if (author != other.author) return false
+
+            if (imagePng != null || other.imagePng != null) {
+                if (imagePng == null || other.imagePng == null) return false
+                if (!imagePng.contentEquals(other.imagePng)) return false
+            }
+
+            if (imageFileName != other.imageFileName) return false
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = text.hashCode()
+            result = 31 * result + author.hashCode()
+            result = 31 * result + (imagePng?.contentHashCode() ?: 0)
+            result = 31 * result + (imageFileName?.hashCode() ?: 0)
+            return result
+        }
     }
 
     data class Author(
