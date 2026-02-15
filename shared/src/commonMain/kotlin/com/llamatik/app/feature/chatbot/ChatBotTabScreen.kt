@@ -70,7 +70,7 @@ import com.llamatik.app.permissions.rememberAudioPermissionRequester
 import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import com.llamatik.app.platform.AudioPaths
 import com.llamatik.app.platform.AudioRecorder
-import com.llamatik.app.platform.decodePngToImageBitmap
+import com.llamatik.app.platform.decodeImageBytesToImageBitmap
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.llamatik.app.ui.components.LlamatikDialog
@@ -645,7 +645,7 @@ class ChatBotTabScreen : Screen {
         val clipboard = LocalClipboardManager.current
 
         val imageBitmap = remember(message.imagePng) {
-            message.imagePng?.let { decodePngToImageBitmap(it) }
+            message.imagePng?.let { decodeImageBytesToImageBitmap(it, message.imageFileName) }
         }
 
         Column(
