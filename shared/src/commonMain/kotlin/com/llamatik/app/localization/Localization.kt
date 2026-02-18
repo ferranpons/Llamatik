@@ -5,7 +5,11 @@ import com.llamatik.app.localization.translations.ChineseLocalization
 import com.llamatik.app.localization.translations.DeutschLocalization
 import com.llamatik.app.localization.translations.EnglishLocalization
 import com.llamatik.app.localization.translations.FrenchLocalization
+import com.llamatik.app.localization.translations.HindiLocalization
 import com.llamatik.app.localization.translations.ItalianLocalization
+import com.llamatik.app.localization.translations.JapaneseLocalization
+import com.llamatik.app.localization.translations.PersianLocalization
+import com.llamatik.app.localization.translations.PortugueseLocalization
 import com.llamatik.app.localization.translations.RussianLocalization
 import com.llamatik.app.localization.translations.SpanishLocalization
 
@@ -140,10 +144,14 @@ enum class AvailableLanguages {
     IT,
     FR,
     RU,
-    CN;
+    CN,
+    PT,
+    HI,
+    FA,
+    JA;
 
     companion object {
-        val languages = listOf(EN, ES, IT, FR, DE, RU, CN)
+        val languages = listOf(EN, ES, IT, FR, DE, RU, CN, PT, HI, FA, JA)
     }
 }
 
@@ -160,4 +168,8 @@ fun getCurrentLocalization() = when (getCurrentLanguage()) {
     AvailableLanguages.DE -> DeutschLocalization
     AvailableLanguages.RU -> RussianLocalization
     AvailableLanguages.CN -> ChineseLocalization
+    AvailableLanguages.PT -> PortugueseLocalization
+    AvailableLanguages.HI -> HindiLocalization
+    AvailableLanguages.FA -> PersianLocalization
+    AvailableLanguages.JA -> JapaneseLocalization
 }
