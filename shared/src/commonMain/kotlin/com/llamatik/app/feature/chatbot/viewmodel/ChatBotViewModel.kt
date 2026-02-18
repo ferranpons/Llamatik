@@ -553,7 +553,7 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    val pngBytes = StableDiffusionBridge.txt2img(
+                    val rgbaBytes = StableDiffusionBridge.txt2img(
                         prompt = input,
                         negativePrompt = "",
                         width = 512,
@@ -562,11 +562,17 @@ class ChatBotViewModel(
                         seed = -1,
                     )
 
-                    if (pngBytes.isEmpty()) {
+                    if (rgbaBytes.isEmpty()) {
                         updateLastBotMessage("🖼️ Image generation failed (empty output).")
                     } else {
                         val fileName = "sd_${Random.nextInt()}_${System.now().toString().replace(":", "_")}.png"
-                        updateLastBotImage(pngBytes = pngBytes, fileName = fileName)
+                        // StableDiffusionBridge returns raw RGBA bytes (width*height*4)
+                        updateLastBotImageRgba(
+                            rgbaBytes = rgbaBytes,
+                            width = 512,
+                            height = 512,
+                            fileName = fileName,
+                        )
                     }
 
                     persistCurrentConversationIfNeeded()
@@ -589,7 +595,38 @@ class ChatBotViewModel(
         val last = messages[lastIndex]
         if (last.author == ChatUiModel.Author.bot) {
             _conversation.value = messages.toMutableList().apply {
-                this[lastIndex] = last.copy(text = text, imagePng = null, imageFileName = null)
+                this[lastIndex] = last.copy(
+                    text = text,
+                    imagePng = null,
+                    imageFileName = null,
+                    imageRgba = null,
+                    imageWidth = null,
+                    imageHeight = null,
+                )
+            }
+        }
+    }
+
+    private fun updateLastBotImageRgba(
+        rgbaBytes: ByteArray,
+        width: Int,
+        height: Int,
+        fileName: String,
+    ) {
+        val messages = _conversation.value
+        if (messages.isEmpty()) return
+        val lastIndex = messages.lastIndex
+        val last = messages[lastIndex]
+        if (last.author == ChatUiModel.Author.bot) {
+            _conversation.value = messages.toMutableList().apply {
+                this[lastIndex] = last.copy(
+                    text = "",
+                    imagePng = null,
+                    imageFileName = fileName,
+                    imageRgba = rgbaBytes,
+                    imageWidth = width,
+                    imageHeight = height,
+                )
             }
         }
     }
@@ -1240,9 +1277,12 @@ data class ChatUiModel(
         val author: Author,
         val imagePng: ByteArray? = null,
         val imageFileName: String? = null,
+        val imageRgba: ByteArray? = null,
+        val imageWidth: Int? = null,
+        val imageHeight: Int? = null,
     ) {
         val isFromMe: Boolean get() = author.id == MY_ID
-        val hasImage: Boolean get() = imagePng != null
+        val hasImage: Boolean get() = imagePng != null || imageRgba != null
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -1258,7 +1298,15 @@ data class ChatUiModel(
                 if (!imagePng.contentEquals(other.imagePng)) return false
             }
 
+            if (imageRgba != null || other.imageRgba != null) {
+                if (imageRgba == null || other.imageRgba == null) return false
+                if (!imageRgba.contentEquals(other.imageRgba)) return false
+            }
+
+            if (imageWidth != other.imageWidth) return false
+            if (imageHeight != other.imageHeight) return false
             if (imageFileName != other.imageFileName) return false
+
             return true
         }
 
@@ -1267,6 +1315,9 @@ data class ChatUiModel(
             result = 31 * result + author.hashCode()
             result = 31 * result + (imagePng?.contentHashCode() ?: 0)
             result = 31 * result + (imageFileName?.hashCode() ?: 0)
+            result = 31 * result + (imageRgba?.contentHashCode() ?: 0)
+            result = 31 * result + (imageWidth ?: 0)
+            result = 31 * result + (imageHeight ?: 0)
             return result
         }
     }

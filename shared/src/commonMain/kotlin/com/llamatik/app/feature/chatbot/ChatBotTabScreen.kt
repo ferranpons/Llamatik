@@ -71,6 +71,7 @@ import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import com.llamatik.app.platform.AudioPaths
 import com.llamatik.app.platform.AudioRecorder
 import com.llamatik.app.platform.decodeImageBytesToImageBitmap
+import com.llamatik.app.platform.rgbaToImageBitmap
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.llamatik.app.ui.components.LlamatikDialog
@@ -644,8 +645,17 @@ class ChatBotTabScreen : Screen {
     ) {
         val clipboard = LocalClipboardManager.current
 
-        val imageBitmap = remember(message.imagePng) {
+        // Encoded images (PNG/JPEG/WEBP/PPM) – kept for future/back-compat.
+        val encodedImageBitmap = remember(message.imagePng) {
             message.imagePng?.let { decodeImageBytesToImageBitmap(it, message.imageFileName) }
+        }
+
+        // StableDiffusion currently returns raw RGBA bytes.
+        val rgbaImageBitmap = remember(message.imageRgba, message.imageWidth, message.imageHeight) {
+            val rgba = message.imageRgba ?: return@remember null
+            val w = message.imageWidth ?: return@remember null
+            val h = message.imageHeight ?: return@remember null
+            rgbaToImageBitmap(w, h, rgba)
         }
 
         Column(
@@ -677,10 +687,11 @@ class ChatBotTabScreen : Screen {
                     )
                     .padding(16.dp)
             ) {
-                if (message.hasImage && message.imagePng != null) {
-                    if (imageBitmap != null) {
+                if (message.hasImage) {
+                    val bitmapToShow = rgbaImageBitmap ?: encodedImageBitmap
+                    if (bitmapToShow != null) {
                         Image(
-                            bitmap = imageBitmap,
+                            bitmap = bitmapToShow,
                             contentDescription = message.imageFileName ?: "Generated image",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
@@ -710,7 +721,7 @@ class ChatBotTabScreen : Screen {
 
                 Spacer(modifier = Modifier.size(8.dp))
 
-                if (!(message.hasImage && message.imagePng != null)) {
+                if (!message.hasImage) {
                     IconButton(
                         onClick = { clipboard.setText(AnnotatedString(message.text)) },
                         modifier = Modifier.size(32.dp)
@@ -806,7 +817,7 @@ class ChatBotTabScreen : Screen {
         ) {
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal =  12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
