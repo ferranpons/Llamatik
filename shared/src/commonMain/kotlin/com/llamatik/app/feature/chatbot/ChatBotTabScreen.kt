@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -268,6 +269,10 @@ class ChatBotTabScreen : Screen {
             AvailableLanguages.DE -> "de"
             AvailableLanguages.RU -> "ru"
             AvailableLanguages.CN -> "zh"
+            AvailableLanguages.PT -> "pt"
+            AvailableLanguages.HI -> "hi"
+            AvailableLanguages.FA -> "fa"
+            AvailableLanguages.JA -> "ja"
         }
     }
 
@@ -809,6 +814,7 @@ class ChatBotTabScreen : Screen {
     ) {
         Surface(
             modifier = Modifier
+                .widthIn(max = 400.dp)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             shape = RoundedCornerShape(16.dp),

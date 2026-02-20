@@ -180,9 +180,11 @@ fun ChatInputBox(
 
             Row(
                 modifier = Modifier
+                    .widthIn(max = 800.dp)
                     .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally)
                     .padding(horizontal = HORIZONTAL_PADDING.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.Bottom,
             ) {
                 IconButton(
                     onClick = onOpenChatHistory,
@@ -282,7 +284,6 @@ fun ChatInputBox(
                                     Spacer(modifier = Modifier.size(6.dp))
                                 }
 
-                                // Toggle between text generation and image generation
                                 IconButton(
                                     onClick = {
                                         val next =
@@ -292,6 +293,7 @@ fun ChatInputBox(
                                     },
                                     enabled = !isGenerating && !isTranscribing,
                                     modifier = Modifier
+                                        .padding(end = 6.dp)
                                         .size(BUTTON_SIZE.dp)
                                         .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
