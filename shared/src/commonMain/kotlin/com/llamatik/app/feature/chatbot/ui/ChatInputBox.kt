@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -90,7 +91,10 @@ fun ChatInputBox(
 
         Column(horizontalAlignment = Alignment.Start) {
             if (showSuggestions.value && suggestions.isNotEmpty()) {
-                LazyRow(modifier = Modifier.fillMaxWidth()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
                     items(suggestions.size) { index ->
                         val hint = suggestions[index]
                         if (index == 0) {

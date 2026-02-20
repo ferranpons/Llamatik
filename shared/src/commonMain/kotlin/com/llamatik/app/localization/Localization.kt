@@ -173,3 +173,19 @@ fun getCurrentLocalization() = when (getCurrentLanguage()) {
     AvailableLanguages.FA -> PersianLocalization
     AvailableLanguages.JA -> JapaneseLocalization
 }
+
+fun getLanguageCode(): String? {
+    return when (getCurrentLanguage()) {
+        AvailableLanguages.EN -> "en"
+        AvailableLanguages.ES -> "es"
+        AvailableLanguages.IT -> "it"
+        AvailableLanguages.FR -> "fr"
+        AvailableLanguages.DE -> "de"
+        AvailableLanguages.RU -> "ru"
+        AvailableLanguages.CN -> "zh"
+        AvailableLanguages.PT -> "pt"
+        AvailableLanguages.HI -> "hi"
+        AvailableLanguages.FA -> "fa"
+        AvailableLanguages.JA -> "ja"
+    }
+}

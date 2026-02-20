@@ -63,10 +63,9 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
-import com.llamatik.app.localization.AvailableLanguages
 import com.llamatik.app.localization.Localization
-import com.llamatik.app.localization.getCurrentLanguage
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.localization.getLanguageCode
 import com.llamatik.app.permissions.rememberAudioPermissionRequester
 import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import com.llamatik.app.platform.AudioPaths
@@ -255,24 +254,6 @@ class ChatBotTabScreen : Screen {
                     dismissButtonText = localization.dismiss
                 )
             }
-        }
-    }
-
-    private fun whisperLanguageCode(): String? {
-        // Whisper expects ISO 639-1 language codes (e.g., "en", "es", "fr", "de", "it", "ru", "zh")
-        // Return null to allow auto-detection.
-        return when (getCurrentLanguage()) {
-            AvailableLanguages.EN -> "en"
-            AvailableLanguages.ES -> "es"
-            AvailableLanguages.IT -> "it"
-            AvailableLanguages.FR -> "fr"
-            AvailableLanguages.DE -> "de"
-            AvailableLanguages.RU -> "ru"
-            AvailableLanguages.CN -> "zh"
-            AvailableLanguages.PT -> "pt"
-            AvailableLanguages.HI -> "hi"
-            AvailableLanguages.FA -> "fa"
-            AvailableLanguages.JA -> "ja"
         }
     }
 
@@ -596,7 +577,7 @@ class ChatBotTabScreen : Screen {
                                         val wavPath = recorder.stop()
 
                                         val text = withContext(Dispatchers.Default) {
-                                            val lang = whisperLanguageCode()
+                                            val lang = getLanguageCode()
                                             WhisperBridge.transcribeWav(wavPath, language = lang).trim()
                                         }
 
@@ -770,7 +751,9 @@ class ChatBotTabScreen : Screen {
     ) {
         if (state.latestNews.isNotEmpty()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .widthIn(max = 800.dp)
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
@@ -789,7 +772,8 @@ class ChatBotTabScreen : Screen {
                 )
             }
             LazyRow(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
             ) {
                 items(state.latestNews.size) { index ->
                     val item = state.latestNews[index]
