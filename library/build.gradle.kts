@@ -26,6 +26,12 @@ kotlin {
     // JVM target (if you want JVM consumer artifacts)
     jvm()
 
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        binaries.executable()
+    }
+
     // iOS targets
     iosX64()
     iosArm64()

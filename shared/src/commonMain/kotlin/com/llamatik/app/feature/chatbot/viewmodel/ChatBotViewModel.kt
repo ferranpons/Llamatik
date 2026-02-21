@@ -31,6 +31,7 @@ import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.feature.reviews.ReviewRequestManager
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.platform.AppDispatchersIO
 import com.llamatik.app.platform.AppStorage
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.extractPdfText
@@ -44,8 +45,6 @@ import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.openFilePicker
 import io.github.vinceglb.filekit.name
 import io.github.vinceglb.filekit.readBytes
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -188,7 +187,7 @@ class ChatBotViewModel(
         if (started) return
         started = true
 
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             embedFilePath?.let {
                 LlamaBridge.initEmbedModel(embedFilePath)
                 _state.value = _state.value.copy(isEmbedModelLoaded = true)
@@ -481,7 +480,7 @@ class ChatBotViewModel(
     }
 
     fun onEmbedModelSelected(model: LlamaModel) {
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             val path = resolveAndMigratePath(model)
 
             if (!path.isNullOrEmpty()) {
@@ -505,7 +504,7 @@ class ChatBotViewModel(
     }
 
     fun onGenerateModelSelected(model: LlamaModel) {
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             val path = resolveAndMigratePath(model)
 
             if (!path.isNullOrEmpty()) {
@@ -527,7 +526,7 @@ class ChatBotViewModel(
     }
 
     fun onSttModelSelected(model: LlamaModel) {
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             val path = resolveAndMigratePath(model)
             if (!path.isNullOrEmpty()) {
                 Logger.d("LlamaVM - initSttModel $path")
@@ -553,7 +552,7 @@ class ChatBotViewModel(
     }
 
     fun onStableDiffusionModelSelected(model: LlamaModel) {
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             val path = resolveAndMigratePath(model) ?: return@launch
 
             Logger.d("StableDiffusion - selecting model ${model.name} at $path")
@@ -585,7 +584,7 @@ class ChatBotViewModel(
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
             _state.value = _state.value.copy(isGenerating = true)
 
-            withContext(Dispatchers.IO) {
+            withContext(AppDispatchersIO) {
                 try {
                     persistCurrentConversationIfNeeded()
 
@@ -697,7 +696,7 @@ class ChatBotViewModel(
         val existingJob = downloadJobs[url]
         if (existingJob?.isActive == true) return
 
-        val job = screenModelScope.launch(Dispatchers.IO) {
+        val job = screenModelScope.launch(AppDispatchersIO) {
             updateDownload(url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
 
             modelDownloadOrchestrator.download(model).collect { ev ->
@@ -753,7 +752,7 @@ class ChatBotViewModel(
     }
 
     fun onDeleteModel(model: LlamaModel) {
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             try {
                 Logger.d("LlamaVM - deleting model ${model.name}")
 
@@ -979,7 +978,7 @@ class ChatBotViewModel(
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
-            withContext(Dispatchers.IO) {
+            withContext(AppDispatchersIO) {
                 try {
                     val qArr = LlamaBridge.embed(question)
                     if (qArr.isEmpty()) {
@@ -1109,7 +1108,7 @@ class ChatBotViewModel(
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
             _state.value = _state.value.copy(isGenerating = true)
 
-            withContext(Dispatchers.IO) {
+            withContext(AppDispatchersIO) {
                 try {
                     persistCurrentConversationIfNeeded()
 
@@ -1295,7 +1294,7 @@ class ChatBotViewModel(
     }
 
     fun onLoadChatSession(chatId: String) {
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             val session = chatHistoryRepository.getSession(chatId) ?: return@launch
             stopGeneration()
             currentChatId = chatId
@@ -1313,7 +1312,7 @@ class ChatBotViewModel(
     }
 
     fun onDeleteChatSession(chatId: String) {
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             chatHistoryRepository.delete(chatId)
             if (currentChatId == chatId) {
                 currentChatId = null
@@ -1332,7 +1331,7 @@ class ChatBotViewModel(
         currentNavigator.pop()
 
         // After onboarding is closed, start initial setup (Gemma 3 download) if needed.
-        screenModelScope.launch(Dispatchers.IO) {
+        screenModelScope.launch(AppDispatchersIO) {
             val genModels = _state.value.generateModels.ifEmpty {
                 getModelsUseCase.getDefaultGenerateModels().getOrElse { emptyList() }
             }
