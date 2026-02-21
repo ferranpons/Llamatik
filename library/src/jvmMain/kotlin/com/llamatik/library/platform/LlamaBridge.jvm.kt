@@ -13,7 +13,7 @@ actual object LlamaBridge {
         println("🖥️ [JVM LlamaBridge] Loaded native library 'llama_jni'")
     }
 
-    actual external fun initModel(modelPath: String): Boolean
+    actual external fun initEmbedModel(modelPath: String): Boolean
     actual external fun embed(input: String): FloatArray
 
     /**

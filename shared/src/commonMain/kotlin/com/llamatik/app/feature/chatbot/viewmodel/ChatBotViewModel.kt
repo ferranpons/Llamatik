@@ -23,7 +23,7 @@ import com.llamatik.app.feature.chatbot.utils.PromptTemplate
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
 import com.llamatik.app.feature.chatbot.utils.VectorStoreItem
 import com.llamatik.app.feature.chatbot.utils.chunkText
-import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
+import com.llamatik.app.feature.chatbot.utils.cosineD
 import com.llamatik.app.feature.chatbot.utils.retrieveContext
 import com.llamatik.app.feature.news.NewsFeedDetailScreen
 import com.llamatik.app.feature.news.NewsFeedScreen
@@ -190,7 +190,7 @@ class ChatBotViewModel(
 
         screenModelScope.launch(Dispatchers.IO) {
             embedFilePath?.let {
-                LlamaBridge.initModel(embedFilePath)
+                LlamaBridge.initEmbedModel(embedFilePath)
                 _state.value = _state.value.copy(isEmbedModelLoaded = true)
             }
             generatorFilePath?.let {
@@ -207,7 +207,7 @@ class ChatBotViewModel(
                     for (model in models) {
                         val path = resolveAndMigratePath(model) ?: continue
                         Logger.d("LlamaVM - Init Embed Model: ${model.name} at $path")
-                        val loaded = LlamaBridge.initModel(path)
+                        val loaded = LlamaBridge.initEmbedModel(path)
                         if (loaded) {
                             _state.value = _state.value.copy(
                                 selectedEmbedModelName = model.name,
@@ -317,8 +317,6 @@ class ChatBotViewModel(
                 header = getCurrentLocalization().welcome,
                 latestNews = _state.value.latestNews,
             )
-
-            vectorStore = loadVectorStoreEntries()
 
             // Load last PDF-based RAG store (if user previously indexed one)
             runCatching { loadPersistedPdfRagStoreIfAny() }
@@ -488,7 +486,7 @@ class ChatBotViewModel(
 
             if (!path.isNullOrEmpty()) {
                 Logger.d("LlamaVM - initEmbedModel $path")
-                val isLoaded = LlamaBridge.initModel(path)
+                val isLoaded = LlamaBridge.initEmbedModel(path)
                 if (isLoaded) {
                     _state.value = _state.value.copy(
                         selectedEmbedModelName = model.name,
@@ -867,7 +865,6 @@ class ChatBotViewModel(
     fun onPickPdfForRag() {
         screenModelScope.launch {
             try {
-                // FileKit 0.12.0 API: openFilePicker()
                 val file = FileKit.openFilePicker() ?: return@launch
 
                 val fileName = file.name
@@ -919,8 +916,14 @@ class ChatBotViewModel(
                 val total = capped.size
 
                 for ((index, chunk) in capped.withIndex()) {
-                    // Your existing on-device embedding call (already in your project)
-                    val vec = LlamaBridge.embed(chunk) // <- keep your exact embed call here
+                    val vec = LlamaBridge.embed(chunk)
+
+                    if (vec.isEmpty()) {
+                        Logger.e { "RAG - embedding failed for chunk $index (empty vector); aborting PDF indexing" }
+                        _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
+                        emitBot("Failed to compute embeddings for this PDF. Please re-load the embedding model and try again.")
+                        return@launch
+                    }
 
                     items += VectorStoreItem(
                         id = "${fileName}_${index}",
@@ -978,21 +981,52 @@ class ChatBotViewModel(
 
             withContext(Dispatchers.IO) {
                 try {
-                    val qVec = LlamaBridge.embed(question).toList()
-                    val store =
-                        vectorStore ?: return@withContext emitBot("There is a problem with the AI")
+                    val qArr = LlamaBridge.embed(question)
+                    if (qArr.isEmpty()) {
+                        emitBot("Failed to compute embeddings for your question. Please re-load the embedding model and try again.")
+                        return@withContext
+                    }
 
-                    val topItems =
-                        retrieveContext(qVec, question, store, poolSize = 80, topContext = 4)
-                    val rawContext = topItems.joinToString("\n\n") { sanitizeForRag(it.text) }
-                    val compact = buildCompactContext(rawContext, question, hardLimit = 1600)
+                    val store = vectorStore
+                        ?: return@withContext emitBot("There is a problem with the AI")
 
-                    if (!isLikelyRelevant(compact, question)) {
+                    val qVec = qArr.toList()
+
+                    val topItems = retrieveContext(
+                        queryVector = qVec,
+                        questionText = question,
+                        vectorStore = store,
+                        poolSize = 80,
+                        topContext = 4
+                    )
+
+                    if (topItems.isEmpty()) {
                         emitBot("I don't have enough information in my sources.")
                         _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
                         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         return@withContext
                     }
+
+                    // --- Option B: gate by cosine similarity instead of keyword overlap ---
+                    // NOTE: retrieveContext() returns items already sorted/reranked; we use the best similarity among returned items.
+                    val bestCosine = topItems.maxOf { item -> cosineD(qVec, item.vector) }
+
+                    Logger.d("RAG - best cosine=$bestCosine topItems=${topItems.size}")
+
+                    // Tune this threshold. Typical useful starting points:
+                    // - 0.10–0.15: lenient (more answers, more risk of off-topic)
+                    // - 0.15–0.25: stricter (fewer answers, more precision)
+                    val COSINE_THRESHOLD = 0.15
+
+                    if (bestCosine < COSINE_THRESHOLD) {
+                        emitBot("I don't have enough information in my sources.")
+                        _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        return@withContext
+                    }
+
+                    val rawContext = topItems.joinToString("\n\n") { sanitizeForRag(it.text) }
+                    val compact = buildCompactContext(rawContext, question, hardLimit = 1600)
 
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
@@ -1001,6 +1035,7 @@ class ChatBotViewModel(
 
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
+
                     val acc = StringBuilder()
                     val generateSettings = _state.value.generateSettings
 
@@ -1019,11 +1054,7 @@ class ChatBotViewModel(
                                     ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
-                            if (looksLikeEchoOrLoop(
-                                    full = acc.toString(),
-                                    user = question
-                                )
-                            ) {
+                            if (looksLikeEchoOrLoop(full = acc.toString(), user = question)) {
                                 val trimmed = trimLoop(acc.toString(), user = question)
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
@@ -1052,7 +1083,6 @@ class ChatBotViewModel(
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         }
                     )
-
                 } catch (t: Throwable) {
                     t.printStackTrace()
                     emitBot("There is a problem with the AI")

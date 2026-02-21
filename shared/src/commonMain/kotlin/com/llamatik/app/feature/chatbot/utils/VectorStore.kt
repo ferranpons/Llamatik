@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.decodeFromJsonElement
+import org.jetbrains.compose.resources.MissingResourceException
 
 @Serializable
 data class VectorStoreItem(
@@ -23,26 +24,34 @@ data class VectorStoreData(
     val items: List<VectorStoreItem>
 )
 
-suspend fun loadVectorStoreEntries(): VectorStoreData = withContext(Dispatchers.Default) {
-    val byteArray = Res.readBytes("files/vector_store_export_general.json")
-    val jsonString = byteArray.decodeToString()
+suspend fun loadVectorStoreEntries(): VectorStoreData? = withContext(Dispatchers.Default) {
+    try {
+        val byteArray = Res.readBytes("files/vector_store_export_general.json")
+        val jsonString = byteArray.decodeToString()
 
-    val json = Json { ignoreUnknownKeys = true }
-    val root = json.parseToJsonElement(jsonString)
+        val json = Json { ignoreUnknownKeys = true }
+        val root = json.parseToJsonElement(jsonString)
 
-    require(root is JsonArray) { "Expected a JSON array at the top level." }
+        require(root is JsonArray) { "Expected a JSON array at the top level." }
 
-    val items = mutableListOf<VectorStoreItem>()
-    for (element in root) {
-        try {
-            val item = json.decodeFromJsonElement<VectorStoreItem>(element)
-            items.add(item)
-        } catch (e: Exception) {
-            Logger.e("Error decoding item: ${e.message}")
+        val items = mutableListOf<VectorStoreItem>()
+        for (element in root) {
+            try {
+                val item = json.decodeFromJsonElement<VectorStoreItem>(element)
+                items.add(item)
+            } catch (e: Exception) {
+                Logger.e("Error decoding item: ${e.message}")
+            }
         }
-    }
 
-    VectorStoreData(items)
+        VectorStoreData(items)
+    } catch (e: MissingResourceException) {
+        Logger.w(e) { "VectorStore resource missing on this platform/build" }
+        null
+    } catch (t: Throwable) {
+        Logger.w(t) { "VectorStore load failed" }
+        null
+    }
 }
 
 // --- Cleaning & formatting ---

@@ -10,7 +10,7 @@ actual object LlamaBridge {
         System.loadLibrary("llama_jni") // Only here, where System exists
     }
 
-    actual external fun initModel(modelPath: String): Boolean
+    actual external fun initEmbedModel(modelPath: String): Boolean
     actual external fun embed(input: String): FloatArray
 
     @Composable
