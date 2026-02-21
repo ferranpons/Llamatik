@@ -127,7 +127,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.play.services)
 
             // PDF text extraction (for on-device RAG ingestion)
-            implementation("com.tom_roush:pdfbox-android:2.0.27.0")
+            implementation("com.tom-roush:pdfbox-android:2.0.27.0")
         }
 
         iosMain.dependencies {

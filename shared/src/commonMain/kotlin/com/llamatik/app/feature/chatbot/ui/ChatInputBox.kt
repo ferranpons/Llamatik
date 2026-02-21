@@ -249,13 +249,28 @@ fun ChatInputBox(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
+                                val embedName = state.selectedEmbedModelName
+
                                 Text(
-                                    text = if (state.isRagIndexing) {
-                                        "RAG: $ragName (${state.ragIndexingProgress}%)"
-                                    } else if (!state.isEmbedModelLoaded) {
-                                        "RAG: $ragName — Embedding model not loaded (download \"nomic-embed-text\")"
-                                    } else {
-                                        "RAG: $ragName"
+                                    text = when {
+                                        state.isRagIndexing ->
+                                            "RAG: $ragName (${state.ragIndexingProgress}%)"
+
+                                        !state.isEmbedModelLoaded -> {
+                                            if (embedName.isNullOrBlank()) {
+                                                "RAG: $ragName — No embedding model loaded (download \"Nomic Embed Text\")"
+                                            } else {
+                                                "RAG: $ragName — Embedding model not loaded: $embedName (recommended: \"Nomic Embed Text\")"
+                                            }
+                                        }
+
+                                        else -> {
+                                            if (embedName.isNullOrBlank()) {
+                                                "RAG: $ragName"
+                                            } else {
+                                                "RAG: $ragName — Embed: $embedName"
+                                            }
+                                        }
                                     },
                                     style = Typography.get().labelSmall,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer,

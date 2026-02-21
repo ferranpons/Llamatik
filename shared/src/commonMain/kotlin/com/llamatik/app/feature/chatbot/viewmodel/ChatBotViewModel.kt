@@ -203,7 +203,32 @@ class ChatBotViewModel(
                 .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             getModelsUseCase.getDefaultEmbedModels()
-                .onSuccess { _state.value = _state.value.copy(embedModels = it) }
+                .onSuccess { models ->
+                    for (model in models) {
+                        val path = resolveAndMigratePath(model) ?: continue
+                        Logger.d("LlamaVM - Init Embed Model: ${model.name} at $path")
+                        val loaded = LlamaBridge.initModel(path)
+                        if (loaded) {
+                            _state.value = _state.value.copy(
+                                selectedEmbedModelName = model.name,
+                                isEmbedModelLoaded = true
+                            )
+                            _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
+                            break
+                        } else {
+                            Logger.e { "LlamaVM - failed to load embed model ${model.name}" }
+                            _state.value = _state.value.copy(isEmbedModelLoaded = false)
+                            _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
+                        }
+                    }
+
+                    val normalized = models.map { m ->
+                        val path = resolveAndMigratePath(m)
+                        if (!path.isNullOrBlank()) m.copy(localPath = path, fileName = path) else m
+                    }
+
+                    _state.value = _state.value.copy(embedModels = normalized)
+                }
                 .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             getModelsUseCase.getDefaultStableDiffusionModels()
@@ -465,9 +490,13 @@ class ChatBotViewModel(
                 Logger.d("LlamaVM - initEmbedModel $path")
                 val isLoaded = LlamaBridge.initModel(path)
                 if (isLoaded) {
-                    _state.value = _state.value.copy(selectedEmbedModelName = model.name)
+                    _state.value = _state.value.copy(
+                        selectedEmbedModelName = model.name,
+                        isEmbedModelLoaded = true
+                    )
                     _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
                 } else {
+                    _state.value = _state.value.copy(isEmbedModelLoaded = false)
                     _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
                 }
             } else {
