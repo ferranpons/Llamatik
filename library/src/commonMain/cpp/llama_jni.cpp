@@ -333,7 +333,7 @@ static std::string build_chat_prompt_gemma(const std::string &system_msg,
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_llamatik_library_platform_LlamaBridge_initModel(JNIEnv *env, jobject, jstring modelPath) {
+Java_com_llamatik_library_platform_LlamaBridge_initEmbedModel(JNIEnv *env, jobject, jstring modelPath) {
     const char *path = env->GetStringUTFChars(modelPath, nullptr);
     LOGI("initModel (embed): %s", path ? path : "(null)");
 
@@ -367,62 +367,79 @@ Java_com_llamatik_library_platform_LlamaBridge_initModel(JNIEnv *env, jobject, j
     return JNI_TRUE;
 }
 
+static jfloatArray make_empty_float_array(JNIEnv* env) {
+    return env->NewFloatArray(0);
+}
+
 extern "C"
 JNIEXPORT jfloatArray JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstring input) {
     if (!emb_ctx || !emb_model) {
         LOGE("embed: ctx/model null");
-        return nullptr;
+        return make_empty_float_array(env);
     }
 
     const char *inputStr = env->GetStringUTFChars(input, nullptr);
     if (!inputStr) {
         LOGE("embed: input null");
-        return nullptr;
+        return make_empty_float_array(env);
     }
 
-    std::vector<llama_token> tokens(1024);
-    int n_tokens = tokenize_with_retry(llama_model_get_vocab(emb_model),
-            inputStr, tokens,
+    int n_ctx = (int) llama_n_ctx(emb_ctx);
+    std::vector<llama_token> tokens(n_ctx);
+    int n_tokens = tokenize_with_retry(
+            llama_model_get_vocab(emb_model),
+            inputStr,
+            tokens,
             /*add_bos*/ true,
-            /*parse_special*/ false);
+            /*parse_special*/ false
+    );
     env->ReleaseStringUTFChars(input, inputStr);
 
-    if (n_tokens <= 0 || n_tokens > (int)llama_n_ctx(emb_ctx)) {
-        LOGW("embed tokenize fail/too long. n=%d ctx=%u", n_tokens, (unsigned)llama_n_ctx(emb_ctx));
-        return nullptr;
+    if (n_tokens <= 0) {
+        LOGW("embed tokenize failed, n=%d", n_tokens);
+        return make_empty_float_array(env);
     }
-    tokens.resize(n_tokens);
+
+    if (n_tokens > n_ctx) {
+        LOGW("embed: sequence too long (n=%d, ctx=%d), trimming", n_tokens, n_ctx);
+        n_tokens = n_ctx;
+        tokens.resize(n_tokens);
+    } else {
+        tokens.resize(n_tokens);
+    }
 
     llama_batch batch = llama_batch_init(n_tokens, 0, 1);
     batch.n_tokens = n_tokens;
     for (int i = 0; i < n_tokens; ++i) {
-        batch.token[i] = tokens[i];
-        batch.pos[i] = i;
-        batch.n_seq_id[i] = 1;
+        batch.token[i]   = tokens[i];
+        batch.pos[i]     = i;
+        batch.n_seq_id[i]= 1;
         batch.seq_id[i][0] = 0;
-        batch.logits[i] = false;
+        batch.logits[i] = (i == n_tokens - 1);
     }
 
-    if (llama_decode(emb_ctx, batch) != 0) {
+    if (llama_encode(emb_ctx, batch) != 0) {
         LOGE("embed: llama_decode failed");
         llama_batch_free(batch);
-        return nullptr;
+        return make_empty_float_array(env);
     }
 
     const float *e = llama_get_embeddings_seq(emb_ctx, 0);
     if (!e) {
         LOGE("embed: embeddings null");
         llama_batch_free(batch);
-        return nullptr;
+        return make_empty_float_array(env);
     }
 
     const int dim = llama_model_n_embd(emb_model);
     jfloatArray result = env->NewFloatArray(dim);
     if (!result) {
+        LOGE("embed: NewFloatArray(%d) failed", dim);
         llama_batch_free(batch);
-        return nullptr;
+        return make_empty_float_array(env);
     }
+
     env->SetFloatArrayRegion(result, 0, dim, e);
     llama_batch_free(batch);
     return result;

@@ -18,7 +18,7 @@ object LlamaService {
 
     /** Initialize an embedding-capable model. */
     suspend fun initModel(modelPath: String): Result<Boolean> = runCatching {
-        mutex.withLock { LlamaBridge.initModel(modelPath) }
+        mutex.withLock { LlamaBridge.initEmbedModel(modelPath) }
     }
 
     /** Compute embeddings for a single input. */

@@ -18,9 +18,12 @@ import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.utils.ChatMessage
 import com.llamatik.app.feature.chatbot.utils.ChatRunner
 import com.llamatik.app.feature.chatbot.utils.Gemma3
+import com.llamatik.app.feature.chatbot.utils.PersistedRagStore
 import com.llamatik.app.feature.chatbot.utils.PromptTemplate
 import com.llamatik.app.feature.chatbot.utils.VectorStoreData
-import com.llamatik.app.feature.chatbot.utils.loadVectorStoreEntries
+import com.llamatik.app.feature.chatbot.utils.VectorStoreItem
+import com.llamatik.app.feature.chatbot.utils.chunkText
+import com.llamatik.app.feature.chatbot.utils.cosineD
 import com.llamatik.app.feature.chatbot.utils.retrieveContext
 import com.llamatik.app.feature.news.NewsFeedDetailScreen
 import com.llamatik.app.feature.news.NewsFeedScreen
@@ -28,13 +31,19 @@ import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.feature.reviews.ReviewRequestManager
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.platform.AppStorage
 import com.llamatik.app.platform.LlamatikTempFile
+import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.tts.TtsEngine
 import com.llamatik.library.platform.LlamaBridge
 import com.llamatik.library.platform.StableDiffusionBridge
 import com.llamatik.library.platform.WhisperBridge
 import com.russhwolf.settings.Settings
+import io.github.vinceglb.filekit.FileKit
+import io.github.vinceglb.filekit.dialogs.openFilePicker
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
@@ -44,10 +53,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import net.thauvin.erik.urlencoder.UrlEncoderUtil
 import kotlin.concurrent.Volatile
 import kotlin.random.Random
@@ -59,6 +71,8 @@ private const val DEFAULT_SYSTEM_PROMPT = """
 You are Llamatik, a privacy-first local AI assistant running fully on-device.
 Be clear, honest, and concise. Answer in the user's language.
 """
+
+private const val PDF_RAG_STORE_PATH = "rag/pdf_rag_store.json"
 enum class GenerationMode { TEXT, IMAGE }
 
 class ChatBotViewModel(
@@ -176,7 +190,7 @@ class ChatBotViewModel(
 
         screenModelScope.launch(Dispatchers.IO) {
             embedFilePath?.let {
-                LlamaBridge.initModel(embedFilePath)
+                LlamaBridge.initEmbedModel(embedFilePath)
                 _state.value = _state.value.copy(isEmbedModelLoaded = true)
             }
             generatorFilePath?.let {
@@ -189,7 +203,32 @@ class ChatBotViewModel(
                 .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             getModelsUseCase.getDefaultEmbedModels()
-                .onSuccess { _state.value = _state.value.copy(embedModels = it) }
+                .onSuccess { models ->
+                    for (model in models) {
+                        val path = resolveAndMigratePath(model) ?: continue
+                        Logger.d("LlamaVM - Init Embed Model: ${model.name} at $path")
+                        val loaded = LlamaBridge.initEmbedModel(path)
+                        if (loaded) {
+                            _state.value = _state.value.copy(
+                                selectedEmbedModelName = model.name,
+                                isEmbedModelLoaded = true
+                            )
+                            _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
+                            break
+                        } else {
+                            Logger.e { "LlamaVM - failed to load embed model ${model.name}" }
+                            _state.value = _state.value.copy(isEmbedModelLoaded = false)
+                            _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
+                        }
+                    }
+
+                    val normalized = models.map { m ->
+                        val path = resolveAndMigratePath(m)
+                        if (!path.isNullOrBlank()) m.copy(localPath = path, fileName = path) else m
+                    }
+
+                    _state.value = _state.value.copy(embedModels = normalized)
+                }
                 .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             getModelsUseCase.getDefaultStableDiffusionModels()
@@ -279,7 +318,9 @@ class ChatBotViewModel(
                 latestNews = _state.value.latestNews,
             )
 
-            vectorStore = loadVectorStoreEntries()
+            // Load last PDF-based RAG store (if user previously indexed one)
+            runCatching { loadPersistedPdfRagStoreIfAny() }
+                .onFailure { Logger.w(it) { "RAG - failed to load persisted PDF store" } }
         }
 
         onGenerateSettingsApplied(_state.value.generateSettings)
@@ -445,11 +486,15 @@ class ChatBotViewModel(
 
             if (!path.isNullOrEmpty()) {
                 Logger.d("LlamaVM - initEmbedModel $path")
-                val isLoaded = LlamaBridge.initModel(path)
+                val isLoaded = LlamaBridge.initEmbedModel(path)
                 if (isLoaded) {
-                    _state.value = _state.value.copy(selectedEmbedModelName = model.name)
+                    _state.value = _state.value.copy(
+                        selectedEmbedModelName = model.name,
+                        isEmbedModelLoaded = true
+                    )
                     _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
                 } else {
+                    _state.value = _state.value.copy(isEmbedModelLoaded = false)
                     _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
                 }
             } else {
@@ -791,6 +836,140 @@ class ChatBotViewModel(
         return lines.joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
     }
 
+    private suspend fun loadPersistedPdfRagStoreIfAny() {
+        val bytes = AppStorage.readBytes(PDF_RAG_STORE_PATH) ?: return
+        val json = Json { ignoreUnknownKeys = true }
+        val persisted = json.decodeFromString(PersistedRagStore.serializer(), bytes.decodeToString())
+
+        vectorStore = persisted.vectorStore
+        _state.value = _state.value.copy(
+            ragPdfFileName = persisted.pdfFileName,
+            isRagIndexing = false,
+            ragIndexingProgress = 100,
+            ragChunksCount = persisted.vectorStore.items.size,
+        )
+    }
+
+    @OptIn(ExperimentalTime::class)
+    private suspend fun persistPdfRagStore(fileName: String, store: VectorStoreData) {
+        val json = Json { encodeDefaults = true }
+        val persisted = PersistedRagStore(
+            pdfFileName = fileName,
+            createdAtEpochMs = System.now().toEpochMilliseconds(),
+            vectorStore = store,
+        )
+        val bytes = json.encodeToString(PersistedRagStore.serializer(), persisted).encodeToByteArray()
+        AppStorage.writeBytes(PDF_RAG_STORE_PATH, bytes)
+    }
+
+    fun onPickPdfForRag() {
+        screenModelScope.launch {
+            try {
+                val file = FileKit.openFilePicker() ?: return@launch
+
+                val fileName = file.name
+                if (!fileName.lowercase().endsWith(".pdf")) {
+                    emitBot("Please select a PDF file.")
+                    return@launch
+                }
+
+                // Update UI immediately
+                _state.update {
+                    it.copy(
+                        ragPdfFileName = fileName,
+                        isRagIndexing = true,
+                        ragIndexingProgress = 0,
+                        ragChunksCount = 0
+                    )
+                }
+
+                // Read bytes + extract text
+                val pdfBytes = file.readBytes()
+                val text = extractPdfText(pdfBytes).trim()
+                if (text.isBlank()) {
+                    _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
+                    emitBot("I couldn’t extract text from this PDF. If it’s a scanned PDF, it needs OCR.")
+                    return@launch
+                }
+
+                // Ensure embedding model is loaded for RAG
+                if (!_state.value.isEmbedModelLoaded) {
+                    _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
+                    emitBot("To use PDF RAG, please download/load the embedding model: \"nomic-embed-text\" (Embed Models).")
+                    return@launch
+                }
+
+                // Chunk
+                val chunks = chunkText(text, chunkSize = 1000, chunkOverlap = 200)
+                    .filter { it.isNotBlank() }
+
+                // Cap to avoid insane memory for huge PDFs (tune as you like)
+                val capped = chunks.take(2_000)
+                if (capped.isEmpty()) {
+                    _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
+                    emitBot("No usable text chunks were generated from this PDF.")
+                    return@launch
+                }
+
+                // Embed + build vector store
+                val items = ArrayList<VectorStoreItem>(capped.size)
+                val total = capped.size
+
+                for ((index, chunk) in capped.withIndex()) {
+                    val vec = LlamaBridge.embed(chunk)
+
+                    if (vec.isEmpty()) {
+                        Logger.e { "RAG - embedding failed for chunk $index (empty vector); aborting PDF indexing" }
+                        _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
+                        emitBot("Failed to compute embeddings for this PDF. Please re-load the embedding model and try again.")
+                        return@launch
+                    }
+
+                    items += VectorStoreItem(
+                        id = "${fileName}_${index}",
+                        text = chunk,
+                        vector = vec.toList(),
+                        metadata = mapOf(
+                            "source" to JsonPrimitive("pdf"),
+                            "fileName" to JsonPrimitive(fileName),
+                            "chunkIndex" to JsonPrimitive(index)
+                        )
+                    )
+
+                    val progress = (((index + 1) * 100.0) / total.toDouble()).toInt().coerceIn(0, 100)
+                    if (index % 10 == 0 || index == total - 1) {
+                        _state.update { it.copy(ragIndexingProgress = progress) }
+                    }
+                }
+
+                val store = VectorStoreData(items)
+
+                // Save in memory + persist on disk (your persistence functions)
+                vectorStore = store
+                persistPdfRagStore(
+                    fileName = fileName,
+                    store = store
+                )
+
+                _state.update {
+                    it.copy(
+                        isRagIndexing = false,
+                        ragIndexingProgress = 100,
+                        ragChunksCount = items.size,
+                        ragPdfFileName = fileName
+                    )
+                }
+
+                emitBot("✅ PDF indexed for RAG: $fileName (${items.size} chunks)")
+
+            } catch (t: Throwable) {
+                t.printStackTrace()
+                _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
+                emitBot("Failed to load PDF for RAG: ${t.message ?: "unknown error"}")
+            }
+        }
+    }
+
     fun onMessageSendWithEmbed(message: String) {
         val question = message.trim()
         if (question.isBlank()) return
@@ -802,21 +981,52 @@ class ChatBotViewModel(
 
             withContext(Dispatchers.IO) {
                 try {
-                    val qVec = LlamaBridge.embed(question).toList()
-                    val store =
-                        vectorStore ?: return@withContext emitBot("There is a problem with the AI")
+                    val qArr = LlamaBridge.embed(question)
+                    if (qArr.isEmpty()) {
+                        emitBot("Failed to compute embeddings for your question. Please re-load the embedding model and try again.")
+                        return@withContext
+                    }
 
-                    val topItems =
-                        retrieveContext(qVec, question, store, poolSize = 80, topContext = 4)
-                    val rawContext = topItems.joinToString("\n\n") { sanitizeForRag(it.text) }
-                    val compact = buildCompactContext(rawContext, question, hardLimit = 1600)
+                    val store = vectorStore
+                        ?: return@withContext emitBot("There is a problem with the AI")
 
-                    if (!isLikelyRelevant(compact, question)) {
+                    val qVec = qArr.toList()
+
+                    val topItems = retrieveContext(
+                        queryVector = qVec,
+                        questionText = question,
+                        vectorStore = store,
+                        poolSize = 80,
+                        topContext = 4
+                    )
+
+                    if (topItems.isEmpty()) {
                         emitBot("I don't have enough information in my sources.")
                         _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
                         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         return@withContext
                     }
+
+                    // --- Option B: gate by cosine similarity instead of keyword overlap ---
+                    // NOTE: retrieveContext() returns items already sorted/reranked; we use the best similarity among returned items.
+                    val bestCosine = topItems.maxOf { item -> cosineD(qVec, item.vector) }
+
+                    Logger.d("RAG - best cosine=$bestCosine topItems=${topItems.size}")
+
+                    // Tune this threshold. Typical useful starting points:
+                    // - 0.10–0.15: lenient (more answers, more risk of off-topic)
+                    // - 0.15–0.25: stricter (fewer answers, more precision)
+                    val COSINE_THRESHOLD = 0.15
+
+                    if (bestCosine < COSINE_THRESHOLD) {
+                        emitBot("I don't have enough information in my sources.")
+                        _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        return@withContext
+                    }
+
+                    val rawContext = topItems.joinToString("\n\n") { sanitizeForRag(it.text) }
+                    val compact = buildCompactContext(rawContext, question, hardLimit = 1600)
 
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
@@ -825,6 +1035,7 @@ class ChatBotViewModel(
 
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
+
                     val acc = StringBuilder()
                     val generateSettings = _state.value.generateSettings
 
@@ -843,11 +1054,7 @@ class ChatBotViewModel(
                                     ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
-                            if (looksLikeEchoOrLoop(
-                                    full = acc.toString(),
-                                    user = question
-                                )
-                            ) {
+                            if (looksLikeEchoOrLoop(full = acc.toString(), user = question)) {
                                 val trimmed = trimLoop(acc.toString(), user = question)
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
@@ -876,7 +1083,6 @@ class ChatBotViewModel(
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                         }
                     )
-
                 } catch (t: Throwable) {
                     t.printStackTrace()
                     emitBot("There is a problem with the AI")
@@ -1363,6 +1569,12 @@ data class ChatBotState(
     val chatSessions: List<ChatSessionSummary> = emptyList(),
     val isTemporaryChat: Boolean = false,
     val generationMode: GenerationMode = GenerationMode.TEXT,
+
+    // --- On-device RAG (PDF -> vector store) ---
+    val ragPdfFileName: String? = null,
+    val isRagIndexing: Boolean = false,
+    val ragIndexingProgress: Int = 0,
+    val ragChunksCount: Int = 0,
 )
 
 sealed class ChatBotSideEffects {

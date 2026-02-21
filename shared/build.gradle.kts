@@ -125,6 +125,9 @@ kotlin {
             implementation(libs.android.play.review)
             implementation(libs.android.play.review.ktx)
             implementation(libs.kotlinx.coroutines.play.services)
+
+            // PDF text extraction (for on-device RAG ingestion)
+            implementation("com.tom-roush:pdfbox-android:2.0.27.0")
         }
 
         iosMain.dependencies {
@@ -135,6 +138,9 @@ kotlin {
 
         jvmMain.dependencies {
             implementation(compose.desktop.common)
+
+            // JVM/desktop PDF text extraction
+            implementation("org.apache.pdfbox:pdfbox:2.0.30")
         }
 
         commonTest.dependencies {

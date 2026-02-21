@@ -120,7 +120,7 @@ actual object LlamaBridge {
         return fileName.substring(0, dot) to fileName.substring(dot + 1)
     }
 
-    actual fun initModel(modelPath: String): Boolean = llama_embed_init(modelPath)
+    actual fun initEmbedModel(modelPath: String): Boolean = llama_embed_init(modelPath)
     actual fun embed(input: String): FloatArray {
         val ptr = llama_embed(input) ?: return FloatArray(0)
         val dim = llama_embedding_size()
