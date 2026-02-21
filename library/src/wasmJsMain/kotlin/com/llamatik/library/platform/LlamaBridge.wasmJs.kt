@@ -3,6 +3,10 @@
 package com.llamatik.library.platform
 
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -21,6 +25,7 @@ actual object LlamaBridge {
     private val moduleReady = AtomicBoolean(false)
     private val modelReady = AtomicBoolean(false)
     private val initInFlight = AtomicBoolean(false)
+    private val wasmScope = CoroutineScope(Dispatchers.Default)
 
     @Composable
     actual fun getModelPath(modelFileName: String): String {
@@ -81,7 +86,31 @@ actual object LlamaBridge {
     ): String = generateWithContext(systemPrompt, contextBlock, userPrompt)
 
     actual fun generateStream(prompt: String, callback: GenStream) {
-        callback.onError("Web/WASM: streaming not wired yet.")
+        if (!modelReady.load()) {
+            callback.onError("Web/WASM: model is still loading…")
+            return
+        }
+
+        wasmScope.launch {
+            try {
+                val full = runGenerate(prompt)
+
+                // Emit in chunks to mimic streaming UI
+                val chunkSize = 24
+                var i = 0
+                while (i < full.length) {
+                    val end = (i + chunkSize).coerceAtMost(full.length)
+                    callback.onDelta(full.substring(i, end))
+                    i = end
+
+                    // Yield so UI stays responsive
+                    delay(0)
+                }
+                callback.onComplete()
+            } catch (t: Throwable) {
+                callback.onError("Web/WASM: generate failed: ${t.message ?: t.toString()}")
+            }
+        }
     }
 
     actual fun generateStreamWithContext(
@@ -89,10 +118,14 @@ actual object LlamaBridge {
         contextBlock: String,
         userPrompt: String,
         callback: GenStream
-    ) = generateStream("$systemPrompt\n\n$contextBlock\n\n$userPrompt", callback)
+    ) {
+        generateStream("$systemPrompt\n\n$contextBlock\n\n$userPrompt", callback)
+    }
 
-    actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) =
+    actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) {
+        // No schema enforcement yet on wasm; same behavior as plain stream
         generateStream(prompt, callback)
+    }
 
     actual fun generateJsonStreamWithContext(
         systemPrompt: String,
@@ -100,7 +133,9 @@ actual object LlamaBridge {
         userPrompt: String,
         jsonSchema: String?,
         callback: GenStream
-    ) = generateStreamWithContext(systemPrompt, contextBlock, userPrompt, callback)
+    ) {
+        generateStreamWithContext(systemPrompt, contextBlock, userPrompt, callback)
+    }
 
     actual fun generateWithContextStream(
         system: String,
@@ -110,7 +145,28 @@ actual object LlamaBridge {
         onDone: () -> Unit,
         onError: (String) -> Unit
     ) {
-        onError("Web/WASM: streaming not wired yet.")
+        if (!modelReady.load()) {
+            onError("Web/WASM: model is still loading…")
+            return
+        }
+
+        wasmScope.launch {
+            try {
+                val full = runGenerate("$system\n\n$context\n\n$user")
+
+                val chunkSize = 24
+                var i = 0
+                while (i < full.length) {
+                    val end = (i + chunkSize).coerceAtMost(full.length)
+                    onDelta(full.substring(i, end))
+                    i = end
+                    delay(0)
+                }
+                onDone()
+            } catch (t: Throwable) {
+                onError("Web/WASM: generate failed: ${t.message ?: t.toString()}")
+            }
+        }
     }
 
     actual fun shutdown() {}
