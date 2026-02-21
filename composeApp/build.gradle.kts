@@ -340,3 +340,15 @@ tasks.matching { it.name == "desktopProcessResources" || it.name == "processDesk
     .configureEach {
         dependsOn(copyMacNativeLib)
     }
+
+// Copy wasm engine artifacts from :library resources into composeApp wasm resources root
+val copyEngineToComposeWasm by tasks.registering(Copy::class) {
+    val fromDir = project(":library").projectDir.resolve("src/wasmJsMain/resources/llamatik_wasm")
+    val intoDir = projectDir.resolve("src/wasmJsMain/resources/llamatik_wasm")
+
+    from(fromDir)
+    into(intoDir)
+}
+
+tasks.matching { it.name.contains("wasmJsProcessResources", ignoreCase = true) }
+    .configureEach { dependsOn(copyEngineToComposeWasm) }
