@@ -1,10 +1,15 @@
+@file:OptIn(ExperimentalComposeUiApi::class)
+
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
-import kotlinx.browser.document
+import com.llamatik.app.MainApp
+import com.llamatik.app.platform.initKoinWasm
 
-@OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    ComposeViewport(document.body!!) {
-        App()
-    }
+    initKoinWasm()
+    ComposeViewport(
+        content = {
+            MainApp()
+        }
+    )
 }
