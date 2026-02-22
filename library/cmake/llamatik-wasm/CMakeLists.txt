@@ -4,6 +4,21 @@ project(llamatik_wasm LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# -----------------------------------------------------------------------------
+# Force wasm64 via Emscripten's supported flag (MEMORY64).
+# IMPORTANT: Do NOT use -mwasm64 (emcc/clang rejects it).
+# -----------------------------------------------------------------------------
+set(CMAKE_C_FLAGS            "${CMAKE_C_FLAGS} -sMEMORY64=1")
+set(CMAKE_CXX_FLAGS          "${CMAKE_CXX_FLAGS} -sMEMORY64=1")
+set(CMAKE_EXE_LINKER_FLAGS   "${CMAKE_EXE_LINKER_FLAGS} -sMEMORY64=1")
+
+add_compile_options(-sMEMORY64=1)
+add_link_options(-sMEMORY64=1)
+
+if(EMSCRIPTEN)
+  list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+endif()
+
 get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 
 set(LLAMA_CPP_DIR "${REPO_ROOT}/llama.cpp")
@@ -67,7 +82,6 @@ target_link_libraries(llamatik_wasm PRIVATE llama)
 
 if(HAVE_WHISPER)
   target_include_directories(llamatik_wasm PRIVATE "${WHISPER_CPP_DIR}" "${WHISPER_CPP_DIR}/include")
-  # whisper target name varies; common is "whisper"
   if(TARGET whisper)
     target_link_libraries(llamatik_wasm PRIVATE whisper)
   endif()
@@ -86,12 +100,12 @@ set_target_properties(llamatik_wasm PROPERTIES
   SUFFIX ".mjs"
 )
 
-# Export functions (add more as you implement)
 target_link_options(llamatik_wasm PRIVATE
   "-sMODULARIZE=1"
   "-sEXPORT_ES6=1"
   "-sENVIRONMENT=web"
   "-sALLOW_MEMORY_GROWTH=1"
+  "-sMEMORY64=1"
   "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_generate,_llamatik_free_string]"
   "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8]"
 )

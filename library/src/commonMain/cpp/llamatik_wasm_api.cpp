@@ -1,3 +1,4 @@
+// llamatik_wasm_api.cpp
 #include "llama.h"
 
 #include <string>
@@ -7,29 +8,45 @@
 #include <algorithm>
 #include <cmath>
 
+// -------------------------------------------------------------------------------------
+// WASM-side minimal C API for the Kotlin/WASM bridge.
+//
+// IMPORTANT:
+// This file is updated to use the SAME llama.cpp API style as the Android/JVM code you
+// pasted (vocab-based APIs + llama_memory_clear(llama_get_memory(ctx), ...)).
+// That fixes the build errors caused by older model-based tokenize / vocab functions.
+// -------------------------------------------------------------------------------------
+
 static llama_model*   g_model = nullptr;
 static llama_context* g_ctx   = nullptr;
 
 // Basic generation params (you can expose setters later)
 static int   g_n_ctx          = 4096;
 static int   g_max_tokens     = 256;
-static float g_temp          = 0.8f;
-static float g_top_p         = 0.95f;
-static int   g_top_k         = 40;
+static float g_temp           = 0.8f;
+static float g_top_p          = 0.95f;
+static int   g_top_k          = 40;
 static float g_repeat_penalty = 1.10f;
 static int   g_repeat_last_n  = 64;
 
-static std::string token_to_piece(llama_model* model, llama_token token) {
-    // llama_token_to_piece API differs across versions; use the safe buffer approach
+static inline const llama_vocab* vocab_of(llama_model* model) {
+    return model ? llama_model_get_vocab(model) : nullptr;
+}
+
+static std::string token_to_piece(const llama_vocab* vocab, llama_token token) {
     char buf[8 * 1024];
-    int n = llama_token_to_piece(model, token, buf, sizeof(buf), 0, true);
+    int n = llama_token_to_piece(vocab, token, buf, (int)sizeof(buf), /*lstrip*/0, /*special*/false);
     if (n <= 0) return std::string();
     return std::string(buf, buf + n);
 }
 
-static void apply_repeat_penalty(float* logits, int n_vocab,
+static void apply_repeat_penalty(
+        float* logits,
+        int n_vocab,
         const std::vector<llama_token>& last_tokens,
-        float repeat_penalty) {
+        float repeat_penalty
+) {
+    if (!logits) return;
     if (repeat_penalty == 1.0f || last_tokens.empty()) return;
 
     // For each token in history, adjust its logit
@@ -66,13 +83,14 @@ static void softmax(std::vector<llama_token_data>& candidates) {
 }
 
 static llama_token sample_top_p_top_k(
-        llama_model* model,
+        const llama_vocab* vocab,
         float* logits,
         float temp,
         int top_k,
         float top_p
 ) {
-    const int n_vocab = llama_n_vocab(model);
+    const int n_vocab = vocab ? llama_vocab_n_tokens(vocab) : 0;
+    if (n_vocab <= 0 || !logits) return (llama_token)0;
 
     // Build candidate list
     std::vector<llama_token_data> cand;
@@ -98,10 +116,13 @@ static llama_token sample_top_p_top_k(
         for (auto& c : cand) c.logit *= inv_temp;
     }
 
-    // Sort by logit desc
+    // Sort by logit desc (keep top_k region)
+    const int k = std::max(1, top_k);
+    const int k_clamped = std::min<int>((int)cand.size(), k);
+
     std::partial_sort(
             cand.begin(),
-            cand.begin() + std::min<int>((int)cand.size(), std::max(1, top_k)),
+            cand.begin() + k_clamped,
             cand.end(),
             [](const llama_token_data& a, const llama_token_data& b) {
                 return a.logit > b.logit;
@@ -147,6 +168,7 @@ static llama_token sample_top_p_top_k(
 }
 
 static bool eval_tokens(llama_context* ctx, const std::vector<llama_token>& tokens, int& n_past) {
+    if (!ctx) return false;
     if (tokens.empty()) return true;
 
     // llama_batch API is the most stable way to feed tokens
@@ -169,6 +191,46 @@ static bool eval_tokens(llama_context* ctx, const std::vector<llama_token>& toke
 
     n_past += (int)tokens.size();
     return true;
+}
+
+static int tokenize_with_retry(
+        const llama_vocab* vocab,
+        const std::string& text,
+        std::vector<llama_token>& tokens,
+        bool add_bos,
+        bool parse_special
+) {
+    if (!vocab) return 0;
+
+    const char* cstr = text.c_str();
+    const int text_len = (int)text.size();
+
+    int n = llama_tokenize(
+            vocab,
+            cstr,
+            text_len,
+            tokens.data(),
+            (int)tokens.size(),
+            add_bos,
+            parse_special
+    );
+
+    if (n < 0) {
+        const int need = -n;
+        if (need > 0) {
+            tokens.resize(need);
+            n = llama_tokenize(
+                    vocab,
+                    cstr,
+                    text_len,
+                    tokens.data(),
+                    (int)tokens.size(),
+                    add_bos,
+                    parse_special
+            );
+        }
+    }
+    return n;
 }
 
 extern "C" {
@@ -213,30 +275,35 @@ int llamatik_llama_init_generate(const char* model_path) {
 char* llamatik_llama_generate(const char* prompt) {
     if (!g_ctx || !g_model || !prompt) return nullptr;
 
+    const llama_vocab* vocab = vocab_of(g_model);
+    if (!vocab) return nullptr;
+
     std::string prompt_str(prompt);
+
+    // Reset between runs (same as Android/JVM code style)
+    // This is the API you already use elsewhere: llama_memory_clear(llama_get_memory(ctx), ...)
+    llama_memory_clear(llama_get_memory(g_ctx), /*clear_kv=*/false);
 
     // Tokenize
     const int n_prompt_chars = (int)prompt_str.size();
-    // generous upper bound: ~4 tokens per char is too high, but safe
     int n_max = std::max(32, n_prompt_chars + 16);
 
     std::vector<llama_token> prompt_tokens((size_t)n_max);
-    // llama_tokenize signature varies; this is the common one:
-    // int llama_tokenize(model, text, tokens, n_max_tokens, add_bos, special)
-    int n_prompt = llama_tokenize(g_model, prompt_str.c_str(), prompt_tokens.data(), n_max, true, true);
-    if (n_prompt < 0) {
-        // n_prompt is -required_size
-        n_max = -n_prompt;
-        prompt_tokens.assign((size_t)n_max, 0);
-        n_prompt = llama_tokenize(g_model, prompt_str.c_str(), prompt_tokens.data(), n_max, true, true);
-        if (n_prompt < 0) return nullptr;
+
+    int n_prompt = tokenize_with_retry(
+            vocab,
+            prompt_str,
+            prompt_tokens,
+            /*add_bos*/ true,
+            /*parse_special*/ true
+    );
+    if (n_prompt <= 0) return nullptr;
+
+    if (n_prompt > (int)prompt_tokens.size()) {
+        // Shouldn't happen, but guard
+        n_prompt = (int)prompt_tokens.size();
     }
     prompt_tokens.resize((size_t)n_prompt);
-
-    // Reset KV cache between runs (best effort; API differs across versions)
-    // Common function name: llama_kv_cache_clear(ctx)
-    // If it doesn't exist in your llama version, remove this call.
-    llama_kv_cache_clear(g_ctx);
 
     int n_past = 0;
 
@@ -254,23 +321,24 @@ char* llamatik_llama_generate(const char* prompt) {
         last_tokens.push_back(prompt_tokens[i]);
     }
 
-    const llama_token eos = llama_token_eos(g_model);
+    const llama_token eos = llama_vocab_eos(vocab);
+    const int n_vocab = llama_vocab_n_tokens(vocab);
 
     for (int i = 0; i < g_max_tokens; i++) {
         // Get logits for last token
         float* logits = llama_get_logits(g_ctx);
-        const int n_vocab = llama_n_vocab(g_model);
+        if (!logits) break;
 
         // Apply repetition penalty
         apply_repeat_penalty(logits, n_vocab, last_tokens, g_repeat_penalty);
 
         // Sample next token
-        llama_token next = sample_top_p_top_k(g_model, logits, g_temp, g_top_k, g_top_p);
+        llama_token next = sample_top_p_top_k(vocab, logits, g_temp, g_top_k, g_top_p);
 
         if (next == eos) break;
 
         // Append token text
-        out += token_to_piece(g_model, next);
+        out += token_to_piece(vocab, next);
 
         // Evaluate token
         std::vector<llama_token> t = { next };

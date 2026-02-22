@@ -71,6 +71,31 @@ kotlin {
     val cmakePath = findTool("cmake")
     val libtoolPath = findTool("libtool") // should be /usr/bin/libtool on macOS
 
+    // ---- WASM (Emscripten) tools ----
+    fun findEmsdkTool(name: String): String {
+        // Allow override: EMCC_PATH, EMMAKE_PATH, EMCMake_PATH, etc.
+        System.getenv("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
+        // If EMSDK is set, tools usually live in $EMSDK/upstream/emscripten
+        val emsdk = System.getenv("EMSDK")
+        if (!emsdk.isNullOrBlank()) {
+            val p = file("$emsdk/upstream/emscripten/$name")
+            if (p.canExecute()) return p.absolutePath
+        }
+        // Fall back to PATH
+        try {
+            val out = providers.exec { commandLine("which", name) }
+                .standardOutput.asText.get().trim()
+            if (out.isNotEmpty() && file(out).canExecute()) return out
+        } catch (_: Throwable) {}
+        throw GradleException(
+            "Cannot find Emscripten tool '$name'. " +
+                    "Install/activate emsdk and ensure '$name' is on PATH, or set ${name.uppercase()}_PATH."
+        )
+    }
+
+    val emcmakePath = findEmsdkTool("emcmake")
+    val emmakePath  = findEmsdkTool("emmake")
+
     listOf(
         Triple(iosX64(), "x86_64", "iPhoneSimulator"),
         Triple(iosArm64(), "arm64", "iPhoneOS"),
@@ -390,6 +415,74 @@ kotlin {
         val jvmMain by getting {
             resources.srcDir(generatedNativeResourcesDir)
         }
+    }
+
+    // ---------- Web (WASM) native build for llama.cpp engine ----------
+    val wasmNativeSourceDir = projectDir.resolve("cmake/llamatik-wasm")
+    val wasmNativeBuildDir = layout.buildDirectory.dir("llamatik-wasm").get().asFile
+
+    val wasmResourcesOutDir = projectDir.resolve("src/wasmJsMain/resources/kotlin/llamatik_wasm")
+
+    val configureLlamatikWasm by tasks.registering(Exec::class) {
+        group = "llama-native"
+        description = "Configure Emscripten CMake for WebAssembly (llamatik wasm engine)"
+
+        doFirst {
+            if (!wasmNativeSourceDir.resolve("CMakeLists.txt").exists()) {
+                throw GradleException(
+                    "WASM CMakeLists.txt not found at: ${wasmNativeSourceDir.resolve("CMakeLists.txt").absolutePath}\n" +
+                            "Expected a CMake project under: library/cmake/llamatik-wasm\n" +
+                            "This project must produce llammatk_wasm.mjs + llammatk_wasm.wasm."
+                )
+            }
+            wasmNativeBuildDir.mkdirs()
+        }
+
+        // emcmake cmake -S ... -B ...
+        commandLine(
+            emcmakePath,
+            cmakePath,
+            "-S", wasmNativeSourceDir.absolutePath,
+            "-B", wasmNativeBuildDir.absolutePath,
+            "-DCMAKE_BUILD_TYPE=Release"
+        )
+    }
+
+    val buildLlamatikWasm by tasks.registering(Exec::class) {
+        group = "llama-native"
+        description = "Build WebAssembly (llamatik wasm engine)"
+        dependsOn(configureLlamatikWasm)
+
+        // emmake cmake --build ...
+        commandLine(
+            emmakePath,
+            cmakePath,
+            "--build", wasmNativeBuildDir.absolutePath,
+            "--config", "Release"
+        )
+    }
+
+    val copyLlamatikWasmToResources by tasks.registering(Copy::class) {
+        group = "llama-native"
+        description = "Copy llamatik_wasm.{mjs,wasm} into wasmJs resources"
+        dependsOn(buildLlamatikWasm)
+
+        // Adjust these names if your CMake emits different ones.
+        val mjs = wasmNativeBuildDir.resolve("llamatik_wasm.mjs")
+        val wasm = wasmNativeBuildDir.resolve("llamatik_wasm.wasm")
+
+        from(mjs, wasm)
+        into(wasmResourcesOutDir)
+
+        doFirst {
+            if (!mjs.exists()) throw GradleException("Missing WASM JS module: ${mjs.absolutePath}")
+            if (!wasm.exists()) throw GradleException("Missing WASM binary: ${wasm.absolutePath}")
+        }
+    }
+
+    // Ensure resources always include the wasm engine for browser runs
+    tasks.matching { it.name == "wasmJsProcessResources" }.configureEach {
+        dependsOn(copyLlamatikWasmToResources)
     }
 }
 

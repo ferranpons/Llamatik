@@ -201,7 +201,7 @@ actual object LlamaBridge {
       const STORE_CHUNKS = "chunks";
       const STORE_META = "meta";
 
-      const WASM_MJS_URL = "/llamatik_wasm/llamatik_wasm.mjs";
+      const WASM_MJS_URL = "./kotlin/llamatik_wasm/llamatik_wasm.mjs";
 
       function openDb(cb) {
         const req = indexedDB.open(DB_NAME, DB_VER);
@@ -270,7 +270,7 @@ actual object LlamaBridge {
         const mod = await import(WASM_MJS_URL);
         const factory = mod.default || mod;
         const instance = await factory({
-          locateFile: (p) => "/llamatik_wasm/" + p
+          locateFile: (p) => "./kotlin/llamatik_wasm/" + p
         });
 
         globalThis.__llamatikModule = instance;

@@ -34,6 +34,7 @@ import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.AppDispatchersIO
 import com.llamatik.app.platform.AppStorage
 import com.llamatik.app.platform.LlamatikTempFile
+import com.llamatik.app.platform.PlatformInfo
 import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.tts.TtsEngine
@@ -160,11 +161,29 @@ class ChatBotViewModel(
         }
     }
 
+    /**
+     * Key fix:
+     * - Native: persist and load by absolute path.
+     * - Web/WASM: persist and load by the IndexedDB key (fileName), NOT by absolutePath.
+     *
+     * For WASM we use the deterministic name derived from the model URL (same name used by your download layer).
+     */
+    private fun persistedPathForDownloadedModel(model: LlamaModel, downloadedLocalPath: String): String {
+        return if (PlatformInfo.isWasm) {
+            model.url.urlToFileName()
+        } else {
+            downloadedLocalPath
+        }
+    }
+
     private fun resolveAndMigratePath(model: LlamaModel): String? {
         val pathFromState = model.localPath
         val pathFromStorage = getModelsUseCase.getSavedModelPath(model.name).takeIf { it.isNotEmpty() }
         val rawPath = pathFromState ?: pathFromStorage
         if (rawPath.isNullOrBlank()) return null
+
+        // On WASM there is nothing to "migrate" in a filesystem sense — we store by key.
+        if (PlatformInfo.isWasm) return rawPath
 
         val migrated = migrateModelPathIfNeeded(
             modelNameOrFileName = model.name,
@@ -237,7 +256,6 @@ class ChatBotViewModel(
             // --- STT models list + attempt load any already-downloaded model ---
             getModelsUseCase.getDefaultSTTModels()
                 .onSuccess { models ->
-                    // Try to init any already-downloaded STT models
                     for (model in models) {
                         val path = resolveAndMigratePath(model) ?: continue
                         Logger.d("LlamaVM - Init STT Model: ${model.name} at $path")
@@ -262,7 +280,6 @@ class ChatBotViewModel(
 
                     _state.value = _state.value.copy(sttModels = normalized)
 
-                    // If privacy already accepted, start STT initial setup if needed (after list is ready)
                     if (hasAcceptedPrivacy) {
                         startSttInitialSetupIfNeeded(normalized)
                     }
@@ -274,7 +291,6 @@ class ChatBotViewModel(
 
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess { models ->
-                    // Try to init any already-downloaded generate models
                     for (model in models) {
                         val path = resolveAndMigratePath(model) ?: continue
 
@@ -304,7 +320,6 @@ class ChatBotViewModel(
 
                     if (hasAcceptedPrivacy) {
                         startInitialSetupIfNeeded(normalized)
-                        // (STT setup is also launched when STT list loads; this ensures both paths are covered)
                     }
                 }
                 .onFailure { error ->
@@ -317,7 +332,6 @@ class ChatBotViewModel(
                 latestNews = _state.value.latestNews,
             )
 
-            // Load last PDF-based RAG store (if user previously indexed one)
             runCatching { loadPersistedPdfRagStoreIfAny() }
                 .onFailure { Logger.w(it) { "RAG - failed to load persisted PDF store" } }
         }
@@ -326,9 +340,6 @@ class ChatBotViewModel(
         _sideEffects.trySend(ChatBotSideEffects.OnLoaded)
     }
 
-    /**
-     * Initial setup: download default generate model if none exists.
-     */
     private suspend fun startInitialSetupIfNeeded(models: List<LlamaModel>) {
         if (models.isEmpty()) return
 
@@ -362,17 +373,19 @@ class ChatBotViewModel(
             _state.value = _state.value.copy(initialSetupProgress = progress)
         }.onSuccess { tempFile ->
             Logger.d("LlamaVM - initial setup download finished for ${defaultModel.name}")
-            val path = tempFile.absolutePath()
 
-            getModelsUseCase.saveModelPath(defaultModel.name, path)
+            val downloadedPath = tempFile.absolutePath()
+            val persistedPath = persistedPathForDownloadedModel(defaultModel, downloadedPath)
+
+            getModelsUseCase.saveModelPath(defaultModel.name, persistedPath)
 
             _state.value = _state.value.copy(
                 generateModels = _state.value.generateModels.map {
-                    if (it.url == url) it.copy(fileName = path, localPath = path) else it
+                    if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                 }
             )
 
-            val loaded = LlamaBridge.initGenerateModel(path)
+            val loaded = LlamaBridge.initGenerateModel(persistedPath)
             if (loaded) {
                 _state.value = _state.value.copy(
                     selectedGenerateModelName = defaultModel.name,
@@ -397,10 +410,6 @@ class ChatBotViewModel(
         }
     }
 
-    /**
-     * Initial setup: download default STT model if none exists.
-     * Same logic as generate initial setup, but loads WhisperBridge.
-     */
     private suspend fun startSttInitialSetupIfNeeded(models: List<LlamaModel>) {
         if (models.isEmpty()) return
 
@@ -434,17 +443,19 @@ class ChatBotViewModel(
             _state.value = _state.value.copy(initialSetupProgress = progress)
         }.onSuccess { tempFile ->
             Logger.d("LlamaVM - initial setup download finished for STT ${defaultModel.name}")
-            val path = tempFile.absolutePath()
 
-            getModelsUseCase.saveModelPath(defaultModel.name, path)
+            val downloadedPath = tempFile.absolutePath()
+            val persistedPath = persistedPathForDownloadedModel(defaultModel, downloadedPath)
+
+            getModelsUseCase.saveModelPath(defaultModel.name, persistedPath)
 
             _state.value = _state.value.copy(
                 sttModels = _state.value.sttModels.map {
-                    if (it.url == url) it.copy(fileName = path, localPath = path) else it
+                    if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                 }
             )
 
-            val loaded = WhisperBridge.initModel(path)
+            val loaded = WhisperBridge.initModel(persistedPath)
             if (loaded) {
                 _state.value = _state.value.copy(
                     selectedSttModelName = defaultModel.name,
@@ -610,7 +621,6 @@ class ChatBotViewModel(
                         updateLastBotMessage("🖼️ Image generation failed (empty output).")
                     } else {
                         val fileName = "sd_${Random.nextInt()}_${System.now().toString().replace(":", "_")}.png"
-                        // StableDiffusionBridge returns raw RGBA bytes (width*height*4)
                         updateLastBotImageRgba(
                             rgbaBytes = rgbaBytes,
                             width = 512,
@@ -709,20 +719,22 @@ class ChatBotViewModel(
                         updateDownload(url) {
                             it.copy(inProgress = false, progress = 100, done = true, error = null)
                         }
-                        getModelsUseCase.saveModelPath(model.name, ev.localPath)
+
+                        val persistedPath = persistedPathForDownloadedModel(model, ev.localPath)
+                        getModelsUseCase.saveModelPath(model.name, persistedPath)
 
                         _state.value = _state.value.copy(
                             embedModels = _state.value.embedModels.map {
-                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                                if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                             },
                             generateModels = _state.value.generateModels.map {
-                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                                if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                             },
                             sttModels = _state.value.sttModels.map {
-                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                                if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                             },
                             stableDiffusionModels = _state.value.stableDiffusionModels.map {
-                                if (it.url == url) it.copy(fileName = ev.localPath, localPath = ev.localPath) else it
+                                if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                             },
                         )
                     }
@@ -778,10 +790,8 @@ class ChatBotViewModel(
                     sttModels = _state.value.sttModels.map {
                         if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
                     },
-                    // If user deleted the currently selected STT model, mark not loaded
                     selectedSttModelName = if (_state.value.selectedSttModelName == model.name) null else _state.value.selectedSttModelName,
                     isSttModelLoaded = if (_state.value.selectedSttModelName == model.name) false else _state.value.isSttModelLoaded,
-                    // If user deleted the currently selected SD model, mark not loaded
                     selectedStableDiffusionModelName = if (_state.value.selectedStableDiffusionModelName == model.name) null else _state.value.selectedStableDiffusionModelName,
                     isStableDiffusionModelLoaded = if (_state.value.selectedStableDiffusionModelName == model.name) false else _state.value.isStableDiffusionModelLoaded
                 )
@@ -872,7 +882,6 @@ class ChatBotViewModel(
                     return@launch
                 }
 
-                // Update UI immediately
                 _state.update {
                     it.copy(
                         ragPdfFileName = fileName,
@@ -882,7 +891,6 @@ class ChatBotViewModel(
                     )
                 }
 
-                // Read bytes + extract text
                 val pdfBytes = file.readBytes()
                 val text = extractPdfText(pdfBytes).trim()
                 if (text.isBlank()) {
@@ -891,18 +899,15 @@ class ChatBotViewModel(
                     return@launch
                 }
 
-                // Ensure embedding model is loaded for RAG
                 if (!_state.value.isEmbedModelLoaded) {
                     _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
                     emitBot("To use PDF RAG, please download/load the embedding model: \"nomic-embed-text\" (Embed Models).")
                     return@launch
                 }
 
-                // Chunk
                 val chunks = chunkText(text, chunkSize = 1000, chunkOverlap = 200)
                     .filter { it.isNotBlank() }
 
-                // Cap to avoid insane memory for huge PDFs (tune as you like)
                 val capped = chunks.take(2_000)
                 if (capped.isEmpty()) {
                     _state.update { it.copy(isRagIndexing = false, ragIndexingProgress = 0) }
@@ -910,7 +915,6 @@ class ChatBotViewModel(
                     return@launch
                 }
 
-                // Embed + build vector store
                 val items = ArrayList<VectorStoreItem>(capped.size)
                 val total = capped.size
 
@@ -943,7 +947,6 @@ class ChatBotViewModel(
 
                 val store = VectorStoreData(items)
 
-                // Save in memory + persist on disk (your persistence functions)
                 vectorStore = store
                 persistPdfRagStore(
                     fileName = fileName,
@@ -1006,15 +1009,10 @@ class ChatBotViewModel(
                         return@withContext
                     }
 
-                    // --- Option B: gate by cosine similarity instead of keyword overlap ---
-                    // NOTE: retrieveContext() returns items already sorted/reranked; we use the best similarity among returned items.
                     val bestCosine = topItems.maxOf { item -> cosineD(qVec, item.vector) }
 
                     Logger.d("RAG - best cosine=$bestCosine topItems=${topItems.size}")
 
-                    // Tune this threshold. Typical useful starting points:
-                    // - 0.10–0.15: lenient (more answers, more risk of off-topic)
-                    // - 0.15–0.25: stricter (fewer answers, more precision)
                     val COSINE_THRESHOLD = 0.15
 
                     if (bestCosine < COSINE_THRESHOLD) {
@@ -1092,7 +1090,6 @@ class ChatBotViewModel(
         }
     }
 
-    // === Alternative entry point using ChatRunner directly (no RAG/embeddings) ===
     fun onMessageSendDirect(message: String) {
         val input = message.trim()
         if (input.isBlank()) return
@@ -1102,7 +1099,6 @@ class ChatBotViewModel(
                 currentChatId = kotlin.random.Random.nextLong().toString()
             }
 
-            // 1) Add user message
             _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
@@ -1112,10 +1108,8 @@ class ChatBotViewModel(
                 try {
                     persistCurrentConversationIfNeeded()
 
-                    // 2) Reserve an empty bot bubble
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
-                    // 3) Build chat history (everything except the empty last bot)
                     val chatHistory: List<ChatMessage> =
                         toChatMessages(_conversation.value.dropLast(1))
 
@@ -1214,7 +1208,6 @@ class ChatBotViewModel(
         }
     }
 
-    /** Called from UI Stop button – logical stop + native cancellation */
     fun stopGeneration() {
         Logger.d { "LlamaVM - stopGeneration()" }
         LlamaBridge.nativeCancelGenerate()
@@ -1330,7 +1323,6 @@ class ChatBotViewModel(
 
         currentNavigator.pop()
 
-        // After onboarding is closed, start initial setup (Gemma 3 download) if needed.
         screenModelScope.launch(AppDispatchersIO) {
             val genModels = _state.value.generateModels.ifEmpty {
                 getModelsUseCase.getDefaultGenerateModels().getOrElse { emptyList() }
@@ -1343,8 +1335,6 @@ class ChatBotViewModel(
             startSttInitialSetupIfNeeded(sttModels)
         }
     }
-
-    // --- mapping helpers ---
 
     private fun toChatMessages(ui: List<ChatUiModel.Message>): List<ChatMessage> {
         return ui.mapNotNull { m ->
@@ -1364,7 +1354,6 @@ class ChatBotViewModel(
             .firstOrNull { it.name == selectedName }
             ?.template
 
-        // Fallback to Gemma3 so we never break if something is null
         return modelTemplate ?: Gemma3
     }
 
@@ -1569,7 +1558,6 @@ data class ChatBotState(
     val isTemporaryChat: Boolean = false,
     val generationMode: GenerationMode = GenerationMode.TEXT,
 
-    // --- On-device RAG (PDF -> vector store) ---
     val ragPdfFileName: String? = null,
     val isRagIndexing: Boolean = false,
     val ragIndexingProgress: Int = 0,
