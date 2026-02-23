@@ -12,15 +12,14 @@ extended = true
 min = "0.55.0"
 
 [params]
-# In most cases you will only want to set the google_analytics_id OR the google_tag_manager_id. If you have Google Analytics included in your GTM tags don't put your GA ID here. Otherwise your data might be useless.
 google_analytics_id = ""
 google_tag_manager_id = ""
 favicon = "favicon-32x32.png"
 showPricing = false
 
 [params.homepage]
-show_contact_box = true      # show / hide the contaxt box on the homepage
-show_services_button = false # show / hide the "view all services" button
+show_contact_box = true
+show_services_button = false
 show_pricing_button = true
 
 [params.logo]
@@ -31,17 +30,16 @@ desktop_height = "60px"
 alt = "LLamatik"
 
 [params.fonts]
-# sets the google font link in layouts/partials/google-fonts.html
 google_fonts = 'https://fonts.googleapis.com/css2?family=Poppins+Display:wght@600&family=Poppins:wght@400;700&display=swap'
 heading = "Poppins"
 base = "Poppins"
 
 [params.colors]
-primary       = "#F59E0B"  # Llamatik amber (warm, human, sustainable)
-black         = "#1C1B1F"  # Soft near-black (better than pure black)
-white         = "#FFFFFF"  # Clean surface
-white_offset  = "#FFF4D6"  # Warm off-white (cards / hero background)
-grey          = "#6B7280"  # Neutral slate (text-muted, borders)
+primary       = "#F59E0B"
+black         = "#1C1B1F"
+white         = "#FFFFFF"
+white_offset  = "#FFF4D6"
+grey          = "#6B7280"
 
 [params.seo]
 meta_twitter_site = "@llamatikAi"
@@ -49,13 +47,13 @@ meta_twitter_creator = "@llamatikai"
 meta_og_image = "https://multiplatformkickstarter.com/images/logo/MKLogo.svg"
 
 [params.services]
-summary_truncate = 120 # How many characters to include in the summary of the services before truncating
+summary_truncate = 120
 
 [params.pricing]
 summary_truncate = 120
 
 [params.team]
-summary_large_truncate = 200 # How many characters to include in the summary of the team bios (large layout) before truncating
+summary_large_truncate = 200
 
 [params.footer]
 copyright_text = 'Copyright © 2025-2026 Llamatik. All rights reserved.'
@@ -114,24 +112,29 @@ url = "/blog/"
 weight = 1
 
 [[menu.main]]
+name = "Prompt"
+url = "/prompt/"
+weight = 2
+
+[[menu.main]]
 name = "Github"
 url = "https://github.com/ferranpons/Llamatik"
-weight = 2
+weight = 3
 
 [[menu.main]]
 name = "Docs"
 url = "https://docs.llamatik.com"
-weight = 3
+weight = 4
 
 [[menu.main]]
 name = "Contact"
 url = "/contact/"
-weight = 4
+weight = 5
 
 [[menu.main]]
 name = "Download"
 url = "/download/"
-weight = 5
+weight = 6
 
 # Footer Menu
 [[menu.footer]]
