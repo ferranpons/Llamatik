@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
 package com.llamatik.app.platform
 
 import kotlinx.coroutines.suspendCancellableCoroutine

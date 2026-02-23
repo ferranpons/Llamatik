@@ -341,19 +341,24 @@ tasks.matching { it.name == "desktopProcessResources" || it.name == "processDesk
         dependsOn(copyMacNativeLib)
     }
 
+val wasmEngineFromLibrary = project(":library")
+    .layout.buildDirectory
+    .dir("llamatik-wasm")
+
+val wasmEngineTargetDir = project.layout.projectDirectory
+    .dir("src/wasmJsMain/resources/kotlin/llamatik_wasm")
 
 val copyLlamatikEngineToWasmResources by tasks.registering(Copy::class) {
-    // ✅ Adjust this "from" to the REAL output folder where your emscripten build puts the files
-    // Example candidates:
-    // - "$rootDir/library/build/wasm/llamatik_wasm"
-    // - "$rootDir/library/build/emscripten/llamatik_wasm"
-    // - "$rootDir/library/src/wasmJsMain/resources/llamatik_wasm"
-    from(layout.projectDirectory.dir("../library/build/llamatik_wasm")) // <-- CHANGE THIS
+    dependsOn(":library:buildLlamatikWasm")
 
-    include("**/*")
+    from(wasmEngineFromLibrary)
+    include("llamatik_wasm.mjs", "llamatik_wasm.wasm")
 
-    // ✅ This is where webpack/devserver will serve it from: /kotlin/...
-    into(layout.projectDirectory.dir("src/wasmJsMain/resources/kotlin/llamatik_wasm"))
+    into(wasmEngineTargetDir)
+
+    doFirst {
+        println("Copying WASM engine from library to composeApp resources")
+    }
 }
 
 tasks.named("wasmJsProcessResources") {

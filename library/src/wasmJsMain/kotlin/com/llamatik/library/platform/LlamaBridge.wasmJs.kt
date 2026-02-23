@@ -201,7 +201,11 @@ actual object LlamaBridge {
       const STORE_CHUNKS = "chunks";
       const STORE_META = "meta";
 
-      const WASM_MJS_URL = "./kotlin/llamatik_wasm/llamatik_wasm.mjs";
+      // IMPORTANT:
+      // These are served as STATIC resources by the dev server (not bundled by webpack).
+      // Leading slash = from server root.
+      const WASM_MJS_URL  = "/kotlin/llamatik_wasm/llamatik_wasm.mjs";
+      const WASM_BASE_URL = "/kotlin/llamatik_wasm/";
 
       function openDb(cb) {
         const req = indexedDB.open(DB_NAME, DB_VER);
@@ -245,7 +249,6 @@ actual object LlamaBridge {
       }
 
       function b64ToU8(b64) {
-        // atob gives binary string
         const bin = atob(b64);
         const len = bin.length;
         const u8 = new Uint8Array(len);
@@ -254,7 +257,6 @@ actual object LlamaBridge {
       }
 
       function ensureDir(Module, path) {
-        // mkdir -p
         const parts = path.split("/").filter(Boolean);
         let cur = "";
         for (let i = 0; i < parts.length - 1; i++) {
@@ -266,11 +268,13 @@ actual object LlamaBridge {
       async function loadModule() {
         if (globalThis.__llamatikModule) return globalThis.__llamatikModule;
 
-        // Import the Emscripten ES module
-        const mod = await import(WASM_MJS_URL);
+        // CRITICAL: prevent webpack from trying to resolve/bundle this import
+        const mod = await import(/* webpackIgnore: true */ WASM_MJS_URL);
         const factory = mod.default || mod;
+
         const instance = await factory({
-          locateFile: (p) => "./kotlin/llamatik_wasm/" + p
+          // Emscripten will request "llamatik_wasm.wasm" relative to this base
+          locateFile: (p) => WASM_BASE_URL + p
         });
 
         globalThis.__llamatikModule = instance;
@@ -290,7 +294,6 @@ actual object LlamaBridge {
 
               const bytes = b64ToU8(b64);
 
-              // write file into Emscripten FS
               ensureDir(Module, fsPath);
               try {
                 Module.FS.writeFile(fsPath, bytes, { encoding: "binary" });
@@ -299,18 +302,13 @@ actual object LlamaBridge {
                 return;
               }
 
-              // call exported init
               try {
-                // If ccall is available
                 if (Module.ccall) {
                   const ok = Module.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
                   if (ok === 1) onOk();
                   else onErr("llamatik_llama_init_generate returned " + ok);
-                } else if (Module._llamatik_llama_init_generate) {
-                  // fallback: call raw symbol (string passing not supported here)
-                  onErr("ccall not available on Module");
                 } else {
-                  onErr("Init function not found on Module");
+                  onErr("ccall not available on Module");
                 }
               } catch (e4) {
                 onErr("Init call failed: " + String(e4));

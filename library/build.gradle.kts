@@ -16,6 +16,78 @@ version = (System.getenv("RELEASE_VERSION") ?: "0.0.0-SNAPSHOT")
 // Choose ONE min iOS version and use it everywhere
 val minIos = "16.6"
 
+fun Project.propString(name: String): String? =
+    findProperty(name)?.toString()?.takeIf { it.isNotBlank() }
+
+fun canExec(path: String?): Boolean {
+    if (path.isNullOrBlank()) return false
+    val f = File(path)
+    return f.exists() && f.canExecute()
+}
+
+fun existingDir(path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    val f = File(path)
+    return if (f.exists() && f.isDirectory) f.absolutePath else null
+}
+
+// Resolve EMSDK root in a way that works in Android Studio (no shell env needed).
+fun Project.resolveEmsdkRoot(): String? {
+    // 1) Gradle properties (IDE-safe)
+    propString("EMSDK")?.let { existingDir(it)?.let { d -> return d } }
+    propString("EMSDK_PATH")?.let { existingDir(it)?.let { d -> return d } }
+
+    // 2) Environment variables (terminal / CI)
+    existingDir(System.getenv("EMSDK"))?.let { return it }
+
+    // 3) Common local layout: <repoParent>/emsdk (your setup: AndroidStudioProjects/emsdk)
+    val parent = rootDir.parentFile
+    existingDir(parent.resolve("emsdk").absolutePath)?.let { return it }
+
+    // 4) Another common layout: <repoRoot>/emsdk
+    existingDir(rootDir.resolve("emsdk").absolutePath)?.let { return it }
+
+    return null
+}
+
+fun Project.resolveEmsdkToolOrNull(name: String, emsdkRoot: String?): String? {
+    // Allow overrides in gradle.properties / env:
+    // EMCMAKE_PATH=/full/path/to/emcmake
+    // EMMAKE_PATH=/full/path/to/emmake
+    val key = "${name.uppercase()}_PATH"
+    propString(key)?.let { if (canExec(it)) return it }
+    System.getenv(key)?.let { if (canExec(it)) return it }
+
+    // If EMSDK root known, tools live here:
+    // $EMSDK/upstream/emscripten/<tool>
+    if (!emsdkRoot.isNullOrBlank()) {
+        val p = File(emsdkRoot, "upstream/emscripten/$name").absolutePath
+        if (canExec(p)) return p
+    }
+
+    // As a last resort, let it be resolved from PATH at execution time.
+    // (We DO NOT throw here, otherwise Android Studio sync fails.)
+    return null
+}
+
+fun Project.ensureToolAtExecutionTime(toolLabel: String, resolvedPathOrName: String): String {
+    // If it's an absolute path, verify it exists.
+    if (resolvedPathOrName.contains(File.separatorChar)) {
+        val f = file(resolvedPathOrName)
+        if (!f.exists() || !f.canExecute()) {
+            throw GradleException(
+                "Cannot execute '$toolLabel' at: ${f.absolutePath}\n" +
+                        "Fix by setting ${toolLabel.uppercase()}_PATH in gradle.properties, " +
+                        "or ensure emsdk is installed and accessible."
+            )
+        }
+        return f.absolutePath
+    }
+
+    // Otherwise it's a bare command (e.g. "emcmake") → rely on PATH at runtime.
+    return resolvedPathOrName
+}
+
 kotlin {
     // ---- ANDROID target MUST publish a library variant (AAR) ----
     androidTarget {
@@ -48,19 +120,19 @@ kotlin {
     }
 
     fun findTool(name: String, extraCandidates: List<String> = emptyList()): String {
+        // Prefer Gradle properties as they work in Android Studio sync too.
+        propString("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
         System.getenv("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
+
         val candidates = mutableListOf(
             "/opt/homebrew/bin/$name",   // Apple Silicon Homebrew
             "/usr/local/bin/$name",      // Intel Homebrew or manual install
             "/usr/bin/$name"             // system (libtool lives here)
         )
         candidates.addAll(extraCandidates)
-        try {
-            val out = providers.exec { commandLine("which", name) }
-                .standardOutput.asText.get().trim()
-            if (out.isNotEmpty() && file(out).canExecute()) return out
-        } catch (_: Throwable) {}
+
         for (p in candidates) if (file(p).canExecute()) return p
+
         throw GradleException(
             "Cannot find required tool '$name'. " +
                     "Install it (e.g. 'brew install $name') or set ${name.uppercase()}_PATH=/full/path/to/$name"
@@ -72,29 +144,12 @@ kotlin {
     val libtoolPath = findTool("libtool") // should be /usr/bin/libtool on macOS
 
     // ---- WASM (Emscripten) tools ----
-    fun findEmsdkTool(name: String): String {
-        // Allow override: EMCC_PATH, EMMAKE_PATH, EMCMake_PATH, etc.
-        System.getenv("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
-        // If EMSDK is set, tools usually live in $EMSDK/upstream/emscripten
-        val emsdk = System.getenv("EMSDK")
-        if (!emsdk.isNullOrBlank()) {
-            val p = file("$emsdk/upstream/emscripten/$name")
-            if (p.canExecute()) return p.absolutePath
-        }
-        // Fall back to PATH
-        try {
-            val out = providers.exec { commandLine("which", name) }
-                .standardOutput.asText.get().trim()
-            if (out.isNotEmpty() && file(out).canExecute()) return out
-        } catch (_: Throwable) {}
-        throw GradleException(
-            "Cannot find Emscripten tool '$name'. " +
-                    "Install/activate emsdk and ensure '$name' is on PATH, or set ${name.uppercase()}_PATH."
-        )
-    }
+    // IMPORTANT: Do NOT throw during configuration, or Android Studio sync fails.
+    val emsdkRoot: String? = resolveEmsdkRoot()
+    val emscriptenBinDir: String? = emsdkRoot?.let { File(it, "upstream/emscripten").absolutePath }
 
-    val emcmakePath = findEmsdkTool("emcmake")
-    val emmakePath  = findEmsdkTool("emmake")
+    val emcmakePath: String = resolveEmsdkToolOrNull("emcmake", emsdkRoot) ?: "emcmake"
+    val emmakePath: String = resolveEmsdkToolOrNull("emmake", emsdkRoot) ?: "emmake"
 
     listOf(
         Triple(iosX64(), "x86_64", "iPhoneSimulator"),
@@ -436,16 +491,25 @@ kotlin {
                 )
             }
             wasmNativeBuildDir.mkdirs()
-        }
 
-        // emcmake cmake -S ... -B ...
-        commandLine(
-            emcmakePath,
-            cmakePath,
-            "-S", wasmNativeSourceDir.absolutePath,
-            "-B", wasmNativeBuildDir.absolutePath,
-            "-DCMAKE_BUILD_TYPE=Release"
-        )
+            // Ensure tools are available at EXECUTION time (not during IDE sync).
+            val resolved = ensureToolAtExecutionTime("emcmake", emcmakePath)
+
+            // Ensure PATH includes emsdk's upstream/emscripten when we know it.
+            if (!emsdkRoot.isNullOrBlank() && !emscriptenBinDir.isNullOrBlank()) {
+                environment("EMSDK", emsdkRoot)
+                environment("PATH", emscriptenBinDir + ":" + System.getenv("PATH"))
+            }
+
+            // Re-apply commandLine here so we use the validated tool path.
+            commandLine(
+                resolved,
+                cmakePath,
+                "-S", wasmNativeSourceDir.absolutePath,
+                "-B", wasmNativeBuildDir.absolutePath,
+                "-DCMAKE_BUILD_TYPE=Release"
+            )
+        }
     }
 
     val buildLlamatikWasm by tasks.registering(Exec::class) {
@@ -453,13 +517,21 @@ kotlin {
         description = "Build WebAssembly (llamatik wasm engine)"
         dependsOn(configureLlamatikWasm)
 
-        // emmake cmake --build ...
-        commandLine(
-            emmakePath,
-            cmakePath,
-            "--build", wasmNativeBuildDir.absolutePath,
-            "--config", "Release"
-        )
+        doFirst {
+            val resolved = ensureToolAtExecutionTime("emmake", emmakePath)
+
+            if (!emsdkRoot.isNullOrBlank() && !emscriptenBinDir.isNullOrBlank()) {
+                environment("EMSDK", emsdkRoot)
+                environment("PATH", emscriptenBinDir + ":" + System.getenv("PATH"))
+            }
+
+            commandLine(
+                resolved,
+                cmakePath,
+                "--build", wasmNativeBuildDir.absolutePath,
+                "--config", "Release"
+            )
+        }
     }
 
     val copyLlamatikWasmToResources by tasks.registering(Copy::class) {
@@ -565,7 +637,7 @@ publishing {
                 developer {
                     id.set("ferranpons")
                     name.set("Ferran Pons")
-                    url.set("https://github.com/ferranpons")
+                    url.set("https://github.com/ferranpons/llamatik")
                 }
             }
             scm {
