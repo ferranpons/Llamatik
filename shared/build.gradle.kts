@@ -26,24 +26,21 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
+    // Web (Kotlin/Wasm)
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        binaries.executable()
+    }
+
     listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "shared"
             isStatic = false
 
-            // We used to re-export :library, but Kotlin/Native can't export a cinterop klib.
-            // The :library framework is static and force-loads its merged archive already,
-            // so symbols are included transitively without export().
-            // export(project(":library"))  <-- keep removed
-
-            // Give it a bundle id to keep Xcode happy
             freeCompilerArgs += "-Xbinary=bundleId=com.llamatik.shared"
             freeCompilerArgs += "-Xbinary=ios_version_min=16.6"
             freeCompilerArgs += "-Xoverride-konan-properties=osVersionMin.ios=16.6"
-
-            // NOTE:
-            // We deliberately do NOT add custom linkerOpts here.
-            // The native bits (llama/ggml) are linked & force-loaded in :library already.
         }
     }
 
@@ -77,25 +74,19 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.server.serialization.kotlinx.json)
 
-            // Kamel for image loading
             implementation(libs.kamel)
             implementation(libs.kamel.default)
 
-            // Voyager for Navigation
             implementation(libs.voyager.navigator)
             implementation(libs.voyager.bottom.sheet.navigator)
             implementation(libs.voyager.tab.navigator)
             implementation(libs.voyager.transitions)
             implementation(libs.voyager.koin)
 
-            // Multiplatform Settings
             implementation(libs.multiplatform.settings.no.arg)
             implementation(libs.multiplatform.settings.serialization)
 
-            // Dependency Injection
             implementation(libs.koin.core)
-
-            // Logging
             implementation(libs.kermit)
 
             implementation(libs.junit)
@@ -111,7 +102,15 @@ kotlin {
             implementation(libs.filekit.dialogs.compose)
             implementation(libs.urlencoder)
         }
+/*
+        // Native/desktop platforms keep using :library.
+        androidMain.dependencies { api(project(":library")) }
+        iosMain.dependencies { api(project(":library")) }
+        jvmMain.dependencies { api(project(":library")) }
 
+        // wasmJsMain does NOT depend on :library (native/JNI). It uses stubbed APIs.
+        val wasmJsMain by getting
+*/
         androidMain.dependencies {
             implementation(libs.androidx.compose.runtime)
             implementation(libs.androidx.core.ktx)
@@ -126,7 +125,6 @@ kotlin {
             implementation(libs.android.play.review.ktx)
             implementation(libs.kotlinx.coroutines.play.services)
 
-            // PDF text extraction (for on-device RAG ingestion)
             implementation("com.tom-roush:pdfbox-android:2.0.27.0")
         }
 
@@ -138,8 +136,6 @@ kotlin {
 
         jvmMain.dependencies {
             implementation(compose.desktop.common)
-
-            // JVM/desktop PDF text extraction
             implementation("org.apache.pdfbox:pdfbox:2.0.30")
         }
 
@@ -149,6 +145,11 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.multiplatform.settings.test)
+        }
+
+        val wasmJsMain by getting
+        wasmJsMain.dependencies {
+            implementation(libs.kotlinx.coroutines.core)
         }
     }
 }
@@ -163,8 +164,6 @@ android {
 
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
-        // If you use NDK here, configure ABI filters accordingly.
-        // ndk { abiFilters.add("arm64-v8a") }
     }
 
     compileOptions {
@@ -175,10 +174,6 @@ android {
     kotlin {
         jvmToolchain(21)
     }
-
-    // If you’re not building JNI in :shared, keep these disabled.
-    // sourceSets["main"].jniLibs.srcDirs("src/commonMain/jniLibs")
-    // externalNativeBuild { cmake { path = file("src/commonMain/cpp/CMakeLists.txt") } }
 }
 
 compose.resources {

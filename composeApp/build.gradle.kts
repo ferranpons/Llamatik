@@ -31,6 +31,20 @@ kotlin {
         }
     }
     jvm("desktop")
+
+    // Web (Kotlin/Wasm)
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            commonWebpackConfig {
+                cssSupport {
+                    enabled.set(true)
+                }
+            }
+        }
+        binaries.executable()
+    }
+
     listOf(
         iosX64(),
         iosArm64(),
@@ -63,6 +77,21 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
         }
+
+        val wasmJsMain by getting {
+            dependencies {
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material)
+                implementation(compose.ui)
+                implementation(compose.components.resources)
+                implementation(project(":shared"))
+
+                implementation(libs.koin.core)
+                implementation(libs.koin.compose)
+            }
+        }
+
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(compose.ui)
@@ -193,7 +222,6 @@ android {
         androidTestImplementation(libs.androidx.junit)
         androidTestImplementation(libs.androidx.espresso.core)
 
-        // androidTestImplementation("androidx.compose.ui:ui-test-junit4")
         debugImplementation(libs.androidx.ui.tooling)
     }
 }
@@ -208,7 +236,6 @@ compose.desktop {
             .absolutePath
 
         run {
-            // Ensure the dylib exists BEFORE we run
             dependsOn(":library:compileLlamaJniDesktop")
 
             jvmArgs(
@@ -255,7 +282,6 @@ compose.desktop {
         implementation(libs.ktor.client.content.negotiation)
         implementation(libs.ktor.server.serialization.kotlinx.json)
 
-        // Kamel for image loading
         implementation(libs.kamel)
 
         // Voyager for Navigation
@@ -314,3 +340,27 @@ tasks.matching { it.name == "desktopProcessResources" || it.name == "processDesk
     .configureEach {
         dependsOn(copyMacNativeLib)
     }
+
+val wasmEngineFromLibrary = project(":library")
+    .layout.buildDirectory
+    .dir("llamatik-wasm")
+
+val wasmEngineTargetDir = project.layout.projectDirectory
+    .dir("src/wasmJsMain/resources/kotlin/llamatik_wasm")
+
+val copyLlamatikEngineToWasmResources by tasks.registering(Copy::class) {
+    dependsOn(":library:buildLlamatikWasm")
+
+    from(wasmEngineFromLibrary)
+    include("llamatik_wasm.mjs", "llamatik_wasm.wasm")
+
+    into(wasmEngineTargetDir)
+
+    doFirst {
+        println("Copying WASM engine from library to composeApp resources")
+    }
+}
+
+tasks.named("wasmJsProcessResources") {
+    dependsOn(copyLlamatikEngineToWasmResources)
+}

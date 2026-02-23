@@ -8,7 +8,10 @@ import com.llamatik.app.feature.chatbot.utils.Plain
 import com.llamatik.app.feature.chatbot.utils.QwenChat
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.LlamatikTempFile
+import com.llamatik.app.platform.PlatformInfo
 import com.llamatik.app.platform.ServiceClient
+import com.llamatik.app.platform.addBytesToFile
+import com.llamatik.app.platform.writeToFile
 import com.russhwolf.settings.Settings
 import io.ktor.client.call.body
 import io.ktor.client.request.prepareGet
@@ -25,6 +28,16 @@ private const val DEFAULT_BUFFER_SIZE: Int = 64 * 1024
 class ModelsRepository(private val service: ServiceClient) {
     val localization = getCurrentLocalization()
 
+    /**
+     * Downloads [url] into a persistent local store.
+     *
+     * - Native targets: uses LlamatikTempFile appendBytes() (filesystem-backed).
+     * - Web/WASM: writes directly to IndexedDB via suspend addBytesToFile(), awaiting each chunk.
+     *
+     * NOTE:
+     * On WASM, returning LlamatikTempFile is mostly for API compatibility. The persisted content
+     * is written under [fileName] key (your wasm writeToFile/addBytesToFile actuals).
+     */
     suspend fun downloadFileAndSave(
         url: String,
         fileName: String,
@@ -36,10 +49,38 @@ class ModelsRepository(private val service: ServiceClient) {
         try {
             service.httpClient.prepareGet(url).execute { httpResponse ->
                 val channel: ByteReadChannel = httpResponse.body()
-                val totalBytes = httpResponse.contentLength() ?: -1
-                var downloaded: Long = 0
+                val totalBytes = httpResponse.contentLength() ?: -1L
+                var downloaded = 0L
+
                 Logger.d("${localization.downloading} ${httpResponse.contentLength()} bytes")
 
+                if (PlatformInfo.isWasm) {
+                    // overwrite/reset any previous partial file for this name
+                    ByteArray(0).writeToFile(fileName)
+
+                    while (!channel.isClosedForRead) {
+                        ctx.ensureActive()
+
+                        val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
+                        while (!packet.exhausted()) {
+                            ctx.ensureActive()
+
+                            val bytes = packet.readByteArray()
+                            if (bytes.isEmpty()) break
+
+                            downloaded += bytes.size
+                            // IMPORTANT: suspend + await IndexedDB write
+                            bytes.addBytesToFile(fileName)
+
+                            onProgress?.invoke(downloaded, totalBytes)
+                        }
+                    }
+
+                    Logger.d(localization.downloadFinished)
+                    return@execute
+                }
+
+                // ---- Native path (existing behavior) ----
                 while (!channel.isClosedForRead) {
                     ctx.ensureActive()
 

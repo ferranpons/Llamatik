@@ -42,6 +42,71 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
+      # ---------------------------
+      # Build Kotlin/WASM app
+      # ---------------------------
+      - name: Setup Java (Temurin 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Emscripten (emsdk)
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          emsdk-version: latest
+
+      - name: Build Llamatik WASM artifacts
+        run: |
+          chmod +x ./gradlew
+
+          # 1) Build the native wasm engine and copy it into library wasm resources
+          ./gradlew :library:copyLlamatikWasmToResources
+
+          # 2) Build the browser distribution (Compose WASM output)
+          ./gradlew :composeApp:wasmJsBrowserDistribution
+
+      - name: Copy WASM app into Hugo static (/prompt)
+        run: |
+          set -euo pipefail
+
+          # Kotlin/WASM distribution paths can vary a bit by Kotlin plugin version.
+          # We find the folder that contains index.html under composeApp/build/dist.
+          IDX="$(find composeApp/build/dist -type f -name index.html | head -n 1 || true)"
+          if [ -z "${IDX}" ]; then
+            echo "ERROR: Could not locate composeApp WASM distribution output (index.html not found)." >&2
+            echo "Listing composeApp/build/dist for debugging:" >&2
+            find composeApp/build/dist -maxdepth 6 -type d -print || true
+            exit 1
+          fi
+
+          DIST_DIR="$(dirname "${IDX}")"
+          echo "Using WASM dist folder: ${DIST_DIR}"
+
+          OUT_DIR="homepage/static/prompt"
+          rm -rf "${OUT_DIR}"
+          mkdir -p "${OUT_DIR}"
+          cp -R "${DIST_DIR}/"* "${OUT_DIR}/"
+
+          # Ensure the app works when hosted under /prompt/ instead of site root.
+          # Many Kotlin/Compose wasm templates use <base href="/"> or <base href="/" />.
+          if [ -f "${OUT_DIR}/index.html" ]; then
+            sed -i 's#<base href="/">#<base href="/prompt/">#g' "${OUT_DIR}/index.html" || true
+            sed -i 's#<base href="/" />#<base href="/prompt/" />#g' "${OUT_DIR}/index.html" || true
+          fi
+
+          # Optional: SPA refresh fallback under GitHub Pages.
+          # If your wasm app uses client-side routing, this prevents 404s on refresh.
+          if [ -f "${OUT_DIR}/index.html" ]; then
+            cp "${OUT_DIR}/index.html" "${OUT_DIR}/404.html"
+          fi
+
+      # ---------------------------
+      # Hugo build
+      # ---------------------------
       - name: Install Node.js dependencies
         working-directory: homepage
         run: |

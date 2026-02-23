@@ -2,11 +2,13 @@ package com.llamatik.app.platform.tts
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import platform.AVFoundation.AVSpeechBoundaryImmediate
-import platform.AVFoundation.AVSpeechSynthesisVoice
-import platform.AVFoundation.AVSpeechSynthesizer
-import platform.AVFoundation.AVSpeechUtterance
+import platform.AVFAudio.AVSpeechBoundary
+import platform.AVFAudio.AVSpeechSynthesisVoice
+import platform.AVFAudio.AVSpeechSynthesizer
+import platform.AVFAudio.AVSpeechUtterance
 import platform.Foundation.NSLocale
+import platform.Foundation.currentLocale
+import platform.Foundation.languageCode
 
 class AppleTtsEngine : TtsEngine {
 
@@ -21,7 +23,7 @@ class AppleTtsEngine : TtsEngine {
         // AVSpeechSynthesizer is safest to use on the main thread.
         withContext(Dispatchers.Main) {
             if (interrupt) {
-                runCatching { synthesizer.stopSpeakingAtBoundary(AVSpeechBoundaryImmediate) }
+                runCatching { synthesizer.stopSpeakingAtBoundary(AVSpeechBoundary.AVSpeechBoundaryImmediate) }
             }
 
             val utterance = AVSpeechUtterance(string = trimmed)
@@ -39,6 +41,6 @@ class AppleTtsEngine : TtsEngine {
     }
 
     override fun stop() {
-        runCatching { synthesizer.stopSpeakingAtBoundary(AVSpeechBoundaryImmediate) }
+        runCatching { synthesizer.stopSpeakingAtBoundary(AVSpeechBoundary.AVSpeechBoundaryImmediate) }
     }
 }
