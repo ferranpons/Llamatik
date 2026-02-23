@@ -10,16 +10,6 @@ import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
-/**
- * WASM implementation:
- * - Reads model from IndexedDB (DB "llamatik", stores "chunks"/"meta") using the SAME schema as shared module.
- * - Writes model into Emscripten FS at /models/<sanitizedFileName>
- * - Calls exported C function: _llamatik_llama_init_generate("/models/<file>")
- *
- * Notes:
- * - initGenerateModel is synchronous in the expect API; on web we cannot block.
- *   We start async init and return true; readiness is tracked via isReady().
- */
 actual object LlamaBridge {
 
     private val moduleReady = AtomicBoolean(false)
@@ -28,21 +18,18 @@ actual object LlamaBridge {
     private val wasmScope = CoroutineScope(Dispatchers.Default)
 
     @Composable
-    actual fun getModelPath(modelFileName: String): String {
-        // We return the "logical file name". The loader will map it to IndexedDB key and FS path.
-        return modelFileName
-    }
+    actual fun getModelPath(modelFileName: String): String = modelFileName
 
     actual fun initEmbedModel(modelPath: String): Boolean = false
     actual fun embed(input: String): FloatArray = floatArrayOf()
 
     actual fun initGenerateModel(modelPath: String): Boolean {
-        // modelPath will likely be the model filename in web.
         if (modelReady.load()) return true
         if (initInFlight.load()) return true
 
+        initInFlight.store(true)
+
         val fileName = sanitizeName(modelPath.substringAfterLast('/'))
-        // IndexedDB key must match shared/src/wasmJsMain modelKey(): "models/<safe>"
         val idbKey = "models/$fileName"
         val fsPath = "/models/$fileName"
 
@@ -52,24 +39,21 @@ actual object LlamaBridge {
             onOk = {
                 moduleReady.store(true)
                 modelReady.store(true)
+                initInFlight.store(false)
             },
             onErr = { err ->
-                // allow retry
                 initInFlight.store(false)
                 modelReady.store(false)
-                // You can replace this with your logger
+                moduleReady.store(false)
                 println("WASM initGenerateModel failed: $err")
             }
         )
 
-        // Async start ok
         return true
     }
 
     actual fun generate(prompt: String): String {
-        if (!modelReady.load()) {
-            return "Web/WASM: model is still loading…"
-        }
+        if (!modelReady.load()) return "Web/WASM: model is still loading…"
         return runGenerate(prompt)
     }
 
@@ -94,16 +78,12 @@ actual object LlamaBridge {
         wasmScope.launch {
             try {
                 val full = runGenerate(prompt)
-
-                // Emit in chunks to mimic streaming UI
                 val chunkSize = 24
                 var i = 0
                 while (i < full.length) {
                     val end = (i + chunkSize).coerceAtMost(full.length)
                     callback.onDelta(full.substring(i, end))
                     i = end
-
-                    // Yield so UI stays responsive
                     delay(0)
                 }
                 callback.onComplete()
@@ -118,14 +98,10 @@ actual object LlamaBridge {
         contextBlock: String,
         userPrompt: String,
         callback: GenStream
-    ) {
-        generateStream("$systemPrompt\n\n$contextBlock\n\n$userPrompt", callback)
-    }
+    ) = generateStream("$systemPrompt\n\n$contextBlock\n\n$userPrompt", callback)
 
-    actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) {
-        // No schema enforcement yet on wasm; same behavior as plain stream
+    actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) =
         generateStream(prompt, callback)
-    }
 
     actual fun generateJsonStreamWithContext(
         systemPrompt: String,
@@ -133,9 +109,7 @@ actual object LlamaBridge {
         userPrompt: String,
         jsonSchema: String?,
         callback: GenStream
-    ) {
-        generateStreamWithContext(systemPrompt, contextBlock, userPrompt, callback)
-    }
+    ) = generateStreamWithContext(systemPrompt, contextBlock, userPrompt, callback)
 
     actual fun generateWithContextStream(
         system: String,
@@ -153,7 +127,6 @@ actual object LlamaBridge {
         wasmScope.launch {
             try {
                 val full = runGenerate("$system\n\n$context\n\n$user")
-
                 val chunkSize = 24
                 var i = 0
                 while (i < full.length) {
@@ -180,18 +153,15 @@ actual object LlamaBridge {
         repeatPenalty: Float
     ) {}
 
-    // ---- helpers ----
-
     private fun sanitizeName(input: String): String =
-        input.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120).ifBlank { "model.gguf" }
+        input.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .take(120)
+            .ifBlank { "model.gguf" }
 }
 
 /**
- * Calls into JS:
- * - loads the Emscripten module (from /llamatik_wasm/llamatik_wasm.mjs)
- * - reads base64 from IndexedDB (llamatik DB)
- * - writes model bytes into Emscripten FS
- * - calls _llamatik_llama_init_generate(fsPath)
+ * Loads the Emscripten module, reads *chunked* model from IndexedDB, writes to FS incrementally,
+ * and calls llamatik_llama_init_generate(fsPath).
  */
 @JsFun(
     """
@@ -201,9 +171,6 @@ actual object LlamaBridge {
       const STORE_CHUNKS = "chunks";
       const STORE_META = "meta";
 
-      // IMPORTANT:
-      // These are served as STATIC resources by the dev server (not bundled by webpack).
-      // Leading slash = from server root.
       const WASM_MJS_URL  = "/kotlin/llamatik_wasm/llamatik_wasm.mjs";
       const WASM_BASE_URL = "/kotlin/llamatik_wasm/";
 
@@ -218,42 +185,24 @@ actual object LlamaBridge {
         req.onerror = () => cb(String(req.error || "open error"), null);
       }
 
-      function readAllBase64(db, key, cb) {
-        const tx0 = db.transaction(STORE_META, "readonly");
-        const meta = tx0.objectStore(STORE_META);
-        const getReq = meta.get(key);
-
-        getReq.onsuccess = () => {
-          const countStr = getReq.result;
+      function readChunkCount(db, key, cb) {
+        const tx = db.transaction(STORE_META, "readonly");
+        const meta = tx.objectStore(STORE_META);
+        const r = meta.get(key);
+        r.onsuccess = () => {
+          const countStr = r.result;
           const count = (countStr == null) ? 0 : parseInt(countStr, 10);
-          if (!count || count <= 0) { cb(null, null); return; }
-
-          const chunksArr = new Array(count);
-          let remaining = count;
-
-          for (let i = 0; i < count; i++) {
-            const tx = db.transaction(STORE_CHUNKS, "readonly");
-            const chunks = tx.objectStore(STORE_CHUNKS);
-            const r = chunks.get(key + "#" + i);
-
-            r.onsuccess = () => {
-              chunksArr[i] = r.result || "";
-              remaining--;
-              if (remaining === 0) cb(null, chunksArr.join(""));
-            };
-            r.onerror = () => cb(String(r.error || "chunk read error"), null);
-          }
+          cb(null, count);
         };
-
-        getReq.onerror = () => cb(String(getReq.error || "meta get error"), null);
+        r.onerror = () => cb(String(r.error || "meta get error"), 0);
       }
 
-      function b64ToU8(b64) {
-        const bin = atob(b64);
-        const len = bin.length;
-        const u8 = new Uint8Array(len);
-        for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
-        return u8;
+      function readChunk(db, key, i, cb) {
+        const tx = db.transaction(STORE_CHUNKS, "readonly");
+        const chunks = tx.objectStore(STORE_CHUNKS);
+        const r = chunks.get(key + "#" + i);
+        r.onsuccess = () => cb(null, r.result);
+        r.onerror = () => cb(String(r.error || "chunk read error"), null);
       }
 
       function ensureDir(Module, path) {
@@ -265,15 +214,42 @@ actual object LlamaBridge {
         }
       }
 
+      // Decode ONE chunk safely.
+      // Chunk can be: base64 string, binary string, Uint8Array, ArrayBuffer.
+      function chunkToU8(chunk) {
+        if (chunk instanceof Uint8Array) return chunk;
+        if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
+
+        if (typeof chunk !== "string") {
+          // Some IDB impls return e.g. Blob; handle if needed later.
+          try { return new Uint8Array(chunk); }
+          catch (e) { throw new Error("Unsupported chunk type: " + (typeof chunk)); }
+        }
+
+        // Try base64 decode for this chunk
+        try {
+          const bin = atob(chunk);
+          const len = bin.length;
+          const u8 = new Uint8Array(len);
+          for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i) & 255;
+          return u8;
+        } catch (e) {
+          // Fallback: treat as raw binary string (0..255 per char)
+          console.warn("atob failed — treating chunk as raw binary string");
+          const len = chunk.length;
+          const u8 = new Uint8Array(len);
+          for (let i = 0; i < len; i++) u8[i] = chunk.charCodeAt(i) & 255;
+          return u8;
+        }
+      }
+
       async function loadModule() {
         if (globalThis.__llamatikModule) return globalThis.__llamatikModule;
 
-        // CRITICAL: prevent webpack from trying to resolve/bundle this import
         const mod = await import(/* webpackIgnore: true */ WASM_MJS_URL);
         const factory = mod.default || mod;
 
         const instance = await factory({
-          // Emscripten will request "llamatik_wasm.wasm" relative to this base
           locateFile: (p) => WASM_BASE_URL + p
         });
 
@@ -285,34 +261,70 @@ actual object LlamaBridge {
         try {
           const Module = await loadModule();
 
+          if (!Module.FS || !Module.FS.open || !Module.FS.write) {
+            onErr(
+              "Emscripten FS is not available on Module. " +
+              "Rebuild wasm with -sFORCE_FILESYSTEM=1 and export FS in EXPORTED_RUNTIME_METHODS."
+            );
+            return;
+          }
+
           openDb((e, db) => {
             if (e) { onErr(e); return; }
 
-            readAllBase64(db, idbKey, (e2, b64) => {
-              if (e2) { onErr(e2); return; }
-              if (!b64) { onErr("Model not found in IndexedDB for key: " + idbKey); return; }
-
-              const bytes = b64ToU8(b64);
+            readChunkCount(db, idbKey, (eCount, count) => {
+              if (eCount) { onErr(eCount); return; }
+              if (!count || count <= 0) { onErr("Model not found in IndexedDB for key: " + idbKey); return; }
 
               ensureDir(Module, fsPath);
+
+              let stream;
               try {
-                Module.FS.writeFile(fsPath, bytes, { encoding: "binary" });
-              } catch (e3) {
-                onErr("FS.writeFile failed: " + String(e3));
+                // Write incrementally (avoids giant allocations + avoids invalid base64 concatenation)
+                stream = Module.FS.open(fsPath, "w+");
+              } catch (e0) {
+                onErr("FS.open failed: " + String(e0));
                 return;
               }
 
-              try {
-                if (Module.ccall) {
-                  const ok = Module.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
-                  if (ok === 1) onOk();
-                  else onErr("llamatik_llama_init_generate returned " + ok);
-                } else {
-                  onErr("ccall not available on Module");
+              let idx = 0;
+              let offset = 0;
+
+              function next() {
+                if (idx >= count) {
+                  try { Module.FS.close(stream); } catch(eClose) {}
+                  // Now init llama
+                  try {
+                    const ok = Module.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
+                    if (ok === 1) onOk();
+                    else onErr("llamatik_llama_init_generate returned " + ok);
+                  } catch (eInit) {
+                    onErr("Init call failed: " + String(eInit));
+                  }
+                  return;
                 }
-              } catch (e4) {
-                onErr("Init call failed: " + String(e4));
+
+                readChunk(db, idbKey, idx, (eChunk, chunkVal) => {
+                  if (eChunk) {
+                    try { Module.FS.close(stream); } catch(eClose) {}
+                    onErr(eChunk);
+                    return;
+                  }
+
+                  try {
+                    const u8 = chunkToU8(chunkVal);
+                    Module.FS.write(stream, u8, 0, u8.length, offset);
+                    offset += u8.length;
+                    idx++;
+                    next();
+                  } catch (eWrite) {
+                    try { Module.FS.close(stream); } catch(eClose) {}
+                    onErr("Chunk decode/write failed at #" + idx + ": " + String(eWrite));
+                  }
+                });
               }
+
+              next();
             });
           });
         } catch (e) {
@@ -335,8 +347,6 @@ private external fun ensureWasmModuleAndModel(
       const Module = globalThis.__llamatikModule;
       if (!Module) return "Web/WASM: module not ready";
 
-      // If you later expose a real generate function, call it here.
-      // Right now your C++ wrapper was echoing; this will still work once you export the function and add ccall.
       if (Module.ccall) {
         try {
           const ptr = Module.ccall("llamatik_llama_generate", "number", ["string"], [prompt]);

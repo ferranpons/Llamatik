@@ -106,6 +106,12 @@ target_link_options(llamatik_wasm PRIVATE
   "-sENVIRONMENT=web"
   "-sALLOW_MEMORY_GROWTH=1"
   "-sMEMORY64=1"
+
+  # ✅ CRITICAL: Enable filesystem so Module.FS exists
+  "-sFORCE_FILESYSTEM=1"
+
   "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_generate,_llamatik_free_string]"
-  "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8]"
+
+  # ✅ Export FS onto the module, plus the usual helpers
+  "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,FS]"
 )
