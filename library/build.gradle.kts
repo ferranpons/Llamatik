@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.LibraryExtension
+import org.gradle.jvm.tasks.Jar
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -478,6 +479,10 @@ kotlin {
 
     val wasmResourcesOutDir = projectDir.resolve("src/wasmJsMain/resources/kotlin/llamatik_wasm")
 
+    val wasmCFlags = "-O3 -sMEMORY64=1 -sWASM_BIGINT=1"
+    val wasmCxxFlags = "-O3 -sMEMORY64=1 -sWASM_BIGINT=1"
+    val wasmLinkFlags = "-sMEMORY64=1 -sWASM_BIGINT=1"
+
     val configureLlamatikWasm by tasks.registering(Exec::class) {
         group = "llama-native"
         description = "Configure Emscripten CMake for WebAssembly (llamatik wasm engine)"
@@ -507,7 +512,10 @@ kotlin {
                 cmakePath,
                 "-S", wasmNativeSourceDir.absolutePath,
                 "-B", wasmNativeBuildDir.absolutePath,
-                "-DCMAKE_BUILD_TYPE=Release"
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DCMAKE_C_FLAGS=$wasmCFlags",
+                "-DCMAKE_CXX_FLAGS=$wasmCxxFlags",
+                "-DCMAKE_EXE_LINKER_FLAGS=$wasmLinkFlags"
             )
         }
     }

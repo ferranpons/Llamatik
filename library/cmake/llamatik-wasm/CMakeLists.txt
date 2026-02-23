@@ -4,17 +4,6 @@ project(llamatik_wasm LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# -----------------------------------------------------------------------------
-# Force wasm64 via Emscripten's supported flag (MEMORY64).
-# IMPORTANT: Do NOT use -mwasm64 (emcc/clang rejects it).
-# -----------------------------------------------------------------------------
-set(CMAKE_C_FLAGS            "${CMAKE_C_FLAGS} -sMEMORY64=1")
-set(CMAKE_CXX_FLAGS          "${CMAKE_CXX_FLAGS} -sMEMORY64=1")
-set(CMAKE_EXE_LINKER_FLAGS   "${CMAKE_EXE_LINKER_FLAGS} -sMEMORY64=1")
-
-add_compile_options(-sMEMORY64=1)
-add_link_options(-sMEMORY64=1)
-
 if(EMSCRIPTEN)
   list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 endif()
@@ -100,18 +89,20 @@ set_target_properties(llamatik_wasm PROPERTIES
   SUFFIX ".mjs"
 )
 
+# wasm32 settings (NO MEMORY64) to avoid BigInt pointers in JS.
+# Use memory growth + a sensible cap.
 target_link_options(llamatik_wasm PRIVATE
   "-sMODULARIZE=1"
   "-sEXPORT_ES6=1"
   "-sENVIRONMENT=web"
-  "-sALLOW_MEMORY_GROWTH=1"
-  "-sMEMORY64=1"
 
-  # ✅ CRITICAL: Enable filesystem so Module.FS exists
+  "-sALLOW_MEMORY_GROWTH=1"
+  "-sINITIAL_MEMORY=1024MB"
+  "-sMAXIMUM_MEMORY=2048MB"
+
+  # Ensure FS exists
   "-sFORCE_FILESYSTEM=1"
 
   "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_generate,_llamatik_free_string]"
-
-  # ✅ Export FS onto the module, plus the usual helpers
   "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,FS]"
 )

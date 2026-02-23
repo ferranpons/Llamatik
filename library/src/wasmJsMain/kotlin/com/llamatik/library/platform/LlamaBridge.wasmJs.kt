@@ -78,6 +78,7 @@ actual object LlamaBridge {
         wasmScope.launch {
             try {
                 val full = runGenerate(prompt)
+
                 val chunkSize = 24
                 var i = 0
                 while (i < full.length) {
@@ -127,6 +128,7 @@ actual object LlamaBridge {
         wasmScope.launch {
             try {
                 val full = runGenerate("$system\n\n$context\n\n$user")
+
                 val chunkSize = 24
                 var i = 0
                 while (i < full.length) {
@@ -214,19 +216,15 @@ actual object LlamaBridge {
         }
       }
 
-      // Decode ONE chunk safely.
-      // Chunk can be: base64 string, binary string, Uint8Array, ArrayBuffer.
       function chunkToU8(chunk) {
         if (chunk instanceof Uint8Array) return chunk;
         if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
 
         if (typeof chunk !== "string") {
-          // Some IDB impls return e.g. Blob; handle if needed later.
           try { return new Uint8Array(chunk); }
           catch (e) { throw new Error("Unsupported chunk type: " + (typeof chunk)); }
         }
 
-        // Try base64 decode for this chunk
         try {
           const bin = atob(chunk);
           const len = bin.length;
@@ -234,7 +232,6 @@ actual object LlamaBridge {
           for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i) & 255;
           return u8;
         } catch (e) {
-          // Fallback: treat as raw binary string (0..255 per char)
           console.warn("atob failed — treating chunk as raw binary string");
           const len = chunk.length;
           const u8 = new Uint8Array(len);
@@ -255,6 +252,30 @@ actual object LlamaBridge {
 
         globalThis.__llamatikModule = instance;
         return instance;
+      }
+
+      function ccallSafe(Module, name, returnType, argTypes, args) {
+        // Try normal ccall first.
+        try {
+          return Module.ccall(name, returnType, argTypes, args);
+        } catch (e) {
+          const msg = String(e || "");
+          // MEMORY64 builds may require bigint return types for pointers.
+          if (msg.includes("BigInt") || msg.includes("bigint") || msg.includes("Cannot mix BigInt")) {
+            // Retry: if caller asked for "number", try "bigint"
+            if (returnType === "number") {
+              return Module.ccall(name, "bigint", argTypes, args);
+            }
+          }
+          throw e;
+        }
+      }
+
+      function toNumberPtr(p) {
+        // If we ever get a BigInt pointer, convert safely.
+        // In wasm32 builds this is already a number.
+        if (typeof p === "bigint") return Number(p);
+        return p;
       }
 
       (async () => {
@@ -280,7 +301,6 @@ actual object LlamaBridge {
 
               let stream;
               try {
-                // Write incrementally (avoids giant allocations + avoids invalid base64 concatenation)
                 stream = Module.FS.open(fsPath, "w+");
               } catch (e0) {
                 onErr("FS.open failed: " + String(e0));
@@ -293,9 +313,9 @@ actual object LlamaBridge {
               function next() {
                 if (idx >= count) {
                   try { Module.FS.close(stream); } catch(eClose) {}
-                  // Now init llama
+
                   try {
-                    const ok = Module.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
+                    const ok = ccallSafe(Module, "llamatik_llama_init_generate", "number", ["string"], [fsPath]);
                     if (ok === 1) onOk();
                     else onErr("llamatik_llama_init_generate returned " + ok);
                   } catch (eInit) {
@@ -346,20 +366,52 @@ private external fun ensureWasmModuleAndModel(
     (prompt) => {
       const Module = globalThis.__llamatikModule;
       if (!Module) return "Web/WASM: module not ready";
+      if (!Module.ccall) return "Web/WASM: ccall not available";
 
-      if (Module.ccall) {
+      function ccallSafe(name, returnType, argTypes, args) {
         try {
-          const ptr = Module.ccall("llamatik_llama_generate", "number", ["string"], [prompt]);
-          if (!ptr) return "Web/WASM: generate returned null";
-
-          const out = Module.UTF8ToString(ptr);
-          Module.ccall("llamatik_free_string", null, ["number"], [ptr]);
-          return out;
+          return Module.ccall(name, returnType, argTypes, args);
         } catch (e) {
-          return "Web/WASM: generate error: " + String(e);
+          const msg = String(e || "");
+          if (msg.includes("BigInt") || msg.includes("bigint") || msg.includes("Cannot mix BigInt")) {
+            if (returnType === "number") {
+              return Module.ccall(name, "bigint", argTypes, args);
+            }
+          }
+          throw e;
         }
       }
-      return "Web/WASM: ccall not available";
+
+      function toNumberPtr(p) {
+        if (typeof p === "bigint") return Number(p);
+        return p;
+      }
+
+      try {
+        const ptrAny = ccallSafe("llamatik_llama_generate", "number", ["string"], [prompt]);
+        const ptr = toNumberPtr(ptrAny);
+
+        if (!ptr) return "Web/WASM: generate returned null";
+
+        const out = Module.UTF8ToString(ptr);
+
+        // free(ptr) — tolerate bigint builds by retrying if needed
+        try {
+          Module.ccall("llamatik_free_string", null, ["number"], [ptr]);
+        } catch (eFree) {
+          const msg = String(eFree || "");
+          if (msg.includes("BigInt") || msg.includes("bigint") || msg.includes("Cannot mix BigInt")) {
+            // If memory64 build expects bigint, pass BigInt(ptr)
+            Module.ccall("llamatik_free_string", null, ["bigint"], [BigInt(ptr)]);
+          } else {
+            throw eFree;
+          }
+        }
+
+        return out;
+      } catch (e) {
+        return "Web/WASM: generate error: " + String(e);
+      }
     }
     """
 )
