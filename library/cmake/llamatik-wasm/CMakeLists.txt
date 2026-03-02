@@ -103,6 +103,7 @@ target_link_options(llamatik_wasm PRIVATE
   # Ensure FS exists
   "-sFORCE_FILESYSTEM=1"
 
-  "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_generate,_llamatik_free_string]"
+  # Added: _llamatik_llama_generate_stream
+  "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_generate,_llamatik_llama_generate_stream,_llamatik_free_string]"
   "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,FS]"
 )

@@ -509,7 +509,7 @@ kotlin {
                 environment("PATH", emscriptenBinDir + ":" + System.getenv("PATH"))
             }
 
-            commandLine(
+            val args = mutableListOf(
                 resolved,
                 cmakePath,
                 "-S", wasmNativeSourceDir.absolutePath,
@@ -517,8 +517,13 @@ kotlin {
                 "-DCMAKE_BUILD_TYPE=Release",
                 "-DCMAKE_C_FLAGS=$wasmCFlags",
                 "-DCMAKE_CXX_FLAGS=$wasmCxxFlags",
-                "-DCMAKE_EXE_LINKER_FLAGS=$wasmLinkFlags"
             )
+
+            if (wasmLinkFlags.isNotBlank()) {
+                args += "-DCMAKE_EXE_LINKER_FLAGS=$wasmLinkFlags"
+            }
+
+            commandLine(args)
         }
     }
 
