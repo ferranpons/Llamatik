@@ -14,13 +14,16 @@ import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -65,6 +68,10 @@ fun ModelSelectorBottomSheet(
     onDownloadModelClicked: (LlamaModel) -> Unit,
     onDeleteModelClicked: (LlamaModel) -> Unit,
     onCancelDownloadClicked: (LlamaModel) -> Unit,
+    /**
+     * Called when user confirms clearing all cached models and the PDF RAG store.
+     */
+    onClearAllCachedModelsClicked: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val localization = getCurrentLocalization()
@@ -75,6 +82,9 @@ fun ModelSelectorBottomSheet(
     var expandEmbed by rememberSaveable { mutableStateOf(false) }
     var expandStt by rememberSaveable { mutableStateOf(false) }
     var expandSd by rememberSaveable { mutableStateOf(false) }
+
+    // confirmation dialog state
+    var showConfirmClear by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -88,6 +98,67 @@ fun ModelSelectorBottomSheet(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .verticalScroll(rememberScrollState())
         ) {
+            // top action: clear cached models & RAG
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 1.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Settings",
+                            style = Typography.get().titleLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Remove all downloaded models and PDF RAG index",
+                            style = Typography.get().labelSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    IconButton(onClick = { showConfirmClear = true }) {
+                        Icon(imageVector = Icons.Default.DeleteSweep, contentDescription = "Clear cached")
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // confirmation dialog
+            if (showConfirmClear) {
+                AlertDialog(
+                    onDismissRequest = { showConfirmClear = false },
+                    title = { Text(text = "Clear all cached models?") },
+                    text = { Text(text = "This will delete all downloaded model files and the persisted PDF RAG index. This cannot be undone.") },
+                    confirmButton = {
+                        Button(onClick = {
+                            showConfirmClear = false
+                            onClearAllCachedModelsClicked()
+                        }) {
+                            Text(text = "Clear")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showConfirmClear = false }) {
+                            Text(text = "Cancel")
+                        }
+                    }
+                )
+            }
+
             // --- Generate models ---
             GroupHeader(
                 title = localization.generateModels,
@@ -300,7 +371,7 @@ private fun ModelRow(
                                         modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp
                                     )
-                                    Spacer(Modifier.width(8.dp))
+                                    Spacer(Modifier.size(8.dp))
                                     Text(localization.loading)
                                 }
                             } else {

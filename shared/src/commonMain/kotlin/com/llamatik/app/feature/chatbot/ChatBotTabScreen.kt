@@ -243,6 +243,9 @@ class ChatBotTabScreen : Screen {
                     onCancelDownloadClicked = { model ->
                         viewModel.onCancelDownload(model)
                     },
+                    onClearAllCachedModelsClicked = {
+                        viewModel.onClearAllCachedModels()
+                    }
                 ) {
                     showModelSelectorSheet.value = false
                 }

@@ -812,6 +812,72 @@ class ChatBotViewModel(
         }
     }
 
+    /**
+     * Remove all downloaded model files, clear saved model paths, and delete persisted PDF RAG store.
+     * Updates view state accordingly.
+     */
+    fun onClearAllCachedModels() {
+        screenModelScope.launch(AppDispatchersIO) {
+            try {
+                // Collect all known models from state
+                val allModels = (_state.value.generateModels +
+                        _state.value.embedModels +
+                        _state.value.sttModels +
+                        _state.value.stableDiffusionModels).distinctBy { it.url }
+
+                for (model in allModels) {
+                    try {
+                        val path = resolveAndMigratePath(model)
+                        if (!path.isNullOrBlank()) {
+                            // Attempt to delete file (works for native; for WASM the implementation may ignore)
+                            runCatching { LlamatikTempFile(model.name).delete(path) }
+                        }
+                    } catch (t: Throwable) {
+                        Logger.e(t) { "Failed deleting model file for ${model.name}" }
+                    }
+                    // remove saved setting
+                    runCatching { getModelsUseCase.deleteModelPath(model) }
+                }
+
+                // remove persisted RAG store file
+                runCatching {
+                    AppStorage.delete(PDF_RAG_STORE_PATH)
+                }
+
+                // Clear in-memory vector store
+                vectorStore = null
+
+                // Update state: remove local paths and selected values / loaded flags
+                _state.update { s ->
+                    s.copy(
+                        generateModels = s.generateModels.map { it.copy(localPath = null, fileName = null) },
+                        embedModels = s.embedModels.map { it.copy(localPath = null, fileName = null) },
+                        sttModels = s.sttModels.map { it.copy(localPath = null, fileName = null) },
+                        stableDiffusionModels = s.stableDiffusionModels.map { it.copy(localPath = null, fileName = null) },
+                        selectedEmbedModelName = null,
+                        selectedGenerateModelName = null,
+                        selectedSttModelName = null,
+                        selectedStableDiffusionModelName = null,
+                        isEmbedModelLoaded = false,
+                        isGenerateModelLoaded = false,
+                        isSttModelLoaded = false,
+                        isStableDiffusionModelLoaded = false,
+                        ragPdfFileName = null,
+                        isRagIndexing = false,
+                        ragIndexingProgress = 0,
+                        ragChunksCount = 0
+                    )
+                }
+
+                // Notify user in chat
+                // emitBot("✅ Cleared all downloaded models and persisted PDF RAG store.")
+            } catch (t: Throwable) {
+                Logger.e(t) { "Failed to clear cached models / RAG" }
+                // emitBot("Failed to clear cached models: ${t.message ?: "unknown error"}")
+            }
+        }
+    }
+
     fun onStopSpeaking() {
         runCatching { ttsEngine.stop() }
     }
