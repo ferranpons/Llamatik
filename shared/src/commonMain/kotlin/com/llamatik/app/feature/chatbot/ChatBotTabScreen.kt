@@ -86,6 +86,8 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
 
+private const val CHAT_BUBBLE_MAX_WIDTH_DP = 800
+
 class ChatBotTabScreen : Screen {
 
     @Composable
@@ -657,6 +659,7 @@ class ChatBotTabScreen : Screen {
             Box(
                 modifier = Modifier
                     .align(if (message.isFromMe) Alignment.End else Alignment.Start)
+                    .widthIn(max = CHAT_BUBBLE_MAX_WIDTH_DP.dp)
                     .clip(
                         RoundedCornerShape(
                             topStart = 48f,
@@ -681,7 +684,7 @@ class ChatBotTabScreen : Screen {
                             contentDescription = message.imageFileName ?: "Generated image",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .widthIn(max = CHAT_BUBBLE_MAX_WIDTH_DP.dp)
                                 .height(260.dp)
                                 .clip(RoundedCornerShape(12.dp))
                         )
@@ -807,7 +810,7 @@ class ChatBotTabScreen : Screen {
         ) {
             Row(
                 modifier = Modifier
-                    .padding(horizontal =  12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
