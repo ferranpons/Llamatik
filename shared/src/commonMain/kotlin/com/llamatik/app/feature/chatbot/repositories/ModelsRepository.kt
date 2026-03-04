@@ -222,14 +222,14 @@ class ModelsRepository(private val service: ServiceClient) {
     fun getDefaultStableDiffusionModels(): List<LlamaModel> {
         return listOf(
             LlamaModel(
-                name = "Stable Diffusion v1.5 Q4_0 (GGUF)",
+                name = "Stable Diffusion v1.5 Q4_0",
                 sizeMb = 1750,
                 url = "https://huggingface.co/gpustack/stable-diffusion-v1-5-GGUF/resolve/main/stable-diffusion-v1-5-Q4_0.gguf?download=true",
                 template = Plain,
                 systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
             LlamaModel(
-                name = "SD Turbo v2.1 Q4_0 (GGUF)",
+                name = "SD Turbo v2.1 Q4_0",
                 sizeMb = 2190,
                 url = "https://huggingface.co/gpustack/stable-diffusion-v2-1-turbo-GGUF/resolve/main/stable-diffusion-v2-1-turbo_Q4_0.gguf?download=true",
                 template = Plain,

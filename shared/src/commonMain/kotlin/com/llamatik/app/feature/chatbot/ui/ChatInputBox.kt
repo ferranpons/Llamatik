@@ -208,24 +208,6 @@ fun ChatInputBox(
 
                 Spacer(modifier = Modifier.size(8.dp))
 
-                IconButton(
-                    onClick = { viewModel.onPickPdfForRag() },
-                    enabled = !state.isRagIndexing,
-                    modifier = Modifier
-                        .size(58.dp)
-                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .align(Alignment.CenterVertically)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PictureAsPdf,
-                        contentDescription = "Load PDF for RAG",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.size(8.dp))
-
                 Surface(
                     shape = RoundedCornerShape(ROUNDED_CORNER_SIZE.dp),
                     tonalElevation = 1.dp,
@@ -291,8 +273,7 @@ fun ChatInputBox(
                             value = input,
                             onValueChange = { onInputChange(it) },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 2.dp),
+                                .fillMaxWidth(),
                             placeholder = { Text(localization.askMeAnything) },
                             textStyle = Typography.get().bodyMedium,
                             singleLine = false,
@@ -333,146 +314,166 @@ fun ChatInputBox(
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
-                            trailingIcon = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (canPaste) {
-                                        IconButton(
-                                            onClick = {
-                                                val text = clipboard.getText()?.text?.trim().orEmpty()
-                                                if (text.isNotBlank()) {
-                                                    onInputChange(
-                                                        TextFieldValue(
-                                                            text = text,
-                                                            selection = TextRange(text.length)
-                                                        )
-                                                    )
-                                                    showSuggestions.value = false
-                                                }
-                                            },
-                                            modifier = Modifier
-                                                .padding(end = 6.dp)
-                                                .size(BUTTON_SIZE.dp)
-                                                .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        ) {
-                                            Icon(
-                                                imageVector = LlamatikIcons.Paste,
-                                                contentDescription = localization.paste,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.size(6.dp))
-                                    }
+                        )
 
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, bottom = 8.dp, end = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            IconButton(
+                                onClick = { viewModel.onPickPdfForRag() },
+                                enabled = !state.isRagIndexing,
+                                modifier = Modifier
+                                    .size(BUTTON_SIZE.dp)
+                                    .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .align(Alignment.CenterVertically)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PictureAsPdf,
+                                    contentDescription = "Load PDF for RAG",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            if (canPaste) {
+                                IconButton(
+                                    onClick = {
+                                        val text = clipboard.getText()?.text?.trim().orEmpty()
+                                        if (text.isNotBlank()) {
+                                            onInputChange(
+                                                TextFieldValue(
+                                                    text = text,
+                                                    selection = TextRange(text.length)
+                                                )
+                                            )
+                                            showSuggestions.value = false
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .padding(end = 6.dp)
+                                        .size(BUTTON_SIZE.dp)
+                                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Icon(
+                                        imageVector = LlamatikIcons.Paste,
+                                        contentDescription = localization.paste,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.size(6.dp))
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    val next =
+                                        if (state.generationMode == GenerationMode.TEXT) GenerationMode.IMAGE
+                                        else GenerationMode.TEXT
+                                    viewModel.setGenerationMode(next)
+                                },
+                                enabled = !isGenerating && !isTranscribing,
+                                modifier = Modifier
+                                    .padding(end = 6.dp)
+                                    .size(BUTTON_SIZE.dp)
+                                    .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Icon(
+                                    imageVector = if (state.generationMode == GenerationMode.TEXT) LlamatikIcons.Image else LlamatikIcons.Text,
+                                    contentDescription =
+                                        if (state.generationMode == GenerationMode.TEXT) "Image generation" else "Text generation",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.size(6.dp))
+
+                            if (!canSend && !isGenerating && !isTranscribing) {
+                                val micEnabled = !isTranscribing && !isGenerating
+                                IconButton(
+                                    onClick = { if (micEnabled) onMicClick() },
+                                    enabled = micEnabled,
+                                    modifier = Modifier
+                                        .size(BUTTON_SIZE.dp)
+                                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                        .background(
+                                            when {
+                                                isListening -> MaterialTheme.colorScheme.errorContainer
+                                                else -> MaterialTheme.colorScheme.surfaceVariant
+                                            }
+                                        )
+                                ) {
+                                    Icon(
+                                        imageVector = if (isListening) Icons.Filled.Stop else LlamatikIcons.Microphone,
+                                        contentDescription = localization.voiceInput,
+                                        tint = when {
+                                            isListening -> MaterialTheme.colorScheme.onErrorContainer
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
+                            }
+
+                            if (isGenerating) {
+                                IconButton(
+                                    onClick = { viewModel.stopGeneration() },
+                                    modifier = Modifier
+                                        .size(BUTTON_SIZE.dp)
+                                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Stop,
+                                        contentDescription = localization.stop,
+                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            } else {
+                                if (canSend) {
                                     IconButton(
                                         onClick = {
-                                            val next =
-                                                if (state.generationMode == GenerationMode.TEXT) GenerationMode.IMAGE
-                                                else GenerationMode.TEXT
-                                            viewModel.setGenerationMode(next)
+                                            val message = input.text.trim()
+                                            onInputChange(TextFieldValue())
+                                            when (state.generationMode) {
+                                                GenerationMode.TEXT -> {
+                                                    val ragReady =
+                                                        state.isEmbedModelLoaded &&
+                                                                !state.isRagIndexing &&
+                                                                state.ragPdfFileName != null &&
+                                                                state.ragChunksCount > 0
+                                                    if (ragReady) viewModel.onMessageSendWithEmbed(message)
+                                                    else viewModel.onMessageSendDirect(message)
+                                                }
+
+                                                GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
+                                            }
+                                            showSuggestions.value = false
+                                            keyboardController?.hide()
                                         },
-                                        enabled = !isGenerating && !isTranscribing,
+                                        enabled = canSend,
                                         modifier = Modifier
-                                            .padding(end = 6.dp)
                                             .size(BUTTON_SIZE.dp)
                                             .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .background(
+                                                if (canSend) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
                                     ) {
                                         Icon(
-                                            imageVector = if (state.generationMode == GenerationMode.TEXT) LlamatikIcons.Image else LlamatikIcons.Text,
-                                            contentDescription =
-                                                if (state.generationMode == GenerationMode.TEXT) "Image generation" else "Text generation",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            imageVector = LlamatikIcons.Send,
+                                            contentDescription = localization.send,
+                                            tint = if (canSend) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                    }
-                                    Spacer(modifier = Modifier.size(6.dp))
-
-                                    if (!canSend && !isGenerating && !isTranscribing) {
-                                        val micEnabled = !isTranscribing && !isGenerating
-                                        IconButton(
-                                            onClick = { if (micEnabled) onMicClick() },
-                                            enabled = micEnabled,
-                                            modifier = Modifier
-                                                .size(BUTTON_SIZE.dp)
-                                                .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                                .background(
-                                                    when {
-                                                        isListening -> MaterialTheme.colorScheme.errorContainer
-                                                        else -> MaterialTheme.colorScheme.surfaceVariant
-                                                    }
-                                                )
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isListening) Icons.Filled.Stop else LlamatikIcons.Microphone,
-                                                contentDescription = localization.voiceInput,
-                                                tint = when {
-                                                    isListening -> MaterialTheme.colorScheme.onErrorContainer
-                                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                                }
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.size(6.dp))
-                                    }
-
-                                    if (isGenerating) {
-                                        IconButton(
-                                            onClick = { viewModel.stopGeneration() },
-                                            modifier = Modifier
-                                                .padding(end = 8.dp)
-                                                .size(BUTTON_SIZE.dp)
-                                                .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                                .background(MaterialTheme.colorScheme.errorContainer)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Stop,
-                                                contentDescription = localization.stop,
-                                                tint = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-                                    } else {
-                                        if (canSend) {
-                                            IconButton(
-                                                onClick = {
-                                                    val message = input.text.trim()
-                                                    onInputChange(TextFieldValue())
-                                                    when (state.generationMode) {
-                                                        GenerationMode.TEXT -> {
-                                                            val ragReady =
-                                                                state.isEmbedModelLoaded &&
-                                                                        !state.isRagIndexing &&
-                                                                        state.ragPdfFileName != null &&
-                                                                        state.ragChunksCount > 0
-                                                            if (ragReady) viewModel.onMessageSendWithEmbed(message)
-                                                            else viewModel.onMessageSendDirect(message)
-                                                        }
-
-                                                        GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
-                                                    }
-                                                    showSuggestions.value = false
-                                                    keyboardController?.hide()
-                                                },
-                                                enabled = canSend,
-                                                modifier = Modifier
-                                                    .padding(end = 8.dp)
-                                                    .size(BUTTON_SIZE.dp)
-                                                    .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                                    .background(
-                                                        if (canSend) MaterialTheme.colorScheme.primary
-                                                        else MaterialTheme.colorScheme.surfaceVariant
-                                                    )
-                                            ) {
-                                                Icon(
-                                                    imageVector = LlamatikIcons.Send,
-                                                    contentDescription = localization.send,
-                                                    tint = if (canSend) MaterialTheme.colorScheme.onPrimary
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
                                     }
                                 }
                             }
-                        )
+                        }
                     }
                 }
             }
