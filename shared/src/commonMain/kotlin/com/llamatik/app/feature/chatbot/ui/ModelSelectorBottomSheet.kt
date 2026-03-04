@@ -1,5 +1,6 @@
 package com.llamatik.app.feature.chatbot.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,8 @@ import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -28,9 +32,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.LlamaModel
 import com.llamatik.app.localization.getCurrentLocalization
@@ -64,6 +70,12 @@ fun ModelSelectorBottomSheet(
     val localization = getCurrentLocalization()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // Collapsible groups (collapsed by default)
+    var expandGenerate by rememberSaveable { mutableStateOf(false) }
+    var expandEmbed by rememberSaveable { mutableStateOf(false) }
+    var expandStt by rememberSaveable { mutableStateOf(false) }
+    var expandSd by rememberSaveable { mutableStateOf(false) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -77,95 +89,163 @@ fun ModelSelectorBottomSheet(
                     .verticalScroll(rememberScrollState())
         ) {
             // --- Generate models ---
-            Text(
-                text = localization.generateModels,
-                style = Typography.get().titleLarge
+            GroupHeader(
+                title = localization.generateModels,
+                expanded = expandGenerate,
+                // When collapsed, show current model or "Nothing selected"
+                selectedName = selectedGenerateModelName,
+                onToggle = { expandGenerate = !expandGenerate }
             )
-            Spacer(Modifier.height(8.dp))
-
-            generateModels.forEach { model ->
-                ModelRow(
-                    model = model,
-                    isCurrent = (model.name == selectedGenerateModelName),
-                    isDownloading = downloadingMap[model.url] == true,
-                    progress = progressMap[model.url] ?: 0f,
-                    isSelecting = (model.name == loadingGenerateModelName),
-                    onModelSelectedClicked = onGenerateModelSelectedClicked,
-                    onDownloadModelClicked = onDownloadModelClicked,
-                    onDeleteModelClicked = onDeleteModelClicked,
-                    onCancelDownloadClicked = onCancelDownloadClicked,
-                )
-                Spacer(Modifier.height(12.dp))
+            if (expandGenerate) {
+                Spacer(Modifier.height(8.dp))
+                generateModels.forEach { model ->
+                    ModelRow(
+                        model = model,
+                        isCurrent = (model.name == selectedGenerateModelName),
+                        isDownloading = downloadingMap[model.url] == true,
+                        progress = progressMap[model.url] ?: 0f,
+                        isSelecting = (model.name == loadingGenerateModelName),
+                        onModelSelectedClicked = onGenerateModelSelectedClicked,
+                        onDownloadModelClicked = onDownloadModelClicked,
+                        onDeleteModelClicked = onDeleteModelClicked,
+                        onCancelDownloadClicked = onCancelDownloadClicked,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
 
             // --- Embed models ---
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = localization.embedModels,
-                style = Typography.get().titleLarge
+            Spacer(Modifier.height(16.dp))
+            GroupHeader(
+                title = localization.embedModels,
+                expanded = expandEmbed,
+                selectedName = selectedEmbedModelName,
+                onToggle = { expandEmbed = !expandEmbed }
             )
-            Spacer(Modifier.height(8.dp))
-
-            embedModels.forEach { model ->
-                ModelRow(
-                    model = model,
-                    isCurrent = (model.name == selectedEmbedModelName),
-                    isDownloading = downloadingMap[model.url] == true,
-                    progress = progressMap[model.url] ?: 0f,
-                    isSelecting = (model.name == loadingEmbedModelName),
-                    onModelSelectedClicked = onEmbedModelSelectedClicked,
-                    onDownloadModelClicked = onDownloadModelClicked,
-                    onDeleteModelClicked = onDeleteModelClicked,
-                    onCancelDownloadClicked = onCancelDownloadClicked,
-                )
-                Spacer(Modifier.height(12.dp))
+            if (expandEmbed) {
+                Spacer(Modifier.height(8.dp))
+                embedModels.forEach { model ->
+                    ModelRow(
+                        model = model,
+                        isCurrent = (model.name == selectedEmbedModelName),
+                        isDownloading = downloadingMap[model.url] == true,
+                        progress = progressMap[model.url] ?: 0f,
+                        isSelecting = (model.name == loadingEmbedModelName),
+                        onModelSelectedClicked = onEmbedModelSelectedClicked,
+                        onDownloadModelClicked = onDownloadModelClicked,
+                        onDeleteModelClicked = onDeleteModelClicked,
+                        onCancelDownloadClicked = onCancelDownloadClicked,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
 
             // --- STT models ---
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = localization.sttModels,
-                style = Typography.get().titleLarge
+            Spacer(Modifier.height(16.dp))
+            GroupHeader(
+                title = localization.sttModels,
+                expanded = expandStt,
+                selectedName = selectedSttModelName,
+                onToggle = { expandStt = !expandStt }
             )
-            Spacer(Modifier.height(8.dp))
-
-            sttModels.forEach { model ->
-                ModelRow(
-                    model = model,
-                    isCurrent = (model.name == selectedSttModelName),
-                    isDownloading = downloadingMap[model.url] == true,
-                    progress = progressMap[model.url] ?: 0f,
-                    isSelecting = (model.name == loadingSttModelName),
-                    onModelSelectedClicked = onSttModelSelectedClicked,
-                    onDownloadModelClicked = onDownloadModelClicked,
-                    onDeleteModelClicked = onDeleteModelClicked,
-                    onCancelDownloadClicked = onCancelDownloadClicked,
-                )
-                Spacer(Modifier.height(12.dp))
+            if (expandStt) {
+                Spacer(Modifier.height(8.dp))
+                sttModels.forEach { model ->
+                    ModelRow(
+                        model = model,
+                        isCurrent = (model.name == selectedSttModelName),
+                        isDownloading = downloadingMap[model.url] == true,
+                        progress = progressMap[model.url] ?: 0f,
+                        isSelecting = (model.name == loadingSttModelName),
+                        onModelSelectedClicked = onSttModelSelectedClicked,
+                        onDownloadModelClicked = onDownloadModelClicked,
+                        onDeleteModelClicked = onDeleteModelClicked,
+                        onCancelDownloadClicked = onCancelDownloadClicked,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
 
             // --- Stable Diffusion (image) models ---
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = "Stable Diffusion Models",
-                style = Typography.get().titleLarge
+            Spacer(Modifier.height(16.dp))
+            GroupHeader(
+                title = "Stable Diffusion Models",
+                expanded = expandSd,
+                selectedName = selectedStableDiffusionModelName,
+                onToggle = { expandSd = !expandSd }
             )
-            Spacer(Modifier.height(8.dp))
-
-            stableDiffusionModels.forEach { model ->
-                ModelRow(
-                    model = model,
-                    isCurrent = (model.name == selectedStableDiffusionModelName),
-                    isDownloading = downloadingMap[model.url] == true,
-                    progress = progressMap[model.url] ?: 0f,
-                    isSelecting = (model.name == loadingStableDiffusionModelName),
-                    onModelSelectedClicked = onStableDiffusionModelSelectedClicked,
-                    onDownloadModelClicked = onDownloadModelClicked,
-                    onDeleteModelClicked = onDeleteModelClicked,
-                    onCancelDownloadClicked = onCancelDownloadClicked,
-                )
-                Spacer(Modifier.height(12.dp))
+            if (expandSd) {
+                Spacer(Modifier.height(8.dp))
+                stableDiffusionModels.forEach { model ->
+                    ModelRow(
+                        model = model,
+                        isCurrent = (model.name == selectedStableDiffusionModelName),
+                        isDownloading = downloadingMap[model.url] == true,
+                        progress = progressMap[model.url] ?: 0f,
+                        isSelecting = (model.name == loadingStableDiffusionModelName),
+                        onModelSelectedClicked = onStableDiffusionModelSelectedClicked,
+                        onDownloadModelClicked = onDownloadModelClicked,
+                        onDeleteModelClicked = onDeleteModelClicked,
+                        onCancelDownloadClicked = onCancelDownloadClicked,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
             }
+
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun GroupHeader(
+    title: String,
+    expanded: Boolean,
+    selectedName: String?,
+    onToggle: () -> Unit,
+) {
+    val subtitle = selectedName?.takeIf { it.isNotBlank() } ?: getCurrentLocalization().noModelSelected
+
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = Typography.get().titleLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (!expanded) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = subtitle,
+                        style = Typography.get().labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
