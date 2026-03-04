@@ -56,7 +56,7 @@ import com.llamatik.app.ui.theme.Typography
 import kotlin.math.PI
 import kotlin.math.sin
 
-private const val ROUNDED_CORNER_SIZE = 16
+const val ROUNDED_CORNER_SIZE = 16
 private const val BUTTON_SIZE = 40
 private const val HORIZONTAL_PADDING = 16
 
@@ -191,23 +191,6 @@ fun ChatInputBox(
                     .padding(horizontal = HORIZONTAL_PADDING.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
-                IconButton(
-                    onClick = onOpenChatHistory,
-                    modifier = Modifier
-                        .size(58.dp)
-                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .align(Alignment.CenterVertically)
-                ) {
-                    Icon(
-                        imageVector = LlamatikIcons.ChatHistory,
-                        contentDescription = localization.chatHistory,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.size(8.dp))
-
                 Surface(
                     shape = RoundedCornerShape(ROUNDED_CORNER_SIZE.dp),
                     tonalElevation = 1.dp,
@@ -319,7 +302,7 @@ fun ChatInputBox(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 8.dp, bottom = 8.dp, end = 8.dp),
+                                .padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.End
                         ) {
@@ -481,7 +464,8 @@ fun ChatInputBox(
             GenerateModelSelector(
                 selectedModelName = state.selectedGenerateModelName,
                 onOpenModelSelector = onOpenModelSelector,
-                onOpenSettings = onOpenSettings
+                onOpenSettings = onOpenSettings,
+                onOpenChatHistory = onOpenChatHistory
             )
         }
     }

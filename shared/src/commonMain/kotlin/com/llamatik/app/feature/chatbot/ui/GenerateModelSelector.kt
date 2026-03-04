@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.Typography
 
 @Composable
@@ -31,6 +32,7 @@ fun GenerateModelSelector(
     selectedModelName: String?,
     onOpenModelSelector: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenChatHistory: () -> Unit,
 ) {
     val localization = getCurrentLocalization()
 
@@ -43,6 +45,21 @@ fun GenerateModelSelector(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                IconButton(
+                    onClick = onOpenChatHistory,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.CenterVertically)
+                ) {
+                    Icon(
+                        imageVector = LlamatikIcons.ChatHistory,
+                        contentDescription = localization.chatHistory,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.size(8.dp))
+
                 Surface(
                     onClick = onOpenModelSelector,
                     shape = RoundedCornerShape(16.dp),
