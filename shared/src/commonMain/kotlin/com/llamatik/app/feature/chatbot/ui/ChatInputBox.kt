@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -83,6 +84,13 @@ fun ChatInputBox(
     isTranscribing: Boolean,
     onMicClick: () -> Unit,
 ) {
+    // If SD is not loaded, force TEXT mode (prevents getting stuck in IMAGE mode)
+    LaunchedEffect(state.isStableDiffusionModelLoaded) {
+        if (!state.isStableDiffusionModelLoaded && state.generationMode == GenerationMode.IMAGE) {
+            viewModel.setGenerationMode(GenerationMode.TEXT)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -255,8 +263,7 @@ fun ChatInputBox(
                         TextField(
                             value = input,
                             onValueChange = { onInputChange(it) },
-                            modifier = Modifier
-                                .fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             placeholder = { Text(localization.askMeAnything) },
                             textStyle = Typography.get().bodyMedium,
                             singleLine = false,
@@ -306,20 +313,22 @@ fun ChatInputBox(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.End
                         ) {
-                            IconButton(
-                                onClick = { viewModel.onPickPdfForRag() },
-                                enabled = !state.isRagIndexing,
-                                modifier = Modifier
-                                    .size(BUTTON_SIZE.dp)
-                                    .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .align(Alignment.CenterVertically)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PictureAsPdf,
-                                    contentDescription = "Load PDF for RAG",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            if (state.isEmbedModelLoaded) {
+                                IconButton(
+                                    onClick = { viewModel.onPickPdfForRag() },
+                                    enabled = !state.isRagIndexing,
+                                    modifier = Modifier
+                                        .size(BUTTON_SIZE.dp)
+                                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .align(Alignment.CenterVertically)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PictureAsPdf,
+                                        contentDescription = "Load PDF for RAG",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.weight(1f))
@@ -353,30 +362,36 @@ fun ChatInputBox(
                                 Spacer(modifier = Modifier.size(6.dp))
                             }
 
-                            IconButton(
-                                onClick = {
-                                    val next =
-                                        if (state.generationMode == GenerationMode.TEXT) GenerationMode.IMAGE
-                                        else GenerationMode.TEXT
-                                    viewModel.setGenerationMode(next)
-                                },
-                                enabled = !isGenerating && !isTranscribing,
-                                modifier = Modifier
-                                    .padding(end = 6.dp)
-                                    .size(BUTTON_SIZE.dp)
-                                    .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                Icon(
-                                    imageVector = if (state.generationMode == GenerationMode.TEXT) LlamatikIcons.Image else LlamatikIcons.Text,
-                                    contentDescription =
-                                        if (state.generationMode == GenerationMode.TEXT) "Image generation" else "Text generation",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            if (state.isStableDiffusionModelLoaded) {
+                                IconButton(
+                                    onClick = {
+                                        val next =
+                                            if (state.generationMode == GenerationMode.TEXT) GenerationMode.IMAGE
+                                            else GenerationMode.TEXT
+                                        viewModel.setGenerationMode(next)
+                                    },
+                                    enabled = !isGenerating && !isTranscribing,
+                                    modifier = Modifier
+                                        .padding(end = 6.dp)
+                                        .size(BUTTON_SIZE.dp)
+                                        .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Icon(
+                                        imageVector = if (state.generationMode == GenerationMode.TEXT) {
+                                            LlamatikIcons.Image
+                                        } else {
+                                            LlamatikIcons.Text
+                                        },
+                                        contentDescription =
+                                            if (state.generationMode == GenerationMode.TEXT) "Image generation" else "Text generation",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.size(6.dp))
                             }
-                            Spacer(modifier = Modifier.size(6.dp))
 
-                            if (!canSend && !isGenerating && !isTranscribing) {
+                            if (!canSend && !isGenerating && !isTranscribing && state.isSttModelLoaded) {
                                 val micEnabled = !isTranscribing && !isGenerating
                                 IconButton(
                                     onClick = { if (micEnabled) onMicClick() },
