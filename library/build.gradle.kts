@@ -259,7 +259,14 @@ kotlin {
                     }
 
                     // ---- Add stable-diffusion.cpp ----
-                    val sdLib = file("$libPath/libstable-diffusion.a").takeIf { it.exists() }?.absolutePath
+                    val sdCandidates = listOf(
+                        "$libPath/libstable-diffusion.a",
+                        "$libPath/stable-diffusion/libstable-diffusion.a",
+                        "$libPath/stable-diffusion/src/libstable-diffusion.a",
+                        "$libPath/stable-diffusion-build/libstable-diffusion.a",
+                        "$libPath/stable-diffusion-build/src/libstable-diffusion.a",
+                    )
+                    val sdLib = sdCandidates.firstOrNull { file(it).exists() }
                     if (sdLib != null) {
                         args += sdLib
                     } else {

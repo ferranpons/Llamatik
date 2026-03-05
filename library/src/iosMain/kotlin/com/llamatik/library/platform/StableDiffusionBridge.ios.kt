@@ -1,47 +1,44 @@
+@file:OptIn(ExperimentalForeignApi::class)
+
 package com.llamatik.library.platform
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.llamatik.library.platform.sd.*
-import kotlinx.cinterop.*
+import com.llamatik.library.platform.sd.sd_free_bytes
+import com.llamatik.library.platform.sd.sd_init
+import com.llamatik.library.platform.sd.sd_release
+import com.llamatik.library.platform.sd.sd_txt2img_rgba
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.value
 import platform.Foundation.NSLog
-import platform.posix.free
 
 actual object StableDiffusionBridge {
-    private var ctx: CPointer<sd_ctx_t>? = null
+
+    private var isInitialized = false
 
     @Composable
     actual fun getModelPath(modelFileName: String): String {
-        // iOS: the app code already manages model downloads and paths.
-        // Keep it consistent with llama/whisper: return the provided filename/path.
+        // iOS app manages download/path. Keep consistent with your other bridges.
         return remember(modelFileName) { modelFileName }
     }
 
     actual fun initModel(modelPath: String, threads: Int): Boolean {
         release()
 
-        memScoped {
-            val params = alloc<sd_ctx_params_t>()
-            sd_ctx_params_init(params.ptr)
+        val ok = sd_init(modelPath, threads) != 0
+        isInitialized = ok
 
-            // Minimal init: single model path + threads.
-            params.model_path = modelPath.cstr.ptr
-            params.n_threads = threads
-
-            // Reasonable defaults for mobile
-            params.enable_mmap = true
-            params.offload_params_to_cpu = true
-            params.free_params_immediately = true
-
-            val created = new_sd_ctx(params.ptr)
-            if (created == null) {
-                NSLog("[StableDiffusionBridge] new_sd_ctx FAILED path=$modelPath")
-                return false
-            }
-            ctx = created
-            NSLog("[StableDiffusionBridge] new_sd_ctx OK")
-            return true
+        if (!ok) {
+            NSLog("[StableDiffusionBridge] sd_init FAILED path=$modelPath")
+        } else {
+            NSLog("[StableDiffusionBridge] sd_init OK")
         }
+        return ok
     }
 
     actual fun txt2img(
@@ -53,80 +50,43 @@ actual object StableDiffusionBridge {
         cfgScale: Float,
         seed: Long,
     ): ByteArray {
-        val c = ctx ?: return ByteArray(0)
+        if (!isInitialized) return ByteArray(0)
+        if (prompt.isBlank()) return ByteArray(0)
 
         return memScoped {
-            val gen = alloc<sd_img_gen_params_t>()
-            sd_img_gen_params_init(gen.ptr)
+            val outW = alloc<IntVar>()
+            val outH = alloc<IntVar>()
+            val outSize = alloc<IntVar>()
 
-            gen.prompt = prompt.cstr.ptr
-            gen.negative_prompt = (negativePrompt ?: "").cstr.ptr
-            gen.width = width
-            gen.height = height
-            gen.seed = seed
+            val bytesPtr = sd_txt2img_rgba(
+                prompt = prompt,
+                negative_prompt = (negativePrompt ?: ""),
+                width = width,
+                height = height,
+                steps = steps,
+                cfg_scale = cfgScale,
+                seed = seed,
+                out_w = outW.ptr,
+                out_h = outH.ptr,
+                out_size_bytes = outSize.ptr
+            ) ?: return@memScoped ByteArray(0)
 
-            // sampling
-            gen.sample_params.sample_steps = steps
-            gen.sample_params.guidance.txt_cfg = cfgScale
-
-            val imgPtr = generate_image(c, gen.ptr) ?: return@memScoped ByteArray(0)
-
-            val img = imgPtr.pointed
-            val w = img.width.toInt()
-            val h = img.height.toInt()
-            val ch = img.channel.toInt()
-
-            val pixelCount = w * h
-            val out = ByteArray(pixelCount * 4)
-
-            val src = img.data ?: run {
-                free(imgPtr)
+            val size = outSize.value
+            if (size <= 0) {
+                sd_free_bytes(bytesPtr)
                 return@memScoped ByteArray(0)
             }
 
-            // Convert to RGBA
-            when (ch) {
-                4 -> src.readBytes(out.size).copyInto(out)
-                3 -> {
-                    val srcBytes = src.readBytes(pixelCount * 3)
-                    var si = 0
-                    var di = 0
-                    repeat(pixelCount) {
-                        out[di++] = srcBytes[si++]
-                        out[di++] = srcBytes[si++]
-                        out[di++] = srcBytes[si++]
-                        out[di++] = 0xFF.toByte()
-                    }
-                }
-                1 -> {
-                    val srcBytes = src.readBytes(pixelCount)
-                    var si = 0
-                    var di = 0
-                    repeat(pixelCount) {
-                        val v = srcBytes[si++]
-                        out[di++] = v
-                        out[di++] = v
-                        out[di++] = v
-                        out[di++] = 0xFF.toByte()
-                    }
-                }
-                else -> {
-                    free(imgPtr)
-                    return@memScoped ByteArray(0)
-                }
-            }
-
-            // stable-diffusion.cpp returns heap-allocated image + data (malloc/free).
-            // The public C API does not expose a dedicated free; freeing both is expected.
-            free(img.data)
-            free(imgPtr)
-
+            val out = bytesPtr.readBytes(size)
+            sd_free_bytes(bytesPtr)
             out
         }
     }
 
     actual fun release() {
-        ctx?.let { free_sd_ctx(it) }
-        ctx = null
+        if (isInitialized) {
+            sd_release()
+        }
+        isInitialized = false
     }
 }

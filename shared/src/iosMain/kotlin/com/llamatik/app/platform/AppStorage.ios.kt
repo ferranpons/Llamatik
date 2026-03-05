@@ -1,9 +1,9 @@
-@file:OptIn(ExperimentalForeignApi::class)
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 
 package com.llamatik.app.platform
 
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.refTo
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
@@ -40,11 +40,18 @@ private fun resolveUrl(relativePath: String): NSURL {
 }
 
 actual object AppStorage {
+
     actual suspend fun writeBytes(relativePath: String, bytes: ByteArray) {
         withContext(Dispatchers.Default) {
             val url = resolveUrl(relativePath)
-            val data = NSData.dataWithBytes(bytes, bytes.size.toULong())
-            data.writeToURL(url, atomically = true)
+
+            bytes.usePinned { pinned ->
+                val data = NSData.dataWithBytes(
+                    bytes = pinned.addressOf(0),
+                    length = bytes.size.toULong()
+                )
+                data.writeToURL(url, atomically = true)
+            }
         }
     }
 
@@ -55,9 +62,14 @@ actual object AppStorage {
 
         val options: NSDataReadingOptions = NSDataReadingMappedIfSafe
         val data = NSData.dataWithContentsOfURL(url, options = options, error = null) ?: return@withContext null
+
         val size = data.length.toInt()
+        if (size <= 0) return@withContext ByteArray(0)
+
         val out = ByteArray(size)
-        memcpy(out.refTo(0), data.bytes, data.length)
+        out.usePinned { outPinned ->
+            memcpy(outPinned.addressOf(0), data.bytes, data.length)
+        }
         out
     }
 

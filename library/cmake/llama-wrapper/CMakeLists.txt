@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.5)
-project(llama_kmp_bridge CXX)
+cmake_minimum_required(VERSION 3.16)
+project(llama_kmp_bridge C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -97,6 +97,7 @@ else()
     )
 endif()
 
+# ---- whisper.cpp ------------------------------------------------------------
 set(WHISPER_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../whisper.cpp")
 
 set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -107,6 +108,7 @@ add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
 
 # ---- stable-diffusion.cpp ---------------------------------------------------
 set(STABLE_DIFFUSION_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../stable-diffusion.cpp")
+set(HAVE_SD OFF)
 if(EXISTS "${STABLE_DIFFUSION_CPP_DIR}/CMakeLists.txt")
     set(SD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(SD_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -114,6 +116,7 @@ if(EXISTS "${STABLE_DIFFUSION_CPP_DIR}/CMakeLists.txt")
     set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
     set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
     add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
+    set(HAVE_SD ON)
 else()
     message(WARNING "stable-diffusion.cpp not found at: ${STABLE_DIFFUSION_CPP_DIR}. iOS build will not include SD.")
 endif()
@@ -139,6 +142,8 @@ target_include_directories(llamatik_llama_common_obj PRIVATE
         ${LLAMA_CPP_DIR}/ggml/src
         ${WHISPER_CPP_DIR}
         ${WHISPER_CPP_DIR}/include
+        ${STABLE_DIFFUSION_CPP_DIR}
+        ${STABLE_DIFFUSION_CPP_DIR}/include
 )
 
 target_compile_features(llamatik_llama_common_obj PRIVATE cxx_std_17)
@@ -146,6 +151,7 @@ target_compile_features(llamatik_llama_common_obj PRIVATE cxx_std_17)
 add_library(llama_static_wrapper STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_embed.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/whisper_stt.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/stable_diffusion_embed.cpp
 )
 
 target_include_directories(llama_static_wrapper PUBLIC
@@ -158,8 +164,18 @@ target_include_directories(llama_static_wrapper PUBLIC
         ${LLAMA_CPP_DIR}/ggml/src
         ${WHISPER_CPP_DIR}
         ${WHISPER_CPP_DIR}/include
+        ${STABLE_DIFFUSION_CPP_DIR}
+        ${STABLE_DIFFUSION_CPP_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/c_interop/include
 )
+
+# stable-diffusion headers are needed to compile stable_diffusion_embed.cpp
+if(HAVE_SD)
+    target_include_directories(llama_static_wrapper PUBLIC
+            ${STABLE_DIFFUSION_CPP_DIR}
+            ${STABLE_DIFFUSION_CPP_DIR}/include
+    )
+endif()
 
 target_compile_features(llama_static_wrapper PUBLIC cxx_std_17)
 
@@ -167,8 +183,19 @@ target_link_libraries(llama_static_wrapper
         PRIVATE
         llama
         whisper
+        stable-diffusion
         Threads::Threads
 )
+
+# Link stable diffusion target if it exists in that CMake project.
+# The exact target name can differ across forks; most commonly it's "stable-diffusion".
+if(HAVE_SD)
+    if(TARGET stable-diffusion)
+        target_link_libraries(llama_static_wrapper PRIVATE stable-diffusion)
+    elseif(TARGET stable_diffusion)
+        target_link_libraries(llama_static_wrapper PRIVATE stable_diffusion)
+    endif()
+endif()
 
 target_sources(llama_static_wrapper PRIVATE
         $<TARGET_OBJECTS:llamatik_llama_common_obj>
