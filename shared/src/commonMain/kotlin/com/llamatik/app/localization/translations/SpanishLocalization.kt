@@ -104,7 +104,7 @@ internal object SpanishLocalization : Localization {
     override val delete = "Eliminar"
     override val download = "Descargar"
     override val downloading = "Descargando…"
-    override val generateModels = "Generar modelos"
+    override val generateModels = "Modelos de generación"
     override val generationSettings = "Configuración de generación"
     override val temperature = "Temperatura"
     override val maxTokens = "Máx. tokens"
