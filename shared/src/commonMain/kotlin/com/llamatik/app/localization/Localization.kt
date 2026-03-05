@@ -135,6 +135,34 @@ interface Localization {
     val embedModels: String
     val sttModels: String
     val speak: String
+
+    val imageGenerationModels: String
+    val failedToDecodeImageError: String
+    val imageGeneration: String
+    val textGeneration: String
+    val noEmbeddingModelLoaded: String
+    val embeddingModelNotLoaded: String
+    val recommended: String
+    val pdfSelectFile: String
+    val pdfExtractionError: String
+    val pdfEmbedModelNeededWarning: String
+    val pdfNoUsableChunksError: String
+    val pdfFailedToComputeEmbeddingsError: String
+    val pdfIndexedForRAG: String
+    val pdfFailedToLoadPDFForRAG: String
+    val failedToComputeEmbeddings: String
+    val thereIsAProblemWithAI: String
+    val iDontHaveEnoughInfoInSources: String
+    val imageModeEnabledButNoModelLoadedError: String
+    val imageGenerationFailedError: String
+    val imageGenerationError: String
+    val allCachedModelsRemoved: String
+    val settings: String
+    val removeAllDownloadedModels: String
+    val clearCachedModelsDialogTitle: String
+    val clearCachedModelsDialogMessage: String
+    val cancel: String
+    val clear: String
 }
 
 enum class AvailableLanguages {

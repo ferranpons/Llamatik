@@ -231,9 +231,9 @@ fun ChatInputBox(
 
                                         !state.isEmbedModelLoaded -> {
                                             if (embedName.isNullOrBlank()) {
-                                                "RAG: $ragName — No embedding model loaded (download \"Nomic Embed Text\")"
+                                                "RAG: $ragName — ${localization.noEmbeddingModelLoaded} (${localization.download} \"Nomic Embed Text\")"
                                             } else {
-                                                "RAG: $ragName — Embedding model not loaded: $embedName (recommended: \"Nomic Embed Text\")"
+                                                "RAG: $ragName — ${localization.embeddingModelNotLoaded}: $embedName (${localization.recommended}: \"Nomic Embed Text\")"
                                             }
                                         }
 
@@ -384,7 +384,7 @@ fun ChatInputBox(
                                             LlamatikIcons.Text
                                         },
                                         contentDescription =
-                                            if (state.generationMode == GenerationMode.TEXT) "Image generation" else "Text generation",
+                                            if (state.generationMode == GenerationMode.TEXT) localization.imageGeneration else localization.textGeneration,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }

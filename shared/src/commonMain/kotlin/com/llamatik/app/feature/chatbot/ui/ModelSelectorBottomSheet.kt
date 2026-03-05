@@ -115,14 +115,14 @@ fun ModelSelectorBottomSheet(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Settings",
+                            text = localization.settings,
                             style = Typography.get().titleLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Remove all downloaded models and PDF RAG index",
+                            text = localization.removeAllDownloadedModels,
                             style = Typography.get().labelSmall,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -141,19 +141,19 @@ fun ModelSelectorBottomSheet(
             if (showConfirmClear) {
                 AlertDialog(
                     onDismissRequest = { showConfirmClear = false },
-                    title = { Text(text = "Clear all cached models?") },
-                    text = { Text(text = "This will delete all downloaded model files and the persisted PDF RAG index. This cannot be undone.") },
+                    title = { Text(text = localization.clearCachedModelsDialogTitle) },
+                    text = { Text(text = localization.clearCachedModelsDialogMessage) },
                     confirmButton = {
                         Button(onClick = {
                             showConfirmClear = false
                             onClearAllCachedModelsClicked()
                         }) {
-                            Text(text = "Clear")
+                            Text(text = localization.clear)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showConfirmClear = false }) {
-                            Text(text = "Cancel")
+                            Text(text = localization.cancel)
                         }
                     }
                 )
@@ -240,7 +240,7 @@ fun ModelSelectorBottomSheet(
             // --- Stable Diffusion (image) models ---
             Spacer(Modifier.height(16.dp))
             GroupHeader(
-                title = "Stable Diffusion Models",
+                title = localization.imageGenerationModels,
                 expanded = expandSd,
                 selectedName = selectedStableDiffusionModelName,
                 onToggle = { expandSd = !expandSd }

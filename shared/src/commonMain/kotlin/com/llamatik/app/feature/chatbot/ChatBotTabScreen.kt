@@ -717,7 +717,7 @@ class ChatBotTabScreen : Screen {
                                 .clip(RoundedCornerShape(12.dp))
                         )
                     } else {
-                        Text("🖼️ Failed to decode image.")
+                        Text(localization.failedToDecodeImageError)
                     }
                 } else {
                     Text(text = message.text)
