@@ -36,38 +36,45 @@ val lightInverseOnSurface = Color(0xFFFFF6EF)
 val lightInverseSurface = Color(0xFF3E2B1C)
 val lightPrimaryInverse = Color(0xFFFFB74D)
 
-// ----- DARK THEME -----
+// ----- DARK THEME (ChatGPT/Ollama-like) -----
 val darkPrimary = Color(0xFFFFB74D)
-val darkOnPrimary = Color(0xFF3B1D07)
-val darkPrimaryContainer = Color(0xFFF59E0B)
-val darkOnPrimaryContainer = Color(0xFF1A0C00)
+val darkOnPrimary = Color(0xFF1A1A1A)
 
-val darkSecondary = Color(0xFFFFCC80)
-val darkOnSecondary = Color(0xFF3B1D07)
-val darkSecondaryContainer = Color(0xFFD97706)
-val darkOnSecondaryContainer = Color(0xFFFFFFFF)
+val darkPrimaryContainer = Color(0xFF2A2116)
+val darkOnPrimaryContainer = Color(0xFFFFD9B0)
 
-val darkTertiary = Color(0xFFD7CCC8)
-val darkOnTertiary = Color(0xFF2B1B17)
-val darkTertiaryContainer = Color(0xFF4E342E)
-val darkOnTertiaryContainer = Color(0xFFFFF6EF)
+val darkSecondary = Color(0xFFBDBDBD)
+val darkOnSecondary = Color(0xFF121212)
+
+val darkSecondaryContainer = Color(0xFF1F1F1F)
+val darkOnSecondaryContainer = Color(0xFFEAEAEA)
+
+val darkTertiary = Color(0xFF8E8E8E)
+val darkOnTertiary = Color(0xFF121212)
+
+val darkTertiaryContainer = Color(0xFF262626)
+val darkOnTertiaryContainer = Color(0xFFEAEAEA)
 
 val darkError = Color(0xFFFFB4A9)
-val darkErrorContainer = Color(0xFF930006)
-val darkOnError = Color(0xFF680003)
+val darkErrorContainer = Color(0xFF3A0B0B)
+val darkOnError = Color(0xFF1A1A1A)
 val darkOnErrorContainer = Color(0xFFFFDAD4)
 
-val darkBackground = Color(0xFF1D1307)
-val darkOnBackground = Color(0xFFF8EBDD)
-val darkSurface = Color(0xFF1D1307)
-val darkOnSurface = Color(0xFFF8EBDD)
+val darkBackground = Color(0xFF0F0F10)
+val darkOnBackground = Color(0xFFEDEDED)
 
-val darkSurfaceVariant = Color(0xFF5E4636)
-val darkOnSurfaceVariant = Color(0xFFE6CFC2)
+val darkSurface = Color(0xFF121214)
+val darkOnSurface = Color(0xFFEDEDED)
 
-val darkOutline = Color(0xFFBCAAA4)
-val darkInverseOnSurface = Color(0xFF261C0C)
-val darkInverseSurface = Color(0xFFF8EBDD)
+// Used for cards/bubbles/panels
+val darkSurfaceVariant = Color(0xFF1C1C1F)
+val darkOnSurfaceVariant = Color(0xFFD6D6D6)
+
+val darkOutline = Color(0xFF35353A)
+
+// Inverse (rarely used but keep coherent)
+val darkInverseSurface = Color(0xFFEDEDED)
+val darkInverseOnSurface = Color(0xFF1A1A1A)
 val darkPrimaryInverse = Color(0xFFF59E0B)
 
 // ----- STATIC COLORS -----
