@@ -44,44 +44,47 @@ jobs:
           path: |
             ~/emsdk
             ~/.emscripten_cache
-          key: emsdk-${{ runner.os }}-3.1.68-v1
+          key: emsdk-${{ runner.os }}-3.1.68
 
-      - name: Install emsdk (if missing)
-        shell: bash
+      - name: Install emsdk (Emscripten)
+        if: steps.cache-emsdk.outputs.cache-hit != 'true'
         run: |
           set -euxo pipefail
-          if [ ! -d "$HOME/emsdk" ]; then
-            git clone https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
-          fi
-
-      - name: Activate emsdk + export env for later steps
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          cd "$HOME/emsdk"
-          git fetch --tags --force || true
-
-          # Install is idempotent (fast if already installed / cached)
+          git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+          cd ~/emsdk
           ./emsdk install 3.1.68
+
+      - name: Activate emsdk + export PATH
+        run: |
+          set -euxo pipefail
+          cd ~/emsdk
           ./emsdk activate 3.1.68
 
-          # Source official env script (sets PATH + EM_CONFIG + NODE, etc.)
-          source "$HOME/emsdk/emsdk_env.sh"
+          # Ensure scripts are executable (cache sometimes breaks +x)
+          chmod +x ~/emsdk/upstream/emscripten/emcmake || true
+          chmod +x ~/emsdk/upstream/emscripten/emmake || true
+          chmod +x ~/emsdk/upstream/emscripten/emcc || true
 
-          # Persist key env vars for subsequent steps
-          echo "EMSDK=$HOME/emsdk" >> "$GITHUB_ENV"
-          echo "EM_CACHE=$HOME/.emscripten_cache" >> "$GITHUB_ENV"
+          echo "EMSDK=$HOME/emsdk" >> $GITHUB_ENV
+          echo "EM_CACHE=$HOME/.emscripten_cache" >> $GITHUB_ENV
           mkdir -p "$HOME/.emscripten_cache"
 
-          # Persist PATH entries for subsequent steps
-          echo "$HOME/emsdk/upstream/emscripten" >> "$GITHUB_PATH"
-          echo "$HOME/emsdk/upstream/bin" >> "$GITHUB_PATH"
+          # Put emscripten tools on PATH for subsequent steps
+          echo "$HOME/emsdk/upstream/emscripten" >> $GITHUB_PATH
+          echo "$HOME/emsdk/upstream/bin" >> $GITHUB_PATH
 
-          # Sanity checks (must succeed)
-          which emcmake
-          which emmake
-          which emcc
+          # emsdk ships node; add it too
+          NODE_BIN="$(ls -d $HOME/emsdk/node/*/bin | head -n1 || true)"
+          if [ -n "$NODE_BIN" ]; then
+            echo "$NODE_BIN" >> $GITHUB_PATH
+          fi
+
+      - name: Sanity check emsdk tools
+        run: |
+          set -euxo pipefail
+          command -v emcmake
+          command -v emmake
+          command -v emcc
           emcc -v
 
       - name: Set up JDK

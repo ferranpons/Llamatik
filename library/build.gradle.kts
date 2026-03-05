@@ -59,11 +59,23 @@ fun Project.resolveEmsdkToolOrNull(name: String, emsdkRoot: String?): String? {
     propString(key)?.let { if (canExec(it)) return it }
     System.getenv(key)?.let { if (canExec(it)) return it }
 
-    // If EMSDK root known, tools live here:
-    // $EMSDK/upstream/emscripten/<tool>
     if (!emsdkRoot.isNullOrBlank()) {
+        // If EMSDK root known, tools live here:
+        // $EMSDK/upstream/emscripten/<tool>
         val p = File(emsdkRoot, "upstream/emscripten/$name").absolutePath
-        if (canExec(p)) return p
+
+        // ✅ Robustness: even if cache restores without +x, return absolute path for clearer failure
+        val f = File(p)
+        if (f.exists()) {
+            if (!f.canExecute()) {
+                logger.warn("Found $name at $p but it's not executable. CI cache can strip +x. " +
+                        "Fix by chmod +x in workflow, or set ${key} to a valid executable.")
+            } else {
+                return p
+            }
+            // return it anyway; ensureToolAtExecutionTime will fail with a good message if needed
+            return p
+        }
     }
 
     // As a last resort, let it be resolved from PATH at execution time.
@@ -75,11 +87,14 @@ fun Project.ensureToolAtExecutionTime(toolLabel: String, resolvedPathOrName: Str
     // If it's an absolute path, verify it exists.
     if (resolvedPathOrName.contains(File.separatorChar)) {
         val f = file(resolvedPathOrName)
-        if (!f.exists() || !f.canExecute()) {
+        if (!f.exists()) {
+            throw GradleException("Cannot find '$toolLabel' at: ${f.absolutePath}")
+        }
+        if (!f.canExecute()) {
             throw GradleException(
                 "Cannot execute '$toolLabel' at: ${f.absolutePath}\n" +
-                        "Fix by setting ${toolLabel.uppercase()}_PATH in gradle.properties, " +
-                        "or ensure emsdk is installed and accessible."
+                        "On CI, this is often fixed by: chmod +x ${f.absolutePath}\n" +
+                        "Or set ${toolLabel.uppercase()}_PATH in gradle.properties."
             )
         }
         return f.absolutePath
@@ -90,12 +105,10 @@ fun Project.ensureToolAtExecutionTime(toolLabel: String, resolvedPathOrName: Str
 }
 
 kotlin {
-    // ---- ANDROID target MUST publish a library variant (AAR) ----
     androidTarget {
         publishLibraryVariants("release")
     }
 
-    // JVM target (if you want JVM consumer artifacts)
     jvm()
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
@@ -104,7 +117,6 @@ kotlin {
         binaries.executable()
     }
 
-    // iOS targets
     iosX64()
     iosArm64()
     iosSimulatorArm64()
@@ -120,14 +132,13 @@ kotlin {
     }
 
     fun findTool(name: String, extraCandidates: List<String> = emptyList()): String {
-        // Prefer Gradle properties as they work in Android Studio sync too.
         propString("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
         System.getenv("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
 
         val candidates = mutableListOf(
-            "/opt/homebrew/bin/$name",   // Apple Silicon Homebrew
-            "/usr/local/bin/$name",      // Intel Homebrew or manual install
-            "/usr/bin/$name"             // system
+            "/opt/homebrew/bin/$name",
+            "/usr/local/bin/$name",
+            "/usr/bin/$name"
         )
         candidates.addAll(extraCandidates)
 
@@ -139,15 +150,12 @@ kotlin {
         )
     }
 
-    // Resolve tools once
     val cmakePath = findTool("cmake")
 
-    // Host OS detection
     val hostOsName = System.getProperty("os.name").lowercase()
     val isMacHost = hostOsName.contains("mac")
 
     // ---- WASM (Emscripten) tools ----
-    // IMPORTANT: Do NOT throw during configuration, or Android Studio sync fails.
     val emsdkRoot: String? = resolveEmsdkRoot()
     val emscriptenBinDir: String? = emsdkRoot?.let { File(it, "upstream/emscripten").absolutePath }
 
@@ -158,7 +166,7 @@ kotlin {
     // iOS native build / merge tasks (MAC-ONLY)
     // ------------------------------------------------------------
     if (isMacHost) {
-        val libtoolPath = findTool("libtool") // should be /usr/bin/libtool on macOS
+        val libtoolPath = findTool("libtool")
 
         listOf(
             Triple(iosX64(), "x86_64", "iPhoneSimulator"),
@@ -230,14 +238,12 @@ kotlin {
                 dependsOn(compileTask)
 
                 doFirst {
-                    // ---- Add whisper into the merged archive ----
                     val whisperCandidates = listOf(
                         "$libPath/whisper/src/libwhisper.a",
                         "$libPath/whisper/libwhisper.a",
                         "$libPath/whisper-build/src/libwhisper.a",
                         "$libPath/whisper-build/libwhisper.a"
                     )
-
                     val whisperLib = whisperCandidates.firstOrNull { file(it).exists() }
 
                     val args = mutableListOf(
@@ -258,7 +264,6 @@ kotlin {
                         logger.warn("Whisper static library not found in $libPath. iOS voice/STT symbols will NOT be linked.")
                     }
 
-                    // ---- Add stable-diffusion.cpp ----
                     val sdCandidates = listOf(
                         "$libPath/libstable-diffusion.a",
                         "$libPath/stable-diffusion/libstable-diffusion.a",
@@ -282,7 +287,6 @@ kotlin {
                 }
             }
 
-            // Ensure cinterop runs after the native libs are built/merged
             tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
                 dependsOn(mergeTask)
             }
@@ -290,56 +294,32 @@ kotlin {
             arch.compilations.getByName("main").cinterops {
                 create("llama") {
                     val defFileName = "llama_ios.def"
-
                     defFile("src/iosMain/c_interop/$defFileName")
                     packageName("com.llamatik.library.platform.llama")
-
                     compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
-
-                    extraOpts(
-                        "-libraryPath", libPath
-                    )
-
-                    tasks.named(interopProcessingTaskName).configure {
-                        dependsOn(mergeTask)
-                    }
+                    extraOpts("-libraryPath", libPath)
+                    tasks.named(interopProcessingTaskName).configure { dependsOn(mergeTask) }
                 }
 
                 create("whisper") {
                     val defFileName = "whisper_ios.def"
-
                     defFile("src/iosMain/c_interop/$defFileName")
                     packageName("com.llamatik.library.platform.whisper")
-
                     compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
-
-                    extraOpts(
-                        "-libraryPath", libPath
-                    )
-
-                    tasks.named(interopProcessingTaskName).configure {
-                        dependsOn(mergeTask)
-                    }
+                    extraOpts("-libraryPath", libPath)
+                    tasks.named(interopProcessingTaskName).configure { dependsOn(mergeTask) }
                 }
 
                 create("stableDiffusion") {
                     val defFileName = "stable_diffusion_ios.def"
-
                     defFile("src/iosMain/c_interop/$defFileName")
                     packageName("com.llamatik.library.platform.sd")
-
                     compilerOpts(
                         "-I${projectDir}/src/iosMain/c_interop/include",
                         "-I${rootDir}/stable-diffusion.cpp/include"
                     )
-
-                    extraOpts(
-                        "-libraryPath", libPath
-                    )
-
-                    tasks.named(interopProcessingTaskName).configure {
-                        dependsOn(mergeTask)
-                    }
+                    extraOpts("-libraryPath", libPath)
+                    tasks.named(interopProcessingTaskName).configure { dependsOn(mergeTask) }
                 }
             }
 
@@ -380,7 +360,7 @@ kotlin {
         logger.lifecycle("Skipping iOS native build tasks (xcrun/libtool) because host OS is not macOS: $hostOsName")
     }
 
-    // ---------- Desktop (JVM) JNI build for llama_jni (macOS/Linux/Windows) ----------
+    // ---------- Desktop (JVM) JNI build for llama_jni ----------
     val desktopPlatform = when {
         hostOsName.contains("mac") -> "macos"
         hostOsName.contains("linux") -> "linux"
@@ -486,7 +466,7 @@ kotlin {
         }
     }
 
-    // ---------- Web (WASM) native build for llama.cpp engine ----------
+    // ---------- Web (WASM) native build ----------
     val wasmNativeSourceDir = projectDir.resolve("cmake/llamatik-wasm")
     val wasmNativeBuildDir = layout.buildDirectory.dir("llamatik-wasm").get().asFile
 
