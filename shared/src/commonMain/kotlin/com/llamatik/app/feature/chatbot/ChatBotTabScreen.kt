@@ -519,7 +519,8 @@ class ChatBotTabScreen : Screen {
         }
 
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (chatUiModel.messages.isEmpty()) {
                 Column(
@@ -542,7 +543,8 @@ class ChatBotTabScreen : Screen {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .widthIn(max = 1000.dp)
+                        .align(Alignment.CenterHorizontally)
                         .weight(1f)
                 ) {
                     items(chatUiModel.messages.size) { item ->
@@ -837,7 +839,8 @@ class ChatBotTabScreen : Screen {
             Row(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
                     imageVector = LlamatikIcons.TemporaryChat,
