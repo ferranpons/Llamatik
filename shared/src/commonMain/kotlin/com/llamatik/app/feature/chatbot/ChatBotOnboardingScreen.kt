@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -84,39 +85,50 @@ class ChatBotOnboardingScreen(
                     Box(modifier = Modifier.matchParentSize().background(gradient))
                 }
 
-                Text(
-                    modifier = Modifier.padding(16.dp),
-                    text = "\uD83E\uDD99\n${localization.welcome}",
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    text = localization.onboardingMainText,
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Button(
-                    onClick = { onAccept(navigator) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .padding(start = 16.dp, end = 16.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    shape = RoundedCornerShape(10)
+                Column(
+                    modifier =
+                        Modifier
+                            .widthIn(max = 800.dp)
+                            .fillMaxSize(),
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = localization.actionContinue,
-                        style = Typography.get().titleMedium,
-                        modifier = Modifier.padding(8.dp)
+                        modifier = Modifier.padding(16.dp),
+                        text = "\uD83E\uDD99\n${localization.welcome}",
+                        style = MaterialTheme.typography.headlineMedium,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
+
+                    Text(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        text = localization.onboardingMainText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    Button(
+                        onClick = { onAccept(navigator) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        modifier = Modifier
+                            .widthIn(max = 350.dp)
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .padding(start = 16.dp, end = 16.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        shape = RoundedCornerShape(10)
+                    ) {
+                        Text(
+                            text = localization.actionContinue,
+                            style = Typography.get().titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.size(16.dp))
