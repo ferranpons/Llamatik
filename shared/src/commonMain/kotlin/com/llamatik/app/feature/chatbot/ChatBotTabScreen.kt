@@ -113,7 +113,9 @@ class ChatBotTabScreen : Screen {
         val downloadingMap = downloadStates.mapValues { it.value.inProgress }
         val progressMap = downloadStates.mapValues { it.value.progress.coerceIn(0, 100) / 100f }
 
+        // Dialog state (stable UI state rendered from Content)
         val isDialogOpen = remember { mutableStateOf(false) }
+        val dialogMessage = remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
             viewModel.onStarted(navigator)
@@ -131,6 +133,8 @@ class ChatBotTabScreen : Screen {
             loadingGenerateModelName = loadingGenerateModelName,
             loadingSttModelName = loadingSttModelName,
             loadingStableDiffusionModelName = loadingStableDiffusionModelName,
+            isDialogOpen = isDialogOpen,
+            dialogMessage = dialogMessage,
         )
 
         LlamatikTheme {
@@ -195,6 +199,7 @@ class ChatBotTabScreen : Screen {
                     onDismiss = { showSettingsSheet.value = false }
                 )
             }
+
             if (showModelSelectorSheet.value) {
                 ModelSelectorBottomSheet(
                     downloadingMap = downloadingMap,
@@ -245,14 +250,15 @@ class ChatBotTabScreen : Screen {
                     },
                     onClearAllCachedModelsClicked = {
                         viewModel.onClearAllCachedModels()
-                    }
+                    },
                 ) {
                     showModelSelectorSheet.value = false
                 }
             }
+
             if (isDialogOpen.value) {
                 LlamatikDialog(
-                    message = getCurrentLocalization().featureNotAvailableMessage,
+                    message = dialogMessage.value,
                     onDismissRequest = { isDialogOpen.value = false },
                     onConfirmation = { isDialogOpen.value = false },
                     imageDescription = "",
@@ -272,65 +278,82 @@ class ChatBotTabScreen : Screen {
         loadingGenerateModelName: MutableState<String?>,
         loadingSttModelName: MutableState<String?>,
         loadingStableDiffusionModelName: MutableState<String?>,
+        isDialogOpen: MutableState<Boolean>,
+        dialogMessage: MutableState<String>,
     ) {
-        val sideEffects = viewModel.sideEffects.collectAsState(ChatBotSideEffects.Initial)
-        sideEffects.value.apply {
-            when (this) {
-                ChatBotSideEffects.Initial -> {}
-                ChatBotSideEffects.OnLoadError -> {}
-                is ChatBotSideEffects.OnLoaded -> {}
-                ChatBotSideEffects.OnMessageLoaded -> {
-                    isLoading.value = false
-                }
+        LaunchedEffect(viewModel) {
+            viewModel.sideEffects.collect { effect ->
+                when (effect) {
+                    ChatBotSideEffects.Initial -> {}
+                    ChatBotSideEffects.OnLoadError -> {}
+                    is ChatBotSideEffects.OnLoaded -> {}
 
-                ChatBotSideEffects.OnMessageLoading -> {
-                    isLoading.value = true
-                }
+                    ChatBotSideEffects.OnMessageLoaded -> {
+                        isLoading.value = false
+                    }
 
-                ChatBotSideEffects.OnNoResults -> {
-                    isLoading.value = false
-                }
+                    ChatBotSideEffects.OnMessageLoading -> {
+                        isLoading.value = true
+                    }
 
-                ChatBotSideEffects.ScrollToBottom -> {}
+                    ChatBotSideEffects.OnNoResults -> {
+                        isLoading.value = false
+                    }
 
-                ChatBotSideEffects.OnEmbedModelLoaded -> {
-                    loadingEmbedModelName.value = null
-                    showModelSelectorSheet.value = false
-                }
+                    ChatBotSideEffects.ScrollToBottom -> {}
 
-                ChatBotSideEffects.OnGenerateModelLoaded -> {
-                    loadingGenerateModelName.value = null
-                    showModelSelectorSheet.value = false
-                }
+                    ChatBotSideEffects.OnEmbedModelLoaded -> {
+                        loadingEmbedModelName.value = null
+                        showModelSelectorSheet.value = false
+                    }
 
-                ChatBotSideEffects.OnSttModelLoaded -> {
-                    loadingSttModelName.value = null
-                    showModelSelectorSheet.value = false
-                }
+                    ChatBotSideEffects.OnGenerateModelLoaded -> {
+                        loadingGenerateModelName.value = null
+                        showModelSelectorSheet.value = false
+                    }
 
-                ChatBotSideEffects.OnStableDiffusionModelLoaded -> {
-                    loadingStableDiffusionModelName.value = null
-                    showModelSelectorSheet.value = false
-                }
+                    ChatBotSideEffects.OnSttModelLoaded -> {
+                        loadingSttModelName.value = null
+                        showModelSelectorSheet.value = false
+                    }
 
-                ChatBotSideEffects.OnSettingsChanged -> {
-                    showSettingsSheet.value = false
-                }
+                    ChatBotSideEffects.OnStableDiffusionModelLoaded -> {
+                        loadingStableDiffusionModelName.value = null
+                        showModelSelectorSheet.value = false
+                    }
 
-                ChatBotSideEffects.OnEmbedModelLoadError -> {
-                    loadingEmbedModelName.value = null
-                }
+                    ChatBotSideEffects.OnSettingsChanged -> {
+                        showSettingsSheet.value = false
+                    }
 
-                ChatBotSideEffects.OnGenerateModelLoadError -> {
-                    loadingGenerateModelName.value = null
-                }
+                    ChatBotSideEffects.OnEmbedModelLoadError -> {
+                        loadingEmbedModelName.value = null
+                    }
 
-                ChatBotSideEffects.OnSttModelLoadError -> {
-                    loadingSttModelName.value = null
-                }
+                    ChatBotSideEffects.OnGenerateModelLoadError -> {
+                        loadingGenerateModelName.value = null
+                    }
 
-                ChatBotSideEffects.OnStableDiffusionModelLoadError -> {
-                    loadingStableDiffusionModelName.value = null
+                    ChatBotSideEffects.OnSttModelLoadError -> {
+                        loadingSttModelName.value = null
+                    }
+
+                    ChatBotSideEffects.OnStableDiffusionModelLoadError -> {
+                        loadingStableDiffusionModelName.value = null
+                    }
+
+                    is ChatBotSideEffects.OnCacheCleared -> {
+                        showModelSelectorSheet.value = false
+                        isLoading.value = false
+                        viewModel.stopGeneration()
+                        dialogMessage.value = effect.message
+                        isDialogOpen.value = true
+                    }
+
+                    is ChatBotSideEffects.OnCacheClearFailed -> {
+                        dialogMessage.value = effect.message
+                        isDialogOpen.value = true
+                    }
                 }
             }
         }

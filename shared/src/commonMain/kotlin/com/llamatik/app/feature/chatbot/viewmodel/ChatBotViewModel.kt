@@ -819,35 +819,29 @@ class ChatBotViewModel(
     fun onClearAllCachedModels() {
         screenModelScope.launch(AppDispatchersIO) {
             try {
-                // Collect all known models from state
                 val allModels = (_state.value.generateModels +
                         _state.value.embedModels +
                         _state.value.sttModels +
-                        _state.value.stableDiffusionModels).distinctBy { it.url }
+                        _state.value.stableDiffusionModels)
+                    .distinctBy { it.url }
 
                 for (model in allModels) {
                     try {
                         val path = resolveAndMigratePath(model)
                         if (!path.isNullOrBlank()) {
-                            // Attempt to delete file (works for native; for WASM the implementation may ignore)
                             runCatching { LlamatikTempFile(model.name).delete(path) }
                         }
                     } catch (t: Throwable) {
                         Logger.e(t) { "Failed deleting model file for ${model.name}" }
                     }
-                    // remove saved setting
                     runCatching { getModelsUseCase.deleteModelPath(model) }
                 }
 
-                // remove persisted RAG store file
-                runCatching {
-                    AppStorage.delete(PDF_RAG_STORE_PATH)
-                }
+                // Delete persisted RAG store
+                runCatching { AppStorage.delete(PDF_RAG_STORE_PATH) }
 
-                // Clear in-memory vector store
                 vectorStore = null
 
-                // Update state: remove local paths and selected values / loaded flags
                 _state.update { s ->
                     s.copy(
                         generateModels = s.generateModels.map { it.copy(localPath = null, fileName = null) },
@@ -869,11 +863,18 @@ class ChatBotViewModel(
                     )
                 }
 
-                // Notify user in chat
-                // emitBot("✅ Cleared all downloaded models and persisted PDF RAG store.")
+                _sideEffects.trySend(
+                    ChatBotSideEffects.OnCacheCleared("All cached models and PDF RAG store were successfully removed.")
+                )
+
             } catch (t: Throwable) {
                 Logger.e(t) { "Failed to clear cached models / RAG" }
-                // emitBot("Failed to clear cached models: ${t.message ?: "unknown error"}")
+
+                _sideEffects.trySend(
+                    ChatBotSideEffects.OnCacheClearFailed(
+                        t.message ?: "Unknown error while clearing cache."
+                    )
+                )
             }
         }
     }
@@ -1647,4 +1648,6 @@ sealed class ChatBotSideEffects {
     data object OnSettingsChanged : ChatBotSideEffects()
     data object OnStableDiffusionModelLoaded : ChatBotSideEffects()
     data object OnStableDiffusionModelLoadError : ChatBotSideEffects()
+    data class OnCacheCleared(val message: String) : ChatBotSideEffects()
+    data class OnCacheClearFailed(val message: String) : ChatBotSideEffects()
 }
