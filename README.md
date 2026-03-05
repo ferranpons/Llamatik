@@ -5,19 +5,20 @@
 <h1 align="center">Llamatik</h1>
 
 <p align="center">
-  <b>Run LLMs locally on Android, iOS, and Desktop — using a single Kotlin API.</b>
+  <b>Run AI locally on Android, iOS, Desktop and WASM — using a single Kotlin API.</b>
 </p>
 
 <p align="center">
-  Offline-first · Privacy-preserving · Kotlin Multiplatform
+  Offline-first · Privacy-preserving · True Kotlin Multiplatform
 </p>
 
 <p align="center">
   <a href="https://central.sonatype.com/artifact/com.llamatik/library"><img src="https://img.shields.io/maven-central/v/com.llamatik/library.svg" alt="maven central badge"/></a>
   <img src="https://img.shields.io/badge/Kotlin-Multiplatform-blueviolet" alt="kmp badge"/>
-  <img src="https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Desktop-green" alt="platforms badge"/>
+  <img src="https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Desktop%20%7C%20WASM-green" alt="platforms badge"/>
   <img src="https://img.shields.io/badge/LLM-llama.cpp-orange" alt="llama.cpp badge"/>
   <img src="https://img.shields.io/badge/STT-whisper.cpp-blue" alt="whisper.cpp badge"/>
+  <img src="https://img.shields.io/badge/Image-stablediffusion.cpp-purple" alt="stablediffusion badge"/>
   <img src="https://img.shields.io/badge/License-MIT-lightgrey" alt="license badge"/>
 </p>
 
@@ -25,15 +26,16 @@
 
 ## ✨ What is Llamatik?
 
-**Llamatik** is a Kotlin Multiplatform library that lets you run:
+**Llamatik** is a true Kotlin Multiplatform AI library that lets you run:
 
 - 🧠 **Large Language Models (LLMs)** via `llama.cpp`
 - 🎙 **Speech-to-Text (STT)** via `whisper.cpp`
+- 🎨 **Image Generation** via `stable-diffusion.cpp`
 
-...fully **on-device**, with optional remote inference — all behind a **unified Kotlin API**.
+Fully **on-device**, optionally remote — all behind a **unified Kotlin API**.
 
 No Python.  
-No mandatory servers.  
+No required servers.  
 Your models, your data, your device.
 
 Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI applications.
@@ -52,7 +54,7 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ No data exfiltration
 - ✅ Works with **GGUF** (LLMs) and **BIN** (Whisper) models
 
-### 🧠 LLM Capabilities
+### 🧠 LLM (llama.cpp)
 - ✅ Text generation (non-streaming & streaming)
 - ✅ Context-aware generation (system + history)
 - ✅ **Schema-constrained JSON generation**
@@ -64,6 +66,14 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ 16kHz mono WAV support
 - ✅ Selectable Whisper models
 - ✅ Integrated model download + management
+
+### 🎨 Image Generation (stable-diffusion.cpp)
+
+- ✅ On-device Stable Diffusion inference
+- ✅ Text-to-image generation
+- ✅ Fully offline
+- ✅ Works with optimized SD models
+- ✅ Native C++ integration
 
 ### 🧩 Kotlin Multiplatform
 - ✅ Shared API across **Android, iOS, Desktop**
@@ -111,7 +121,7 @@ Your App
 ▼
 LlamaBridge (shared Kotlin API)
 │
-├─ llamatik-core     → Native llama.cpp (on-device)
+├─ llamatik-core     → Native llama.cpp, whisper.cpp and stablediffusion.cpp (on-device)
 ├─ llamatik-client   → Remote HTTP inference
 └─ llamatik-backend  → llama.cpp-compatible server
 ```
@@ -125,11 +135,14 @@ only configuration.
 
 - iOS Deployment Target: **16.6+**
 - Android MinSDK API: **26**
+- Desktop: JVM 21+
+- WASM: Modern browser with WebAssembly support
 
 ## 📦 Current Versions
 
 - llama.cpp version: [b7815](https://github.com/ggml-org/llama.cpp/releases/tag/b7815)
 - whisper.cpp version [v1.8.3](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.3)
+- stablediffusion.cpp version [master-504-636d3cb](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-504-636d3cb)
 
 ---
 
@@ -152,7 +165,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:0.16.0")
+    implementation("com.llamatik:library:0.17.0")
 }
 ```
 
@@ -304,6 +317,68 @@ WhisperBridge.release()
 
 **Note**: WhisperBridge expects a WAV file path. Llamatik’s app uses AudioRecorder + AudioPaths.tempWavPath() to generate the WAV before calling transcribeWav(...).
 
+
+### 🎨 Image Generation (StableDiffusionBridge)
+
+Llamatik exposes Stable Diffusion through StableDiffusionBridge.
+
+Workflow
+1.	Download or bundle a Stable Diffusion model.
+2.	Initialize once.
+3.	Generate images from text prompts.
+
+### Stable-Diffusion API surface
+
+```kotlin
+object StableDiffusionBridge {
+
+    /** Returns absolute model path (copied from assets/bundle if needed). */
+    fun getModelPath(modelFileName: String): String
+
+    /** Loads the Stable Diffusion model. */
+    fun initModel(modelPath: String): Boolean
+
+    /**
+     * Generates an image from a prompt.
+     *
+     * @param prompt Text prompt
+     * @param width Output width
+     * @param height Output height
+     * @param steps Inference steps
+     * @param cfgScale Guidance scale
+     * @return PNG image as ByteArray
+     */
+    fun generateImage(
+        prompt: String,
+        width: Int = 512,
+        height: Int = 512,
+        steps: Int = 20,
+        cfgScale: Float = 7.5f
+    ): ByteArray
+
+    /** Releases native resources */
+    fun release()
+}
+```
+
+#### Example
+
+```kotlin
+import com.llamatik.library.platform.StableDiffusionBridge
+
+val modelPath = StableDiffusionBridge.getModelPath("sd-model.bin")
+
+StableDiffusionBridge.initModel(modelPath)
+
+val imageBytes = StableDiffusionBridge.generateImage(
+    prompt = "A cyberpunk llama in neon Tokyo",
+    width = 512,
+    height = 512
+)
+
+// Save imageBytes as PNG file
+```
+
 ## 🧑‍💻 Backend Usage
 
 Please go to the [Backend README.md](./backend/README.md) for more information.
@@ -312,7 +387,7 @@ Please go to the [Backend README.md](./backend/README.md) for more information.
 
 ## 🔍 Why Llamatik?
 
-- ✅ Built directly on llama.cpp and whisper.cpp
+- ✅ Built directly on llama.cpp, whisper.cpp and stable-diffusion.cpp
 - ✅ Offline-first & privacy-preserving
 - ✅ No runtime dependencies
 - ✅ Open-source (MIT)
