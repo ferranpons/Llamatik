@@ -450,9 +450,6 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.kotlin.stdlib)
-                implementation(compose.ui)
-                implementation(compose.foundation)
-                implementation(compose.components.resources)
                 resources.srcDir("src/commonMain/resources")
                 resources.exclude("**/*.gguf")
             }
