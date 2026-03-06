@@ -1,6 +1,5 @@
 package com.llamatik.library.platform
 
-import androidx.compose.runtime.Composable
 import com.llamatik.library.platform.whisper.whisper_stt_free_string
 import com.llamatik.library.platform.whisper.whisper_stt_init
 import com.llamatik.library.platform.whisper.whisper_stt_release
@@ -12,7 +11,6 @@ import platform.Foundation.NSLog
 
 actual object WhisperBridge {
 
-    @Composable
     actual fun getModelPath(modelFileName: String): String {
         // Not really used anymore now that models are downloaded,
         // but keep the signature for API symmetry.

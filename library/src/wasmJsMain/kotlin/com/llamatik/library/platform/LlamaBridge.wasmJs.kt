@@ -2,7 +2,6 @@
 
 package com.llamatik.library.platform
 
-import androidx.compose.runtime.Composable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,7 +19,6 @@ actual object LlamaBridge {
     private var lastIdbKey: String? = null
     private var lastFsPath: String? = null
 
-    @Composable
     actual fun getModelPath(modelFileName: String): String = modelFileName
 
     actual fun initEmbedModel(modelPath: String): Boolean = false

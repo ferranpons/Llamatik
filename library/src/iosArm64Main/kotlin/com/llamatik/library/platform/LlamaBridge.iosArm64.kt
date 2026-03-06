@@ -2,7 +2,6 @@
 
 package com.llamatik.library.platform
 
-import androidx.compose.runtime.Composable
 import com.llamatik.library.platform.llama.llama_embed
 import com.llamatik.library.platform.llama.llama_embed_free
 import com.llamatik.library.platform.llama.llama_embed_init
@@ -44,7 +43,6 @@ import platform.Foundation.writeToURL
 actual object LlamaBridge {
 
     @OptIn(ExperimentalResourceApi::class, BetaInteropApi::class)
-    @Composable
     actual fun getModelPath(modelFileName: String): String {
         val fm = NSFileManager.defaultManager
         val cachesDir = fm.URLsForDirectory(NSCachesDirectory, NSUserDomainMask).first() as NSURL

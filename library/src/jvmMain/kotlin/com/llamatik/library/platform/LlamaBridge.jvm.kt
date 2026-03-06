@@ -2,7 +2,6 @@
 
 package com.llamatik.library.platform
 
-import androidx.compose.runtime.Composable
 import java.io.File
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
@@ -20,7 +19,6 @@ actual object LlamaBridge {
      * On JVM / desktop we assume [modelFileName] is already an absolute path,
      * e.g. the value coming from LlamatikTempFile.absolutePath().
      */
-    @Composable
     actual fun getModelPath(modelFileName: String): String = modelFileName
 
     actual external fun initGenerateModel(modelPath: String): Boolean

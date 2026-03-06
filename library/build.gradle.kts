@@ -3,8 +3,6 @@ import org.gradle.jvm.tasks.Jar
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.compose.compiler)
-    id("org.jetbrains.compose")
     id("com.android.library")
     id("org.jetbrains.dokka") version "2.1.0"
     id("maven-publish")
@@ -554,10 +552,6 @@ kotlin {
     tasks.matching { it.name == "wasmJsProcessResources" }.configureEach {
         dependsOn(copyLlamatikWasmToResources)
     }
-}
-
-compose.resources {
-    publicResClass = true
 }
 
 extensions.configure<LibraryExtension> {

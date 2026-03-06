@@ -1,7 +1,5 @@
 package com.llamatik.library.platform
 
-import androidx.compose.runtime.Composable
-
 /**
  * Minimal Stable Diffusion bridge backed by leejet/stable-diffusion.cpp.
  *
@@ -11,7 +9,7 @@ import androidx.compose.runtime.Composable
  */
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect object StableDiffusionBridge {
-    @Composable
+
     fun getModelPath(modelFileName: String): String
 
     /**

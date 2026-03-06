@@ -1,6 +1,5 @@
 package com.llamatik.library.platform
 
-import androidx.compose.runtime.Composable
 import java.io.File
 import java.nio.file.Files
 import kotlin.io.path.Path
@@ -12,7 +11,6 @@ actual object WhisperBridge {
         loadNativeFromResources()
     }
 
-    @Composable
     actual fun getModelPath(modelFileName: String): String {
         // Desktop: expect models to exist on disk (downloaded).
         // Return as-is if caller passes an absolute path; otherwise resolve from working dir.

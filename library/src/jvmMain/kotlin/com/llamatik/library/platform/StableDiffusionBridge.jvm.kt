@@ -1,6 +1,5 @@
 package com.llamatik.library.platform
 
-import androidx.compose.runtime.Composable
 import java.io.File
 import java.nio.file.Files
 import kotlin.io.path.Path
@@ -11,7 +10,6 @@ actual object StableDiffusionBridge {
         loadNativeFromResources()
     }
 
-    @Composable
     actual fun getModelPath(modelFileName: String): String {
         // Desktop: callers typically pass an absolute path to downloaded model files.
         val p = Path(modelFileName)
