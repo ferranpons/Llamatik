@@ -50,15 +50,16 @@ static void log_stderr(const char* level, const char* fmt, ...) {
 //                              GLOBAL STATE (this TU)
 // ===================================================================================
 
-static struct llama_model *emb_model = nullptr;     // legacy (unused now)
-static struct llama_context *emb_ctx = nullptr;     // legacy (unused now)
-static int emb_dim = 0;                             // legacy (unused now)
+// Embeddings
+static struct llama_model *emb_model = nullptr;
+static struct llama_context *emb_ctx = nullptr;
+static int emb_dim = 0;
 
-// Text generation (USED by streaming only)
+// Text generation
 static struct llama_model *gen_model = nullptr;
 static struct llama_context *gen_ctx = nullptr;
 
-// Backend lifetime (USED by streaming only; helpers manage their own backend state)
+// Backend lifetime
 static bool g_backend_inited = false;
 
 // Streaming cancel flag (for generateStream)
@@ -66,9 +67,9 @@ static std::atomic<bool> g_cancel_requested{false};
 
 static std::atomic<float> g_temperature = 0.55f;
 static std::atomic<float> g_top_p = 0.80f;
-static std::atomic<int> g_top_k = 20;
+static std::atomic<int>   g_top_k = 20;
 static std::atomic<float> g_repeat_penalty = 1.10f;
-static std::atomic<int> g_max_new_tokens = 640;
+static std::atomic<int>   g_max_new_tokens = 640;
 
 // ===================================================================================
 //                              SMALL HELPERS
@@ -278,7 +279,7 @@ static std::string build_json_prompt_single(const char *prompt) {
 }
 
 static std::string build_json_prompt_chat(const std::string &system, const std::string &ctx, const std::string &user, bool has_schema) {
-    (void)system; // not used by this simplified prompt builder (kept for signature compatibility)
+    (void)system;
     std::string p;
     if (!ctx.empty()) {
         p += "Context:\n";
@@ -330,91 +331,139 @@ static std::string build_chat_prompt_gemma(const std::string &system_msg,
 //                                   EMBEDDINGS
 // ===================================================================================
 
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_initEmbedModel(JNIEnv *env, jobject, jstring modelPath) {
+    const char *path = env->GetStringUTFChars(modelPath, nullptr);
+    LOGI("initModel (embed): %s", path ? path : "(null)");
+
+    if (!g_backend_inited) {
+        llama_backend_init();
+        g_backend_inited = true;
+    }
+
+    // free previous
+    if (emb_ctx) { llama_free(emb_ctx); emb_ctx = nullptr; }
+    if (emb_model) { llama_model_free(emb_model); emb_model = nullptr; }
+    emb_dim = 0;
+
+    llama_model_params mparams = llama_model_default_params();
+    emb_model = llama_model_load_from_file(path, mparams);
+
+    env->ReleaseStringUTFChars(modelPath, path);
+
+    if (!emb_model) {
+        LOGE("embed model load failed");
+        return JNI_FALSE;
+    }
+
+    llama_context_params cparams = llama_context_default_params();
+    cparams.embeddings = true;
+    cparams.n_ctx = 2048;
+
+    emb_ctx = llama_init_from_model(emb_model, cparams);
+    if (!emb_ctx) {
+        llama_model_free(emb_model);
+        emb_model = nullptr;
+        return JNI_FALSE;
+    }
+
+    emb_dim = llama_model_n_embd(emb_model);
+    LOGI("Embed context ready. dim=%d", emb_dim);
+    return JNI_TRUE;
+}
+
 static jfloatArray make_empty_float_array(JNIEnv* env) {
     return env->NewFloatArray(0);
 }
 
 extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_llamatik_library_platform_LlamaBridge_initEmbedModel(JNIEnv *env, jobject, jstring modelPath) {
-    const char *path = env->GetStringUTFChars(modelPath, nullptr);
-    LOGI("initModel (embed) -> llama_embed_init: %s", path ? path : "(null)");
-
-    const bool ok = llama_embed_init(path);
-
-    env->ReleaseStringUTFChars(modelPath, path);
-
-    // legacy state is not used anymore
-    emb_model = nullptr;
-    emb_ctx   = nullptr;
-    emb_dim   = 0;
-
-    return ok ? JNI_TRUE : JNI_FALSE;
-}
-
-extern "C"
 JNIEXPORT jfloatArray JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstring input) {
-    if (!input) {
-        LOGE("embed: input null");
+    if (!emb_ctx || !emb_model) {
+        LOGE("embed: ctx/model null");
         return make_empty_float_array(env);
     }
 
     const char *inputStr = env->GetStringUTFChars(input, nullptr);
     if (!inputStr) {
-        LOGE("embed: GetStringUTFChars failed");
+        LOGE("embed: input null");
         return make_empty_float_array(env);
     }
 
-    float *emb = llama_embed(inputStr);
-
+    const int n_ctx = (int) llama_n_ctx(emb_ctx);
+    std::vector<llama_token> tokens(std::max(256, n_ctx));
+    int n_tokens = tokenize_with_retry(
+            llama_model_get_vocab(emb_model),
+            inputStr,
+            tokens,
+            /*add_bos*/ true,
+            /*parse_special*/ false
+    );
     env->ReleaseStringUTFChars(input, inputStr);
 
-    if (!emb) {
-        LOGE("embed: llama_embed returned null");
+    if (n_tokens <= 0) {
+        LOGW("embed tokenize failed, n=%d", n_tokens);
         return make_empty_float_array(env);
     }
 
-    const int dim = llama_embedding_size();
-    if (dim <= 0) {
-        LOGE("embed: llama_embedding_size invalid: %d", dim);
-        llama_free_embedding(emb);
+    if (n_tokens > n_ctx) {
+        LOGW("embed: sequence too long (n=%d, ctx=%d), trimming", n_tokens, n_ctx);
+        n_tokens = n_ctx;
+    }
+    tokens.resize(n_tokens);
+
+    llama_batch batch = llama_batch_init(n_tokens, 0, 1);
+    batch.n_tokens = n_tokens;
+    for (int i = 0; i < n_tokens; ++i) {
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i]    = false;
+    }
+
+    // embeddings path uses decode
+    if (llama_decode(emb_ctx, batch) != 0) {
+        LOGE("embed: llama_decode failed");
+        llama_batch_free(batch);
         return make_empty_float_array(env);
     }
 
+    const float *e = llama_get_embeddings_seq(emb_ctx, 0);
+    if (!e) {
+        LOGE("embed: embeddings null");
+        llama_batch_free(batch);
+        return make_empty_float_array(env);
+    }
+
+    const int dim = llama_model_n_embd(emb_model);
     jfloatArray result = env->NewFloatArray(dim);
     if (!result) {
         LOGE("embed: NewFloatArray(%d) failed", dim);
-        llama_free_embedding(emb);
+        llama_batch_free(batch);
         return make_empty_float_array(env);
     }
 
-    env->SetFloatArrayRegion(result, 0, dim, emb);
-    llama_free_embedding(emb);
+    env->SetFloatArrayRegion(result, 0, dim, e);
+    llama_batch_free(batch);
     return result;
 }
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_shutdown(JNIEnv *, jobject) {
-    // Embeddings/generation helper state
-    llama_embed_free();
-    llama_generate_free();
-
-    // Streaming state (owned in this TU)
-    if (gen_ctx) llama_free(gen_ctx);
-    if (gen_model) llama_model_free(gen_model);
-    gen_ctx = nullptr;
-    gen_model = nullptr;
-
-    // legacy unused state (just in case)
     if (emb_ctx) llama_free(emb_ctx);
     if (emb_model) llama_model_free(emb_model);
     emb_ctx = nullptr;
     emb_model = nullptr;
     emb_dim = 0;
 
-    // Backend used by streaming path
+    if (gen_ctx) llama_free(gen_ctx);
+    if (gen_model) llama_model_free(gen_model);
+    gen_ctx = nullptr;
+    gen_model = nullptr;
+
     if (g_backend_inited) {
         llama_backend_free();
         g_backend_inited = false;
@@ -429,27 +478,20 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jobject, jstring modelPath) {
     const char *path = env->GetStringUTFChars(modelPath, nullptr);
-    LOGI("initGenerateModel: %s", path ? path : "(null)");
-
-    if (!path) {
-        LOGE("initGenerateModel: path is null");
-        return JNI_FALSE;
-    }
-
-    bool helper_ok = llama_generate_init(path);
-    if (!helper_ok) {
-        LOGE("initGenerateModel: llama_generate_init failed");
-        env->ReleaseStringUTFChars(modelPath, path);
-        return JNI_FALSE;
-    }
+    LOGI("initGenerateModel (streaming ctx init): %s", path ? path : "(null)");
 
     if (!g_backend_inited) {
         llama_backend_init();
         g_backend_inited = true;
     }
 
+    // free previous
+    if (gen_ctx) { llama_free(gen_ctx); gen_ctx = nullptr; }
+    if (gen_model) { llama_model_free(gen_model); gen_model = nullptr; }
+
     llama_model_params mparams = llama_model_default_params();
     gen_model = llama_model_load_from_file(path, mparams);
+
     env->ReleaseStringUTFChars(modelPath, path);
 
     if (!gen_model) {
@@ -472,9 +514,11 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     return JNI_TRUE;
 }
 
-// Helper for JSON constrained non-streaming
 static std::string generate_with_optional_grammar(const char *prompt, const char *grammar, bool sanitize) {
     if (!gen_ctx || !gen_model || !prompt) return "";
+
+    // reset cancel for one-shot as well
+    g_cancel_requested.store(false, std::memory_order_relaxed);
 
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
@@ -490,11 +534,11 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
     llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
     batch.n_tokens = (int) tokens.size();
     for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i] = tokens[i];
-        batch.pos[i] = i;
-        batch.n_seq_id[i] = 1;
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
         batch.seq_id[i][0] = 0;
-        batch.logits[i] = (i == batch.n_tokens - 1);
+        batch.logits[i]    = (i == batch.n_tokens - 1);
     }
 
     if (llama_decode(gen_ctx, batch) != 0) {
@@ -502,15 +546,15 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
         return "";
     }
 
-    float temperature = g_temperature.load();
-    float top_p = g_top_p.load();
-    int top_k = g_top_k.load();
+    float temperature    = g_temperature.load();
+    float top_p          = g_top_p.load();
+    int   top_k          = g_top_k.load();
     float repeat_penalty = g_repeat_penalty.load();
-    int max_new_tokens = g_max_new_tokens.load();
+    int   max_new_tokens = g_max_new_tokens.load();
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (grammar && grammar[0]) {
-        // Hard constraint first
+        // Hard constraint must be first
         llama_sampler_chain_add(sampler, llama_sampler_init_grammar(vocab, grammar, "root"));
     }
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
@@ -537,7 +581,9 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
         int sn = llama_token_to_piece(vocab, tok, sp, (int) sizeof(sp), 0, /*special*/ 1);
         if (sn > 0) {
             sp[std::min(sn, (int) sizeof(sp) - 1)] = '\0';
-            if (std::strcmp(sp, "<end_of_turn>") == 0 || std::strcmp(sp, "<|eot_id|>") == 0 || std::strcmp(sp, "<start_of_turn>") == 0) {
+            if (std::strcmp(sp, "<end_of_turn>") == 0 ||
+                    std::strcmp(sp, "<|eot_id|>") == 0 ||
+                    std::strcmp(sp, "<start_of_turn>") == 0) {
                 break;
             }
         }
@@ -550,12 +596,12 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
         if (cur_pos >= n_ctx) break;
 
         llama_batch step = llama_batch_init(1, 0, 1);
-        step.n_tokens = 1;
-        step.token[0] = tok;
-        step.pos[0] = cur_pos++;
-        step.n_seq_id[0] = 1;
+        step.n_tokens     = 1;
+        step.token[0]     = tok;
+        step.pos[0]       = cur_pos++;
+        step.n_seq_id[0]  = 1;
         step.seq_id[0][0] = 0;
-        step.logits[0] = true;
+        step.logits[0]    = true;
 
         if (llama_decode(gen_ctx, step) != 0) {
             llama_batch_free(step);
@@ -576,29 +622,21 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, jstring input) {
-    if (!input) {
-        LOGE("generate: input null");
+    if (!gen_ctx || !gen_model) {
+        LOGE("generate: ctx/model null");
         return nullptr;
     }
 
     const char *prompt = env->GetStringUTFChars(input, nullptr);
     if (!prompt) {
-        LOGE("generate: GetStringUTFChars failed");
+        LOGE("generate: prompt null");
         return nullptr;
     }
 
-    char *res = llama_generate(prompt);
+    std::string out = generate_with_optional_grammar(prompt, /*grammar*/ nullptr, /*sanitize*/ true);
 
     env->ReleaseStringUTFChars(input, prompt);
-
-    if (!res) {
-        LOGE("generate: llama_generate returned null");
-        return env->NewStringUTF("");
-    }
-
-    jstring out = env->NewStringUTF(res);
-    std::free(res); // returned by malloc in llama_embed.cpp
-    return out;
+    return env->NewStringUTF(out.c_str());
 }
 
 extern "C"
@@ -626,10 +664,9 @@ Java_com_llamatik_library_platform_LlamaBridge_generateWithContext(
 
     std::string user_turn = build_user_with_context(ctx, user);
     std::string prompt = build_chat_prompt_gemma(system, user_turn);
-    jstring jp = env->NewStringUTF(prompt.c_str());
-    jstring r = Java_com_llamatik_library_platform_LlamaBridge_generate(env, nullptr, jp);
-    env->DeleteLocalRef(jp);
-    return r;
+
+    std::string out = generate_with_optional_grammar(prompt.c_str(), /*grammar*/ nullptr, /*sanitize*/ true);
+    return env->NewStringUTF(out.c_str());
 }
 
 // ---------------- JSON constrained (non-streaming) ----------------
@@ -755,11 +792,11 @@ static void stream_from_prompt(
     llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
     batch.n_tokens = (int) tokens.size();
     for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i] = tokens[i];
-        batch.pos[i] = i;
-        batch.n_seq_id[i] = 1;
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
         batch.seq_id[i][0] = 0;
-        batch.logits[i] = (i == batch.n_tokens - 1);
+        batch.logits[i]    = (i == batch.n_tokens - 1);
     }
     if (llama_decode(gen_ctx, batch) != 0) {
         llama_batch_free(batch);
@@ -829,12 +866,12 @@ static void stream_from_prompt(
         if (cur_pos >= n_ctx) break;
 
         llama_batch step = llama_batch_init(1, 0, 1);
-        step.n_tokens = 1;
-        step.token[0] = tok;
-        step.pos[0] = cur_pos++;
-        step.n_seq_id[0] = 1;
+        step.n_tokens     = 1;
+        step.token[0]     = tok;
+        step.pos[0]       = cur_pos++;
+        step.n_seq_id[0]  = 1;
         step.seq_id[0][0] = 0;
-        step.logits[0] = true;
+        step.logits[0]    = true;
 
         if (llama_decode(gen_ctx, step) != 0) {
             llama_batch_free(step);
@@ -915,7 +952,6 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateJsonStream(
     env->ReleaseStringUTFChars(jPrompt, prompt);
     if (jSchema) env->ReleaseStringUTFChars(jSchema, schema);
 
-    // ✅ FIX: use grammar in streaming (and correct argument order)
     stream_from_prompt(env, wrapped.c_str(), jCallback, m, grammar.c_str());
 }
 
@@ -960,8 +996,6 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateJsonWithContextStre
     if (jSchema) env->ReleaseStringUTFChars(jSchema, pschema);
 
     std::string prompt = build_json_prompt_chat(system, ctx, user, has_schema);
-
-    // ✅ FIX: use grammar in streaming (and correct argument order)
     stream_from_prompt(env, prompt.c_str(), jCallback, m, grammar.c_str());
 }
 
