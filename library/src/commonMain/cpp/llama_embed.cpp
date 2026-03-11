@@ -10,36 +10,46 @@
 #include <algorithm>
 #include <cctype>
 
-static struct llama_model  *model     = nullptr;
-static struct llama_context*ctx       = nullptr;
-static int embedding_size             = 0;
+static struct llama_model  *model      = nullptr;
+static struct llama_context* ctx        = nullptr;
+static int embedding_size              = 0;
 
 // Generation model state
-static struct llama_model  *gen_model = nullptr;
-static struct llama_context*gen_ctx   = nullptr;
+static struct llama_model  *gen_model  = nullptr;
+static struct llama_context* gen_ctx   = nullptr;
 
 // Track whether backend was initialized
 static bool g_backend_inited = false;
 
-static int tokenize_with_retry(const llama_vocab *vocab,
+static int tokenize_with_retry(
+        const llama_vocab *vocab,
         const char *text,
         std::vector<llama_token> &tokens,
         bool add_bos,
-        bool parse_special) {
+        bool parse_special
+) {
     if (!text) return 0;
     const int text_len = (int) std::strlen(text);
-    int n = llama_tokenize(vocab, text, text_len,
+
+    int n = llama_tokenize(
+            vocab,
+            text, text_len,
             tokens.data(),
             (int) tokens.size(),
-            add_bos, parse_special);
+            add_bos, parse_special
+    );
+
     if (n < 0) {
         const int need = -n;
         if (need > 0) {
             tokens.resize(need);
-            n = llama_tokenize(vocab, text, text_len,
+            n = llama_tokenize(
+                    vocab,
+                    text, text_len,
                     tokens.data(),
                     (int) tokens.size(),
-                    add_bos, parse_special);
+                    add_bos, parse_special
+            );
         }
     }
     return n;
@@ -57,17 +67,28 @@ static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int res
 
 // ---------- helpers for sanitization ----------
 static std::string to_lower(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(),
-            [](unsigned char c){ return (char)std::tolower(c); });
+    std::transform(
+            s.begin(), s.end(), s.begin(),
+            [](unsigned char c){ return (char)std::tolower(c); }
+    );
     return s;
 }
 
+static std::string trim(const std::string &s) {
+    size_t b = s.find_first_not_of(" \t\r\n");
+    if (b == std::string::npos) return "";
+    size_t e = s.find_last_not_of(" \t\r\n");
+    return s.substr(b, e - b + 1);
+}
+
+// Cut if the model leaked next-turn markers (belt-and-suspenders)
 static void cut_after_assistant_turn(std::string &s) {
     const char* cuts[] = {
             "<start_of_turn>",    // next role block
             "<|eot_id|>",         // some models emit this too
-            "QUESTION:",          // generic safety
-            "USER:"               // generic safety
+            "<end_of_turn>",      // gemma-style
+            "QUESTION:",          // generic
+            "USER:"               // generic
     };
     std::string sl = to_lower(s);
     for (auto *c : cuts) {
@@ -93,10 +114,13 @@ bool llama_embed_init(const char *model_path) {
 
     llama_model_params model_params = llama_model_default_params();
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed file: %s", model_path);
-    if (std::filesystem::exists(model_path)) {
-        __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Exists, size: %ju",
-                (uintmax_t)std::filesystem::file_size(model_path));
+    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed file: %s", model_path ? model_path : "(null)");
+    if (model_path && std::filesystem::exists(model_path)) {
+        __android_log_print(
+                ANDROID_LOG_INFO, "llama_jni",
+                "Exists, size: %ju",
+                (uintmax_t)std::filesystem::file_size(model_path)
+        );
     }
 
     model = llama_model_load_from_file(model_path, model_params);
@@ -123,6 +147,8 @@ bool llama_embed_init(const char *model_path) {
 float *llama_embed(const char *input) {
     if (!ctx || !model || !input) return nullptr;
 
+    const int n_ctx = (int) llama_n_ctx(ctx);
+
     std::vector<llama_token> tokens(1024);
     __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing for embeddings...");
 
@@ -131,27 +157,39 @@ float *llama_embed(const char *input) {
             input,
             tokens,
             /*add_bos*/ true,
-            /*parse_special*/ false);
+            /*parse_special*/ false
+    );
 
-    if (n_tokens <= 0 || n_tokens > llama_n_ctx(ctx)) {
-        __android_log_print(ANDROID_LOG_WARN, "llama_jni",
-                "Embedding tokenize fail/too long. n=%d ctx=%d", n_tokens, llama_n_ctx(ctx));
+    if (n_tokens <= 0) {
+        __android_log_print(ANDROID_LOG_WARN, "llama_jni", "Embedding tokenize failed. n=%d", n_tokens);
         return nullptr;
     }
     tokens.resize(n_tokens);
 
-    llama_batch batch = llama_batch_init(n_tokens, 0, 1);
-    batch.n_tokens = n_tokens;
-    for (int i = 0; i < n_tokens; i++) {
+    // If too long, trim (don’t just fail)
+    if ((int)tokens.size() > n_ctx) {
+        __android_log_print(
+                ANDROID_LOG_WARN, "llama_jni",
+                "Embedding input too long. n=%d ctx=%d. Truncating tail.",
+                (int)tokens.size(), n_ctx
+        );
+        truncate_to_ctx(tokens, n_ctx, /*reserve_tail*/ 0);
+    }
+
+    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
+    batch.n_tokens = (int)tokens.size();
+    for (int i = 0; i < batch.n_tokens; i++) {
         batch.token[i]     = tokens[i];
         batch.pos[i]       = i;
         batch.n_seq_id[i]  = 1;
         batch.seq_id[i][0] = 0;
-        batch.logits[i]    = false;
+        // Some builds are happier if the last token requests logits even though embeddings don’t need logits.
+        batch.logits[i]    = (i == batch.n_tokens - 1);
     }
 
-    if (llama_decode(ctx, batch) != 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_decode() for embeddings failed");
+    // ✅ Prefer llama_encode() for embedding contexts
+    if (llama_encode(ctx, batch) != 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_encode() for embeddings failed");
         llama_batch_free(batch);
         return nullptr;
     }
@@ -176,8 +214,13 @@ float *llama_embed(const char *input) {
     return out;
 }
 
-int llama_embedding_size() { return llama_model_n_embd(model); }
-void llama_free_embedding(float *ptr) { if (ptr) std::free(ptr); }
+int llama_embedding_size() {
+    return model ? llama_model_n_embd(model) : 0;
+}
+
+void llama_free_embedding(float *ptr) {
+    if (ptr) std::free(ptr);
+}
 
 void llama_embed_free() {
     if (ctx)   llama_free(ctx);
@@ -233,7 +276,8 @@ char *llama_generate(const char *prompt) {
             prompt,
             tokens,
             /*add_bos*/ true,
-            /*parse_special*/ true);  // allow chat special tokens
+            /*parse_special*/ true // allow chat special tokens
+    );
 
     if (n_tokens <= 0) {
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Tokenization failed. n=%d", n_tokens);
@@ -241,11 +285,14 @@ char *llama_generate(const char *prompt) {
     }
     tokens.resize(n_tokens);
 
-    const unsigned int n_ctx = llama_n_ctx(gen_ctx);
-    if (n_tokens > n_ctx - 8) {
-        __android_log_print(ANDROID_LOG_WARN, "llama_jni",
-                "Prompt too long (%d) for ctx (%d). Truncating tail-keep.", n_tokens, n_ctx);
-        truncate_to_ctx(tokens, (int)n_ctx, 8);
+    const int n_ctx = (int) llama_n_ctx(gen_ctx);
+    if ((int)tokens.size() > n_ctx - 8) {
+        __android_log_print(
+                ANDROID_LOG_WARN, "llama_jni",
+                "Prompt too long (%d) for ctx (%d). Truncating tail-keep.",
+                (int)tokens.size(), n_ctx
+        );
+        truncate_to_ctx(tokens, n_ctx, 8);
     }
 
     llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
@@ -282,39 +329,43 @@ char *llama_generate(const char *prompt) {
 
     int cur_pos = batch.n_tokens;
     const int safety = 16;
-    int remaining_ctx = (int)n_ctx - cur_pos - safety;
+
+    int remaining_ctx = n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
 
-    int max_new_tokens = std::max(remaining_ctx, 2048);
+    // ✅ FIX: cap by remaining context (and optionally also cap to a reasonable max)
+    const int hard_cap = 2048;
+    int max_new_tokens = std::min(remaining_ctx, hard_cap);
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni",
-            "Generation loop start. n_ctx=%d, cur_pos=%d, max_new_tokens=%d",
-            n_ctx, cur_pos, max_new_tokens);
+    __android_log_print(
+            ANDROID_LOG_INFO, "llama_jni",
+            "Generation loop start. n_ctx=%d, cur_pos=%d, remaining_ctx=%d, max_new_tokens=%d",
+            n_ctx, cur_pos, remaining_ctx, max_new_tokens
+    );
+
+    const llama_vocab* vocab = llama_model_get_vocab(gen_model);
 
     for (int i = 0; i < max_new_tokens; ++i) {
         llama_token token = llama_sampler_sample(sampler, gen_ctx, -1);
         if (token < 0) break;
-        if (token == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
+        if (token == llama_vocab_eos(vocab)) break;
 
         // Early stop on chat EOT / next-turn special tokens
         {
             char piece_buf[64];
             int nn = llama_token_to_piece(
-                    llama_model_get_vocab(gen_model),
+                    vocab,
                     token,
                     piece_buf,
                     (int)sizeof(piece_buf),
                     /* lstrip = */ 0,
-                    /* special = */ true); // recognize special tokens
+                    /* special = */ true
+            );
             if (nn > 0) {
-                if (nn >= (int)sizeof(piece_buf)) {
-                    piece_buf[sizeof(piece_buf) - 1] = '\0';
-                } else {
-                    piece_buf[nn] = '\0';
-                }
+                piece_buf[std::min(nn, (int)sizeof(piece_buf) - 1)] = '\0';
                 if (std::strcmp(piece_buf, "<end_of_turn>") == 0 ||
                         std::strcmp(piece_buf, "<|eot_id|>")  == 0 ||
-                        std::strcmp(piece_buf, "<start_of_turn>") == 0) { // don't roll into next turn
+                        std::strcmp(piece_buf, "<start_of_turn>") == 0) {
                     break;
                 }
             }
@@ -323,7 +374,7 @@ char *llama_generate(const char *prompt) {
         llama_sampler_accept(sampler, token);
         output_tokens.push_back(token);
 
-        if (cur_pos >= (int)n_ctx) break;
+        if (cur_pos >= n_ctx) break;
 
         llama_batch gen_batch = llama_batch_init(1, 0, 1);
         gen_batch.n_tokens = 1;
@@ -346,31 +397,35 @@ char *llama_generate(const char *prompt) {
     llama_sampler_free(sampler);
 
     std::string output;
+    output.reserve(output_tokens.size() * 4);
+
     char buf[8192];
     for (llama_token tok : output_tokens) {
         int n = llama_token_to_piece(
-                llama_model_get_vocab(gen_model),
+                vocab,
                 tok,
                 buf,
                 (int)sizeof(buf),
                 /* lstrip = */ 0,
-                /* special = */ false  // decode final text without special tokens
+                /* special = */ false // decode final text without special tokens
         );
         if (n > 0) {
             output.append(buf, n);
         }
     }
 
-    // Belt-and-suspenders sanitization: cut before any leaked next-turn markers
+    output = trim(output);
     cut_after_assistant_turn(output);
+    output = trim(output);
 
-    char *result = (char *) std::malloc(
-            output.size() + 1 /* null */);
+    char *result = (char *) std::malloc(output.size() + 1);
     if (!result) {
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "malloc failed for result C string.");
         return nullptr;
     }
-    std::memcpy(result, output.c_str(), output.size() + 1);
+    std::memcpy(result, output.c_str(), output.size());
+    result[output.size()] = '\0';
+
     __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generation done. bytes=%zu", output.size());
     return result;
 }

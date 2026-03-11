@@ -15,20 +15,11 @@ actual object LlamaBridge {
     actual external fun initEmbedModel(modelPath: String): Boolean
     actual external fun embed(input: String): FloatArray
 
-    /**
-     * On JVM / desktop we assume [modelFileName] is already an absolute path,
-     * e.g. the value coming from LlamatikTempFile.absolutePath().
-     */
     actual fun getModelPath(modelFileName: String): String = modelFileName
 
     actual external fun initGenerateModel(modelPath: String): Boolean
     actual external fun generate(prompt: String): String
-    actual external fun generateWithContext(
-        systemPrompt: String,
-        contextBlock: String,
-        userPrompt: String
-    ): String
-
+    actual external fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String
     actual external fun generateJson(prompt: String, jsonSchema: String?): String
     actual external fun generateJsonWithContext(
         systemPrompt: String,
@@ -38,13 +29,7 @@ actual object LlamaBridge {
     ): String
 
     private external fun nativeGenerateStream(prompt: String, callback: GenStream)
-    private external fun nativeGenerateWithContextStream(
-        system: String,
-        context: String,
-        user: String,
-        callback: GenStream
-    )
-
+    private external fun nativeGenerateWithContextStream(system: String, context: String, user: String, callback: GenStream)
     private external fun nativeGenerateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream)
     private external fun nativeGenerateJsonWithContextStream(
         system: String,
@@ -61,6 +46,17 @@ actual object LlamaBridge {
         topK: Int,
         repeatPenalty: Float,
     )
+
+    // ===================== KV session (JNI) =====================
+    private external fun nativeSessionReset(): Boolean
+    private external fun nativeSessionSave(path: String): Boolean
+    private external fun nativeSessionLoad(path: String): Boolean
+    private external fun nativeGenerateContinue(prompt: String): String
+
+    actual fun sessionReset(): Boolean = nativeSessionReset()
+    actual fun sessionSave(path: String): Boolean = nativeSessionSave(path)
+    actual fun sessionLoad(path: String): Boolean = nativeSessionLoad(path)
+    actual fun generateContinue(prompt: String): String = nativeGenerateContinue(prompt)
 
     actual fun updateGenerateParams(
         temperature: Float,
@@ -136,8 +132,6 @@ actual object LlamaBridge {
 
     private fun loadNativeFromResources() {
         val os = System.getProperty("os.name").lowercase()
-        val arch = System.getProperty("os.arch").lowercase()
-
         val platform = when {
             os.contains("mac") -> "macos"
             os.contains("linux") -> "linux"
@@ -145,10 +139,7 @@ actual object LlamaBridge {
             else -> error("Unsupported OS: $os")
         }
 
-        // If ever ship separate builds, split by arch too
-        // val archFolder = if (arch.contains("aarch64") || arch.contains("arm64")) "arm64" else "x64"
-
-        val libFileName = System.mapLibraryName("llama_jni") // mac -> libllama_jni.dylib
+        val libFileName = System.mapLibraryName("llama_jni")
         val resourcePath = "/native/$platform/$libFileName"
 
         val input = object {}.javaClass.getResourceAsStream(resourcePath)

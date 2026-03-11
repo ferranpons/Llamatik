@@ -61,6 +61,15 @@ actual object LlamaBridge {
         return runGenerate(prompt)
     }
 
+    actual fun generateContinue(prompt: String): String {
+        // No KV cache persistence in current WASM path; fallback to full generate.
+        return generate(prompt)
+    }
+
+    actual fun sessionReset(): Boolean = false
+    actual fun sessionSave(path: String): Boolean = false
+    actual fun sessionLoad(path: String): Boolean = false
+
     actual fun generateWithContext(systemPrompt: String, contextBlock: String, userPrompt: String): String =
         generate("$systemPrompt\n\n$contextBlock\n\n$userPrompt")
 

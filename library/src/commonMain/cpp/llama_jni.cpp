@@ -832,7 +832,7 @@ static void stream_from_prompt(
         const char *prompt,
         jobject jCallback,
         const StreamMethods &m,
-        const char *grammar_gbnf = nullptr) {
+        const char *grammar_gbnf /*= nullptr*/) {
 
     if (!gen_ctx || !gen_model) {
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("model not initialized"));
@@ -978,7 +978,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateStream(
         return;
     }
 
-    stream_from_prompt(env, prompt, jCallback, m);
+    stream_from_prompt(env, prompt, jCallback, m, /*grammar_gbnf*/ nullptr);
     env->ReleaseStringUTFChars(jPrompt, prompt);
 }
 
@@ -1020,7 +1020,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateJsonStream(
     env->ReleaseStringUTFChars(jPrompt, prompt);
     if (jSchema) env->ReleaseStringUTFChars(jSchema, schema);
 
-    // FIX: correct argument order + actually use grammar in streaming
+    // ✅ FIX: use grammar in streaming (and correct argument order)
     stream_from_prompt(env, wrapped.c_str(), jCallback, m, grammar.c_str());
 }
 
@@ -1066,7 +1066,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateJsonWithContextStre
 
     std::string prompt = build_json_prompt_chat(system, ctx, user, has_schema);
 
-    // FIX: correct argument order + actually use grammar in streaming
+    // ✅ FIX: use grammar in streaming (and correct argument order)
     stream_from_prompt(env, prompt.c_str(), jCallback, m, grammar.c_str());
 }
 
@@ -1113,7 +1113,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateWithContextStream(
     std::string user_turn = build_user_with_context(ctx, user);
     std::string prompt = build_chat_prompt_gemma(system, user_turn);
 
-    stream_from_prompt(env, prompt.c_str(), jCallback, m);
+    stream_from_prompt(env, prompt.c_str(), jCallback, m, /*grammar_gbnf*/ nullptr);
 }
 
 extern "C"

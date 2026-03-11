@@ -167,6 +167,20 @@ void llama_generate_set_params(float temperature,
         int top_k,
         float repeat_penalty);
 
+// ===================== KV session support =====================
+
+/** Clears KV/session state but keeps model/context loaded. */
+bool llama_generate_session_reset(void);
+
+/** Saves KV/session state to file. */
+bool llama_generate_session_save(const char *path_session);
+
+/** Loads KV/session state from file. */
+bool llama_generate_session_load(const char *path_session);
+
+/** Continues using existing KV cache; returns malloc string. */
+char *llama_generate_continue(const char *prompt);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

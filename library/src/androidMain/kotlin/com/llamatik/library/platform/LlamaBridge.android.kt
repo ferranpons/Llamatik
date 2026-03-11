@@ -3,10 +3,11 @@ package com.llamatik.library.platform
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual object LlamaBridge {
     init {
-        System.loadLibrary("llama_jni") // Only here, where System exists
+        System.loadLibrary("llama_jni")
     }
 
     actual fun getModelPath(modelFileName: String): String = modelFileName
+
     actual external fun initEmbedModel(modelPath: String): Boolean
     actual external fun embed(input: String): FloatArray
 
@@ -22,10 +23,10 @@ actual object LlamaBridge {
         jsonSchema: String?
     ): String
 
+    // Streaming
     private external fun nativeGenerateStream(prompt: String, callback: GenStream)
     private external fun nativeGenerateWithContextStream(system: String, context: String, user: String, callback: GenStream)
     private external fun nativeGenerateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream)
-
     private external fun nativeGenerateJsonWithContextStream(
         system: String,
         context: String,
@@ -34,6 +35,7 @@ actual object LlamaBridge {
         callback: GenStream
     )
 
+    // Params
     private external fun nativeUpdateGenerationParams(
         temperature: Float,
         maxTokens: Int,
@@ -41,6 +43,17 @@ actual object LlamaBridge {
         topK: Int,
         repeatPenalty: Float,
     )
+
+    // ===================== KV session (JNI) =====================
+    private external fun nativeSessionReset(): Boolean
+    private external fun nativeSessionSave(path: String): Boolean
+    private external fun nativeSessionLoad(path: String): Boolean
+    private external fun nativeGenerateContinue(prompt: String): String
+
+    actual fun sessionReset(): Boolean = nativeSessionReset()
+    actual fun sessionSave(path: String): Boolean = nativeSessionSave(path)
+    actual fun sessionLoad(path: String): Boolean = nativeSessionLoad(path)
+    actual fun generateContinue(prompt: String): String = nativeGenerateContinue(prompt)
 
     actual fun updateGenerateParams(
         temperature: Float,
@@ -70,8 +83,6 @@ actual object LlamaBridge {
         nativeGenerateJsonWithContextStream(systemPrompt, contextBlock, userPrompt, jsonSchema, callback)
     }
 
-    // Compose the same chat prompt you use on native. This mirrors your Gemma-style tags
-    // and matches the EOT checks we added in C++ (<start_of_turn>, <end_of_turn>, <|eot_id|>).
     private fun buildChatPrompt(systemPrompt: String, contextBlock: String, userPrompt: String): String {
         return buildString {
             append("<start_of_turn>system\n")
