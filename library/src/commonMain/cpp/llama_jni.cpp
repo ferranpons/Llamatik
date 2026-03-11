@@ -50,16 +50,15 @@ static void log_stderr(const char* level, const char* fmt, ...) {
 //                              GLOBAL STATE (this TU)
 // ===================================================================================
 
-// Embeddings
-static struct llama_model *emb_model = nullptr;
-static struct llama_context *emb_ctx = nullptr;
-static int emb_dim = 0;
+static struct llama_model *emb_model = nullptr;     // legacy (unused now)
+static struct llama_context *emb_ctx = nullptr;     // legacy (unused now)
+static int emb_dim = 0;                             // legacy (unused now)
 
-// Text generation
+// Text generation (USED by streaming only)
 static struct llama_model *gen_model = nullptr;
 static struct llama_context *gen_ctx = nullptr;
 
-// Backend lifetime
+// Backend lifetime (USED by streaming only; helpers manage their own backend state)
 static bool g_backend_inited = false;
 
 // Streaming cancel flag (for generateStream)
@@ -331,133 +330,91 @@ static std::string build_chat_prompt_gemma(const std::string &system_msg,
 //                                   EMBEDDINGS
 // ===================================================================================
 
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_llamatik_library_platform_LlamaBridge_initEmbedModel(JNIEnv *env, jobject, jstring modelPath) {
-    const char *path = env->GetStringUTFChars(modelPath, nullptr);
-    LOGI("initModel (embed): %s", path ? path : "(null)");
-
-    if (!g_backend_inited) {
-        llama_backend_init();
-        g_backend_inited = true;
-    }
-
-    llama_model_params mparams = llama_model_default_params();
-    emb_model = llama_model_load_from_file(path, mparams);
-    env->ReleaseStringUTFChars(modelPath, path);
-
-    if (!emb_model) {
-        LOGE("embed model load failed");
-        return JNI_FALSE;
-    }
-
-    llama_context_params cparams = llama_context_default_params();
-    cparams.embeddings = true;
-    cparams.n_ctx = 2048;
-
-    emb_ctx = llama_init_from_model(emb_model, cparams);
-    if (!emb_ctx) {
-        llama_model_free(emb_model);
-        emb_model = nullptr;
-        return JNI_FALSE;
-    }
-
-    emb_dim = llama_model_n_embd(emb_model);
-    LOGI("Embed context ready. dim=%d", emb_dim);
-    return JNI_TRUE;
-}
-
 static jfloatArray make_empty_float_array(JNIEnv* env) {
     return env->NewFloatArray(0);
 }
 
 extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_initEmbedModel(JNIEnv *env, jobject, jstring modelPath) {
+    const char *path = env->GetStringUTFChars(modelPath, nullptr);
+    LOGI("initModel (embed) -> llama_embed_init: %s", path ? path : "(null)");
+
+    const bool ok = llama_embed_init(path);
+
+    env->ReleaseStringUTFChars(modelPath, path);
+
+    // legacy state is not used anymore
+    emb_model = nullptr;
+    emb_ctx   = nullptr;
+    emb_dim   = 0;
+
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
 JNIEXPORT jfloatArray JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstring input) {
-    if (!emb_ctx || !emb_model) {
-        LOGE("embed: ctx/model null");
+    if (!input) {
+        LOGE("embed: input null");
         return make_empty_float_array(env);
     }
 
     const char *inputStr = env->GetStringUTFChars(input, nullptr);
     if (!inputStr) {
-        LOGE("embed: input null");
+        LOGE("embed: GetStringUTFChars failed");
         return make_empty_float_array(env);
     }
 
-    int n_ctx = (int) llama_n_ctx(emb_ctx);
-    std::vector<llama_token> tokens(n_ctx);
-    int n_tokens = tokenize_with_retry(
-            llama_model_get_vocab(emb_model),
-            inputStr,
-            tokens,
-            /*add_bos*/ true,
-            /*parse_special*/ false
-    );
+    float *emb = llama_embed(inputStr);
+
     env->ReleaseStringUTFChars(input, inputStr);
 
-    if (n_tokens <= 0) {
-        LOGW("embed tokenize failed, n=%d", n_tokens);
+    if (!emb) {
+        LOGE("embed: llama_embed returned null");
         return make_empty_float_array(env);
     }
 
-    if (n_tokens > n_ctx) {
-        LOGW("embed: sequence too long (n=%d, ctx=%d), trimming", n_tokens, n_ctx);
-        n_tokens = n_ctx;
-        tokens.resize(n_tokens);
-    } else {
-        tokens.resize(n_tokens);
-    }
-
-    llama_batch batch = llama_batch_init(n_tokens, 0, 1);
-    batch.n_tokens = n_tokens;
-    for (int i = 0; i < n_tokens; ++i) {
-        batch.token[i]   = tokens[i];
-        batch.pos[i]     = i;
-        batch.n_seq_id[i]= 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i] = (i == n_tokens - 1);
-    }
-
-    if (llama_encode(emb_ctx, batch) != 0) {
-        LOGE("embed: llama_decode failed");
-        llama_batch_free(batch);
+    const int dim = llama_embedding_size();
+    if (dim <= 0) {
+        LOGE("embed: llama_embedding_size invalid: %d", dim);
+        llama_free_embedding(emb);
         return make_empty_float_array(env);
     }
 
-    const float *e = llama_get_embeddings_seq(emb_ctx, 0);
-    if (!e) {
-        LOGE("embed: embeddings null");
-        llama_batch_free(batch);
-        return make_empty_float_array(env);
-    }
-
-    const int dim = llama_model_n_embd(emb_model);
     jfloatArray result = env->NewFloatArray(dim);
     if (!result) {
         LOGE("embed: NewFloatArray(%d) failed", dim);
-        llama_batch_free(batch);
+        llama_free_embedding(emb);
         return make_empty_float_array(env);
     }
 
-    env->SetFloatArrayRegion(result, 0, dim, e);
-    llama_batch_free(batch);
+    env->SetFloatArrayRegion(result, 0, dim, emb);
+    llama_free_embedding(emb);
     return result;
 }
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_shutdown(JNIEnv *, jobject) {
-    if (emb_ctx) llama_free(emb_ctx);
-    if (emb_model) llama_model_free(emb_model);
-    emb_ctx = nullptr;
-    emb_model = nullptr;
+    // Embeddings/generation helper state
+    llama_embed_free();
+    llama_generate_free();
 
+    // Streaming state (owned in this TU)
     if (gen_ctx) llama_free(gen_ctx);
     if (gen_model) llama_model_free(gen_model);
     gen_ctx = nullptr;
     gen_model = nullptr;
 
+    // legacy unused state (just in case)
+    if (emb_ctx) llama_free(emb_ctx);
+    if (emb_model) llama_model_free(emb_model);
+    emb_ctx = nullptr;
+    emb_model = nullptr;
+    emb_dim = 0;
+
+    // Backend used by streaming path
     if (g_backend_inited) {
         llama_backend_free();
         g_backend_inited = false;
@@ -473,6 +430,18 @@ JNIEXPORT jboolean JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jobject, jstring modelPath) {
     const char *path = env->GetStringUTFChars(modelPath, nullptr);
     LOGI("initGenerateModel: %s", path ? path : "(null)");
+
+    if (!path) {
+        LOGE("initGenerateModel: path is null");
+        return JNI_FALSE;
+    }
+
+    bool helper_ok = llama_generate_init(path);
+    if (!helper_ok) {
+        LOGE("initGenerateModel: llama_generate_init failed");
+        env->ReleaseStringUTFChars(modelPath, path);
+        return JNI_FALSE;
+    }
 
     if (!g_backend_inited) {
         llama_backend_init();
@@ -503,6 +472,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     return JNI_TRUE;
 }
 
+// Helper for JSON constrained non-streaming
 static std::string generate_with_optional_grammar(const char *prompt, const char *grammar, bool sanitize) {
     if (!gen_ctx || !gen_model || !prompt) return "";
 
@@ -606,104 +576,29 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, jstring input) {
-    if (!gen_ctx || !gen_model) {
-        LOGE("generate: ctx/model null");
+    if (!input) {
+        LOGE("generate: input null");
         return nullptr;
     }
 
     const char *prompt = env->GetStringUTFChars(input, nullptr);
     if (!prompt) {
-        LOGE("generate: prompt null");
+        LOGE("generate: GetStringUTFChars failed");
         return nullptr;
     }
 
-    llama_memory_clear(llama_get_memory(gen_ctx), false);
+    char *res = llama_generate(prompt);
 
-    std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),
-            prompt, tokens,
-            /*add_bos*/ true,
-            /*parse_special*/ true);
     env->ReleaseStringUTFChars(input, prompt);
 
-    if (n_tokens <= 0) {
-        LOGE("tokenize failed");
-        return nullptr;
-    }
-    tokens.resize(n_tokens);
-
-    const int n_ctx = (int)llama_n_ctx(gen_ctx);
-    if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
-
-    llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
-    batch.n_tokens = (int) tokens.size();
-    for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i] = tokens[i];
-        batch.pos[i] = i;
-        batch.n_seq_id[i] = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i] = (i == batch.n_tokens - 1);
-    }
-    if (llama_decode(gen_ctx, batch) != 0) {
-        llama_batch_free(batch);
-        LOGE("decode failed on prompt");
-        return nullptr;
+    if (!res) {
+        LOGE("generate: llama_generate returned null");
+        return env->NewStringUTF("");
     }
 
-    // NOTE: one-shot generate currently uses fixed sampler params (same as before).
-    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-
-    const int max_new_tokens = 640;
-    int cur_pos = batch.n_tokens;
-
-    std::string output;
-    char buf[8192];
-
-    for (int i = 0; i < max_new_tokens; ++i) {
-        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
-        if (tok < 0) break;
-        if (tok == llama_vocab_eos(llama_model_get_vocab(gen_model))) break;
-
-        // early stop on chat EOT
-        char sp[64];
-        int sn = llama_token_to_piece(llama_model_get_vocab(gen_model), tok, sp, (int) sizeof(sp), 0, 1);
-        if (sn > 0) {
-            sp[std::min(sn, (int) sizeof(sp) - 1)] = '\0';
-            if (std::strcmp(sp, "<end_of_turn>") == 0 || std::strcmp(sp, "<|eot_id|>") == 0) break;
-        }
-
-        llama_sampler_accept(sampler, tok);
-
-        int nn = llama_token_to_piece(llama_model_get_vocab(gen_model), tok, buf, (int) sizeof(buf), 0, 0);
-        if (nn > 0) output.append(buf, nn);
-
-        if (cur_pos >= n_ctx) break;
-
-        llama_batch step = llama_batch_init(1, 0, 1);
-        step.n_tokens = 1;
-        step.token[0] = tok;
-        step.pos[0] = cur_pos++;
-        step.n_seq_id[0] = 1;
-        step.seq_id[0][0] = 0;
-        step.logits[0] = true;
-
-        if (llama_decode(gen_ctx, step) != 0) {
-            llama_batch_free(step);
-            break;
-        }
-        llama_batch_free(step);
-    }
-
-    llama_sampler_free(sampler);
-    llama_batch_free(batch);
-
-    std::string clean = sanitize_generation(output);
-    return env->NewStringUTF(clean.c_str());
+    jstring out = env->NewStringUTF(res);
+    std::free(res); // returned by malloc in llama_embed.cpp
+    return out;
 }
 
 extern "C"
