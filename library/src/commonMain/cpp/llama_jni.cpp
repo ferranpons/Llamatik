@@ -1,28 +1,29 @@
 #include <jni.h>
 #include "llama.h"
 #include "llama_jni.h"
-
 #include "json-schema-to-grammar.h"
 #include "nlohmann/json.hpp"
 
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include <cstring>   // strlen, memcpy
-#include <cctype>    // tolower, isalpha, isdigit
-#include <cstdlib>   // malloc, free
+#include <cstring>
+#include <cctype>
+#include <cstdlib>
 #include <string_view>
 #include <vector>
 #include <atomic>
 #include <cstdio>
-#include <cstdarg>   // va_list, va_start, va_end
+#include <cstdarg>
+#include <utility>
+
+#ifndef LLAMA_DEFAULT_SEED
+#define LLAMA_DEFAULT_SEED 0
+#endif
 
 // ===================================================================================
 //                              PLATFORM LOGGING
 // ===================================================================================
-//
-// Android uses logcat; Desktop uses stderr.
-// This file is shared for Android + Desktop builds.
 
 #if defined(__ANDROID__)
 #include <android/log.h>
@@ -143,7 +144,6 @@ static void drop_lines_with_prefix(std::string &s, const char *prefix_lc) {
     s.swap(out);
 }
 
-// returns cleaned answer; fallback if too short or no alpha
 static std::string sanitize_generation(std::string s) {
     if (s.empty()) return s;
 
@@ -181,80 +181,11 @@ static std::string sanitize_generation(std::string s) {
 
     s = trim(s);
 
-    auto strip_leading_noise = [](std::string &t) {
-        auto ltrim_str = [&](const char *prefix) -> bool {
-            size_t n = std::strlen(prefix);
-            if (t.size() >= n && std::memcmp(t.data(), prefix, n) == 0) {
-                t.erase(0, n);
-                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
-                return true;
-            }
-            return false;
-        };
-
-        bool changed = true;
-        while (changed) {
-            changed = false;
-            changed |= ltrim_str("• ");
-            changed |= ltrim_str("- ");
-            changed |= ltrim_str("* ");
-            changed |= ltrim_str("> ");
-            changed |= ltrim_str(u8"—");
-            changed |= ltrim_str(u8"–");
-
-            if (!t.empty() && (t[0] == ':' || t[0] == '-')) {
-                t.erase(0, 1);
-                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
-                changed = true;
-            }
-
-            if (t.size() >= 2 && std::isdigit(static_cast<unsigned char>(t[0])) &&
-                    (t[1] == '.' || t[1] == ')')) {
-                t.erase(0, 2);
-                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
-                changed = true;
-            } else if (t.size() >= 2 && std::isalpha(static_cast<unsigned char>(t[0])) &&
-                    (t[1] == '.' || t[1] == ')')) {
-                t.erase(0, 2);
-                if (!t.empty() && t[0] == ' ') t.erase(0, 1);
-                changed = true;
-            }
-        }
-
-        size_t k = 0;
-        while (k < t.size() && !std::isalnum(static_cast<unsigned char>(t[k]))) ++k;
-        if (k > 0 && k < t.size()) t.erase(0, k);
-    };
-
-    strip_leading_noise(s);
-    s = trim(s);
-
     bool has_alpha = std::any_of(s.begin(), s.end(), [](unsigned char c) {
         return std::isalpha(c);
     });
     if (!has_alpha || s.size() < 12) {
         return "I don't have enough information in my sources.";
-    }
-
-    {
-        std::string low = to_lower(s);
-        const char *fragments[] = {
-                "answer only from the provided context",
-                "do not repeat the context",
-                "respond exactly: \"i don't have enough information in my sources",
-                "instructions:",
-                "begin your answer",
-                "start your response",
-                "do not include anything else",
-                "reply with only the answer text"
-        };
-        for (const char *f: fragments) {
-            size_t p = low.find(f);
-            if (p != std::string::npos) {
-                s = trim(s.substr(0, p));
-                break;
-            }
-        }
     }
 
     return s;
@@ -297,7 +228,6 @@ static std::string build_json_prompt_chat(const std::string &system, const std::
     return p;
 }
 
-// ---------- Chat templating ----------
 static std::string build_user_with_context(const std::string &context_block,
         const std::string &user_question) {
     auto t = [](const std::string &x) { return trim(x); };
@@ -307,7 +237,7 @@ static std::string build_user_with_context(const std::string &context_block,
     return oss.str();
 }
 
-static std::string build_chat_prompt_gemma(const std::string &system_msg,
+static std::string build_chat_prompt_gemma_fallback(const std::string &system_msg,
         const std::string &user_msg) {
     std::ostringstream oss;
     const std::string sys = (system_msg.empty()
@@ -327,6 +257,76 @@ static std::string build_chat_prompt_gemma(const std::string &system_msg,
     return oss.str();
 }
 
+// ---- Auto chat-template prompt builder (uses model's embedded template) ----
+// Uses:
+//   const char * llama_model_chat_template(const llama_model * model, const char * name);
+//   int32_t llama_chat_apply_template(const char * tmpl, const llama_chat_message * chat, size_t n_msg, bool add_ass, char * buf, int32_t length);
+static std::string build_chat_prompt_with_model_template_or_fallback(
+        const std::string &system_msg,
+        const std::string &user_msg) {
+
+    // If the generation model isn't ready yet, fallback.
+    if (!gen_model) {
+        return build_chat_prompt_gemma_fallback(system_msg, user_msg);
+    }
+
+    // Get the template string embedded in the GGUF.
+    // Passing nullptr selects the default template.
+    const char *tmpl = llama_model_chat_template(gen_model, nullptr);
+
+    if (!tmpl || !tmpl[0]) {
+        // Some builds may not expose it, so fallback.
+        return build_chat_prompt_gemma_fallback(system_msg, user_msg);
+    }
+
+    // Build messages (system + user). Keep backing strings alive while applying template.
+    std::string role_system = "system";
+    std::string role_user   = "user";
+
+    llama_chat_message msgs[2]{};
+    msgs[0].role    = role_system.c_str();
+    msgs[0].content = system_msg.c_str();
+    msgs[1].role    = role_user.c_str();
+    msgs[1].content = user_msg.c_str();
+
+    // Apply template into a buffer (2-pass grow if needed).
+    // Recommended size is ~ 2x total chars, but we’ll just start reasonably and grow.
+    int32_t cap = (int32_t) std::max<size_t>(256, (system_msg.size() + user_msg.size()) * 4);
+    std::vector<char> buf((size_t)cap);
+
+    int32_t need = llama_chat_apply_template(
+            tmpl,
+            msgs,
+            2,
+            /*add_ass=*/true,
+            buf.data(),
+            cap
+    );
+
+    if (need < 0) {
+        // Defensive: treat as failure.
+        return build_chat_prompt_gemma_fallback(system_msg, user_msg);
+    }
+
+    if (need > cap) {
+        cap = need + 1;
+        buf.assign((size_t)cap, '\0');
+        need = llama_chat_apply_template(
+                tmpl,
+                msgs,
+                2,
+                /*add_ass=*/true,
+                buf.data(),
+                cap
+        );
+        if (need < 0 || need > cap) {
+            return build_chat_prompt_gemma_fallback(system_msg, user_msg);
+        }
+    }
+
+    return std::string(buf.data(), (size_t)need);
+}
+
 // ===================================================================================
 //                                   EMBEDDINGS
 // ===================================================================================
@@ -342,7 +342,6 @@ Java_com_llamatik_library_platform_LlamaBridge_initEmbedModel(JNIEnv *env, jobje
         g_backend_inited = true;
     }
 
-    // free previous
     if (emb_ctx) { llama_free(emb_ctx); emb_ctx = nullptr; }
     if (emb_model) { llama_model_free(emb_model); emb_model = nullptr; }
     emb_dim = 0;
@@ -423,7 +422,6 @@ Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstri
         batch.logits[i]    = false;
     }
 
-    // embeddings path uses decode
     if (llama_decode(emb_ctx, batch) != 0) {
         LOGE("embed: llama_decode failed");
         llama_batch_free(batch);
@@ -485,7 +483,6 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
         g_backend_inited = true;
     }
 
-    // free previous
     if (gen_ctx) { llama_free(gen_ctx); gen_ctx = nullptr; }
     if (gen_model) { llama_model_free(gen_model); gen_model = nullptr; }
 
@@ -517,14 +514,20 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
 static std::string generate_with_optional_grammar(const char *prompt, const char *grammar, bool sanitize) {
     if (!gen_ctx || !gen_model || !prompt) return "";
 
-    // reset cancel for one-shot as well
     g_cancel_requested.store(false, std::memory_order_relaxed);
 
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     const llama_vocab *vocab = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(vocab, prompt, tokens, /*add_bos*/ true, /*parse_special*/ true);
+
+    int n_tokens = tokenize_with_retry(
+            vocab,
+            prompt,
+            tokens,
+            /*add_bos*/ false,
+            /*parse_special*/ true
+    );
     if (n_tokens <= 0) return "";
     tokens.resize(n_tokens);
 
@@ -550,11 +553,16 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
     float top_p          = g_top_p.load();
     int   top_k          = g_top_k.load();
     float repeat_penalty = g_repeat_penalty.load();
-    int   max_new_tokens = g_max_new_tokens.load();
+    int   max_new_tokens_cfg = g_max_new_tokens.load();
+
+    int cur_pos = batch.n_tokens;
+    const int safety = 16;
+    int remaining = n_ctx - cur_pos - safety;
+    if (remaining < 0) remaining = 0;
+    int max_new_tokens = std::min(max_new_tokens_cfg, remaining);
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (grammar && grammar[0]) {
-        // Hard constraint must be first
         llama_sampler_chain_add(sampler, llama_sampler_init_grammar(vocab, grammar, "root"));
     }
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
@@ -563,21 +571,17 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    int cur_pos = batch.n_tokens;
     std::string output;
     char buf[8192];
     char sp[64];
 
     for (int i = 0; i < max_new_tokens; ++i) {
-        if (g_cancel_requested.load(std::memory_order_relaxed)) {
-            break;
-        }
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
 
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (tok == llama_vocab_eos(vocab)) break;
 
-        // early stop on chat EOT tokens if they appear
         int sn = llama_token_to_piece(vocab, tok, sp, (int) sizeof(sp), 0, /*special*/ 1);
         if (sn > 0) {
             sp[std::min(sn, (int) sizeof(sp) - 1)] = '\0';
@@ -613,9 +617,7 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
     llama_sampler_free(sampler);
     llama_batch_free(batch);
 
-    if (sanitize) {
-        return sanitize_generation(output);
-    }
+    if (sanitize) return sanitize_generation(output);
     return trim(output);
 }
 
@@ -663,7 +665,7 @@ Java_com_llamatik_library_platform_LlamaBridge_generateWithContext(
     }
 
     std::string user_turn = build_user_with_context(ctx, user);
-    std::string prompt = build_chat_prompt_gemma(system, user_turn);
+    std::string prompt = build_chat_prompt_with_model_template_or_fallback(system, user_turn);
 
     std::string out = generate_with_optional_grammar(prompt.c_str(), /*grammar*/ nullptr, /*sanitize*/ true);
     return env->NewStringUTF(out.c_str());
@@ -757,8 +759,6 @@ static inline bool is_eot_piece(const char *s) {
     return std::strcmp(s, "<end_of_turn>") == 0 || std::strcmp(s, "<|eot_id|>") == 0;
 }
 
-// Streams tokens from a prepared prompt string.
-// Optional: pass a GBNF grammar string to hard-constrain decoding (JSON / JSON schema).
 static void stream_from_prompt(
         JNIEnv *env,
         const char *prompt,
@@ -771,14 +771,13 @@ static void stream_from_prompt(
         return;
     }
 
-    // Reset cancel flag at the start of each stream
     g_cancel_requested.store(false, std::memory_order_relaxed);
     llama_memory_clear(llama_get_memory(gen_ctx), false);
 
     std::vector<llama_token> tokens(2048);
     int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),
             prompt, tokens,
-            /*add_bos*/ true,
+            /*add_bos*/ false,
             /*parse_special*/ true);
     if (n_tokens <= 0) {
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("tokenization failed"));
@@ -808,52 +807,45 @@ static void stream_from_prompt(
     float top_p          = g_top_p.load();
     int   top_k          = g_top_k.load();
     float repeat_penalty = g_repeat_penalty.load();
-    int   max_new_tokens = g_max_new_tokens.load();
+    int   max_new_tokens_cfg = g_max_new_tokens.load();
+
+    int cur_pos = batch.n_tokens;
+    const int safety = 16;
+    int remaining = n_ctx - cur_pos - safety;
+    if (remaining < 0) remaining = 0;
+    int max_new_tokens = std::min(max_new_tokens_cfg, remaining);
 
     const llama_vocab *vocab = llama_model_get_vocab(gen_model);
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-
-    // IMPORTANT: grammar must be first in the chain so it can veto invalid tokens.
     if (grammar_gbnf && grammar_gbnf[0]) {
         llama_sampler_chain_add(sampler, llama_sampler_init_grammar(vocab, grammar_gbnf, "root"));
     }
-
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    int cur_pos = batch.n_tokens;
-
     char piece_buf[768];
     char spec_buf[64];
 
     for (int i = 0; i < max_new_tokens; ++i) {
-        if (g_cancel_requested.load(std::memory_order_relaxed)) {
-            break;
-        }
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
 
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (tok == llama_vocab_eos(vocab)) break;
 
-        int sn = llama_token_to_piece(vocab,
-                tok, spec_buf, (int) sizeof(spec_buf),
-                /* lstrip */ 0, /* special */ 1);
+        int sn = llama_token_to_piece(vocab, tok, spec_buf, (int) sizeof(spec_buf), 0, /*special*/ 1);
         if (sn > 0) {
             spec_buf[std::min(sn, (int) sizeof(spec_buf) - 1)] = '\0';
-            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0) {
-                break;
-            }
+            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0) break;
         }
 
         llama_sampler_accept(sampler, tok);
 
-        int nn = llama_token_to_piece(vocab,
-                tok, piece_buf, (int) sizeof(piece_buf),
-                /* lstrip */ 0, /* special */ 0);
+        int nn = llama_token_to_piece(vocab, tok, piece_buf, (int) sizeof(piece_buf), 0, /*special*/ 0);
         if (nn > 0) {
             piece_buf[std::min(nn, (int) sizeof(piece_buf) - 1)] = '\0';
             jstring delta = env->NewStringUTF(piece_buf);
@@ -885,8 +877,6 @@ static void stream_from_prompt(
 
     llama_sampler_free(sampler);
     llama_batch_free(batch);
-
-    // Always signal completion – Kotlin side will ignore if it has nulled activeRequestId
     env->CallVoidMethod(jCallback, m.onComplete);
 }
 
@@ -1040,7 +1030,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateWithContextStream(
     }
 
     std::string user_turn = build_user_with_context(ctx, user);
-    std::string prompt = build_chat_prompt_gemma(system, user_turn);
+    std::string prompt = build_chat_prompt_with_model_template_or_fallback(system, user_turn);
 
     stream_from_prompt(env, prompt.c_str(), jCallback, m, /*grammar_gbnf*/ nullptr);
 }

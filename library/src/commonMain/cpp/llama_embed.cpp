@@ -65,40 +65,11 @@ static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int res
     tokens.swap(out);
 }
 
-// ---------- helpers for sanitization ----------
-static std::string to_lower(std::string s) {
-    std::transform(
-            s.begin(), s.end(), s.begin(),
-            [](unsigned char c){ return (char)std::tolower(c); }
-    );
-    return s;
-}
-
 static std::string trim(const std::string &s) {
     size_t b = s.find_first_not_of(" \t\r\n");
     if (b == std::string::npos) return "";
     size_t e = s.find_last_not_of(" \t\r\n");
     return s.substr(b, e - b + 1);
-}
-
-// Cut if the model leaked next-turn markers (belt-and-suspenders)
-static void cut_after_assistant_turn(std::string &s) {
-    const char* cuts[] = {
-            "<start_of_turn>",    // next role block
-            "<|eot_id|>",         // some models emit this too
-            "<end_of_turn>",      // gemma-style
-            "QUESTION:",          // generic
-            "USER:"               // generic
-    };
-    std::string sl = to_lower(s);
-    for (auto *c : cuts) {
-        std::string cl = to_lower(std::string(c));
-        size_t pos = sl.find(cl);
-        if (pos != std::string::npos) {
-            s = s.substr(0, pos);
-            return;
-        }
-    }
 }
 
 extern "C" {
@@ -166,7 +137,6 @@ float *llama_embed(const char *input) {
     }
     tokens.resize(n_tokens);
 
-    // If too long, trim (don’t just fail)
     if ((int)tokens.size() > n_ctx) {
         __android_log_print(
                 ANDROID_LOG_WARN, "llama_jni",
@@ -183,11 +153,9 @@ float *llama_embed(const char *input) {
         batch.pos[i]       = i;
         batch.n_seq_id[i]  = 1;
         batch.seq_id[i][0] = 0;
-        // Some builds are happier if the last token requests logits even though embeddings don’t need logits.
         batch.logits[i]    = (i == batch.n_tokens - 1);
     }
 
-    // ✅ Prefer llama_encode() for embedding contexts
     if (llama_encode(ctx, batch) != 0) {
         __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_encode() for embeddings failed");
         llama_batch_free(batch);
@@ -271,11 +239,13 @@ char *llama_generate(const char *prompt) {
     std::vector<llama_token> tokens(2048);
     __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing (gen)...");
 
+    const llama_vocab* vocab = llama_model_get_vocab(gen_model);
+
     int n_tokens = tokenize_with_retry(
-            llama_model_get_vocab(gen_model),
+            vocab,
             prompt,
             tokens,
-            /*add_bos*/ true,
+            /*add_bos*/ false,
             /*parse_special*/ true // allow chat special tokens
     );
 
@@ -299,9 +269,9 @@ char *llama_generate(const char *prompt) {
     batch.n_tokens = (int)tokens.size();
     for (int i = 0; i < batch.n_tokens; ++i) {
         batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;       // start at 0 each turn
+        batch.pos[i]       = i;
         batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;       // single sequence id = 0
+        batch.seq_id[i][0] = 0;
         batch.logits[i]    = (i == batch.n_tokens - 1);
     }
 
@@ -311,7 +281,6 @@ char *llama_generate(const char *prompt) {
         return nullptr;
     }
 
-    // Sampler
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
         llama_batch_free(batch);
@@ -323,7 +292,6 @@ char *llama_generate(const char *prompt) {
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     std::vector<llama_token> output_tokens;
 
@@ -333,7 +301,6 @@ char *llama_generate(const char *prompt) {
     int remaining_ctx = n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
 
-    // ✅ FIX: cap by remaining context (and optionally also cap to a reasonable max)
     const int hard_cap = 2048;
     int max_new_tokens = std::min(remaining_ctx, hard_cap);
 
@@ -342,8 +309,6 @@ char *llama_generate(const char *prompt) {
             "Generation loop start. n_ctx=%d, cur_pos=%d, remaining_ctx=%d, max_new_tokens=%d",
             n_ctx, cur_pos, remaining_ctx, max_new_tokens
     );
-
-    const llama_vocab* vocab = llama_model_get_vocab(gen_model);
 
     for (int i = 0; i < max_new_tokens; ++i) {
         llama_token token = llama_sampler_sample(sampler, gen_ctx, -1);
@@ -407,15 +372,11 @@ char *llama_generate(const char *prompt) {
                 buf,
                 (int)sizeof(buf),
                 /* lstrip = */ 0,
-                /* special = */ false // decode final text without special tokens
+                /* special = */ false
         );
-        if (n > 0) {
-            output.append(buf, n);
-        }
+        if (n > 0) output.append(buf, n);
     }
 
-    output = trim(output);
-    cut_after_assistant_turn(output);
     output = trim(output);
 
     char *result = (char *) std::malloc(output.size() + 1);
