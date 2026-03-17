@@ -373,6 +373,15 @@ bool llama_embed_init(const char *model_path) {
     dbg_init();
     if (!g_backend_inited) {
         llama_backend_init();
+
+        // 🔇 Silence llama.cpp logs
+        llama_log_set([](ggml_log_level level, const char * text, void * user_data) {
+            // Only keep real errors
+            if (level == GGML_LOG_LEVEL_ERROR) {
+                fprintf(stderr, "%s", text);
+            }
+        }, nullptr);
+
         g_backend_inited = true;
     }
 

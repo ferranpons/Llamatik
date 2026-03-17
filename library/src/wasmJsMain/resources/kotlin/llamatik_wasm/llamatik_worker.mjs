@@ -1,96 +1,14 @@
-const DB_NAME = "llamatik";
-const DB_VER = 1;
-const STORE_CHUNKS = "chunks";
-const STORE_META = "meta";
-
-const WASM_MJS_URL  = "/kotlin/llamatik_wasm/llamatik_wasm.mjs";
+const WASM_MJS_URL = "/kotlin/llamatik_wasm/llamatik_wasm.mjs";
 const WASM_BASE_URL = "/kotlin/llamatik_wasm/";
 
 let Module = null;
-let modelReady = false;
-let initInFlight = false;
+let initDone = false;
+let initPromise = null;
+let currentRequestId = null;
+let currentModelKey = null; // idbKey + fsPath identity
 
-let currentRequestId = 0;
-
-// --- Report hard worker failures back to main thread (when possible) ---
-function postWorkerError(message, detail) {
-  try {
-    postMessage({
-      type: "worker-error",
-      message: String(message || "Worker error"),
-      detail: detail ? String(detail) : ""
-    });
-  } catch (_) {}
-}
-
-self.addEventListener("error", (ev) => {
-  // This will run only if the worker script loaded enough to register listeners.
-  const msg =
-    "Worker runtime error: " + String(ev && ev.message ? ev.message : "unknown") +
-    " at " + String(ev && ev.filename ? ev.filename : "") +
-    ":" + String(ev && ev.lineno ? ev.lineno : "") +
-    ":" + String(ev && ev.colno ? ev.colno : "");
-  postWorkerError(msg, ev && ev.error && ev.error.stack ? ev.error.stack : "");
-  if (ev && ev.preventDefault) ev.preventDefault();
-});
-
-self.addEventListener("unhandledrejection", (ev) => {
-  const reason = ev && ev.reason ? ev.reason : "unknown";
-  const msg = "Worker unhandledrejection: " + String(reason && reason.message ? reason.message : reason);
-  const stack = reason && reason.stack ? reason.stack : "";
-  postWorkerError(msg, stack);
-  if (ev && ev.preventDefault) ev.preventDefault();
-});
-
-// --- streaming callbacks used by EM_ASM ---
-globalThis.__llamatik_stream_token = (delta) => {
-  postMessage({ type: "delta", requestId: currentRequestId, delta: String(delta ?? "") });
-};
-globalThis.__llamatik_stream_done = () => {
-  postMessage({ type: "done", requestId: currentRequestId });
-};
-globalThis.__llamatik_stream_error = (error) => {
-  postMessage({ type: "error", requestId: currentRequestId, error: String(error ?? "error") });
-};
-
-function openDb(cb) {
-  const req = indexedDB.open(DB_NAME, DB_VER);
-  req.onupgradeneeded = () => {
-    const db = req.result;
-    if (!db.objectStoreNames.contains(STORE_CHUNKS)) db.createObjectStore(STORE_CHUNKS);
-    if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META);
-  };
-  req.onsuccess = () => cb(null, req.result);
-  req.onerror = () => cb(String(req.error || "open error"), null);
-}
-
-function readChunkCount(db, key, cb) {
-  const tx = db.transaction(STORE_META, "readonly");
-  const meta = tx.objectStore(STORE_META);
-  const r = meta.get(key);
-  r.onsuccess = () => {
-    const countStr = r.result;
-    const count = (countStr == null) ? 0 : parseInt(countStr, 10);
-    cb(null, count);
-  };
-  r.onerror = () => cb(String(r.error || "meta get error"), 0);
-}
-
-function readChunk(db, key, i, cb) {
-  const tx = db.transaction(STORE_CHUNKS, "readonly");
-  const chunks = tx.objectStore(STORE_CHUNKS);
-  const r = chunks.get(key + "#" + i);
-  r.onsuccess = () => cb(null, r.result);
-  r.onerror = () => cb(String(r.error || "chunk read error"), null);
-}
-
-function ensureDir(path) {
-  const parts = path.split("/").filter(Boolean);
-  let cur = "";
-  for (let i = 0; i < parts.length - 1; i++) {
-    cur += "/" + parts[i];
-    try { Module.FS.mkdir(cur); } catch(e) {}
-  }
+function post(msg) {
+  self.postMessage(msg);
 }
 
 function chunkToU8(chunk) {
@@ -102,7 +20,6 @@ function chunkToU8(chunk) {
     catch (e) { throw new Error("Unsupported chunk type: " + (typeof chunk)); }
   }
 
-  // Base64 chunk
   const bin = atob(chunk);
   const len = bin.length;
   const u8 = new Uint8Array(len);
@@ -110,161 +27,212 @@ function chunkToU8(chunk) {
   return u8;
 }
 
-async function loadModuleOnce() {
+function ensureDir(Module, path) {
+  const parts = path.split("/").filter(Boolean);
+  let cur = "";
+  for (let i = 0; i < parts.length - 1; i++) {
+    cur += "/" + parts[i];
+    try { Module.FS.mkdir(cur); } catch (_) {}
+  }
+}
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("llamatik", 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("chunks")) db.createObjectStore("chunks");
+      if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(String(req.error || "open error"));
+  });
+}
+
+function readChunkCount(db, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("meta", "readonly");
+    const r = tx.objectStore("meta").get(key);
+    r.onsuccess = () => {
+      const countStr = r.result;
+      resolve((countStr == null) ? 0 : parseInt(countStr, 10));
+    };
+    r.onerror = () => reject(String(r.error || "meta get error"));
+  });
+}
+
+function readChunk(db, key, i) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("chunks", "readonly");
+    const r = tx.objectStore("chunks").get(key + "#" + i);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(String(r.error || "chunk read error"));
+  });
+}
+
+async function loadModule() {
   if (Module) return Module;
 
-  let mod;
-  try {
-    mod = await import(/* webpackIgnore: true */ WASM_MJS_URL);
-  } catch (e) {
-    // If import fails, tell main thread explicitly.
-    postWorkerError("Failed to import WASM module: " + WASM_MJS_URL, String(e));
-    throw e;
-  }
-
+  const mod = await import(WASM_MJS_URL);
   const factory = mod.default || mod;
 
   Module = await factory({
     locateFile: (p) => WASM_BASE_URL + p
   });
 
-  // Make Module globally visible for EM_ASM
-  globalThis.Module = Module;
+  Module.__llamatik_model_loaded = false;
+  Module.__llamatik_model_path = null;
+
+  Module.__llamatik_stream_token = (delta) => {
+    if (currentRequestId != null) {
+      post({ type: "delta", requestId: currentRequestId, delta });
+    }
+  };
+
+  Module.__llamatik_stream_done = () => {
+    if (currentRequestId != null) {
+      post({ type: "done", requestId: currentRequestId });
+    }
+    currentRequestId = null;
+  };
+
+  Module.__llamatik_stream_error = (error) => {
+    if (currentRequestId != null) {
+      post({ type: "error", requestId: currentRequestId, error: String(error) });
+    }
+    currentRequestId = null;
+  };
 
   return Module;
 }
 
-async function ensureModelReady(idbKey, fsPath) {
-  if (modelReady) return true;
-  if (initInFlight) return true;
+async function ensureModel(idbKey, fsPath) {
+  const mod = await loadModule();
+  const requestedKey = `${idbKey}::${fsPath}`;
 
-  initInFlight = true;
-
-  try {
-    await loadModuleOnce();
-
-    if (!Module.FS || !Module.ccall) {
-      postMessage({ type: "init_err", error: "Emscripten runtime missing FS/ccall" });
-      initInFlight = false;
-      return false;
-    }
-
-    return await new Promise((resolve) => {
-      openDb((e, db) => {
-        if (e) {
-          postMessage({ type: "init_err", error: e });
-          initInFlight = false;
-          resolve(false);
-          return;
-        }
-
-        readChunkCount(db, idbKey, (eCount, count) => {
-          if (eCount || !count || count <= 0) {
-            postMessage({ type: "init_err", error: eCount || ("Model not found in IDB: " + idbKey) });
-            initInFlight = false;
-            resolve(false);
-            return;
-          }
-
-          ensureDir(fsPath);
-
-          let stream;
-          try {
-            stream = Module.FS.open(fsPath, "w+");
-          } catch (e0) {
-            postMessage({ type: "init_err", error: "FS.open failed: " + String(e0) });
-            initInFlight = false;
-            resolve(false);
-            return;
-          }
-
-          let idx = 0;
-          let offset = 0;
-
-          function next() {
-            if (idx >= count) {
-              try { Module.FS.close(stream); } catch(eClose) {}
-
-              try {
-                const ok = Module.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
-                if (ok === 1) {
-                  modelReady = true;
-                  initInFlight = false;
-                  postMessage({ type: "init_ok" });
-                  resolve(true);
-                } else {
-                  modelReady = false;
-                  initInFlight = false;
-                  postMessage({ type: "init_err", error: "llamatik_llama_init_generate returned " + ok });
-                  resolve(false);
-                }
-              } catch (eInit) {
-                modelReady = false;
-                initInFlight = false;
-                postMessage({ type: "init_err", error: "Init call failed: " + String(eInit) });
-                resolve(false);
-              }
-              return;
-            }
-
-            readChunk(db, idbKey, idx, (eChunk, chunkVal) => {
-              if (eChunk) {
-                try { Module.FS.close(stream); } catch(eClose) {}
-                initInFlight = false;
-                postMessage({ type: "init_err", error: eChunk });
-                resolve(false);
-                return;
-              }
-
-              try {
-                const u8 = chunkToU8(chunkVal);
-                Module.FS.write(stream, u8, 0, u8.length, offset);
-                offset += u8.length;
-                idx++;
-                next();
-              } catch (eWrite) {
-                try { Module.FS.close(stream); } catch(eClose) {}
-                initInFlight = false;
-                postMessage({ type: "init_err", error: "Chunk decode/write failed at #" + idx + ": " + String(eWrite) });
-                resolve(false);
-              }
-            });
-          }
-
-          next();
-        });
-      });
-    });
-  } catch (e) {
-    initInFlight = false;
-    postMessage({ type: "init_err", error: String(e) });
-    return false;
-  }
-}
-
-onmessage = async (ev) => {
-  const msg = ev.data || {};
-
-  if (msg.type === "init") {
-    await ensureModelReady(msg.idbKey, msg.fsPath);
+  // Already initialized for same model
+  if (initDone && currentModelKey === requestedKey) {
     return;
   }
 
-  if (msg.type === "generate") {
-    const ok = await ensureModelReady(msg.idbKey, msg.fsPath);
-    if (!ok) {
-      postMessage({ type: "error", requestId: msg.requestId, error: "Worker model init failed" });
-      postMessage({ type: "done", requestId: msg.requestId });
+  // Another init for the same model is already in progress
+  if (initPromise && currentModelKey === requestedKey) {
+    await initPromise;
+    return;
+  }
+
+  // If a different init is in progress, wait for it first
+  if (initPromise) {
+    await initPromise;
+    if (initDone && currentModelKey === requestedKey) {
+      return;
+    }
+  }
+
+  currentModelKey = requestedKey;
+
+  initPromise = (async () => {
+    const db = await openDb();
+    const count = await readChunkCount(db, idbKey);
+    if (!count || count <= 0) {
+      throw new Error("Model not found in IndexedDB for key: " + idbKey);
+    }
+
+    if (!(mod.__llamatik_model_loaded && mod.__llamatik_model_path === fsPath)) {
+      ensureDir(mod, fsPath);
+
+      let stream;
+      try {
+        stream = mod.FS.open(fsPath, "w+");
+        let offset = 0;
+
+        for (let i = 0; i < count; i++) {
+          const chunkVal = await readChunk(db, idbKey, i);
+          const u8 = chunkToU8(chunkVal);
+          mod.FS.write(stream, u8, 0, u8.length, offset);
+          offset += u8.length;
+        }
+      } finally {
+        try { if (stream) mod.FS.close(stream); } catch (_) {}
+      }
+
+      const ok = mod.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
+      if (ok !== 1) {
+        throw new Error("llamatik_llama_init_generate returned " + ok);
+      }
+
+      mod.__llamatik_model_loaded = true;
+      mod.__llamatik_model_path = fsPath;
+    }
+
+    initDone = true;
+  })();
+
+  try {
+    await initPromise;
+  } finally {
+    initPromise = null;
+  }
+}
+
+self.onmessage = async (ev) => {
+  const m = ev.data || {};
+
+  try {
+    if (m.type === "init") {
+      await ensureModel(m.idbKey, m.fsPath);
+      post({ type: "init_ok" });
       return;
     }
 
-    try {
-      currentRequestId = msg.requestId;
-      Module.ccall("llamatik_llama_generate_stream", null, ["string"], [String(msg.prompt ?? "")]);
-      // completion is signaled by __llamatik_stream_done()
-    } catch (e) {
-      postMessage({ type: "error", requestId: msg.requestId, error: String(e) });
-      postMessage({ type: "done", requestId: msg.requestId });
+    if (!initDone) {
+      post({ type: "worker-error", message: "Worker not initialized" });
+      return;
     }
+
+    if (m.type === "generate") {
+      if (currentRequestId != null) {
+        post({ type: "error", requestId: m.requestId, error: "Generation already in progress" });
+        post({ type: "done", requestId: m.requestId });
+        return;
+      }
+
+      currentRequestId = m.requestId;
+      Module.ccall("llamatik_llama_generate_stream", null, ["string"], [m.prompt]);
+      return;
+    }
+
+    if (m.type === "generate_continue") {
+      if (currentRequestId != null) {
+        post({ type: "error", requestId: m.requestId, error: "Generation already in progress" });
+        post({ type: "done", requestId: m.requestId });
+        return;
+      }
+
+      currentRequestId = m.requestId;
+      Module.ccall("llamatik_llama_generate_continue_stream", null, ["string"], [m.prompt]);
+      return;
+    }
+
+    if (m.type === "reset_session") {
+      if (currentRequestId != null) {
+        post({ type: "error", requestId: m.requestId, error: "Cannot reset during active generation" });
+        post({ type: "done", requestId: m.requestId });
+        return;
+      }
+
+      Module.ccall("llamatik_llama_session_reset", null, [], []);
+      post({ type: "done", requestId: m.requestId });
+      return;
+    }
+
+    post({ type: "worker-error", message: "Unknown worker message type: " + m.type });
+  } catch (e) {
+    currentRequestId = null;
+    post({
+      type: "worker-error",
+      message: String(e && e.message ? e.message : e),
+      detail: e && e.stack ? String(e.stack) : ""
+    });
   }
 };

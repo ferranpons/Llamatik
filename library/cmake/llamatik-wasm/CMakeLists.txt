@@ -83,27 +83,22 @@ if(HAVE_SD)
   endif()
 endif()
 
-# ---- Emscripten output as ES module + wasm ----
 set_target_properties(llamatik_wasm PROPERTIES
   OUTPUT_NAME "llamatik_wasm"
   SUFFIX ".mjs"
 )
 
-# wasm32 settings (NO MEMORY64) to avoid BigInt pointers in JS.
-# Use memory growth + a sensible cap.
 target_link_options(llamatik_wasm PRIVATE
   "-sMODULARIZE=1"
   "-sEXPORT_ES6=1"
-  "-sENVIRONMENT=web"
+  "-sENVIRONMENT=web,worker"
 
   "-sALLOW_MEMORY_GROWTH=1"
   "-sINITIAL_MEMORY=1024MB"
   "-sMAXIMUM_MEMORY=2048MB"
 
-  # Ensure FS exists
   "-sFORCE_FILESYSTEM=1"
 
-  # Added: _llamatik_llama_generate_stream
-  "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_generate,_llamatik_llama_generate_stream,_llamatik_free_string]"
+  "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_session_prompt,_llamatik_llama_session_continue,_llamatik_llama_session_reset,_llamatik_llama_generate,_llamatik_llama_generate_continue,_llamatik_llama_generate_stream,_llamatik_llama_generate_continue_stream,_llamatik_free_string]"
   "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,FS]"
 )

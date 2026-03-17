@@ -524,15 +524,20 @@ class ChatBotViewModel(
                 Logger.d("LlamaVM - initGenerateModel $path")
                 val isLoaded = LlamaBridge.initGenerateModel(path)
                 if (isLoaded) {
-                    _state.value = _state.value.copy(selectedGenerateModelName = model.name)
+                    _state.value = _state.value.copy(
+                        selectedGenerateModelName = model.name,
+                        isGenerateModelLoaded = true
+                    )
                     _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
                     notifyGenerateModelLoadedForReview()
                 } else {
                     Logger.e { "LlamaVM - failed to load generate model ${model.name}" }
+                    _state.value = _state.value.copy(isGenerateModelLoaded = false)
                     _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                 }
             } else {
                 Logger.e { "LlamaVM - no local path for generate model ${model.name}" }
+                _state.value = _state.value.copy(isGenerateModelLoaded = false)
                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
             }
         }
@@ -584,6 +589,11 @@ class ChatBotViewModel(
 
     @OptIn(ExperimentalTime::class)
     fun onImagePromptSendDirect(prompt: String) {
+        if (_state.value.isGenerating) {
+            Logger.d { "LlamaVM - onImagePromptSendDirect ignored because generation is already active" }
+            return
+        }
+
         val input = prompt.trim()
         if (input.isBlank()) return
 
@@ -1042,6 +1052,11 @@ class ChatBotViewModel(
     }
 
     fun onMessageSendWithEmbed(message: String) {
+        if (_state.value.isGenerating) {
+            Logger.d { "LlamaVM - onMessageSendWithEmbed ignored because generation is already active" }
+            return
+        }
+
         val question = message.trim()
         if (question.isBlank()) return
 
@@ -1049,17 +1064,23 @@ class ChatBotViewModel(
             _conversation.value += ChatUiModel.Message(question, ChatUiModel.Author.me)
             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+            _state.value = _state.value.copy(isGenerating = true)
 
             withContext(AppDispatchersIO) {
                 try {
                     val qArr = LlamaBridge.embed(question)
                     if (qArr.isEmpty()) {
                         emitBot(localization.failedToComputeEmbeddings)
+                        _state.value = _state.value.copy(isGenerating = false)
                         return@withContext
                     }
 
-                    val store = vectorStore
-                        ?: return@withContext emitBot(localization.thereIsAProblemWithAI)
+                    val store = if (vectorStore != null) {
+                        vectorStore!!
+                    } else {
+                        _state.value = _state.value.copy(isGenerating = false)
+                        return@withContext emitBot(localization.thereIsAProblemWithAI)
+                    }
 
                     val qVec = qArr.toList()
 
@@ -1075,6 +1096,7 @@ class ChatBotViewModel(
                         emitBot(localization.iDontHaveEnoughInfoInSources)
                         _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
                         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        _state.value = _state.value.copy(isGenerating = false)
                         return@withContext
                     }
 
@@ -1086,6 +1108,7 @@ class ChatBotViewModel(
                         emitBot(localization.iDontHaveEnoughInfoInSources)
                         _sideEffects.trySend(ChatBotSideEffects.OnNoResults)
                         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        _state.value = _state.value.copy(isGenerating = false)
                         return@withContext
                     }
 
@@ -1127,6 +1150,7 @@ class ChatBotViewModel(
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                                 notifyChatCompletedForReview()
                             }
+                            _state.value = _state.value.copy(isGenerating = false)
                         },
                         onComplete = { final ->
                             if (activeRequestId != requestId) return@stream
@@ -1135,6 +1159,7 @@ class ChatBotViewModel(
                             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
                             notifyChatCompletedForReview()
+                            _state.value = _state.value.copy(isGenerating = false)
                         },
                         onError = { err ->
                             if (activeRequestId != requestId) return@stream
@@ -1145,6 +1170,7 @@ class ChatBotViewModel(
                                     )
                             _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                            _state.value = _state.value.copy(isGenerating = false)
                         }
                     )
                 } catch (t: Throwable) {
@@ -1152,12 +1178,18 @@ class ChatBotViewModel(
                     emitBot(localization.thereIsAProblemWithAI)
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                     _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                    _state.value = _state.value.copy(isGenerating = false)
                 }
             }
         }
     }
 
     fun onMessageSendDirect(message: String) {
+        if (_state.value.isGenerating) {
+            Logger.d { "LlamaVM - onMessageSendDirect ignored because generation is already active" }
+            return
+        }
+
         val input = message.trim()
         if (input.isBlank()) return
 
@@ -1275,11 +1307,21 @@ class ChatBotViewModel(
         }
     }
 
-    fun stopGeneration() {
-        Logger.d { "LlamaVM - stopGeneration()" }
+    fun stopGeneration(reason: String = "unknown") {
+        val wasGenerating = _state.value.isGenerating
+        val hadActiveRequest = activeRequestId != null
+
+        if (!wasGenerating && !hadActiveRequest) {
+            Logger.d { "LlamaVM - stopGeneration() ignored, nothing active. reason=$reason" }
+            return
+        }
+
+        Logger.d { "LlamaVM - stopGeneration() reason=$reason" }
+
         LlamaBridge.nativeCancelGenerate()
         activeRequestId = null
         _state.value = _state.value.copy(isGenerating = false)
+
         val messages = _conversation.value
         if (messages.isNotEmpty()) {
             val last = messages.last()
@@ -1287,6 +1329,7 @@ class ChatBotViewModel(
                 _conversation.value = messages.dropLast(1)
             }
         }
+
         _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
         notifyChatCompletedForReview()
@@ -1325,7 +1368,7 @@ class ChatBotViewModel(
     }
 
     fun onClearConversation() {
-        stopGeneration()
+        stopGeneration("clear_conversation")
         currentChatId = null
         screenModelScope.launch { _conversation.emit(emptyList()) }
     }
@@ -1347,7 +1390,7 @@ class ChatBotViewModel(
     }
 
     fun onToggleTemporaryChat() {
-        stopGeneration()
+        stopGeneration("toggle_temporary_chat")
         currentChatId = null
         _conversation.value = emptyList()
         _state.value = _state.value.copy(isTemporaryChat = !_state.value.isTemporaryChat)
@@ -1356,7 +1399,7 @@ class ChatBotViewModel(
     fun onLoadChatSession(chatId: String) {
         screenModelScope.launch(AppDispatchersIO) {
             val session = chatHistoryRepository.getSession(chatId) ?: return@launch
-            stopGeneration()
+            stopGeneration("load_chat_session")
             currentChatId = chatId
 
             val restored = session.messages.map {

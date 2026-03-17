@@ -345,7 +345,7 @@ class ChatBotTabScreen : Screen {
                     is ChatBotSideEffects.OnCacheCleared -> {
                         showModelSelectorSheet.value = false
                         isLoading.value = false
-                        viewModel.stopGeneration()
+                        viewModel.stopGeneration("cache_cleared")
                         dialogMessage.value = effect.message
                         isDialogOpen.value = true
                     }

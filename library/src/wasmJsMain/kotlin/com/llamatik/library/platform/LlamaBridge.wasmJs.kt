@@ -13,9 +13,9 @@ actual object LlamaBridge {
     private val moduleReady = AtomicBoolean(false)
     private val modelReady = AtomicBoolean(false)
     private val initInFlight = AtomicBoolean(false)
+    private val hasSession = AtomicBoolean(false)
     private val wasmScope = CoroutineScope(Dispatchers.Default)
 
-    // Remember last model paths so streaming can init the worker with the same model.
     private var lastIdbKey: String? = null
     private var lastFsPath: String? = null
 
@@ -25,46 +25,48 @@ actual object LlamaBridge {
     actual fun embed(input: String): FloatArray = floatArrayOf()
 
     actual fun initGenerateModel(modelPath: String): Boolean {
-        if (modelReady.load()) return true
-        if (initInFlight.compareAndSet(expectedValue = false, newValue = true).not()) return true
-
         val fileName = sanitizeName(modelPath.substringAfterLast('/'))
         val idbKey = "models/$fileName"
         val fsPath = "/models/$fileName"
 
         lastIdbKey = idbKey
         lastFsPath = fsPath
+        hasSession.store(false)
 
-        ensureWasmModuleAndModel(
-            idbKey = idbKey,
-            fsPath = fsPath,
-            onOk = {
-                moduleReady.store(true)
-                modelReady.store(true)
-                initInFlight.store(false)
-            },
-            onErr = { err ->
-                initInFlight.store(false)
-                modelReady.store(false)
-                moduleReady.store(false)
-                println("WASM initGenerateModel failed: $err")
-            }
-        )
+        // Worker-only ownership for WASM generation.
+        // We only remember which model to use; the worker performs the real init.
+        moduleReady.store(true)
+        modelReady.store(true)
+        initInFlight.store(false)
 
         return true
     }
 
     actual fun generate(prompt: String): String {
-        if (!modelReady.load()) return "Web/WASM: model is still loading…"
-        return runGenerate(prompt)
+        return "Web/WASM: synchronous generate() is not supported in worker-only mode. Use generateStream()."
     }
 
     actual fun generateContinue(prompt: String): String {
-        // No KV cache persistence in current WASM path; fallback to full generate.
-        return generate(prompt)
+        return "Web/WASM: synchronous generateContinue() is not supported in worker-only mode. Use generateStream()."
     }
 
-    actual fun sessionReset(): Boolean = false
+    actual fun sessionReset(): Boolean {
+        if (!modelReady.load()) return false
+
+        val idbKey = lastIdbKey
+        val fsPath = lastFsPath
+        if (idbKey == null || fsPath == null) return false
+
+        runSessionResetWorker(
+            idbKey = idbKey,
+            fsPath = fsPath,
+            onDone = {},
+            onErr = {}
+        )
+        hasSession.store(false)
+        return true
+    }
+
     actual fun sessionSave(path: String): Boolean = false
     actual fun sessionLoad(path: String): Boolean = false
 
@@ -93,14 +95,19 @@ actual object LlamaBridge {
             return
         }
 
-        // Real streaming: run generation in a Worker and receive token deltas.
+        val continueMode = hasSession.load()
+
         wasmScope.launch {
             runGenerateStreamWorker(
                 idbKey = idbKey,
                 fsPath = fsPath,
                 prompt = prompt,
+                continueMode = continueMode,
                 onDelta = { callback.onDelta(it) },
-                onDone = { callback.onComplete() },
+                onDone = {
+                    hasSession.store(true)
+                    callback.onComplete()
+                },
                 onErr = { callback.onError(it) }
             )
         }
@@ -144,19 +151,28 @@ actual object LlamaBridge {
             return
         }
 
+        val continueMode = hasSession.load()
+
         wasmScope.launch {
             runGenerateStreamWorker(
                 idbKey = idbKey,
                 fsPath = fsPath,
                 prompt = "$system\n\n$context\n\n$user",
+                continueMode = continueMode,
                 onDelta = onDelta,
-                onDone = onDone,
+                onDone = {
+                    hasSession.store(true)
+                    onDone()
+                },
                 onErr = onError
             )
         }
     }
 
-    actual fun shutdown() {}
+    actual fun shutdown() {
+        hasSession.store(false)
+    }
+
     actual fun nativeCancelGenerate() {}
 
     actual fun updateGenerateParams(
@@ -171,200 +187,12 @@ actual object LlamaBridge {
         input.replace(Regex("[^A-Za-z0-9._-]"), "_")
             .take(120)
             .ifBlank { "model.gguf" }
+
 }
 
-/**
- * Loads the Emscripten module, reads *chunked* model from IndexedDB, writes to FS incrementally,
- * and calls llamatik_llama_init_generate(fsPath).
- */
 @JsFun(
     """
-    (idbKey, fsPath, onOk, onErr) => {
-      const DB_NAME = "llamatik";
-      const DB_VER = 1;
-      const STORE_CHUNKS = "chunks";
-      const STORE_META = "meta";
-
-      const WASM_MJS_URL  = "/kotlin/llamatik_wasm/llamatik_wasm.mjs";
-      const WASM_BASE_URL = "/kotlin/llamatik_wasm/";
-
-      function openDb(cb) {
-        const req = indexedDB.open(DB_NAME, DB_VER);
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains(STORE_CHUNKS)) db.createObjectStore(STORE_CHUNKS);
-          if (!db.objectStoreNames.contains(STORE_META)) db.createObjectStore(STORE_META);
-        };
-        req.onsuccess = () => cb(null, req.result);
-        req.onerror = () => cb(String(req.error || "open error"), null);
-      }
-
-      function readChunkCount(db, key, cb) {
-        const tx = db.transaction(STORE_META, "readonly");
-        const meta = tx.objectStore(STORE_META);
-        const r = meta.get(key);
-        r.onsuccess = () => {
-          const countStr = r.result;
-          const count = (countStr == null) ? 0 : parseInt(countStr, 10);
-          cb(null, count);
-        };
-        r.onerror = () => cb(String(r.error || "meta get error"), 0);
-      }
-
-      function readChunk(db, key, i, cb) {
-        const tx = db.transaction(STORE_CHUNKS, "readonly");
-        const chunks = tx.objectStore(STORE_CHUNKS);
-        const r = chunks.get(key + "#" + i);
-        r.onsuccess = () => cb(null, r.result);
-        r.onerror = () => cb(String(r.error || "chunk read error"), null);
-      }
-
-      function ensureDir(Module, path) {
-        const parts = path.split("/").filter(Boolean);
-        let cur = "";
-        for (let i = 0; i < parts.length - 1; i++) {
-          cur += "/" + parts[i];
-          try { Module.FS.mkdir(cur); } catch(e) {}
-        }
-      }
-
-      function chunkToU8(chunk) {
-        if (chunk instanceof Uint8Array) return chunk;
-        if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
-
-        if (typeof chunk !== "string") {
-          try { return new Uint8Array(chunk); }
-          catch (e) { throw new Error("Unsupported chunk type: " + (typeof chunk)); }
-        }
-
-        const bin = atob(chunk);
-        const len = bin.length;
-        const u8 = new Uint8Array(len);
-        for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i) & 255;
-        return u8;
-      }
-
-      async function loadModule() {
-        if (globalThis.__llamatikModule) return globalThis.__llamatikModule;
-
-        const mod = await import(/* webpackIgnore: true */ WASM_MJS_URL);
-        const factory = mod.default || mod;
-
-        const instance = await factory({
-          locateFile: (p) => WASM_BASE_URL + p
-        });
-
-        globalThis.__llamatikModule = instance;
-        return instance;
-      }
-
-      (async () => {
-        try {
-          const Module = await loadModule();
-
-          if (!Module.FS || !Module.FS.open || !Module.FS.write) {
-            onErr(
-              "Emscripten FS is not available on Module. " +
-              "Rebuild wasm with -sFORCE_FILESYSTEM=1 and export FS in EXPORTED_RUNTIME_METHODS."
-            );
-            return;
-          }
-
-          openDb((e, db) => {
-            if (e) { onErr(e); return; }
-
-            readChunkCount(db, idbKey, (eCount, count) => {
-              if (eCount) { onErr(eCount); return; }
-              if (!count || count <= 0) { onErr("Model not found in IndexedDB for key: " + idbKey); return; }
-
-              ensureDir(Module, fsPath);
-
-              let stream;
-              try {
-                stream = Module.FS.open(fsPath, "w+");
-              } catch (e0) {
-                onErr("FS.open failed: " + String(e0));
-                return;
-              }
-
-              let idx = 0;
-              let offset = 0;
-
-              function next() {
-                if (idx >= count) {
-                  try { Module.FS.close(stream); } catch(eClose) {}
-
-                  try {
-                    const ok = Module.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
-                    if (ok === 1) onOk();
-                    else onErr("llamatik_llama_init_generate returned " + ok);
-                  } catch (eInit) {
-                    onErr("Init call failed: " + String(eInit));
-                  }
-                  return;
-                }
-
-                readChunk(db, idbKey, idx, (eChunk, chunkVal) => {
-                  if (eChunk) {
-                    try { Module.FS.close(stream); } catch(eClose) {}
-                    onErr(eChunk);
-                    return;
-                  }
-
-                  try {
-                    const u8 = chunkToU8(chunkVal);
-                    Module.FS.write(stream, u8, 0, u8.length, offset);
-                    offset += u8.length;
-                    idx++;
-                    next();
-                  } catch (eWrite) {
-                    try { Module.FS.close(stream); } catch(eClose) {}
-                    onErr("Chunk decode/write failed at #" + idx + ": " + String(eWrite));
-                  }
-                });
-              }
-
-              next();
-            });
-          });
-        } catch (e) {
-          onErr(String(e));
-        }
-      })();
-    }
-    """
-)
-private external fun ensureWasmModuleAndModel(
-    idbKey: String,
-    fsPath: String,
-    onOk: () -> Unit,
-    onErr: (String) -> Unit
-)
-
-@JsFun(
-    """
-    (prompt) => {
-      const Module = globalThis.__llamatikModule;
-      if (!Module) return "Web/WASM: module not ready";
-      if (!Module.ccall) return "Web/WASM: ccall not available";
-
-      try {
-        const ptr = Module.ccall("llamatik_llama_generate", "number", ["string"], [prompt]);
-        if (!ptr) return "Web/WASM: generate returned null";
-        const out = Module.UTF8ToString(ptr);
-        Module.ccall("llamatik_free_string", null, ["number"], [ptr]);
-        return out;
-      } catch (e) {
-        return "Web/WASM: generate error: " + String(e);
-      }
-    }
-    """
-)
-private external fun runGenerate(prompt: String): String
-
-@JsFun(
-    """
-    (idbKey, fsPath, prompt, onDelta, onDone, onErr) => {
+    (idbKey, fsPath, prompt, continueMode, onDelta, onDone, onErr) => {
       const RAW_WORKER_URL = "/kotlin/llamatik_wasm/llamatik_worker.mjs";
       const WORKER_URL = new URL(RAW_WORKER_URL, self.location.href).toString();
 
@@ -383,19 +211,11 @@ private external fun runGenerate(prompt: String): String
       }
 
       (async () => {
-        // --- Preflight: verify worker URL is actually reachable ---
         try {
           const r = await fetch(WORKER_URL, { method: "GET", cache: "no-store" });
           if (!r.ok) {
             const body = await safeText(r);
             onErr("Worker script not reachable: " + WORKER_URL + " (HTTP " + r.status + "). " + (body ? body.slice(0, 200) : ""));
-            onDone();
-            return;
-          }
-          const ct = (r.headers.get("content-type") || "").toLowerCase();
-          // Not strictly required, but helps catch the common case: HTML returned instead of JS.
-          if (ct && ct.indexOf("javascript") === -1 && ct.indexOf("ecmascript") === -1 && ct.indexOf("text/plain") === -1) {
-            onErr("Worker script has unexpected content-type: " + ct + " for " + WORKER_URL);
             onDone();
             return;
           }
@@ -413,6 +233,7 @@ private external fun runGenerate(prompt: String): String
           globalThis.__llamatikGenReqId = 1;
           globalThis.__llamatikGenCallbacks = new Map();
           globalThis.__llamatikGenQueue = [];
+          globalThis.__llamatikGenInitKey = null;
 
           w.onmessage = (ev) => {
             const m = ev.data || {};
@@ -420,10 +241,10 @@ private external fun runGenerate(prompt: String): String
             if (m.type === "worker-error") {
               const msg = String(m.message || "Worker error");
               const detail = m.detail ? ("\\n" + String(m.detail)) : "";
-              console.error("llamatik worker-error:", msg, m);
               failAllPending(msg + detail);
               globalThis.__llamatikGenWorkerReady = false;
               globalThis.__llamatikGenInitSent = false;
+              globalThis.__llamatikGenInitKey = null;
               return;
             }
 
@@ -437,6 +258,7 @@ private external fun runGenerate(prompt: String): String
             if (m.type === "init_err") {
               globalThis.__llamatikGenWorkerReady = false;
               globalThis.__llamatikGenInitSent = false;
+              globalThis.__llamatikGenInitKey = null;
 
               const q = globalThis.__llamatikGenQueue.splice(0);
               q.forEach((payload) => {
@@ -455,7 +277,10 @@ private external fun runGenerate(prompt: String): String
 
             if (m.type === "delta") cb.onDelta(String(m.delta || ""));
             else if (m.type === "error") cb.onErr(String(m.error || "error"));
-            else if (m.type === "done") { cb.onDone(); globalThis.__llamatikGenCallbacks.delete(m.requestId); }
+            else if (m.type === "done") {
+              cb.onDone();
+              globalThis.__llamatikGenCallbacks.delete(m.requestId);
+            }
           };
 
           w.addEventListener("error", (ev) => {
@@ -464,35 +289,51 @@ private external fun runGenerate(prompt: String): String
               " at " + (ev && ev.filename ? ev.filename : "") +
               ":" + (ev && ev.lineno ? ev.lineno : "") +
               ":" + (ev && ev.colno ? ev.colno : "");
-            console.error(msg, ev);
             failAllPending(msg);
             globalThis.__llamatikGenWorkerReady = false;
             globalThis.__llamatikGenInitSent = false;
+            globalThis.__llamatikGenInitKey = null;
             if (ev && ev.preventDefault) ev.preventDefault();
           });
 
           w.addEventListener("messageerror", (ev) => {
             const msg = "Worker messageerror: " + String(ev || "unknown");
-            console.error(msg, ev);
             failAllPending(msg);
             globalThis.__llamatikGenWorkerReady = false;
             globalThis.__llamatikGenInitSent = false;
+            globalThis.__llamatikGenInitKey = null;
           });
         }
 
         const w = globalThis.__llamatikGenWorker;
         const requestId = globalThis.__llamatikGenReqId++;
+        const initKey = idbKey + "|" + fsPath;
 
         globalThis.__llamatikGenCallbacks.set(requestId, { onDelta, onDone, onErr });
 
-        if (!globalThis.__llamatikGenWorkerReady) {
-          if (!globalThis.__llamatikGenInitSent) {
+        const payload = {
+          type: continueMode ? "generate_continue" : "generate",
+          requestId,
+          idbKey,
+          fsPath,
+          prompt
+        };
+
+        const needsInit =
+          !globalThis.__llamatikGenWorkerReady ||
+          globalThis.__llamatikGenInitKey !== initKey;
+
+        if (needsInit) {
+          globalThis.__llamatikGenWorkerReady = false;
+          globalThis.__llamatikGenQueue.push(payload);
+
+          if (!globalThis.__llamatikGenInitSent || globalThis.__llamatikGenInitKey !== initKey) {
             globalThis.__llamatikGenInitSent = true;
+            globalThis.__llamatikGenInitKey = initKey;
             w.postMessage({ type: "init", idbKey, fsPath });
           }
-          globalThis.__llamatikGenQueue.push({ type: "generate", requestId, idbKey, fsPath, prompt });
         } else {
-          w.postMessage({ type: "generate", requestId, idbKey, fsPath, prompt });
+          w.postMessage(payload);
         }
       })();
     }
@@ -502,7 +343,72 @@ private external fun runGenerateStreamWorker(
     idbKey: String,
     fsPath: String,
     prompt: String,
+    continueMode: Boolean,
     onDelta: (String) -> Unit,
+    onDone: () -> Unit,
+    onErr: (String) -> Unit
+)
+
+@JsFun(
+    """
+    (idbKey, fsPath, onDone, onErr) => {
+      const RAW_WORKER_URL = "/kotlin/llamatik_wasm/llamatik_worker.mjs";
+      const WORKER_URL = new URL(RAW_WORKER_URL, self.location.href).toString();
+
+      function safeText(resp) {
+        try { return resp.text(); } catch (_) { return Promise.resolve(""); }
+      }
+
+      (async () => {
+        try {
+          const r = await fetch(WORKER_URL, { method: "GET", cache: "no-store" });
+          if (!r.ok) {
+            const body = await safeText(r);
+            onErr("Worker script not reachable: " + WORKER_URL + " (HTTP " + r.status + "). " + (body ? body.slice(0, 200) : ""));
+            return;
+          }
+        } catch (e) {
+          onErr("Worker preflight fetch failed for " + WORKER_URL + ": " + String(e));
+          return;
+        }
+
+        if (!globalThis.__llamatikGenWorker) {
+          onErr("Worker not initialized");
+          return;
+        }
+
+        const w = globalThis.__llamatikGenWorker;
+        const initKey = idbKey + "|" + fsPath;
+
+        if (!globalThis.__llamatikGenWorkerReady || globalThis.__llamatikGenInitKey !== initKey) {
+          onErr("Worker model not initialized");
+          return;
+        }
+
+        const requestId = globalThis.__llamatikGenReqId++;
+        globalThis.__llamatikGenCallbacks.set(requestId, {
+          onDelta: () => {},
+          onDone: () => {
+            globalThis.__llamatikGenCallbacks.delete(requestId);
+            onDone();
+          },
+          onErr: (msg) => {
+            globalThis.__llamatikGenCallbacks.delete(requestId);
+            onErr(String(msg));
+          }
+        });
+
+        w.postMessage({
+          type: "reset_session",
+          requestId
+        });
+      })();
+    }
+    """
+)
+private external fun runSessionResetWorker(
+    idbKey: String,
+    fsPath: String,
     onDone: () -> Unit,
     onErr: (String) -> Unit
 )

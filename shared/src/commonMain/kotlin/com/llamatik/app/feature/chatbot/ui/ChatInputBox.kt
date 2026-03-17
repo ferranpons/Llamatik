@@ -419,7 +419,7 @@ fun ChatInputBox(
 
                             if (isGenerating) {
                                 IconButton(
-                                    onClick = { viewModel.stopGeneration() },
+                                    onClick = { viewModel.stopGeneration("user_pressed_stop") },
                                     modifier = Modifier
                                         .size(BUTTON_SIZE.dp)
                                         .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
