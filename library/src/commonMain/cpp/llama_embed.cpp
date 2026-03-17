@@ -5,10 +5,25 @@
 #include <cstdlib>
 #include <vector>
 #include <string>
+#if defined(__ANDROID__)
 #include <android/log.h>
+#else
+#include <cstdio>
+#endif
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+
+// Portable logging macros: use Android log on Android, stderr otherwise.
+#if defined(__ANDROID__)
+#define LOGI(fmt, ...) __android_log_print(ANDROID_LOG_INFO, "llama_jni", fmt, ##__VA_ARGS__)
+#define LOGW(fmt, ...) __android_log_print(ANDROID_LOG_WARN,  "llama_jni", fmt, ##__VA_ARGS__)
+#define LOGE(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, "llama_jni", fmt, ##__VA_ARGS__)
+#else
+#define LOGI(fmt, ...) (std::fprintf(stderr, "[INFO]  llama_jni: " fmt "\n", ##__VA_ARGS__))
+  #define LOGW(fmt, ...) (std::fprintf(stderr, "[WARN]  llama_jni: " fmt "\n", ##__VA_ARGS__))
+  #define LOGE(fmt, ...) (std::fprintf(stderr, "[ERROR] llama_jni: " fmt "\n", ##__VA_ARGS__))
+#endif
 
 static struct llama_model  *model      = nullptr;
 static struct llama_context* ctx        = nullptr;
@@ -77,7 +92,7 @@ extern "C" {
 // ================= Embeddings =================
 
 bool llama_embed_init(const char *model_path) {
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Initializing llama (embeddings)...");
+    LOGI("Initializing llama (embeddings)...");
     if (!g_backend_inited) {
         llama_backend_init();
         g_backend_inited = true;
@@ -85,13 +100,10 @@ bool llama_embed_init(const char *model_path) {
 
     llama_model_params model_params = llama_model_default_params();
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed file: %s", model_path ? model_path : "(null)");
+    LOGI("Embed file: %s", model_path ? model_path : "(null)");
     if (model_path && std::filesystem::exists(model_path)) {
-        __android_log_print(
-                ANDROID_LOG_INFO, "llama_jni",
-                "Exists, size: %ju",
-                (uintmax_t)std::filesystem::file_size(model_path)
-        );
+        // cast to unsigned long long to avoid platform-specific printf width issues
+        LOGI("Exists, size: %llu", (unsigned long long)std::filesystem::file_size(model_path));
     }
 
     model = llama_model_load_from_file(model_path, model_params);
@@ -108,10 +120,10 @@ bool llama_embed_init(const char *model_path) {
         return false;
     }
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed context created.");
+    LOGI("Embed context created.");
 
     embedding_size = llama_model_n_embd(model);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Embed dim: %d", embedding_size);
+    LOGI("Embed dim: %d", embedding_size);
     return true;
 }
 
@@ -121,7 +133,7 @@ float *llama_embed(const char *input) {
     const int n_ctx = (int) llama_n_ctx(ctx);
 
     std::vector<llama_token> tokens(1024);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing for embeddings...");
+    LOGI("Tokenizing for embeddings...");
 
     int n_tokens = tokenize_with_retry(
             llama_model_get_vocab(model),
@@ -132,17 +144,13 @@ float *llama_embed(const char *input) {
     );
 
     if (n_tokens <= 0) {
-        __android_log_print(ANDROID_LOG_WARN, "llama_jni", "Embedding tokenize failed. n=%d", n_tokens);
+        LOGW("Embedding tokenize failed. n=%d", n_tokens);
         return nullptr;
     }
     tokens.resize(n_tokens);
 
     if ((int)tokens.size() > n_ctx) {
-        __android_log_print(
-                ANDROID_LOG_WARN, "llama_jni",
-                "Embedding input too long. n=%d ctx=%d. Truncating tail.",
-                (int)tokens.size(), n_ctx
-        );
+        LOGW("Embedding input too long. n=%d ctx=%d. Truncating tail.", (int)tokens.size(), n_ctx);
         truncate_to_ctx(tokens, n_ctx, /*reserve_tail*/ 0);
     }
 
@@ -157,14 +165,14 @@ float *llama_embed(const char *input) {
     }
 
     if (llama_encode(ctx, batch) != 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_encode() for embeddings failed");
+        LOGE("llama_encode() for embeddings failed");
         llama_batch_free(batch);
         return nullptr;
     }
 
     const float *embedding = llama_get_embeddings_seq(ctx, 0);
     if (!embedding) {
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_get_embeddings_seq returned null");
+        LOGE("llama_get_embeddings_seq returned null");
         llama_batch_free(batch);
         return nullptr;
     }
@@ -172,7 +180,7 @@ float *llama_embed(const char *input) {
     const int dim = llama_model_n_embd(model);
     auto *out = (float *) std::malloc(sizeof(float) * (size_t)dim);
     if (!out) {
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "malloc failed for embedding");
+        LOGE("malloc failed for embedding");
         llama_batch_free(batch);
         return nullptr;
     }
@@ -205,7 +213,7 @@ void llama_embed_free() {
 // ================= Text Generation =================
 
 bool llama_generate_init(const char *model_path) {
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "llama_generate_init...");
+    LOGI("llama_generate_init...");
     if (!g_backend_inited) {
         llama_backend_init();
         g_backend_inited = true;
@@ -214,7 +222,7 @@ bool llama_generate_init(const char *model_path) {
     llama_model_params model_params = llama_model_default_params();
     gen_model = llama_model_load_from_file(model_path, model_params);
     if (!gen_model) return false;
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Gen model loaded.");
+    LOGI("Gen model loaded.");
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = false;
@@ -226,7 +234,7 @@ bool llama_generate_init(const char *model_path) {
         gen_model = nullptr;
         return false;
     }
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Gen context created. n_ctx=%d", ctx_params.n_ctx);
+    LOGI("Gen context created. n_ctx=%d", ctx_params.n_ctx);
     return true;
 }
 
@@ -234,10 +242,10 @@ char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
     llama_memory_clear(llama_get_memory(gen_ctx), false);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Cleared KV cache for new generation turn");
+    LOGI("Cleared KV cache for new generation turn");
 
     std::vector<llama_token> tokens(2048);
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Tokenizing (gen)...");
+    LOGI("Tokenizing (gen)...");
 
     const llama_vocab* vocab = llama_model_get_vocab(gen_model);
 
@@ -250,18 +258,14 @@ char *llama_generate(const char *prompt) {
     );
 
     if (n_tokens <= 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Tokenization failed. n=%d", n_tokens);
+        LOGE("Tokenization failed. n=%d", n_tokens);
         return nullptr;
     }
     tokens.resize(n_tokens);
 
     const int n_ctx = (int) llama_n_ctx(gen_ctx);
     if ((int)tokens.size() > n_ctx - 8) {
-        __android_log_print(
-                ANDROID_LOG_WARN, "llama_jni",
-                "Prompt too long (%d) for ctx (%d). Truncating tail-keep.",
-                (int)tokens.size(), n_ctx
-        );
+        LOGW("Prompt too long (%d) for ctx (%d). Truncating tail-keep.", (int)tokens.size(), n_ctx);
         truncate_to_ctx(tokens, n_ctx, 8);
     }
 
@@ -277,14 +281,14 @@ char *llama_generate(const char *prompt) {
 
     if (llama_decode(gen_ctx, batch) != 0) {
         llama_batch_free(batch);
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_decode failed on prompt.");
+        LOGE("llama_decode failed on prompt.");
         return nullptr;
     }
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
         llama_batch_free(batch);
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "Failed to create sampler.");
+        LOGE("Failed to create sampler.");
         return nullptr;
     }
 
@@ -304,11 +308,8 @@ char *llama_generate(const char *prompt) {
     const int hard_cap = 2048;
     int max_new_tokens = std::min(remaining_ctx, hard_cap);
 
-    __android_log_print(
-            ANDROID_LOG_INFO, "llama_jni",
-            "Generation loop start. n_ctx=%d, cur_pos=%d, remaining_ctx=%d, max_new_tokens=%d",
-            n_ctx, cur_pos, remaining_ctx, max_new_tokens
-    );
+    LOGI("Generation loop start. n_ctx=%d, cur_pos=%d, remaining_ctx=%d, max_new_tokens=%d",
+            n_ctx, cur_pos, remaining_ctx, max_new_tokens);
 
     for (int i = 0; i < max_new_tokens; ++i) {
         llama_token token = llama_sampler_sample(sampler, gen_ctx, -1);
@@ -350,7 +351,7 @@ char *llama_generate(const char *prompt) {
         gen_batch.logits[0]    = true;
 
         if (llama_decode(gen_ctx, gen_batch) != 0) {
-            __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "llama_decode failed in loop.");
+            LOGE("llama_decode failed in loop.");
             llama_batch_free(gen_batch);
             break;
         }
@@ -381,13 +382,13 @@ char *llama_generate(const char *prompt) {
 
     char *result = (char *) std::malloc(output.size() + 1);
     if (!result) {
-        __android_log_print(ANDROID_LOG_ERROR, "llama_jni", "malloc failed for result C string.");
+        LOGE("malloc failed for result C string.");
         return nullptr;
     }
     std::memcpy(result, output.c_str(), output.size());
     result[output.size()] = '\0';
 
-    __android_log_print(ANDROID_LOG_INFO, "llama_jni", "Generation done. bytes=%zu", output.size());
+    LOGI("Generation done. bytes=%zu", output.size());
     return result;
 }
 

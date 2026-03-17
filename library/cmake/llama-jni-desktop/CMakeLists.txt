@@ -13,6 +13,7 @@ set(LLAMA_INCLUDE_DIR "${LLAMA_CPP_DIR}/include")
 set(JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/llama_jni.cpp")
 set(JNI_INCLUDE_DIR "${REPO_ROOT}/library/src/commonMain/c_interop/include")
 
+set(LLAMA_EMBED_SRC "${REPO_ROOT}/library/src/commonMain/cpp/llama_embed.cpp")
 set(WHISPER_STT_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_stt.cpp")
 set(WHISPER_JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_jni.cpp")
 
@@ -100,6 +101,7 @@ endif()
 
 set(LLAMA_JNI_SOURCES
     "${JNI_SRC}"
+    "${LLAMA_EMBED_SRC}"
     ${LLAMA_SCHEMA_SOURCES}
 )
 

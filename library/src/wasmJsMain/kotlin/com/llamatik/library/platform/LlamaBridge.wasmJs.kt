@@ -26,9 +26,7 @@ actual object LlamaBridge {
 
     actual fun initGenerateModel(modelPath: String): Boolean {
         if (modelReady.load()) return true
-        if (initInFlight.load()) return true
-
-        initInFlight.store(true)
+        if (initInFlight.compareAndSet(expectedValue = false, newValue = true).not()) return true
 
         val fileName = sanitizeName(modelPath.substringAfterLast('/'))
         val idbKey = "models/$fileName"
