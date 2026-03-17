@@ -381,7 +381,12 @@ val imageBytes = StableDiffusionBridge.generateImage(
 
 ## 🧑‍💻 Backend Usage
 
-Please go to the [Backend README.md](./backend/README.md) for more information.
+The Llamatik backend server is now maintained in a dedicated repository.
+
+👉 Llamatik Server Repository
+[https://github.com/ferranpons/Llamatik-Server](https://github.com/ferranpons/Llamatik-Server)
+
+Visit the repository for full setup instructions, configuration options, and usage details.
 
 ---
 
