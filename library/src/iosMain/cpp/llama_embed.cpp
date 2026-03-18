@@ -81,71 +81,6 @@ static bool build_json_grammar(const char *json_schema, std::string &out_grammar
     }
 }
 
-static std::string build_json_prompt_single(const char *prompt) {
-    std::string p = prompt ? prompt : "";
-    p += "\n\nReturn ONLY JSON. No markdown, no prose.";
-    return p;
-}
-
-static std::string build_json_prompt_chat(const char *system_prompt,
-        const char *context_block,
-        const char *user_prompt,
-        const char *json_schema) {
-    (void)system_prompt;
-    std::string ctxb = context_block ? context_block : "";
-    std::string usr  = user_prompt   ? user_prompt   : "";
-
-    std::string p;
-    if (!ctxb.empty()) {
-        p += "Context:\n";
-        p += ctxb;
-        p += "\n\n";
-    }
-    p += "Request:\n";
-    p += usr;
-    p += "\n\n";
-    if (json_schema && json_schema[0]) {
-        p += "Return ONLY JSON matching the provided JSON Schema. No markdown, no prose.";
-    } else {
-        p += "Return ONLY valid JSON. No markdown, no prose.";
-    }
-    return p;
-}
-
-static int tokenize_with_retry(const llama_vocab *vocab,
-        const char *text,
-        std::vector<llama_token> &tokens,
-        bool add_bos,
-        bool parse_special) {
-    if (!text) return 0;
-    const int text_len = (int) std::strlen(text);
-
-    int n = llama_tokenize(vocab, text, text_len,
-            tokens.data(),
-            (int) tokens.size(),
-            add_bos, parse_special);
-    if (n < 0) {
-        const int need = -n;
-        if (need > 0) {
-            tokens.resize(need);
-            n = llama_tokenize(vocab, text, text_len,
-                    tokens.data(),
-                    (int) tokens.size(),
-                    add_bos, parse_special);
-        }
-    }
-    return n;
-}
-
-static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int reserve_tail) {
-    if ((int)tokens.size() <= n_ctx - reserve_tail) return;
-    const int keep = n_ctx - reserve_tail;
-    std::vector<llama_token> out;
-    out.reserve(keep);
-    out.insert(out.end(), tokens.end() - keep, tokens.end());
-    tokens.swap(out);
-}
-
 static std::string lower_ascii(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(),
             [](unsigned char c){ return (char)std::tolower(c); });
@@ -288,22 +223,6 @@ static std::string try_resolve_existing_model_path(const char *requested_path_cs
     return {};
 }
 
-static bool model_description_contains(llama_model *m, const char *needle) {
-    if (!m || !needle || !needle[0]) return false;
-
-    char buf[512];
-    std::memset(buf, 0, sizeof(buf));
-    const int n = llama_model_desc(m, buf, (int)sizeof(buf));
-    if (n <= 0) return false;
-
-    const std::string desc = lower_ascii(std::string(buf));
-    return desc.find(lower_ascii(std::string(needle))) != std::string::npos;
-}
-
-static bool model_is_gemma_family(llama_model *m) {
-    return model_description_contains(m, "gemma");
-}
-
 static llama_model *load_model_with_fallback(const char *path) {
     namespace fs = std::filesystem;
 
@@ -342,6 +261,40 @@ static llama_model *load_model_with_fallback(const char *path) {
     return llama_model_load_from_file(final_path, mp);
 }
 
+static int tokenize_with_retry(const llama_vocab *vocab,
+        const char *text,
+        std::vector<llama_token> &tokens,
+        bool add_bos,
+        bool parse_special) {
+    if (!text) return 0;
+    const int text_len = (int) std::strlen(text);
+
+    int n = llama_tokenize(vocab, text, text_len,
+            tokens.data(),
+            (int) tokens.size(),
+            add_bos, parse_special);
+    if (n < 0) {
+        const int need = -n;
+        if (need > 0) {
+            tokens.resize(need);
+            n = llama_tokenize(vocab, text, text_len,
+                    tokens.data(),
+                    (int) tokens.size(),
+                    add_bos, parse_special);
+        }
+    }
+    return n;
+}
+
+static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int reserve_tail) {
+    if ((int)tokens.size() <= n_ctx - reserve_tail) return;
+    const int keep = n_ctx - reserve_tail;
+    std::vector<llama_token> out;
+    out.reserve(keep);
+    out.insert(out.end(), tokens.end() - keep, tokens.end());
+    tokens.swap(out);
+}
+
 // ===================== Prompt builders =====================
 
 static std::string build_plain_prompt(const std::string &context_block,
@@ -359,68 +312,87 @@ static std::string build_plain_prompt(const std::string &context_block,
     return p;
 }
 
-static std::string build_gemma_prompt_user_only(const char *user_msg) {
-    std::string usr = user_msg ? user_msg : "";
-    std::string p;
-    p.reserve(usr.size() + 96);
-    p += "<bos><start_of_turn>user\n";
-    p += usr;
-    p += "<end_of_turn>\n<start_of_turn>model\n";
-    return p;
-}
-
-static std::string build_gemma_prompt_chat(const char *system_msg,
-        const char *context_block,
-        const char *user_msg) {
-    std::string sys = system_msg ? system_msg : "";
-    std::string ctx = context_block ? context_block : "";
-    std::string usr = user_msg ? user_msg : "";
-
-    std::string payload;
-    if (!sys.empty()) {
-        payload += "System:\n";
-        payload += sys;
-        payload += "\n\n";
-    }
-    if (!ctx.empty()) {
-        payload += "Context:\n";
-        payload += ctx;
-        payload += "\n\n";
-    }
-    payload += "Question:\n";
-    payload += usr;
-
-    std::string p;
-    p.reserve(payload.size() + 96);
-    p += "<bos><start_of_turn>user\n";
-    p += payload;
-    p += "<end_of_turn>\n<start_of_turn>model\n";
-    return p;
-}
-
 static bool apply_chat_template_if_available(const char *system_msg,
         const char *user_msg,
         std::string &wrapped) {
-    if (gen_model && model_is_gemma_family(gen_model)) {
-        wrapped = build_gemma_prompt_user_only(user_msg);
-        return true;
-    }
-    (void)system_msg;
-    (void)user_msg;
-    (void)wrapped;
+    (void)system_msg; (void)user_msg; (void)wrapped;
     return false;
 }
 
 static std::string build_clean_prompt(const char *system_prompt,
         const char *context_block,
         const char *user_prompt) {
-    if (gen_model && model_is_gemma_family(gen_model)) {
-        return build_gemma_prompt_chat(system_prompt, context_block, user_prompt);
-    }
-
+    (void)system_prompt;
     std::string ctxb = context_block ? context_block : "";
     std::string usr = user_prompt   ? user_prompt   : "";
     return build_plain_prompt(ctxb, usr);
+}
+
+static bool looks_like_chat_formatted_prompt(const std::string &prompt) {
+    const std::string low = lower_ascii(prompt);
+
+    return low.find("<start_of_turn>") != std::string::npos ||
+            low.find("<end_of_turn>")   != std::string::npos ||
+            low.find("<|start_header_id|>") != std::string::npos ||
+            low.find("<|end_header_id|>")   != std::string::npos ||
+            low.find("<|eot_id|>")          != std::string::npos ||
+            low.find("assistant\n")         != std::string::npos ||
+            low.find("user\n")              != std::string::npos;
+}
+
+static bool json_schema_root_is_array(const char *json_schema) {
+    if (!json_schema || !json_schema[0]) return false;
+    try {
+        nlohmann::ordered_json schema = nlohmann::ordered_json::parse(std::string(json_schema));
+        if (schema.is_object()) {
+            auto it = schema.find("type");
+            if (it != schema.end() && it->is_string()) {
+                return it->get<std::string>() == "array";
+            }
+        }
+    } catch (...) {
+    }
+    return false;
+}
+
+static std::string build_json_instruction(const char *json_schema) {
+    if (json_schema_root_is_array(json_schema)) {
+        return "Return ONLY a valid JSON array. No markdown, no prose.";
+    }
+    return "Return ONLY valid JSON. No markdown, no prose.";
+}
+
+static std::string build_json_prompt_single(const char *prompt, const char *json_schema) {
+    std::string p = prompt ? prompt : "";
+
+    if (looks_like_chat_formatted_prompt(p)) {
+        return p;
+    }
+
+    p += "\n\n";
+    p += build_json_instruction(json_schema);
+    return p;
+}
+
+static std::string build_json_prompt_chat(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema) {
+    (void)system_prompt;
+    std::string ctxb = context_block ? context_block : "";
+    std::string usr  = user_prompt   ? user_prompt   : "";
+
+    std::string p;
+    if (!ctxb.empty()) {
+        p += "Context:\n";
+        p += ctxb;
+        p += "\n\n";
+    }
+    p += "Request:\n";
+    p += usr;
+    p += "\n\n";
+    p += build_json_instruction(json_schema);
+    return p;
 }
 
 // ===================== Text sanitation =====================
@@ -486,7 +458,7 @@ static std::string sanitize_generation_ios(std::string s) {
         }
     }
 
-    for (const char* pfx : { "assistant:", "user:", "system:", "model:" }) {
+    for (const char* pfx : { "assistant:", "user:", "system:" }) {
         drop_lines_with_prefix_ci(s, pfx);
     }
 
@@ -551,11 +523,9 @@ static size_t find_stream_start(const std::string &s) {
         }
 
         if (is_prefix_ci(i, "assistant") || is_prefix_ci(i, "user") ||
-                is_prefix_ci(i, "system") || is_prefix_ci(i, "answer") ||
-                is_prefix_ci(i, "model")) {
+                is_prefix_ci(i, "system") || is_prefix_ci(i, "answer")) {
             if (!(starts_ci(i, "assistant") || starts_ci(i, "user") ||
-                    starts_ci(i, "system") || starts_ci(i, "answer") ||
-                    starts_ci(i, "model"))) {
+                    starts_ci(i, "system") || starts_ci(i, "answer"))) {
                 return std::string::npos;
             }
             size_t j = i;
@@ -742,11 +712,6 @@ bool llama_generate_init(const char *model_path) {
     ctx_params.embeddings = false;
     ctx_params.n_ctx      = 8192;
 
-#if TARGET_OS_SIMULATOR
-    ctx_params.n_batch    = 512;
-    ctx_params.n_ubatch   = 128;
-#endif
-
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -755,7 +720,7 @@ bool llama_generate_init(const char *model_path) {
     }
 
     session_clear_state_only();
-    DBG("generate: n_ctx=%u batch=%u ubatch=%u", (unsigned)llama_n_ctx(gen_ctx), (unsigned)ctx_params.n_batch, (unsigned)ctx_params.n_ubatch);
+    DBG("generate: n_ctx = %u", (unsigned)llama_n_ctx(gen_ctx));
     return true;
 }
 
@@ -776,15 +741,10 @@ char *llama_generate(const char *prompt) {
         wrapped = build_plain_prompt("", prompt);
     }
 
-    DBG("generate: wrapped prompt bytes=%d", (int)wrapped.size());
-
     const llama_vocab *v = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ false, /*parse_special*/ true);
-    if (n_tokens <= 0) {
-        DBG("generate: tokenize failed n=%d", n_tokens);
-        return nullptr;
-    }
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ true, /*parse_special*/ true);
+    if (n_tokens <= 0) return nullptr;
     tokens.resize(n_tokens);
 
     const unsigned int n_ctx = llama_n_ctx(gen_ctx);
@@ -829,8 +789,6 @@ char *llama_generate(const char *prompt) {
     if (remaining_ctx < 0) remaining_ctx = 0;
     int max_new_tokens = std::min(remaining_ctx, max_tokens);
 
-    DBG("generate: cur_pos=%d remaining_ctx=%d max_new=%d", cur_pos, remaining_ctx, max_new_tokens);
-
     for (int i = 0; i < max_new_tokens; ++i) {
         if (g_cancel_requested.load(std::memory_order_relaxed)) {
             DBG("generate: cancelled at token %d", i);
@@ -840,7 +798,7 @@ char *llama_generate(const char *prompt) {
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (llama_vocab_is_eog(v, tok)) {
-            DBG("generate: hit EOS/EOG");
+            DBG("generate: hit EOS");
             break;
         }
 
@@ -898,11 +856,7 @@ char *llama_generate(const char *prompt) {
         }
     }
 
-    DBG("generate: raw output bytes=%d", (int)text.size());
-
     text = sanitize_generation_ios(std::move(text));
-
-    DBG("generate: sanitized output bytes=%d text='%s'", (int)text.size(), text.c_str());
 
     char *result = (char *) std::malloc(text.size() + 1);
     if (!result) return nullptr;
@@ -936,15 +890,11 @@ char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
         return nullptr;
     }
 
-    std::string wrapped = build_json_prompt_single(prompt);
-
-    if (gen_model && model_is_gemma_family(gen_model)) {
-        wrapped = build_gemma_prompt_user_only(wrapped.c_str());
-    }
+    std::string wrapped = build_json_prompt_single(prompt, json_schema);
 
     const llama_vocab *v = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ false, /*parse_special*/ true);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ true, /*parse_special*/ true);
     if (n_tokens <= 0) return nullptr;
     tokens.resize(n_tokens);
 
@@ -1096,7 +1046,7 @@ void llama_generate_stream(const char *prompt,
             llama_model_get_vocab(gen_model),
             wrapped.c_str(),
             tokens,
-            /*add_bos*/ false,
+            /*add_bos*/ true,
             /*parse_special*/ true);
 
     if (n_tokens <= 0) {
@@ -1269,14 +1219,11 @@ void llama_generate_json_schema_stream(const char *prompt,
         return;
     }
 
-    std::string wrapped = build_json_prompt_single(prompt);
-    if (gen_model && model_is_gemma_family(gen_model)) {
-        wrapped = build_gemma_prompt_user_only(wrapped.c_str());
-    }
+    std::string wrapped = build_json_prompt_single(prompt, json_schema);
 
     const llama_vocab *v = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ false, /*parse_special*/ true);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ true, /*parse_special*/ true);
     if (n_tokens <= 0) {
         if (on_error) on_error("tokenize failed", user);
         return;

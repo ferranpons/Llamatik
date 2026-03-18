@@ -21,8 +21,8 @@
 #define LOGE(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, "llama_jni", fmt, ##__VA_ARGS__)
 #else
 #define LOGI(fmt, ...) (std::fprintf(stderr, "[INFO]  llama_jni: " fmt "\n", ##__VA_ARGS__))
-  #define LOGW(fmt, ...) (std::fprintf(stderr, "[WARN]  llama_jni: " fmt "\n", ##__VA_ARGS__))
-  #define LOGE(fmt, ...) (std::fprintf(stderr, "[ERROR] llama_jni: " fmt "\n", ##__VA_ARGS__))
+#define LOGW(fmt, ...) (std::fprintf(stderr, "[WARN]  llama_jni: " fmt "\n", ##__VA_ARGS__))
+#define LOGE(fmt, ...) (std::fprintf(stderr, "[ERROR] llama_jni: " fmt "\n", ##__VA_ARGS__))
 #endif
 
 static struct llama_model  *model      = nullptr;
@@ -73,6 +73,7 @@ static int tokenize_with_retry(
 static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int reserve_tail) {
     if ((int)tokens.size() <= n_ctx - reserve_tail) return;
     const int keep = n_ctx - reserve_tail;
+
     // keep tail (system+user are at the end), drop head
     std::vector<llama_token> out;
     out.reserve(keep);
@@ -85,6 +86,58 @@ static std::string trim(const std::string &s) {
     if (b == std::string::npos) return "";
     size_t e = s.find_last_not_of(" \t\r\n");
     return s.substr(b, e - b + 1);
+}
+
+static std::string lower_ascii(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+            [](unsigned char c) { return (char) std::tolower(c); });
+    return s;
+}
+
+static bool looks_like_chat_formatted_prompt(const std::string &prompt) {
+    const std::string low = lower_ascii(prompt);
+
+    return low.find("<start_of_turn>") != std::string::npos ||
+            low.find("<end_of_turn>")   != std::string::npos ||
+            low.find("<|start_header_id|>") != std::string::npos ||
+            low.find("<|end_header_id|>")   != std::string::npos ||
+            low.find("<|eot_id|>")          != std::string::npos ||
+            low.find("assistant\n")         != std::string::npos ||
+            low.find("user\n")              != std::string::npos;
+}
+
+// Conservative JSON-root detector without adding a JSON dependency here.
+// Good enough for schema strings like:
+// {"type":"array", ...}
+// {
+//   "type": "object", ...
+// }
+static bool json_schema_root_is_array(const char *json_schema) {
+    if (!json_schema || !json_schema[0]) return false;
+
+    std::string s = lower_ascii(std::string(json_schema));
+    s.erase(std::remove_if(s.begin(), s.end(),
+                    [](unsigned char c) { return std::isspace(c); }),
+            s.end());
+
+    return s.find("\"type\":\"array\"") != std::string::npos;
+}
+
+static std::string build_json_instruction(const char *json_schema) {
+    if (json_schema_root_is_array(json_schema)) {
+        return "Return ONLY a valid JSON array. No markdown, no prose.";
+    }
+    return "Return ONLY valid JSON. No markdown, no prose.";
+}
+
+static std::string build_json_prompt_single(const char *prompt, const char *json_schema) {
+    std::string p = prompt ? prompt : "";
+    if (looks_like_chat_formatted_prompt(p)) {
+        return p;
+    }
+    p += "\n\n";
+    p += build_json_instruction(json_schema);
+    return p;
 }
 
 extern "C" {
@@ -103,7 +156,7 @@ bool llama_embed_init(const char *model_path) {
     LOGI("Embed file: %s", model_path ? model_path : "(null)");
     if (model_path && std::filesystem::exists(model_path)) {
         // cast to unsigned long long to avoid platform-specific printf width issues
-        LOGI("Exists, size: %llu", (unsigned long long)std::filesystem::file_size(model_path));
+        LOGI("Exists, size: %llu", (unsigned long long) std::filesystem::file_size(model_path));
     }
 
     model = llama_model_load_from_file(model_path, model_params);
@@ -149,13 +202,13 @@ float *llama_embed(const char *input) {
     }
     tokens.resize(n_tokens);
 
-    if ((int)tokens.size() > n_ctx) {
-        LOGW("Embedding input too long. n=%d ctx=%d. Truncating tail.", (int)tokens.size(), n_ctx);
+    if ((int) tokens.size() > n_ctx) {
+        LOGW("Embedding input too long. n=%d ctx=%d. Truncating tail.", (int) tokens.size(), n_ctx);
         truncate_to_ctx(tokens, n_ctx, /*reserve_tail*/ 0);
     }
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
+    llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
+    batch.n_tokens = (int) tokens.size();
     for (int i = 0; i < batch.n_tokens; i++) {
         batch.token[i]     = tokens[i];
         batch.pos[i]       = i;
@@ -178,13 +231,13 @@ float *llama_embed(const char *input) {
     }
 
     const int dim = llama_model_n_embd(model);
-    auto *out = (float *) std::malloc(sizeof(float) * (size_t)dim);
+    auto *out = (float *) std::malloc(sizeof(float) * (size_t) dim);
     if (!out) {
         LOGE("malloc failed for embedding");
         llama_batch_free(batch);
         return nullptr;
     }
-    std::memcpy(out, embedding, sizeof(float) * (size_t)dim);
+    std::memcpy(out, embedding, sizeof(float) * (size_t) dim);
 
     llama_batch_free(batch);
     return out;
@@ -241,6 +294,11 @@ bool llama_generate_init(const char *model_path) {
 char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
+    // Keep prompt exactly as provided.
+    // This preserves already formatted chat prompts and avoids mutating them,
+    // which is the core fix direction for issue #90.
+    const std::string final_prompt = prompt;
+
     llama_memory_clear(llama_get_memory(gen_ctx), false);
     LOGI("Cleared KV cache for new generation turn");
 
@@ -251,7 +309,7 @@ char *llama_generate(const char *prompt) {
 
     int n_tokens = tokenize_with_retry(
             vocab,
-            prompt,
+            final_prompt.c_str(),
             tokens,
             /*add_bos*/ false,
             /*parse_special*/ true // allow chat special tokens
@@ -264,13 +322,13 @@ char *llama_generate(const char *prompt) {
     tokens.resize(n_tokens);
 
     const int n_ctx = (int) llama_n_ctx(gen_ctx);
-    if ((int)tokens.size() > n_ctx - 8) {
-        LOGW("Prompt too long (%d) for ctx (%d). Truncating tail-keep.", (int)tokens.size(), n_ctx);
+    if ((int) tokens.size() > n_ctx - 8) {
+        LOGW("Prompt too long (%d) for ctx (%d). Truncating tail-keep.", (int) tokens.size(), n_ctx);
         truncate_to_ctx(tokens, n_ctx, 8);
     }
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
+    llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
+    batch.n_tokens = (int) tokens.size();
     for (int i = 0; i < batch.n_tokens; ++i) {
         batch.token[i]     = tokens[i];
         batch.pos[i]       = i;
@@ -323,12 +381,12 @@ char *llama_generate(const char *prompt) {
                     vocab,
                     token,
                     piece_buf,
-                    (int)sizeof(piece_buf),
+                    (int) sizeof(piece_buf),
                     /* lstrip = */ 0,
                     /* special = */ true
             );
             if (nn > 0) {
-                piece_buf[std::min(nn, (int)sizeof(piece_buf) - 1)] = '\0';
+                piece_buf[std::min(nn, (int) sizeof(piece_buf) - 1)] = '\0';
                 if (std::strcmp(piece_buf, "<end_of_turn>") == 0 ||
                         std::strcmp(piece_buf, "<|eot_id|>")  == 0 ||
                         std::strcmp(piece_buf, "<start_of_turn>") == 0) {
@@ -371,7 +429,7 @@ char *llama_generate(const char *prompt) {
                 vocab,
                 tok,
                 buf,
-                (int)sizeof(buf),
+                (int) sizeof(buf),
                 /* lstrip = */ 0,
                 /* special = */ false
         );
