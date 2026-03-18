@@ -70,19 +70,21 @@ internal object EnglishLocalization : Localization {
 
     override val viewAll = "View All"
     override val welcomeToThe = "Welcome to the "
-    override val onboardingMainText = "Llamatik ChatBot is an experimental local assistant, designed to help you quickly understand how Llamatik Library works.\n" +
+    override val onboardingMainText = "Llamatik is a private, on-device AI assistant designed to help you chat, explore ideas, and get things done — all without relying on the cloud.\n" +
             "\n" +
-            "For more information please go to llamatik.com" +
+            "Everything runs locally on your device, giving you full control over your data while reducing unnecessary energy usage from remote servers.\n" +
+            "\n" +
+            "For more information please visit llamatik.com" +
             "\n" +
             "\n" +
             "\uD83D\uDD10 Privacy Notice\n\n" +
-            "Your privacy is fully protected. This chatbot runs entirely on your device.\n" +
-            "It does not collect, store, or share any personal data.\n" +
+            "Your privacy is fully protected. This app runs entirely on your device.\n" +
+            "No personal data is collected, stored, or shared.\n" +
             "No information is sent to external servers.\n" +
             "\n" +
             "---\n" +
             "\n" +
-            "By continuing, you accept that Llamatik ChatBot is provided for educational and informational purposes only, and complies with global privacy laws including GDPR, CCPA, and LGPD.\n" +
+            "By continuing, you acknowledge that Llamatik is provided as a local AI assistant and complies with global privacy regulations including GDPR, CCPA, and LGPD.\n" +
             "\n"
 
     override val actionContinue = "Continue"

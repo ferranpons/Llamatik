@@ -72,21 +72,22 @@ internal object JapaneseLocalization : Localization {
     override val viewAll = "すべて表示"
     override val welcomeToThe = "ようこそ "
 
-    override val onboardingMainText =
-        "Llamatik ChatBotは、Llamatikライブラリの動作を素早く理解するために設計された、実験的なローカルアシスタントです。\n" +
-                "\n" +
-                "詳細は llamatik.com をご覧ください\n" +
-                "\n" +
-                "\n" +
-                "🔒 プライバシーに関するお知らせ\n\n" +
-                "あなたのプライバシーは完全に保護されます。このチャットボットはデバイス上でのみ動作します。\n" +
-                "個人データの収集・保存・共有は行いません。\n" +
-                "外部サーバーへ情報は送信されません。\n" +
-                "\n" +
-                "---\n" +
-                "\n" +
-                "続行することで、Llamatik ChatBotが教育・情報提供目的で提供され、GDPR、CCPA、LGPDなどのプライバシー法に準拠していることに同意したものとみなされます。\n" +
-                "\n"
+    override val onboardingMainText = "Llamatik は、クラウドに依存せず、チャットやアイデアの探求、タスクの実行をサポートするプライベートなオンデバイスAIアシスタントです。\n" +
+            "\n" +
+            "すべての処理はお使いのデバイス上で行われるため、データを完全にコントロールでき、リモートサーバーによる不要なエネルギー消費も削減できます。\n" +
+            "\n" +
+            "詳細は llamatik.com をご覧ください" +
+            "\n" +
+            "\n" +
+            "\uD83D\uDD10 プライバシーに関するお知らせ\n\n" +
+            "あなたのプライバシーは完全に保護されます。本アプリはすべてデバイス上で動作します。\n" +
+            "個人データの収集・保存・共有は一切行いません。\n" +
+            "外部サーバーへ情報が送信されることはありません。\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "続行することで、Llamatik がローカルAIアシスタントとして提供され、GDPR、CCPA、LGPD などの国際的なプライバシー規制に準拠していることに同意したものとみなされます。\n" +
+            "\n"
 
     override val actionContinue = "続行"
     override val settingUpLlamatik = "Llamatikをセットアップ中…"

@@ -69,20 +69,22 @@ internal object DeutschLocalization : Localization {
 
     override val viewAll = "Alle anzeigen"
     override val welcomeToThe = "Willkommen bei "
-    override val onboardingMainText =
-        "Llamatik ChatBot ist ein experimenteller lokaler Assistent, der dir hilft, schnell zu verstehen, wie die Llamatik-Bibliothek funktioniert.\n" +
-                "\n" +
-                "Weitere Informationen findest du auf llamatik.com\n" +
-                "\n" +
-                "\n" +
-                "🔐 Datenschutzhinweis\n\n" +
-                "Deine Privatsphäre ist vollständig geschützt. Dieser Chatbot läuft vollständig auf deinem Gerät.\n" +
-                "Er sammelt, speichert oder teilt keine personenbezogenen Daten.\n" +
-                "Es werden keine Informationen an externe Server gesendet.\n" +
-                "\n" +
-                "---\n" +
-                "\n" +
-                "Durch die Fortsetzung akzeptierst du, dass Llamatik ChatBot ausschließlich zu Bildungs- und Informationszwecken bereitgestellt wird und den globalen Datenschutzgesetzen einschließlich DSGVO, CCPA und LGPD entspricht.\n"
+    override val onboardingMainText = "Llamatik ist ein privater, lokal ausgeführter KI-Assistent, der Ihnen hilft zu chatten, Ideen zu erkunden und Dinge zu erledigen – ganz ohne Cloud.\n" +
+            "\n" +
+            "Alles läuft direkt auf Ihrem Gerät, sodass Sie die volle Kontrolle über Ihre Daten behalten und gleichzeitig unnötigen Energieverbrauch durch entfernte Server reduzieren.\n" +
+            "\n" +
+            "Weitere Informationen finden Sie unter llamatik.com" +
+            "\n" +
+            "\n" +
+            "\uD83D\uDD10 Datenschutzhinweis\n\n" +
+            "Ihre Privatsphäre ist vollständig geschützt. Diese App läuft komplett auf Ihrem Gerät.\n" +
+            "Es werden keine persönlichen Daten gesammelt, gespeichert oder weitergegeben.\n" +
+            "Es werden keine Informationen an externe Server gesendet.\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "Mit der Fortsetzung bestätigen Sie, dass Llamatik als lokaler KI-Assistent bereitgestellt wird und den Datenschutzbestimmungen wie DSGVO, CCPA und LGPD entspricht.\n" +
+            "\n"
 
     override val actionContinue = "Weiter"
     override val settingUpLlamatik = "Llamatik wird eingerichtet…"

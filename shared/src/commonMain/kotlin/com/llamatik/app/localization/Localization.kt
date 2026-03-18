@@ -1,6 +1,7 @@
 package com.llamatik.app.localization
 
 import androidx.compose.runtime.Composable
+import com.llamatik.app.localization.translations.CatalanLocalization
 import com.llamatik.app.localization.translations.ChineseLocalization
 import com.llamatik.app.localization.translations.DeutschLocalization
 import com.llamatik.app.localization.translations.EnglishLocalization
@@ -176,10 +177,11 @@ enum class AvailableLanguages {
     PT,
     HI,
     FA,
-    JA;
+    JA,
+    CA;
 
     companion object {
-        val languages = listOf(EN, ES, IT, FR, DE, RU, CN, PT, HI, FA, JA)
+        val languages = listOf(EN, ES, IT, FR, DE, RU, CN, PT, HI, FA, JA, CA)
     }
 }
 
@@ -200,6 +202,7 @@ fun getCurrentLocalization() = when (getCurrentLanguage()) {
     AvailableLanguages.HI -> HindiLocalization
     AvailableLanguages.FA -> PersianLocalization
     AvailableLanguages.JA -> JapaneseLocalization
+    AvailableLanguages.CA -> CatalanLocalization
 }
 
 fun getLanguageCode(): String? {
@@ -215,5 +218,6 @@ fun getLanguageCode(): String? {
         AvailableLanguages.HI -> "hi"
         AvailableLanguages.FA -> "fa"
         AvailableLanguages.JA -> "ja"
+        AvailableLanguages.CA -> "ca"
     }
 }

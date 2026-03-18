@@ -67,20 +67,22 @@ internal object SpanishLocalization : Localization {
 
     override val viewAll = "Ver todo"
     override val welcomeToThe = "Bienvenido a "
-    override val onboardingMainText =
-        "Llamatik ChatBot es un asistente local experimental, diseñado para ayudarte a comprender rápidamente cómo funciona la biblioteca Llamatik.\n" +
-                "\n" +
-                "Para más información visita llamatik.com\n" +
-                "\n" +
-                "\n" +
-                "🔐 Aviso de privacidad\n\n" +
-                "Tu privacidad está completamente protegida. Este chatbot se ejecuta completamente en tu dispositivo.\n" +
-                "No recopila, almacena ni comparte datos personales.\n" +
-                "No se envía información a servidores externos.\n" +
-                "\n" +
-                "---\n" +
-                "\n" +
-                "Al continuar, aceptas que Llamatik ChatBot se proporciona únicamente con fines educativos e informativos y cumple con las leyes globales de privacidad, incluidas GDPR, CCPA y LGPD.\n"
+    override val onboardingMainText = "Llamatik es un asistente de IA privado que funciona directamente en tu dispositivo, diseñado para chatear, explorar ideas y ayudarte a realizar tareas — sin depender de la nube.\n" +
+            "\n" +
+            "Todo se ejecuta localmente en tu dispositivo, dándote control total sobre tus datos y reduciendo el consumo energético de servidores remotos.\n" +
+            "\n" +
+            "Para más información visita llamatik.com" +
+            "\n" +
+            "\n" +
+            "\uD83D\uDD10 Aviso de privacidad\n\n" +
+            "Tu privacidad está totalmente protegida. Esta aplicación funciona completamente en tu dispositivo.\n" +
+            "No se recopilan, almacenan ni comparten datos personales.\n" +
+            "No se envía ninguna información a servidores externos.\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "Al continuar, reconoces que Llamatik se ofrece como un asistente de IA local y cumple con normativas globales de privacidad como GDPR, CCPA y LGPD.\n" +
+            "\n"
 
     override val actionContinue = "Continuar"
     override val settingUpLlamatik = "Configurando Llamatik…"

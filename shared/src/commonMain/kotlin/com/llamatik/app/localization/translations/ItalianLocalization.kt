@@ -67,20 +67,22 @@ internal object ItalianLocalization : Localization {
 
     override val viewAll = "Vedi tutto"
     override val welcomeToThe = "Benvenuto su "
-    override val onboardingMainText =
-        "Llamatik ChatBot è un assistente locale sperimentale, progettato per aiutarti a comprendere rapidamente come funziona la libreria Llamatik.\n" +
-                "\n" +
-                "Per maggiori informazioni visita llamatik.com\n" +
-                "\n" +
-                "\n" +
-                "🔐 Informativa sulla privacy\n\n" +
-                "La tua privacy è completamente protetta. Questo chatbot funziona interamente sul tuo dispositivo.\n" +
-                "Non raccoglie, memorizza né condivide dati personali.\n" +
-                "Nessuna informazione viene inviata a server esterni.\n" +
-                "\n" +
-                "---\n" +
-                "\n" +
-                "Continuando, accetti che Llamatik ChatBot sia fornito esclusivamente a scopo educativo e informativo e sia conforme alle leggi globali sulla privacy, inclusi GDPR, CCPA e LGPD.\n"
+    override val onboardingMainText = "Llamatik è un assistente AI privato che funziona direttamente sul tuo dispositivo, progettato per chattare, esplorare idee e portare a termine attività — senza dipendere dal cloud.\n" +
+            "\n" +
+            "Tutto funziona localmente sul tuo dispositivo, offrendoti il pieno controllo dei tuoi dati e riducendo il consumo energetico dei server remoti.\n" +
+            "\n" +
+            "Per maggiori informazioni visita llamatik.com" +
+            "\n" +
+            "\n" +
+            "\uD83D\uDD10 Informativa sulla privacy\n\n" +
+            "La tua privacy è completamente protetta. Questa app funziona interamente sul tuo dispositivo.\n" +
+            "Nessun dato personale viene raccolto, memorizzato o condiviso.\n" +
+            "Nessuna informazione viene inviata a server esterni.\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "Continuando, riconosci che Llamatik è fornito come assistente AI locale e rispetta le normative globali sulla privacy come GDPR, CCPA e LGPD.\n" +
+            "\n"
 
     override val actionContinue = "Continua"
     override val settingUpLlamatik = "Configurazione di Llamatik…"

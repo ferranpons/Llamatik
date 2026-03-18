@@ -70,20 +70,22 @@ internal object ChineseLocalization : Localization {
 
     override val viewAll = "查看全部"
     override val welcomeToThe = "欢迎使用"
-    override val onboardingMainText =
-        "Llamatik ChatBot 是一个实验性的本地助手，旨在帮助你快速了解 Llamatik 库的工作方式。\n" +
-                "\n" +
-                "更多信息请访问 llamatik.com\n" +
-                "\n" +
-                "\n" +
-                "🔐 隐私声明\n\n" +
-                "你的隐私受到完全保护。此聊天机器人完全在你的设备上运行。\n" +
-                "不会收集、存储或共享任何个人数据。\n" +
-                "不会向外部服务器发送任何信息。\n" +
-                "\n" +
-                "---\n" +
-                "\n" +
-                "继续使用即表示你同意：Llamatik ChatBot 仅用于教育和信息目的，并符合包括 GDPR、CCPA 和 LGPD 在内的全球隐私法规。\n"
+    override val onboardingMainText = "Llamatik 是一款私密的本地 AI 助手，旨在帮助您进行对话、探索想法并高效完成任务——无需依赖云端。\n" +
+            "\n" +
+            "所有功能均在您的设备上本地运行，让您完全掌控自己的数据，同时减少远程服务器带来的能源消耗。\n" +
+            "\n" +
+            "更多信息请访问 llamatik.com" +
+            "\n" +
+            "\n" +
+            "\uD83D\uDD10 隐私声明\n\n" +
+            "您的隐私得到充分保护。本应用完全在您的设备上运行。\n" +
+            "不会收集、存储或共享任何个人数据。\n" +
+            "不会向外部服务器发送任何信息。\n" +
+            "\n" +
+            "---\n" +
+            "\n" +
+            "继续使用即表示您已知悉 Llamatik 作为本地 AI 助手提供服务，并符合 GDPR、CCPA 和 LGPD 等全球隐私法规。\n" +
+            "\n"
 
     override val actionContinue = "继续"
     override val settingUpLlamatik = "正在设置 Llamatik…"
