@@ -33,10 +33,12 @@ import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.toKString
+import platform.Foundation.NSApplicationSupportDirectory
 import platform.Foundation.NSBundle
 import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.create
@@ -46,9 +48,20 @@ import platform.posix.free
 @Suppress(names = ["EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING"])
 actual object LlamaBridge {
 
+    private var loadedEmbedModelPath: String? = null
+    private var loadedGenerateModelPath: String? = null
+    private var embedInitialized: Boolean = false
+    private var generateInitialized: Boolean = false
+
     @OptIn(BetaInteropApi::class)
     actual fun getModelPath(modelFileName: String): String {
         val fm = NSFileManager.defaultManager
+
+        resolveExistingModelPath(modelFileName)?.let { resolved ->
+            println("✅ [getModelPath] Using existing resolved path: $resolved")
+            return resolved
+        }
+
         val cachesDir = fm.URLsForDirectory(NSCachesDirectory, NSUserDomainMask).first() as NSURL
         val dstUrl = cachesDir.URLByAppendingPathComponent(modelFileName)!!
 
@@ -76,6 +89,7 @@ actual object LlamaBridge {
                     candidates += "${bundle.bundlePath}: <root>" to urlFor(bundle, name, ext, null)
                 }
             }
+
             NSBundle.allFrameworks().forEach { b ->
                 (b as? NSBundle)?.let { bundle ->
                     candidates += "framework ${bundle.bundlePath}: models/" to urlFor(bundle, name, ext, "models")
@@ -119,7 +133,138 @@ actual object LlamaBridge {
         return fileName.substring(0, dot) to fileName.substring(dot + 1)
     }
 
-    actual fun initEmbedModel(modelPath: String): Boolean = llama_embed_init(modelPath)
+    private fun pathBasename(path: String): String = path.substringAfterLast('/')
+
+    private fun pathStem(path: String): String {
+        val base = pathBasename(path)
+        val dot = base.lastIndexOf('.')
+        return if (dot > 0) base.substring(0, dot) else base
+    }
+
+    private fun normalizeKey(s: String): String =
+        s.lowercase().filter { it.isLetterOrDigit() }
+
+    private fun appSupportModelsDir(): NSURL? {
+        val fm = NSFileManager.defaultManager
+        val base = fm.URLForDirectory(
+            directory = NSApplicationSupportDirectory,
+            inDomain = NSUserDomainMask,
+            appropriateForURL = null,
+            create = true,
+            error = null
+        ) ?: return null
+
+        val appDir = base.URLByAppendingPathComponent("Llamatik", true)
+        return appDir?.URLByAppendingPathComponent("models", true)
+    }
+
+    private fun directoryCandidates(): List<String> {
+        val fm = NSFileManager.defaultManager
+        val out = mutableListOf<String>()
+
+        val tmp = NSTemporaryDirectory()
+        if (!tmp.isNullOrBlank()) out += tmp.trimEnd('/')
+
+        val caches = (fm.URLsForDirectory(NSCachesDirectory, NSUserDomainMask).firstOrNull() as? NSURL)?.path
+        if (!caches.isNullOrBlank()) out += caches.trimEnd('/')
+
+        val appSupportModels = appSupportModelsDir()?.path
+        if (!appSupportModels.isNullOrBlank()) out += appSupportModels.trimEnd('/')
+
+        return out.distinct()
+    }
+
+    private fun exactPathCandidates(input: String): List<String> {
+        val base = pathBasename(input)
+        val stem = pathStem(input)
+        val candidates = mutableListOf<String>()
+
+        if (input.startsWith("/")) {
+            candidates += input
+        }
+
+        directoryCandidates().forEach { dir ->
+            candidates += "$dir/$base"
+            candidates += "$dir/$stem"
+            if (!base.endsWith(".gguf", ignoreCase = true)) {
+                candidates += "$dir/$base.gguf"
+            }
+            if (!stem.endsWith(".gguf", ignoreCase = true)) {
+                candidates += "$dir/$stem.gguf"
+            }
+        }
+
+        return candidates.distinct()
+    }
+
+    private fun fuzzySearchInDir(dirPath: String, requested: String): String? {
+        val fm = NSFileManager.defaultManager
+        val items = (fm.contentsOfDirectoryAtPath(dirPath, null) as? List<*>)?.filterIsInstance<String>().orEmpty()
+        if (items.isEmpty()) return null
+
+        val requestedBase = pathBasename(requested)
+        val requestedStem = pathStem(requested)
+        val requestedKey = normalizeKey(requestedStem)
+
+        items.firstOrNull { it == requestedBase }?.let { return "$dirPath/$it" }
+        items.firstOrNull { pathStem(it) == requestedStem }?.let { return "$dirPath/$it" }
+
+        items.firstOrNull { normalizeKey(pathStem(it)) == requestedKey }?.let { return "$dirPath/$it" }
+
+        items.firstOrNull {
+            val candidateKey = normalizeKey(pathStem(it))
+            candidateKey.contains(requestedKey) || requestedKey.contains(candidateKey)
+        }?.let { return "$dirPath/$it" }
+
+        return null
+    }
+
+    private fun resolveExistingModelPath(input: String): String? {
+        val fm = NSFileManager.defaultManager
+
+        if (input.isBlank()) return null
+        if (fm.fileExistsAtPath(input)) return input
+
+        exactPathCandidates(input).firstOrNull { fm.fileExistsAtPath(it) }?.let { found ->
+            println("✅ [resolveModelPath] Exact recovered path for '$input' -> $found")
+            return found
+        }
+
+        directoryCandidates().firstNotNullOfOrNull { dir ->
+            fuzzySearchInDir(dir, input)
+        }?.let { found ->
+            if (fm.fileExistsAtPath(found)) {
+                println("✅ [resolveModelPath] Fuzzy recovered path for '$input' -> $found")
+                return found
+            }
+        }
+
+        return null
+    }
+
+    actual fun initEmbedModel(modelPath: String): Boolean {
+        val resolved = resolveExistingModelPath(modelPath) ?: getModelPath(modelPath)
+        println("🧠 [initEmbedModel] requested=$modelPath resolved=$resolved")
+
+        if (embedInitialized && loadedEmbedModelPath == resolved) {
+            println("✅ [initEmbedModel] already initialized for $resolved")
+            return true
+        }
+
+        if (embedInitialized && loadedEmbedModelPath != resolved) {
+            println("♻️ [initEmbedModel] switching embed model from $loadedEmbedModelPath to $resolved")
+            llama_embed_free()
+            embedInitialized = false
+            loadedEmbedModelPath = null
+        }
+
+        val ok = llama_embed_init(resolved)
+        if (ok) {
+            embedInitialized = true
+            loadedEmbedModelPath = resolved
+        }
+        return ok
+    }
 
     actual fun embed(input: String): FloatArray {
         val ptr = llama_embed(input) ?: return FloatArray(0)
@@ -130,14 +275,36 @@ actual object LlamaBridge {
         return out
     }
 
-    actual fun initGenerateModel(modelPath: String): Boolean = llama_generate_init(modelPath)
+    actual fun initGenerateModel(modelPath: String): Boolean {
+        val resolved = resolveExistingModelPath(modelPath) ?: getModelPath(modelPath)
+        println("📝 [initGenerateModel] requested=$modelPath resolved=$resolved")
+
+        if (generateInitialized && loadedGenerateModelPath == resolved) {
+            println("✅ [initGenerateModel] already initialized for $resolved")
+            return true
+        }
+
+        if (generateInitialized && loadedGenerateModelPath != resolved) {
+            println("♻️ [initGenerateModel] switching generate model from $loadedGenerateModelPath to $resolved")
+            llama_generate_free()
+            generateInitialized = false
+            loadedGenerateModelPath = null
+        }
+
+        val ok = llama_generate_init(resolved)
+        if (ok) {
+            generateInitialized = true
+            loadedGenerateModelPath = resolved
+        }
+        return ok
+    }
 
     actual fun generate(prompt: String): String {
         val c = llama_generate(prompt) ?: return ""
         try {
             return c.toKString()
         } finally {
-            free(c) // IMPORTANT: free returned malloc string
+            free(c)
         }
     }
 
@@ -168,7 +335,12 @@ actual object LlamaBridge {
         }
     }
 
-    actual fun generateJsonWithContext(systemPrompt: String, contextBlock: String, userPrompt: String, jsonSchema: String?): String {
+    actual fun generateJsonWithContext(
+        systemPrompt: String,
+        contextBlock: String,
+        userPrompt: String,
+        jsonSchema: String?
+    ): String {
         val c = llama_generate_chat_json_schema(systemPrompt, contextBlock, userPrompt, jsonSchema) ?: return ""
         try {
             return c.toKString()
@@ -177,8 +349,6 @@ actual object LlamaBridge {
         }
     }
 
-    // ===================== KV session (native iOS C) =====================
-
     actual fun sessionReset(): Boolean = llama_generate_session_reset()
     actual fun sessionSave(path: String): Boolean = llama_generate_session_save(path)
     actual fun sessionLoad(path: String): Boolean = llama_generate_session_load(path)
@@ -186,9 +356,11 @@ actual object LlamaBridge {
     actual fun shutdown() {
         llama_embed_free()
         llama_generate_free()
+        embedInitialized = false
+        generateInitialized = false
+        loadedEmbedModelPath = null
+        loadedGenerateModelPath = null
     }
-
-    // --------- Streaming (iOS via C callbacks) ---------
 
     actual fun generateStream(prompt: String, callback: GenStream) {
         memScoped {

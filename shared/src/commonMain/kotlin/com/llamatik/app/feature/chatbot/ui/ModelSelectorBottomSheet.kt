@@ -116,14 +116,14 @@ fun ModelSelectorBottomSheet(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = localization.settings,
-                            style = Typography.get().titleLarge,
+                            style = Typography.get().titleMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = localization.removeAllDownloadedModels,
-                            style = Typography.get().labelSmall,
+                            style = Typography.get().labelMedium,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -295,8 +295,8 @@ private fun GroupHeader(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = Typography.get().titleLarge,
-                    maxLines = 1,
+                    style = Typography.get().titleMedium,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
@@ -304,7 +304,7 @@ private fun GroupHeader(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = subtitle,
-                        style = Typography.get().labelSmall,
+                        style = Typography.get().labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
