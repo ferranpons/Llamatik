@@ -70,7 +70,7 @@ weight = 0
 
 [languages.fr]
 contentDir = 'content/fr'
-disabled = false
+disabled = true
 languageCode = 'fr'
 languageDirection = 'ltr'
 languageName = 'Français'
@@ -79,7 +79,7 @@ weight = 1
 
 [languages.it]
 contentDir = 'content/it'
-disabled = false
+disabled = true
 languageCode = 'it'
 languageDirection = 'ltr'
 languageName = 'Italiano'
@@ -88,7 +88,7 @@ weight = 2
 
 [languages.de]
 contentDir = 'content/de'
-disabled = false
+disabled = true
 languageCode = 'de-DE'
 languageDirection = 'ltr'
 languageName = 'Deutsch'
@@ -97,7 +97,7 @@ weight = 3
 
 [languages.es]
 contentDir = 'content/es'
-disabled = false
+disabled = true
 languageCode = 'es-ES'
 languageDirection = 'ltr'
 languageName = 'Español'
@@ -106,7 +106,7 @@ weight = 4
 
 [languages.ca]
 contentDir = 'content/ca'
-disabled = false
+disabled = true
 languageCode = 'ca-ES'
 languageDirection = 'ltr'
 languageName = 'Català'
@@ -115,7 +115,7 @@ weight = 5
 
 [languages.ru]
 contentDir = 'content/ru'
-disabled = false
+disabled = true
 languageCode = 'ru-RU'
 languageDirection = 'ltr'
 languageName = 'Русский'
@@ -124,7 +124,7 @@ weight = 6
 
 [languages.hi]
 contentDir = 'content/hi'
-disabled = false
+disabled = true
 languageCode = 'hi-IN'
 languageDirection = 'ltr'
 languageName = 'हिन्दी'
@@ -133,7 +133,7 @@ weight = 7
 
 [languages.fa]
 contentDir = 'content/fa'
-disabled = false
+disabled = true
 languageCode = 'fa-IR'
 languageDirection = 'rtl'
 languageName = 'فارسی'
@@ -142,7 +142,7 @@ weight = 8
 
 [languages.zh]
 contentDir = 'content/zh'
-disabled = false
+disabled = true
 languageCode = 'zh-CN'
 languageDirection = 'ltr'
 languageName = '简体中文'
@@ -151,7 +151,7 @@ weight = 9
 
 [languages.pt]
 contentDir = 'content/pt'
-disabled = false
+disabled = true
 languageCode = 'pt-BR'
 languageDirection = 'ltr'
 languageName = 'Português (Brasil)'
@@ -160,7 +160,7 @@ weight = 10
 
 [languages.ja]
 contentDir = 'content/ja'
-disabled = false
+disabled = true
 languageCode = 'ja-JP'
 languageDirection = 'ltr'
 languageName = '日本語'

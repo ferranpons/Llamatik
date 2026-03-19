@@ -1,3 +1,4 @@
+{{ if hugo.IsMultilingual }}
 {{ if gt (len .Site.Home.AllTranslations) 0 }}
 <div class="language-selector">
     <select onchange="if (this.value) window.location.href=this.value;" aria-label="Select language">
@@ -8,4 +9,5 @@
         {{ end }}
     </select>
 </div>
+{{ end }}
 {{ end }}
