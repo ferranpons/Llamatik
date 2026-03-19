@@ -2,134 +2,90 @@
 <div class="container pt-6 pb-6">
     <div class="download-header">
         <h1>{{ .Title }}</h1>
-        <p>{{ .Params.description }}</p>
+        {{ with .Params.description }}
+        <p>{{ . }}</p>
+        {{ end }}
     </div>
 
+    {{ with .Params.primary_platforms }}
     <div class="download-grid">
-        <!-- ANDROID -->
+        {{ range . }}
         <div class="download-card">
-            <h2>Android</h2>
-            <p>
-                Download the Llamatik app for Android and run LLMs fully offline
-                on your device.
-            </p>
+            <h2>{{ .title }}</h2>
+            <p>{{ .description }}</p>
 
             <a
-                    class="download-button primary"
-                    href="https://play.google.com/store/apps/details?id=com.llamatik.app.android"
-                    target="_blank"
-                    rel="noopener"
+                    class="download-button {{ .button_style | default "primary" }}"
+            href="{{ .button_url }}"
+            {{ if .external }}target="_blank" rel="noopener"{{ end }}
             >
-                Download on Google Play
+            {{ .button_text }}
             </a>
-        </div>
 
-        <!-- IOS -->
-        <div class="download-card">
-            <h2>iOS</h2>
-            <p>
-                Experience private, on-device AI on iPhone and iPad
-                with no cloud dependency.
-            </p>
-
+            {{ with .secondary_link }}
+            <br>
             <a
-                    class="download-button secondary"
-                    href="https://apple.co/3Md7EIh"
-                    target="_blank"
-                    rel="noopener"
+                    class="download-checksum"
+                    href="{{ .url }}"
+                    {{ if .external }}target="_blank" rel="noopener"{{ end }}
             >
-                Download on the App Store
+                {{ .text }}
             </a>
+            {{ end }}
+
+            {{ with .note }}
+            <br><br>
+            <p class="download-note">{{ . | markdownify }}</p>
+            {{ end }}
         </div>
+        {{ end }}
     </div>
+    {{ end }}
 
+    {{ with .Params.desktop_section }}
     <hr class="download-divider" />
 
     <div class="download-section">
-        <h2>Desktop App</h2>
-        <p class="download-section-subtitle">
-            Run LLMs locally on your computer — fully offline, no cloud dependency.
-        </p>
+        <h2>{{ .title }}</h2>
+        {{ with .subtitle }}
+        <p class="download-section-subtitle">{{ . }}</p>
+        {{ end }}
 
         <div class="download-grid">
-            <!-- macOS -->
+            {{ range .platforms }}
             <div class="download-card">
-                <h3>macOS</h3>
-                <p>Apple Silicon & Intel</p>
+                <h3>{{ .title }}</h3>
+                {{ with .subtitle }}
+                <p>{{ . }}</p>
+                {{ end }}
 
                 <a
-                        class="download-button primary"
-                        href="https://github.com/ferranpons/Llamatik/releases/download/v0.15.0/Llamatik-1.4.0.dmg"
-                        target="_blank"
-                        rel="noopener"
+                        class="download-button {{ .button_style | default "primary" }}"
+                href="{{ .button_url }}"
+                {{ if .external }}target="_blank" rel="noopener"{{ end }}
                 >
-                    Download for macOS
+                {{ .button_text }}
                 </a>
+
+                {{ with .secondary_link }}
                 <br>
                 <a
                         class="download-checksum"
-                        href="https://github.com/ferranpons/Llamatik/releases/download/v0.15.0/SHA256SUMS-macOS.txt"
-                        target="_blank"
-                        rel="noopener"
+                        href="{{ .url }}"
+                        {{ if .external }}target="_blank" rel="noopener"{{ end }}
                 >
-                    SHA-256 checksum
+                    {{ .text }}
                 </a>
-            </div>
+                {{ end }}
 
-            <!-- Windows -->
-            <div class="download-card">
-                <h3>Windows</h3>
-                <p>Windows 10+</p>
-
-                <a
-                        class="download-button primary"
-                        href="https://github.com/ferranpons/Llamatik/releases/download/v0.15.0/Llamatik-1.4.0.msi"
-                        target="_blank"
-                        rel="noopener"
-                >
-                    Download for Windows
-                </a>
-                <br>
-                <a
-                        class="download-checksum"
-                        href="https://github.com/ferranpons/Llamatik/releases/download/v0.15.0/SHA256SUMS-Windows.txt"
-                        target="_blank"
-                        rel="noopener"
-                >
-                    SHA-256 checksum
-                </a>
-            </div>
-
-            <!-- Linux -->
-            <div class="download-card">
-                <h3>Linux</h3>
-                <p>Debian / Ubuntu (.deb)</p>
-
-                <a
-                        class="download-button primary"
-                        href="https://github.com/ferranpons/Llamatik/releases/download/v0.13.0/llamatik_1.2.0_amd64.deb"
-                        target="_blank"
-                        rel="noopener"
-                >
-                    Download .deb package
-                </a>
-                <br>
-                <a
-                        class="download-checksum"
-                        href="https://github.com/ferranpons/Llamatik/releases/download/v0.13.0/SHA256SUMS-Linux.txt"
-                        target="_blank"
-                        rel="noopener"
-                >
-                    SHA-256 checksum
-                </a>
+                {{ with .note }}
                 <br><br>
-                <p class="download-note">
-                    Tested on Ubuntu 22.04+
-                    <br>
-                    Install with: <code>sudo dpkg -i llamatik_1.4.0_amd64.deb</code>
-                </p>
+                <p class="download-note">{{ . | markdownify }}</p>
+                {{ end }}
             </div>
+            {{ end }}
         </div>
     </div>
+    {{ end }}
 </div>
 {{ end }}
