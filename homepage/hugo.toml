@@ -4,7 +4,7 @@ theme = "hugo-serif-theme"
 languageCode = "en-us"
 title = "Llamatik"
 defaultContentLanguage = 'en'
-defaultContentLanguageInSubdir = false
+defaultContentLanguageInSubdir = true
 
 [module]
 [module.hugoVersion]
@@ -103,6 +103,69 @@ languageDirection = 'ltr'
 languageName = 'Español'
 title = 'Llamatik'
 weight = 4
+
+[languages.ca]
+contentDir = 'content/ca'
+disabled = false
+languageCode = 'ca-ES'
+languageDirection = 'ltr'
+languageName = 'Català'
+title = 'Llamatik'
+weight = 5
+
+[languages.ru]
+contentDir = 'content/ru'
+disabled = false
+languageCode = 'ru-RU'
+languageDirection = 'ltr'
+languageName = 'Русский'
+title = 'Llamatik'
+weight = 6
+
+[languages.hi]
+contentDir = 'content/hi'
+disabled = false
+languageCode = 'hi-IN'
+languageDirection = 'ltr'
+languageName = 'हिन्दी'
+title = 'Llamatik'
+weight = 7
+
+[languages.fa]
+contentDir = 'content/fa'
+disabled = false
+languageCode = 'fa-IR'
+languageDirection = 'rtl'
+languageName = 'فارسی'
+title = 'Llamatik'
+weight = 8
+
+[languages.zh]
+contentDir = 'content/zh'
+disabled = false
+languageCode = 'zh-CN'
+languageDirection = 'ltr'
+languageName = '简体中文'
+title = 'Llamatik'
+weight = 9
+
+[languages.pt]
+contentDir = 'content/pt'
+disabled = false
+languageCode = 'pt-BR'
+languageDirection = 'ltr'
+languageName = 'Português (Brasil)'
+title = 'Llamatik'
+weight = 10
+
+[languages.ja]
+contentDir = 'content/ja'
+disabled = false
+languageCode = 'ja-JP'
+languageDirection = 'ltr'
+languageName = '日本語'
+title = 'Llamatik'
+weight = 11
 
 [menu]
 # Main Menu
