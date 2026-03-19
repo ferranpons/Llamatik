@@ -130,3 +130,26 @@
   height: auto;
   display: block;
 }
+
+.language-selector {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.language-selector select {
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid #d8d8d8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f1f29;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.language-selector select:hover {
+  border-color: #bfbfbf;
+}

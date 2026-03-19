@@ -1,0 +1,11 @@
+{{ if gt (len .Site.Home.AllTranslations) 0 }}
+<div class="language-selector">
+    <select onchange="if (this.value) window.location.href=this.value;" aria-label="Select language">
+        {{ range .AllTranslations }}
+        <option value="{{ .RelPermalink }}" {{ if eq .Language.Lang $.Language.Lang }}selected{{ end }}>
+            {{ .Language.LanguageName }}
+        </option>
+        {{ end }}
+    </select>
+</div>
+{{ end }}
