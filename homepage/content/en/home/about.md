@@ -1,16 +1,9 @@
 ---
-title: "About"
-image: "llamatik-icon-logo.png"
-weight: 8
+title: "One idea: AI should work for you, not the cloud."
 ---
 
-Kotlin-first llama.cpp integration for on-device and remote LLM inference.
+Most AI today depends entirely on remote servers. That means your data leaves your device, latency increases, and costs scale with usage.
 
-### Features
+Llamatik takes a different approach.
 
-* Kotlin Multiplatform: shared code across Android, iOS, and desktop
-* Offline inference via llama.cpp (compiled with Kotlin/Native bindings)
-* Remote inference via optional HTTP client (e.g. llamatik-server)
-* Embeddings and text generation support
-* Works with GGUF models (e.g. Mistral, Phi, LLaMA)
-* Lightweight and dependency-free runtime
+By running AI locally when possible, Llamatik gives you more control over your data, faster interactions, and a more sustainable way to use AI — without constant reliance on the cloud.

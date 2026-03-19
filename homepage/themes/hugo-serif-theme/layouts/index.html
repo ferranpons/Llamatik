@@ -1,6 +1,8 @@
 {{ define "body_classes" }}page-home{{ end }}
 
 {{ define "main" }}
+{{ $home := .Site.GetPage "/home" }}
+
 <div class="intro">
     <div class="container">
         <div class="row justify-content-start">
@@ -12,7 +14,7 @@
             </div>
             {{ if .Params.intro_image }}
             <div class="col-12 col-md-5 col-lg-6 order-1 order-md-2 position-relative">
-                <img alt={{ .Title }}
+                <img alt="{{ .Title }}"
                      class="intro-image{{ if .Params.intro_image_absolute }} intro-image-absolute{{ end }}{{ if .Params.intro_image_hide_on_mobile }} intro-image-hide-mobile{{ end }}"
                      src="{{ .Params.intro_image | relURL }}"/>
             </div>
@@ -21,141 +23,107 @@
     </div>
 </div>
 
-<div class="strip">
-    <div class="container pt-6 pb-6 pb-md-10">
-        <div class="row justify-content-start">
-            <h3 class="pricing-centered">Built with trusted technology</h3>
-            <br/>
-            <p class="pricing-centered">
-                Built on battle-tested technologies used in production apps
-            </p>
-            <br/><br/>
-            <p class="pricing-centered">
-                <img src="/images/logo/KotlinFullColorLogoOnWhiteRGB.png" width="120" title=""
-                     alt="Kotlin Language Logo"/>
-                &nbsp;&nbsp;&nbsp;&nbsp;
-                <img src="/images/logo/KtorLogo.png" width="110" title="" alt="Ktor Server Logo"/>
-                &nbsp;&nbsp;&nbsp;&nbsp;
-                <img src="/images/logo/LlamaCppLogo.svg" width="130" title="" alt="Llama.cpp Logo"/>
-                &nbsp;&nbsp;&nbsp;&nbsp;
-                <img src="/images/logo/ComposeMultiplatformLogo.png" width="40" title=""
-                     alt="Compose Multiplatform Logo"/> Compose Multiplatform
-                &nbsp;&nbsp;&nbsp;&nbsp;
-                <img src="/images/logo/MaterialDesign3Logo.png" width="40" title=""
-                     alt="Material Design 3 Logo"/> Material Design 3
-            </p>
-        </div>
-    </div>
-</div>
-
-{{ $services := where (where .Site.RegularPages "Type" "services") ".Params.featured" true }}
-{{if gt (len $services) 0}}
-<div class="strip">
-    <div class="container pt-6 pb-6 pb-md-10">
-        <div class="row justify-content-start">
-            {{ range first 6 (sort $services ".Params.weight") }}
-            <div class="col-12 col-md-4 mb-1">
-                {{ .Render "summary" }}
-            </div>
-            {{ end }}
-        </div>
-        {{ if .Site.Params.homepage.show_services_button }}
-        <div class="row justify-content-center">
-            <div class="col-auto">
-                <a class="button button-primary" href="{{ " services/" | relURL }}">View All
-                Services</a>
-            </div>
-        </div>
-        {{ end }}
-    </div>
-</div>
-{{end}}
-
+{{ with $home.GetPage "about" }}
 <div class="strip strip-grey">
     <div class="container pt-3 pb-3 pb-md-10">
         <div class="row justify-content-center">
             <div class="pricing-intro">
-                <h1>One idea: AI should work for you, not the cloud.</h1>
+                <h1>{{ .Title }}</h1>
             </div>
-            <p class="pricing-centered">
-                Most AI today depends entirely on remote servers. That means your data leaves your device, latency increases, and costs scale with usage.<br><br>
-
-                Llamatik takes a different approach.<br><br>
-
-                By running AI locally when possible, Llamatik gives you more control over your data, faster interactions, and a more sustainable way to use AI — without constant reliance on the cloud.<br>
-            </p>
+            <div class="pricing-centered">
+                {{ .Content }}
+            </div>
         </div>
     </div>
 </div>
+{{ end }}
 
-<div class="strip strip">
+{{ with $home.GetPage "products" }}
+<div class="strip">
     <div class="container pt-3 pb-3 pb-md-10">
         <div class="row justify-content-center">
             <div class="pricing-intro">
-                <h1>Two ways to use Llamatik</h1>
+                <h1>{{ .Title }}</h1>
             </div>
-            <h2>Llamatik App</h2>
-            <p class="pricing-centered">
-                Private AI, on your device
+        </div>
 
-                A simple, powerful AI assistant that runs locally.
-                No accounts, no tracking, no unnecessary cloud dependency.
-                •	Chat with AI privately
-                •	Generate content and ideas
-                •	Run models directly on your device
-            </p>
+        <div class="row pt-4">
+            <div class="col-12 col-md-6 mb-4">
+                <h2>{{ .Params.app_title }}</h2>
+                <p><strong>{{ .Params.app_tagline }}</strong></p>
+                <div>{{ .Content }}</div>
+                <p class="pt-2">
+                    <a class="button button-secondary" href="{{ .Params.app_button_url }}" rel="noopener noreferrer">
+                        {{ .Params.app_button_text }}
+                    </a>
+                </p>
+            </div>
+
+            <div class="col-12 col-md-6 mb-4">
+                <h2>{{ .Params.library_title }}</h2>
+                <p><strong>{{ .Params.library_tagline }}</strong></p>
+                <div>{{ .Params.library_body | markdownify }}</div>
+                <p class="pt-2">
+                    <a class="button button-secondary" href="{{ .Params.library_button_url }}" target="_blank" rel="noopener noreferrer">
+                        {{ .Params.library_button_text }}
+                    </a>
+                </p>
+            </div>
+        </div>
+
+        <div class="row justify-content-center pt-2">
             <p class="pricing-centered">
-                <img src="/images/screenshots/phoneScreenshot1.png" width="200"
-                     title="" alt="Llamatik Screenshot 1"/>
+                <img src="/images/screenshots/phoneScreenshot1.png" width="200" alt="Llamatik Screenshot 1"/>
                 &nbsp;&nbsp;
-                <img src="/images/screenshots/phoneScreenshot2.png" width="200"
-                     title="" alt="Llamatik Screenshot 2"/>
+                <img src="/images/screenshots/phoneScreenshot2.png" width="200" alt="Llamatik Screenshot 2"/>
                 &nbsp;&nbsp;
-                <img src="/images/screenshots/phoneScreenshot3.png" width="200"
-                     title="" alt="Llamatik Screenshot 3"/>
-            </p>
-            <br><br><br><br>
-            <p class="pricing-centered">
-                <a class="button button-secondary" href="/download" rel="noopener noreferrer">📲 Download the app</a>
-            </p>
-
-            <h2>Llamatik Library</h2>
-            <p class="pricing-centered">
-                Build AI into your own apps
-
-                A Kotlin Multiplatform library for integrating AI across Android, iOS, desktop, and server.
-                •	On-device and remote inference
-                •	Unified API across platforms
-                •	Built on proven technologies
-            </p>
-            <br><br><br><br>
-            <p class="pricing-centered">
-                <a class="button button-secondary" href="https://github.com/ferranpons/Llamatik" target="_blank" rel="noopener noreferrer">Explore Github</a>
+                <img src="/images/screenshots/phoneScreenshot3.png" width="200" alt="Llamatik Screenshot 3"/>
             </p>
         </div>
     </div>
 </div>
+{{ end }}
 
-{{if .Site.Data.features}}
+{{ with $home.GetPage "why" }}
 <div class="strip strip-grey">
     <div class="container pt-3 pb-3 pb-md-10">
         <div class="row justify-content-center">
             <div class="pricing-intro">
-                <h1>Everything you need to ship LLM features 🚀</h1>
+                <h1>{{ .Title }}</h1>
             </div>
-            <p class="pricing-centered">
-                Used in production apps across mobile and desktop
-            </p>
-            <p class="pricing-centered">
-                <b>Llamatik focuses on the hard parts of integrating large language models — so you
-                    can focus on building great products.</b>
-                <br><br>
-                Instead of stitching together native code, bindings, and platform-specific logic,
-                Llamatik provides a unified Kotlin-first abstraction that works across platforms and
-                environments.
-                <br/><br/>
-            </p>
-            {{ range .Site.Data.features }}
+        </div>
+
+        <div class="row pt-4">
+            <div class="col-12 col-md-4 mb-3">
+                <h2>{{ .Params.col1_title }}</h2>
+                <p>{{ .Params.col1_body }}</p>
+            </div>
+            <div class="col-12 col-md-4 mb-3">
+                <h2>{{ .Params.col2_title }}</h2>
+                <p>{{ .Params.col2_body }}</p>
+            </div>
+            <div class="col-12 col-md-4 mb-3">
+                <h2>{{ .Params.col3_title }}</h2>
+                <p>{{ .Params.col3_body }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ if .Site.Data.features }}
+{{ with $home.GetPage "platform" }}
+<div class="strip">
+    <div class="container pt-3 pb-3 pb-md-10">
+        <div class="row justify-content-center">
+            <div class="pricing-intro">
+                <h1>{{ .Title }}</h1>
+            </div>
+            <div class="pricing-centered">
+                {{ .Content }}
+            </div>
+
+            {{ range $.Site.Data.features }}
             <div class="col-12 col-md-6 col-lg-4 mb-2">
                 <div class="feature">
                     <h2 class="feature-title">{{ .title }}</h2>
@@ -164,151 +132,112 @@
                     </div>
                 </div>
             </div>
-            {{end}}
+            {{ end }}
 
-            Get from implementation("com.llamatik:library") to your first inference in minutes.
+            <p class="pricing-centered pt-3">
+                <code>implementation("com.llamatik:library")</code>
+            </p>
         </div>
     </div>
 </div>
-{{end}}
+{{ end }}
+{{ end }}
 
-<div class="strip strip">
-    <div class="container pt-3 pb-3 pb-md-10">
-        <div class="row justify-content-center">
-            <div class="pricing-intro">
-                <h1>Why run LLMs on-device?</h1>
-            </div>
-            <p class="pricing-centered">
-                Local-first beats cloud-first when it matters
-            </p>
-
-            <p class="pricing-centered">
-                <img src="/images/llamatik_ondevice_llms.png" width="400" title="" alt=""/>
-            </p>
-            <p class="pricing-centered">
-                Cloud-based LLMs are powerful — but they come with trade-offs. Latency, recurring
-                costs, privacy concerns, and vendor lock-in can quickly become blockers for
-                real-world applications.
-            </p>
-
-            <p class="pricing-centered">
-                Llamatik lets you run models directly on user devices using native inference powered
-                by llama.cpp, reducing infrastructure costs while keeping sensitive data local. When
-                you need scale or centralized inference, you can seamlessly switch to remote
-                execution — using the same Kotlin API.
-            </p>
-
-            <p class="pricing-centered">
-                Local-first by default. Remote when it makes sense.
-
-                This reframes cost as:
-            </p>
-            <ul>
-                <li>💸 Lower infrastructure costs</li>
-                <li>🔒 Privacy by default</li>
-                <li>🧠 Simpler architecture</li>
-            </ul>
-
-            Local by default. Remote when needed. Same Kotlin API.
-        </div>
-    </div>
-</div>
-
+{{ with $home.GetPage "localfirst" }}
 <div class="strip strip-grey">
     <div class="container pt-3 pb-3 pb-md-10">
         <div class="row justify-content-center">
             <div class="pricing-intro">
-                <h1>Open source. Developer-first.</h1>
+                <h1>{{ .Title }}</h1>
+            </div>
+
+            <div class="pricing-centered">
+                {{ .Content }}
+            </div>
+
+            <p class="pricing-centered">
+                <img src="/images/llamatik_ondevice_llms.png" width="400" alt="Why local-first AI matters"/>
+            </p>
+
+            <ul>
+                {{ range .Params.bullets }}
+                <li>{{ . }}</li>
+                {{ end }}
+            </ul>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+{{ with $home.GetPage "open" }}
+<div class="strip">
+    <div class="container pt-3 pb-3 pb-md-10">
+        <div class="row justify-content-center">
+            <div class="pricing-intro">
+                <h1>{{ .Title }}</h1>
+            </div>
+            <div class="pricing-centered">
+                {{ .Content }}
             </div>
             <p class="pricing-centered">
-                Llamatik is fully open source and built in the open.<br><br>
-                No closed binaries. No hidden services. Just code you can inspect, run, and extend.
-                <br><br>
-                <a href="https://github.com/ferranpons/llamatik">View on GitHub</a>
+                <a href="{{ .Params.button_url }}" target="_blank" rel="noopener noreferrer">{{ .Params.button_text }}</a>
             </p>
         </div>
     </div>
 </div>
+{{ end }}
 
-<!--
-{{ $testimonials := site.Data.testimonials }}
-<section class="testimonials">
-    <div class="container">
-        <h2>What developers say about Llamatik</h2>
-        <p class="subtitle">
-            Used by developers building privacy-first, Kotlin-based AI applications.
-        </p>
-
-        <div class="testimonials-grid">
-            {{ range $testimonials }}
-            <div class="testimonial-card">
-                <div class="quote-icon">“</div>
-
-                <p class="quote">
-                    {{ .quote }}
-                </p>
-
-                <div class="author">
-                    {{ $avatar := .avatar | default "/images/testimonials/avatar-default.svg" }}
-                    <img src="{{ $avatar }}" alt="{{ .name }}" />
-                    <div>
-                        <div class="name">{{ .name }}</div>
-                        <div class="role">{{ .role }}</div>
-                    </div>
-                </div>
+{{ with $home.GetPage "technology" }}
+<div class="strip-grey">
+    <div class="container pt-6 pb-6 pb-md-10">
+        <div class="row justify-content-start">
+            <h3 class="pricing-centered">{{ .Title }}</h3>
+            <br/>
+            <div class="pricing-centered">
+                {{ .Content }}
             </div>
-            {{ end }}
+            <br/><br/>
+            <p class="pricing-centered">
+                <img src="/images/logo/KotlinFullColorLogoOnWhiteRGB.png" width="120" alt="Kotlin Language Logo"/>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <img src="/images/logo/KtorLogo.png" width="110" alt="Ktor Server Logo"/>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <img src="/images/logo/LlamaCppLogo.svg" width="130" alt="Llama.cpp Logo"/>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <img src="/images/logo/ComposeMultiplatformLogo.png" width="40" alt="Compose Multiplatform Logo"/> Compose Multiplatform
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                <img src="/images/logo/MaterialDesign3Logo.png" width="40" alt="Material Design 3 Logo"/> Material Design 3
+            </p>
         </div>
     </div>
-</section>
--->
+</div>
+{{ end }}
 
-{{ if .Site.Params.showPricing }}
-{{ $pricing := where (where .Site.RegularPages "Type" "pricing") ".Params.featured" true }}
-{{if gt (len $pricing) 0}}
-<div class="strip">
-    <div class="container pt-4 pb-3 pb-md-8">
+{{ with $home.GetPage "cta" }}
+<div class="strip strip">
+    <div class="container pt-4 pb-4 pb-md-8">
         <div class="row justify-content-center">
             <div class="pricing-intro">
-                <h1>Build a profitable business</h1>
+                <h1>{{ .Title }}</h1>
             </div>
-            <p class="col-auto pricing-centered">
-                The <i>Basic template</i> is a good start but <b>**PRO templates**</b> have all you
-                need to create professional apps without a hassle.<br/>
-                Get <b>access</b> to <b>our private Github team</b> and join <b>our Slack
-                community</b> for support. <br/>
-                Subscribe and receive <b>unlimited updates to build as many apps as you want</b>.
+            <div class="pricing-centered">
+                {{ .Content }}
+            </div>
+            <p class="pricing-centered pt-2">
+                <a class="button button-secondary" href="{{ .Params.primary_button_url }}" rel="noopener noreferrer">
+                    {{ .Params.primary_button_text }}
+                </a>
+                &nbsp;&nbsp;
+                <a class="button button-tertiary" href="{{ .Params.secondary_button_url }}" rel="noopener noreferrer">
+                    {{ .Params.secondary_button_text }}
+                </a>
             </p>
-            {{ range first 3 (sort $pricing ".Params.weight") }}
-            {{ if eq (.Params.highlighted) true }}
-            <div class="col-14 col-md-3 mb-2 pricing-highlighted">
-                {{ else }}
-                <div class="col-14 col-md-3 mb-2 pricing">
-                    {{ end }}
-                    {{ .Render "price-summary" }}
-                    <div class="col-auto">
-                        {{ if eq (.Params.highlighted) true }}
-                        <a class="button-expanded button-primary button-highlighted"
-                           href="{{ .Params.shoppingurl | relURL }}" target="_blank"
-                           rel="noopener noreferrer">{{ .Params.leadtext }}</a>
-                        {{ else }}
-                        <a class="button-expanded button-primary"
-                           href="{{ .Params.shoppingurl | relURL }}" target="_blank"
-                           rel="noopener noreferrer">{{ .Params.leadtext }}</a>
-                        {{ end }}
-                    </div>
-                </div>
-                {{ end }}
-                <div class="col-auto pricing-centered pricing-small">
-                    * price and subscription plans may change in the future after the promotion
-                    ends.<br/>
-                </div>
-            </div>
         </div>
     </div>
-{{end}}
-{{end}}
+</div>
+{{ end }}
 
+<!--
 <div class="strip strip-grey">
     <div class="container pt-6 pb-6 pt-md-10 pb-md-10">
         <div class="row justify-content-center">
@@ -318,7 +247,7 @@
         </div>
     </div>
 </div>
-
+-->
 {{ end }}
 
 {{ define "footer_js" }}

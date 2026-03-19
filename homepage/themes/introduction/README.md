@@ -100,7 +100,7 @@ The following explains how to add content to your Hugo site. You can find sample
 Create `index.md`:
 
 ```sh
-hugo new home/index.md
+hugo new home/_index.md
 ```
 
 The `title` frontmatter will be the first large heading.
@@ -146,7 +146,7 @@ Add an optional `weight` for ordering projects section.
 To create a project, run:
 
 ```sh
-hugo new projects/YourProjectName/index.md
+hugo new projects/YourProjectName/_index.md
 ```
 
 The frontmatter of your new file contains some comments to help your configure your project.
