@@ -106,13 +106,13 @@ weight = 4
 
 [menu]
 # Main Menu
-[[menu.main]]
-name = "Blog"
-url = "/blog/"
-weight = 1
+#[[menu.main]]
+#name = "Dev Tools"
+#url = "/blog/"
+#weight = 1
 
 [[menu.main]]
-name = "Prompt"
+name = "Chat"
 url = "/prompt/"
 weight = 2
 
@@ -127,14 +127,19 @@ url = "https://docs.llamatik.com"
 weight = 4
 
 [[menu.main]]
+name = "Blog"
+url = "/blog/"
+weight = 5
+
+[[menu.main]]
 name = "Contact"
 url = "/contact/"
-weight = 5
+weight = 6
 
 [[menu.main]]
 name = "Download"
 url = "/download/"
-weight = 6
+weight = 7
 
 # Footer Menu
 [[menu.footer]]

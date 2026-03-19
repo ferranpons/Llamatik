@@ -27,7 +27,6 @@ fun main() =
             onCloseRequest = ::exitApplication,
             state = windowState,
             title = localization.appName,
-            undecorated = windowState.placement == WindowPlacement.Fullscreen,
             icon = painterResource(Res.drawable.llamatik_icon_logo),
         ) {
             LlamatikTheme {
