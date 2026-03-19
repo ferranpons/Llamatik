@@ -70,7 +70,7 @@ weight = 0
 
 [languages.fr]
 contentDir = 'content/fr'
-disabled = true
+disabled = false
 languageCode = 'fr'
 languageDirection = 'ltr'
 languageName = 'Français'
@@ -79,7 +79,7 @@ weight = 1
 
 [languages.it]
 contentDir = 'content/it'
-disabled = true
+disabled = false
 languageCode = 'it'
 languageDirection = 'ltr'
 languageName = 'Italiano'
@@ -88,7 +88,7 @@ weight = 2
 
 [languages.de]
 contentDir = 'content/de'
-disabled = true
+disabled = false
 languageCode = 'de-DE'
 languageDirection = 'ltr'
 languageName = 'Deutsch'
@@ -97,7 +97,7 @@ weight = 3
 
 [languages.es]
 contentDir = 'content/es'
-disabled = true
+disabled = false
 languageCode = 'es-ES'
 languageDirection = 'ltr'
 languageName = 'Español'

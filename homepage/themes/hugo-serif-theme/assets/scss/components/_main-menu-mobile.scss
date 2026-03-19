@@ -13,14 +13,17 @@
   justify-content: center;
   align-items: center;
   flex-direction: column;
+
   &.open {
     opacity: 0.9;
     visibility: visible;
     height: 100%;
     z-index: 20;
+
     li {
       animation: fadeInRight 0.5s ease forwards;
       animation-delay: 0.35s;
+
       &:nth-of-type(2) {
         animation-delay: 0.4s;
       }
@@ -36,11 +39,16 @@
       &:nth-of-type(6) {
         animation-delay: 0.6s;
       }
+      &:nth-of-type(7) {
+        animation-delay: 0.65s;
+      }
     }
+
     @include media-breakpoint-up(md) {
       display: none;
     }
   }
+
   ul {
     font-size: 30px;
     font-family: $font-family-heading;
@@ -49,24 +57,45 @@
     padding: 0;
     margin: 0;
     flex: 0;
+
     li {
       display: block;
       position: relative;
       opacity: 0;
       padding: 10px;
+
       a {
         display: block;
         position: relative;
         color: #ffffff;
         text-decoration: none;
         overflow: hidden;
+
         &:hover {
           opacity: 0.8;
+        }
+      }
+
+      &.menu-item-language {
+        select {
+          min-width: 180px;
+          height: 48px;
+          padding: 0 14px;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.12);
+          color: #ffffff;
+          font-size: 1rem;
+          font-family: inherit;
+          text-align: center;
+          cursor: pointer;
+          outline: none;
         }
       }
     }
   }
 }
+
 @keyframes fadeInRight {
   0% {
     opacity: 0;
@@ -77,6 +106,7 @@
     left: 0;
   }
 }
+
 .lock-scroll {
   overflow: hidden;
 }
