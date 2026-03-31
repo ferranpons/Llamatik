@@ -424,7 +424,14 @@ kotlin {
         dependsOn(compileLlamaJniDesktop)
 
         val outDir = generatedNativeResourcesDir.resolve("native/$desktopPlatform")
-        from(desktopJniBuildDir.resolve(libFileName))
+
+        from(desktopJniBuildDir) {
+            when (desktopPlatform) {
+                "macos" -> include("*.dylib")
+                "linux" -> include("*.so", "*.so.*")
+                "windows" -> include("*.dll")
+            }
+        }
         into(outDir)
 
         outputs.dir(outDir)
@@ -432,6 +439,17 @@ kotlin {
         doFirst {
             val f = desktopJniBuildDir.resolve(libFileName)
             if (!f.exists()) throw GradleException("Desktop JNI output not found: ${f.absolutePath}")
+        }
+
+        doLast {
+            val copiedLibs = outDir
+                .listFiles()
+                ?.filter { it.isFile }
+                ?.map { it.name }
+                ?.sorted()
+                .orEmpty()
+
+            outDir.resolve("native-libs.txt").writeText(copiedLibs.joinToString(separator = "\n"))
         }
     }
 
