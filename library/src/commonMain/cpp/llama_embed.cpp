@@ -354,6 +354,7 @@ char *llama_generate(const char *prompt) {
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     std::vector<llama_token> output_tokens;
 
@@ -389,7 +390,8 @@ char *llama_generate(const char *prompt) {
                 piece_buf[std::min(nn, (int) sizeof(piece_buf) - 1)] = '\0';
                 if (std::strcmp(piece_buf, "<end_of_turn>") == 0 ||
                         std::strcmp(piece_buf, "<|eot_id|>")  == 0 ||
-                        std::strcmp(piece_buf, "<start_of_turn>") == 0) {
+                        std::strcmp(piece_buf, "<start_of_turn>") == 0 ||
+                        std::strcmp(piece_buf, "<|im_end|>") == 0) {
                     break;
                 }
             }
