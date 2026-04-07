@@ -651,12 +651,18 @@ class ChatBotViewModel(
      * The bytes should be raw JPEG/PNG/BMP file data (not decoded).
      */
     fun onVisionImageSelected(imageBytes: ByteArray) {
-        _state.value = _state.value.copy(pendingVisionImageBytes = imageBytes)
+        _state.value = _state.value.copy(
+            pendingVisionImageBytes = imageBytes,
+            generationMode = GenerationMode.VISION
+        )
     }
 
-    /** Clear the pending vision image without sending. */
+    /** Clear the pending vision image and return to text mode. */
     fun onClearPendingVisionImage() {
-        _state.value = _state.value.copy(pendingVisionImageBytes = null)
+        _state.value = _state.value.copy(
+            pendingVisionImageBytes = null,
+            generationMode = GenerationMode.TEXT
+        )
     }
 
     @OptIn(ExperimentalTime::class)

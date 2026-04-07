@@ -23,9 +23,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -93,12 +91,7 @@ fun ChatInputBox(
             viewModel.setGenerationMode(GenerationMode.TEXT)
         }
     }
-    // If VLM is not loaded, force TEXT mode (prevents getting stuck in VISION mode)
-    LaunchedEffect(state.isVlmModelLoaded) {
-        if (!state.isVlmModelLoaded && state.generationMode == GenerationMode.VISION) {
-            viewModel.setGenerationMode(GenerationMode.TEXT)
-        }
-    }
+
 
     Box(
         modifier = Modifier
@@ -234,14 +227,14 @@ fun ChatInputBox(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = Icons.Rounded.AddPhotoAlternate,
+                                        imageVector = Icons.Rounded.Visibility,
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp),
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                     Spacer(modifier = Modifier.size(6.dp))
                                     Text(
-                                        text = "${state.pendingVisionImageBytes!!.size / 1024} KB",
+                                        text = "${state.pendingVisionImageBytes.size / 1024} KB",
                                         style = Typography.get().labelSmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -251,7 +244,7 @@ fun ChatInputBox(
                                     modifier = Modifier.size(24.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.RemoveCircleOutline,
+                                        imageVector = LlamatikIcons.Close,
                                         contentDescription = "Remove image",
                                         modifier = Modifier.size(16.dp),
                                         tint = MaterialTheme.colorScheme.onSecondaryContainer
@@ -440,52 +433,27 @@ fun ChatInputBox(
                             }
 
                             if (state.isVlmModelLoaded) {
-                                val inVisionMode = state.generationMode == GenerationMode.VISION
+                                val hasImage = state.pendingVisionImageBytes != null
                                 IconButton(
-                                    onClick = {
-                                        val next = if (inVisionMode) GenerationMode.TEXT else GenerationMode.VISION
-                                        viewModel.setGenerationMode(next)
-                                    },
+                                    onClick = { viewModel.onPickVisionImage() },
                                     enabled = !isGenerating && !isTranscribing,
                                     modifier = Modifier
                                         .padding(end = 6.dp)
                                         .size(BUTTON_SIZE.dp)
                                         .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                         .background(
-                                            if (inVisionMode) MaterialTheme.colorScheme.primaryContainer
+                                            if (hasImage) MaterialTheme.colorScheme.primaryContainer
                                             else MaterialTheme.colorScheme.surfaceVariant
                                         )
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Visibility,
-                                        contentDescription = localization.visionModeEnabledButNoModelLoadedError,
-                                        tint = if (inVisionMode) MaterialTheme.colorScheme.onPrimaryContainer
+                                        contentDescription = localization.voiceInput,
+                                        tint = if (hasImage) MaterialTheme.colorScheme.onPrimaryContainer
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-
-                                if (inVisionMode) {
-                                    IconButton(
-                                        onClick = { viewModel.onPickVisionImage() },
-                                        enabled = !isGenerating && !isTranscribing,
-                                        modifier = Modifier
-                                            .padding(end = 6.dp)
-                                            .size(BUTTON_SIZE.dp)
-                                            .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
-                                            .background(
-                                                if (state.pendingVisionImageBytes != null) MaterialTheme.colorScheme.primaryContainer
-                                                else MaterialTheme.colorScheme.surfaceVariant
-                                            )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.AddPhotoAlternate,
-                                            contentDescription = "Attach image",
-                                            tint = if (state.pendingVisionImageBytes != null) MaterialTheme.colorScheme.onPrimaryContainer
-                                            else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.size(6.dp))
-                                }
+                                Spacer(modifier = Modifier.size(6.dp))
                             }
 
                             if (!canSend && !isGenerating && !isTranscribing && state.isSttModelLoaded) {
@@ -494,6 +462,7 @@ fun ChatInputBox(
                                     onClick = { if (micEnabled) onMicClick() },
                                     enabled = micEnabled,
                                     modifier = Modifier
+                                        .padding(end = 6.dp)
                                         .size(BUTTON_SIZE.dp)
                                         .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                         .background(
@@ -512,6 +481,7 @@ fun ChatInputBox(
                                         }
                                     )
                                 }
+                                Spacer(modifier = Modifier.size(6.dp))
                             }
 
                             if (isGenerating) {
