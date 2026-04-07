@@ -189,6 +189,7 @@ internal object ChineseLocalization : Localization {
     override val sttModels = "语音转文本模型"
     override val speak = "朗读"
 
+    override val vlmModels = "视觉模型"
     override val imageGenerationModels = "图像生成模型"
     override val failedToDecodeImageError = "🖼️ 无法解码图像。"
     override val imageGeneration = "图像生成"
@@ -207,6 +208,7 @@ internal object ChineseLocalization : Localization {
     override val thereIsAProblemWithAI = "AI 出现问题"
     override val iDontHaveEnoughInfoInSources = "我的资料中没有足够的信息。"
     override val imageModeEnabledButNoModelLoadedError = "🖼️ 已启用图像模式，但未加载 Stable Diffusion 模型。请打开模型并选择一个 SD 模型。"
+    override val visionModeEnabledButNoModelLoadedError = "👁️ 已启用视觉模式，但未加载 VLM 模型。请打开模型并选择一个视觉模型。"
     override val imageGenerationFailedError = "🖼️ 图像生成失败（输出为空）。"
     override val imageGenerationError = "图像生成错误"
     override val allCachedModelsRemoved = "所有缓存模型和 PDF RAG 存储已成功删除。"

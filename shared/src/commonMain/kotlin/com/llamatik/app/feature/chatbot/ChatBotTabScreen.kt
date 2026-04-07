@@ -104,6 +104,7 @@ class ChatBotTabScreen : Screen {
         val loadingGenerateModelName = remember { mutableStateOf<String?>(null) }
         val loadingSttModelName = remember { mutableStateOf<String?>(null) }
         val loadingStableDiffusionModelName = remember { mutableStateOf<String?>(null) }
+        val loadingVlmModelName = remember { mutableStateOf<String?>(null) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
@@ -133,6 +134,7 @@ class ChatBotTabScreen : Screen {
             loadingGenerateModelName = loadingGenerateModelName,
             loadingSttModelName = loadingSttModelName,
             loadingStableDiffusionModelName = loadingStableDiffusionModelName,
+            loadingVlmModelName = loadingVlmModelName,
             isDialogOpen = isDialogOpen,
             dialogMessage = dialogMessage,
         )
@@ -209,16 +211,19 @@ class ChatBotTabScreen : Screen {
                     selectedGenerateModelName = state.selectedGenerateModelName,
                     selectedSttModelName = state.selectedSttModelName,
                     selectedStableDiffusionModelName = state.selectedStableDiffusionModelName,
+                    selectedVlmModelName = state.selectedVlmModelName,
 
                     embedModels = state.embedModels,
                     generateModels = state.generateModels,
                     sttModels = state.sttModels,
                     stableDiffusionModels = state.stableDiffusionModels,
+                    vlmModels = state.vlmModels,
 
                     loadingEmbedModelName = loadingEmbedModelName.value,
                     loadingGenerateModelName = loadingGenerateModelName.value,
                     loadingSttModelName = loadingSttModelName.value,
                     loadingStableDiffusionModelName = loadingStableDiffusionModelName.value,
+                    loadingVlmModelName = loadingVlmModelName.value,
 
                     onEmbedModelSelectedClicked = { model ->
                         loadingEmbedModelName.value = model.name
@@ -235,6 +240,10 @@ class ChatBotTabScreen : Screen {
                     onStableDiffusionModelSelectedClicked = { model ->
                         loadingStableDiffusionModelName.value = model.name
                         viewModel.onStableDiffusionModelSelected(model)
+                    },
+                    onVlmModelSelectedClicked = { model ->
+                        loadingVlmModelName.value = model.name
+                        viewModel.onVlmModelSelected(model)
                     },
 
                     onDownloadModelClicked = { model ->
@@ -278,6 +287,7 @@ class ChatBotTabScreen : Screen {
         loadingGenerateModelName: MutableState<String?>,
         loadingSttModelName: MutableState<String?>,
         loadingStableDiffusionModelName: MutableState<String?>,
+        loadingVlmModelName: MutableState<String?>,
         isDialogOpen: MutableState<Boolean>,
         dialogMessage: MutableState<String>,
     ) {
@@ -340,6 +350,15 @@ class ChatBotTabScreen : Screen {
 
                     ChatBotSideEffects.OnStableDiffusionModelLoadError -> {
                         loadingStableDiffusionModelName.value = null
+                    }
+
+                    ChatBotSideEffects.OnVlmModelLoaded -> {
+                        loadingVlmModelName.value = null
+                        showModelSelectorSheet.value = false
+                    }
+
+                    ChatBotSideEffects.OnVlmModelLoadError -> {
+                        loadingVlmModelName.value = null
                     }
 
                     is ChatBotSideEffects.OnCacheCleared -> {

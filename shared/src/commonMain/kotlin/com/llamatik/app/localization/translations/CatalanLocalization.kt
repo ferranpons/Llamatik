@@ -189,6 +189,7 @@ internal object CatalanLocalization : Localization {
     override val sttModels = "Models de veu"
     override val speak = "Parlar"
 
+    override val vlmModels = "Models de visió"
     override val imageGenerationModels = "Models d'imatge"
     override val failedToDecodeImageError = "Error en decodificar la imatge."
     override val imageGeneration = "Generació d'imatges"
@@ -209,6 +210,7 @@ internal object CatalanLocalization : Localization {
     override val iDontHaveEnoughInfoInSources = "No tinc prou informació."
 
     override val imageModeEnabledButNoModelLoadedError = "Mode imatge sense model."
+    override val visionModeEnabledButNoModelLoadedError = "👁️ Mode visió sense model VLM carregat. Obriu Models i seleccioneu un model de visió."
     override val imageGenerationFailedError = "Error generant imatge."
     override val imageGenerationError = "Error d'imatge"
     override val allCachedModelsRemoved = "Models eliminats"

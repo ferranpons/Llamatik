@@ -153,6 +153,7 @@ internal object HindiLocalization : Localization {
     override val sttModels = "स्पीच टू टेक्स्ट मॉडल"
     override val speak = "बोलें"
 
+    override val vlmModels = "विज़न मॉडल"
     override val imageGenerationModels = "इमेज जनरेशन मॉडल"
     override val failedToDecodeImageError = "🖼️ इमेज डिकोड करने में विफल।"
     override val imageGeneration = "इमेज जनरेशन"
@@ -171,6 +172,7 @@ internal object HindiLocalization : Localization {
     override val thereIsAProblemWithAI = "AI में कोई समस्या है"
     override val iDontHaveEnoughInfoInSources = "मेरे स्रोतों में पर्याप्त जानकारी नहीं है।"
     override val imageModeEnabledButNoModelLoadedError = "🖼️ इमेज मोड सक्षम है, लेकिन कोई Stable Diffusion मॉडल लोड नहीं है। Models खोलें और एक SD मॉडल चुनें।"
+    override val visionModeEnabledButNoModelLoadedError = "👁️ विज़न मोड सक्षम है, लेकिन कोई VLM मॉडल लोड नहीं है। Models खोलें और एक विज़न मॉडल चुनें।"
     override val imageGenerationFailedError = "🖼️ इमेज जनरेशन विफल (कोई आउटपुट नहीं)।"
     override val imageGenerationError = "इमेज जनरेशन त्रुटि"
     override val allCachedModelsRemoved = "सभी कैश किए गए मॉडल और PDF RAG स्टोर सफलतापूर्वक हटा दिए गए।"

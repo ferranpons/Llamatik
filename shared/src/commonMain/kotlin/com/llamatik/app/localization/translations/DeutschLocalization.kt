@@ -189,6 +189,7 @@ vermeide jedoch große Ausgaben, sofern sie nicht ausdrücklich angefordert werd
     override val sttModels = "Spracherkennungsmodelle"
     override val speak = "Vorlesen"
 
+    override val vlmModels = "Visionsmodelle"
     override val imageGenerationModels = "Bildgenerierungsmodelle"
     override val failedToDecodeImageError = "🖼️ Bild konnte nicht dekodiert werden."
     override val imageGeneration = "Bildgenerierung"
@@ -207,6 +208,7 @@ vermeide jedoch große Ausgaben, sofern sie nicht ausdrücklich angefordert werd
     override val thereIsAProblemWithAI = "Es gibt ein Problem mit der KI"
     override val iDontHaveEnoughInfoInSources = "Ich habe nicht genügend Informationen in meinen Quellen."
     override val imageModeEnabledButNoModelLoadedError = "🖼️ Bildmodus ist aktiviert, aber kein Stable-Diffusion-Modell geladen. Öffnen Sie Modelle und wählen Sie ein SD-Modell."
+    override val visionModeEnabledButNoModelLoadedError = "👁️ Visionsmodus ist aktiv, aber kein VLM-Modell geladen. Öffnen Sie Modelle und wählen Sie ein Visionsmodell."
     override val imageGenerationFailedError = "🖼️ Bildgenerierung fehlgeschlagen (leere Ausgabe)."
     override val imageGenerationError = "Fehler bei der Bildgenerierung"
     override val allCachedModelsRemoved = "Alle zwischengespeicherten Modelle und der PDF-RAG-Speicher wurden erfolgreich entfernt."

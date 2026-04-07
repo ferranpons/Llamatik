@@ -53,18 +53,22 @@ fun ModelSelectorBottomSheet(
     selectedGenerateModelName: String?,
     selectedSttModelName: String?,
     selectedStableDiffusionModelName: String?,
+    selectedVlmModelName: String?,
     embedModels: List<LlamaModel>,
     generateModels: List<LlamaModel>,
     sttModels: List<LlamaModel>,
     stableDiffusionModels: List<LlamaModel>,
+    vlmModels: List<LlamaModel>,
     loadingEmbedModelName: String?,
     loadingGenerateModelName: String?,
     loadingSttModelName: String?,
     loadingStableDiffusionModelName: String?,
+    loadingVlmModelName: String?,
     onEmbedModelSelectedClicked: (LlamaModel) -> Unit,
     onGenerateModelSelectedClicked: (LlamaModel) -> Unit,
     onSttModelSelectedClicked: (LlamaModel) -> Unit,
     onStableDiffusionModelSelectedClicked: (LlamaModel) -> Unit,
+    onVlmModelSelectedClicked: (LlamaModel) -> Unit,
     onDownloadModelClicked: (LlamaModel) -> Unit,
     onDeleteModelClicked: (LlamaModel) -> Unit,
     onCancelDownloadClicked: (LlamaModel) -> Unit,
@@ -82,6 +86,7 @@ fun ModelSelectorBottomSheet(
     var expandEmbed by rememberSaveable { mutableStateOf(false) }
     var expandStt by rememberSaveable { mutableStateOf(false) }
     var expandSd by rememberSaveable { mutableStateOf(false) }
+    var expandVlm by rememberSaveable { mutableStateOf(false) }
 
     // confirmation dialog state
     var showConfirmClear by remember { mutableStateOf(false) }
@@ -255,6 +260,32 @@ fun ModelSelectorBottomSheet(
                         progress = progressMap[model.url] ?: 0f,
                         isSelecting = (model.name == loadingStableDiffusionModelName),
                         onModelSelectedClicked = onStableDiffusionModelSelectedClicked,
+                        onDownloadModelClicked = onDownloadModelClicked,
+                        onDeleteModelClicked = onDeleteModelClicked,
+                        onCancelDownloadClicked = onCancelDownloadClicked,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+
+            // --- VLM (vision) models ---
+            Spacer(Modifier.height(16.dp))
+            GroupHeader(
+                title = localization.vlmModels,
+                expanded = expandVlm,
+                selectedName = selectedVlmModelName,
+                onToggle = { expandVlm = !expandVlm }
+            )
+            if (expandVlm) {
+                Spacer(Modifier.height(8.dp))
+                vlmModels.forEach { model ->
+                    ModelRow(
+                        model = model,
+                        isCurrent = (model.name == selectedVlmModelName),
+                        isDownloading = downloadingMap[model.url] == true,
+                        progress = progressMap[model.url] ?: 0f,
+                        isSelecting = (model.name == loadingVlmModelName),
+                        onModelSelectedClicked = onVlmModelSelectedClicked,
                         onDownloadModelClicked = onDownloadModelClicked,
                         onDeleteModelClicked = onDeleteModelClicked,
                         onCancelDownloadClicked = onCancelDownloadClicked,

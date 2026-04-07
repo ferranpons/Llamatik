@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Path to vendored llama.cpp inside the repo
 set(LLAMA_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../llama.cpp")
+set(MTMD_DIR "${LLAMA_CPP_DIR}/tools/mtmd")
 
 # Build llama.cpp "common" helpers (needed for json-schema-to-grammar)
 set(LLAMA_BUILD_COMMON ON CACHE BOOL "Build llama.cpp common helpers" FORCE)
@@ -54,6 +55,45 @@ add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffu
 
 find_library(log-lib log)
 
+# Build mtmd (multimodal) sources as an object library to include in llama_jni
+add_library(mtmd_sources OBJECT
+        ${MTMD_DIR}/mtmd.cpp
+        ${MTMD_DIR}/mtmd-helper.cpp
+        ${MTMD_DIR}/mtmd-audio.cpp
+        ${MTMD_DIR}/clip.cpp
+        ${MTMD_DIR}/models/cogvlm.cpp
+        ${MTMD_DIR}/models/conformer.cpp
+        ${MTMD_DIR}/models/glm4v.cpp
+        ${MTMD_DIR}/models/internvl.cpp
+        ${MTMD_DIR}/models/kimivl.cpp
+        ${MTMD_DIR}/models/llama4.cpp
+        ${MTMD_DIR}/models/llava.cpp
+        ${MTMD_DIR}/models/minicpmv.cpp
+        ${MTMD_DIR}/models/mobilenetv5.cpp
+        ${MTMD_DIR}/models/pixtral.cpp
+        ${MTMD_DIR}/models/qwen2vl.cpp
+        ${MTMD_DIR}/models/qwen3vl.cpp
+        ${MTMD_DIR}/models/siglip.cpp
+        ${MTMD_DIR}/models/whisper-enc.cpp
+        ${MTMD_DIR}/models/youtuvl.cpp
+        ${MTMD_DIR}/deprecation-warning.cpp
+)
+
+target_include_directories(mtmd_sources PRIVATE
+        ${MTMD_DIR}
+        ${LLAMA_CPP_DIR}/include
+        ${LLAMA_CPP_DIR}/src
+        ${LLAMA_CPP_DIR}/ggml/include
+        ${LLAMA_CPP_DIR}/ggml/src
+        ${LLAMA_CPP_DIR}/common
+        ${LLAMA_CPP_DIR}/vendor
+        ${LLAMA_CPP_DIR}/vendor/stb
+        ${LLAMA_CPP_DIR}/vendor/nlohmann
+)
+
+target_compile_options(mtmd_sources PRIVATE -Wno-cast-qual)
+target_compile_features(mtmd_sources PRIVATE cxx_std_17)
+
 add_library(
         llama_jni
         SHARED
@@ -62,6 +102,8 @@ add_library(
         whisper_stt.cpp
         whisper_jni.cpp
         stable_diffusion_jni.cpp
+        multimodal_jni.cpp
+        $<TARGET_OBJECTS:mtmd_sources>
 )
 
 target_include_directories(
@@ -72,9 +114,11 @@ target_include_directories(
         ${LLAMA_CPP_DIR}/ggml/include
         ${LLAMA_CPP_DIR}/ggml/src
         ${LLAMA_CPP_DIR}/common
+        ${MTMD_DIR}
         # nlohmann headers live under llama.cpp/vendor in many revisions
         ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/vendor/nlohmann
+        ${LLAMA_CPP_DIR}/vendor/stb
         ${WHISPER_CPP_DIR}
         ${WHISPER_CPP_DIR}/include
         ${STABLE_DIFFUSION_CPP_DIR}/include

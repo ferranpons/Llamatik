@@ -150,6 +150,7 @@ internal object PortugueseLocalization : Localization {
     override val sttModels = "Modelos de Voz"
     override val speak = "Falar"
 
+    override val vlmModels = "Modelos de visão"
     override val imageGenerationModels = "Modelos de geração de imagem"
     override val failedToDecodeImageError = "🖼️ Falha ao decodificar a imagem."
     override val imageGeneration = "Geração de imagem"
@@ -168,6 +169,7 @@ internal object PortugueseLocalization : Localization {
     override val thereIsAProblemWithAI = "Há um problema com a IA"
     override val iDontHaveEnoughInfoInSources = "Não tenho informações suficientes nas minhas fontes."
     override val imageModeEnabledButNoModelLoadedError = "🖼️ O modo de imagem está ativado, mas nenhum modelo Stable Diffusion foi carregado. Abra Modelos e selecione um modelo SD."
+    override val visionModeEnabledButNoModelLoadedError = "👁️ O modo visão está ativado, mas nenhum modelo VLM foi carregado. Abra Modelos e selecione um modelo de visão."
     override val imageGenerationFailedError = "🖼️ Falha na geração de imagem (saída vazia)."
     override val imageGenerationError = "Erro na geração de imagem"
     override val allCachedModelsRemoved = "Todos os modelos em cache e o armazenamento PDF RAG foram removidos com sucesso."

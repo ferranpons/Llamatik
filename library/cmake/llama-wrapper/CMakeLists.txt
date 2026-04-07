@@ -21,6 +21,7 @@ find_package(Threads REQUIRED)
 
 # ---- Point to llama.cpp -----------------------------------------------------
 set(LLAMA_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../llama.cpp")
+set(MTMD_DIR "${LLAMA_CPP_DIR}/tools/mtmd")
 
 if(NOT EXISTS "${LLAMA_CPP_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "llama.cpp not found at: ${LLAMA_CPP_DIR}")
@@ -148,10 +149,51 @@ target_include_directories(llamatik_llama_common_obj PRIVATE
 
 target_compile_features(llamatik_llama_common_obj PRIVATE cxx_std_17)
 
+# Build mtmd sources as an object library for the iOS static wrapper
+add_library(mtmd_ios_obj OBJECT
+        ${MTMD_DIR}/mtmd.cpp
+        ${MTMD_DIR}/mtmd-helper.cpp
+        ${MTMD_DIR}/mtmd-audio.cpp
+        ${MTMD_DIR}/clip.cpp
+        ${MTMD_DIR}/models/cogvlm.cpp
+        ${MTMD_DIR}/models/conformer.cpp
+        ${MTMD_DIR}/models/glm4v.cpp
+        ${MTMD_DIR}/models/internvl.cpp
+        ${MTMD_DIR}/models/kimivl.cpp
+        ${MTMD_DIR}/models/llama4.cpp
+        ${MTMD_DIR}/models/llava.cpp
+        ${MTMD_DIR}/models/minicpmv.cpp
+        ${MTMD_DIR}/models/mobilenetv5.cpp
+        ${MTMD_DIR}/models/pixtral.cpp
+        ${MTMD_DIR}/models/qwen2vl.cpp
+        ${MTMD_DIR}/models/qwen3vl.cpp
+        ${MTMD_DIR}/models/siglip.cpp
+        ${MTMD_DIR}/models/whisper-enc.cpp
+        ${MTMD_DIR}/models/youtuvl.cpp
+        ${MTMD_DIR}/deprecation-warning.cpp
+)
+
+target_include_directories(mtmd_ios_obj PRIVATE
+        ${MTMD_DIR}
+        ${LLAMA_CPP_DIR}/include
+        ${LLAMA_CPP_DIR}/src
+        ${LLAMA_CPP_DIR}/ggml/include
+        ${LLAMA_CPP_DIR}/ggml/src
+        ${LLAMA_CPP_DIR}/common
+        ${LLAMA_CPP_DIR}/vendor
+        ${LLAMA_CPP_DIR}/vendor/stb
+        ${LLAMA_CPP_DIR}/vendor/nlohmann
+)
+
+target_compile_options(mtmd_ios_obj PRIVATE -Wno-cast-qual)
+target_compile_features(mtmd_ios_obj PRIVATE cxx_std_17)
+
 add_library(llama_static_wrapper STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_embed.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/whisper_stt.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/stable_diffusion_embed.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_multimodal_embed.cpp
+        $<TARGET_OBJECTS:mtmd_ios_obj>
 )
 
 target_include_directories(llama_static_wrapper PUBLIC
@@ -162,6 +204,7 @@ target_include_directories(llama_static_wrapper PUBLIC
         ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/ggml/include
         ${LLAMA_CPP_DIR}/ggml/src
+        ${MTMD_DIR}
         ${WHISPER_CPP_DIR}
         ${WHISPER_CPP_DIR}/include
         ${STABLE_DIFFUSION_CPP_DIR}

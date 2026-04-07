@@ -153,6 +153,7 @@ internal object PersianLocalization : Localization {
     override val sttModels = "مدل‌های گفتار به متن"
     override val speak = "صحبت کن"
 
+    override val vlmModels = "مدل‌های بینایی"
     override val imageGenerationModels = "مدل‌های تولید تصویر"
     override val failedToDecodeImageError = "🖼️ خطا در رمزگشایی تصویر."
     override val imageGeneration = "تولید تصویر"
@@ -171,6 +172,7 @@ internal object PersianLocalization : Localization {
     override val thereIsAProblemWithAI = "مشکلی در هوش مصنوعی وجود دارد"
     override val iDontHaveEnoughInfoInSources = "اطلاعات کافی در منابع من وجود ندارد."
     override val imageModeEnabledButNoModelLoadedError = "🖼️ حالت تصویر فعال است اما هیچ مدل Stable Diffusion بارگذاری نشده است. بخش مدل‌ها را باز کرده و یک مدل SD انتخاب کنید."
+    override val visionModeEnabledButNoModelLoadedError = "👁️ حالت بینایی فعال است اما هیچ مدل VLM بارگذاری نشده است. بخش مدل‌ها را باز کرده و یک مدل بینایی انتخاب کنید."
     override val imageGenerationFailedError = "🖼️ تولید تصویر ناموفق بود (خروجی خالی)."
     override val imageGenerationError = "خطای تولید تصویر"
     override val allCachedModelsRemoved = "تمام مدل‌های کش‌شده و ذخیره PDF RAG با موفقیت حذف شدند."

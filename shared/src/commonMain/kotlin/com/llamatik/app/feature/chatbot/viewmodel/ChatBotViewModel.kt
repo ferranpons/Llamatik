@@ -9,6 +9,7 @@ import com.llamatik.app.feature.chatbot.download.DownloadEvent
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.model.isVlm
 import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
 import com.llamatik.app.feature.chatbot.repositories.ChatSession
 import com.llamatik.app.feature.chatbot.repositories.ChatSessionSummary
@@ -39,6 +40,7 @@ import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.tts.TtsEngine
 import com.llamatik.library.platform.LlamaBridge
+import com.llamatik.library.platform.MultimodalBridge
 import com.llamatik.library.platform.StableDiffusionBridge
 import com.llamatik.library.platform.WhisperBridge
 import com.russhwolf.settings.Settings
@@ -73,7 +75,7 @@ Be clear, honest, and concise. Answer in the user's language.
 """
 
 private const val PDF_RAG_STORE_PATH = "rag/pdf_rag_store.json"
-enum class GenerationMode { TEXT, IMAGE }
+enum class GenerationMode { TEXT, IMAGE, VISION }
 const val COSINE_THRESHOLD = 0.15
 
 class ChatBotViewModel(
@@ -253,6 +255,39 @@ class ChatBotViewModel(
 
             getModelsUseCase.getDefaultStableDiffusionModels()
                 .onSuccess { _state.value = _state.value.copy(stableDiffusionModels = it) }
+                .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
+
+            getModelsUseCase.getDefaultVlmModels()
+                .onSuccess { models ->
+                    for (model in models) {
+                        val path = resolveAndMigratePath(model) ?: continue
+                        val mmprojPath = model.mmprojLocalPath?.takeIf { it.isNotEmpty() } ?: continue
+                        Logger.d("LlamaVM - Init VLM Model: ${model.name} at $path + mmproj $mmprojPath")
+                        val loaded = MultimodalBridge.initModel(path, mmprojPath)
+                        if (loaded) {
+                            _state.value = _state.value.copy(
+                                selectedVlmModelName = model.name,
+                                isVlmModelLoaded = true
+                            )
+                            _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoaded)
+                            break
+                        } else {
+                            Logger.e { "LlamaVM - failed to load VLM model ${model.name}" }
+                            _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoadError)
+                        }
+                    }
+                    val normalized = models.map { m ->
+                        val path = resolveAndMigratePath(m)
+                        val mmprojKey = "${m.name}_mmproj"
+                        val mmprojPath = getModelsUseCase.getSavedModelPath(mmprojKey).takeIf { it.isNotEmpty() }
+                        m.copy(
+                            localPath = if (!path.isNullOrBlank()) path else m.localPath,
+                            fileName = if (!path.isNullOrBlank()) path else m.fileName,
+                            mmprojLocalPath = mmprojPath ?: m.mmprojLocalPath,
+                        )
+                    }
+                    _state.value = _state.value.copy(vlmModels = normalized)
+                }
                 .onFailure { error -> Logger.e(error.message ?: "Unknown error") }
 
             // --- STT models list + attempt load any already-downloaded model ---
@@ -587,6 +622,111 @@ class ChatBotViewModel(
         }
     }
 
+    fun onVlmModelSelected(model: LlamaModel) {
+        screenModelScope.launch(AppDispatchersIO) {
+            val path = resolveAndMigratePath(model) ?: return@launch
+            val mmprojPath = model.mmprojLocalPath?.takeIf { it.isNotEmpty() } ?: run {
+                Logger.e { "LlamaVM - no mmproj path for VLM model ${model.name}" }
+                _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoadError)
+                return@launch
+            }
+
+            Logger.d("LlamaVM - initVlmModel ${model.name} model=$path mmproj=$mmprojPath")
+            val loaded = MultimodalBridge.initModel(path, mmprojPath)
+            if (loaded) {
+                _state.value = _state.value.copy(
+                    selectedVlmModelName = model.name,
+                    isVlmModelLoaded = true
+                )
+                _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoaded)
+            } else {
+                _state.value = _state.value.copy(isVlmModelLoaded = false)
+                _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoadError)
+            }
+        }
+    }
+
+    /**
+     * Set the image to be analyzed in the next VISION message.
+     * The bytes should be raw JPEG/PNG/BMP file data (not decoded).
+     */
+    fun onVisionImageSelected(imageBytes: ByteArray) {
+        _state.value = _state.value.copy(pendingVisionImageBytes = imageBytes)
+    }
+
+    /** Clear the pending vision image without sending. */
+    fun onClearPendingVisionImage() {
+        _state.value = _state.value.copy(pendingVisionImageBytes = null)
+    }
+
+    @OptIn(ExperimentalTime::class)
+    fun onVisionMessageSend(prompt: String) {
+        if (_state.value.isGenerating) return
+        val imageBytes = _state.value.pendingVisionImageBytes ?: return
+        val input = prompt.trim().ifBlank { "Describe this image." }
+
+        screenModelScope.launch {
+            if (!_state.value.isTemporaryChat && currentChatId == null) {
+                currentChatId = kotlin.random.Random.nextLong().toString()
+            }
+
+            _state.value = _state.value.copy(
+                isGenerating = true,
+                pendingVisionImageBytes = null
+            )
+            _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
+            _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
+            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
+            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+
+            val requestId = Random.nextLong().toString()
+            activeRequestId = requestId
+            val acc = StringBuilder()
+
+            withContext(AppDispatchersIO) {
+                if (!_state.value.isVlmModelLoaded) {
+                    updateLastBotMessage(localization.visionModeEnabledButNoModelLoadedError)
+                    _state.value = _state.value.copy(isGenerating = false)
+                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                    return@withContext
+                }
+
+                MultimodalBridge.analyzeImageBytesStream(
+                    imageBytes = imageBytes,
+                    prompt     = input,
+                    callback   = object : com.llamatik.library.platform.GenStream {
+                        override fun onDelta(text: String) {
+                            if (activeRequestId != requestId) return
+                            acc.append(text)
+                            val messages = _conversation.value
+                            if (messages.isNotEmpty() && messages.last().author == ChatUiModel.Author.bot) {
+                                _conversation.value = messages.dropLast(1) +
+                                        ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
+                            }
+                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        }
+
+                        override fun onComplete() {
+                            if (activeRequestId != requestId) return
+                            activeRequestId = null
+                            _state.value = _state.value.copy(isGenerating = false)
+                            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        }
+
+                        override fun onError(message: String) {
+                            activeRequestId = null
+                            Logger.e { "VLM error: $message" }
+                            updateLastBotMessage("Vision error: $message")
+                            _state.value = _state.value.copy(isGenerating = false)
+                            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                        }
+                    }
+                )
+            }
+        }
+    }
+
     @OptIn(ExperimentalTime::class)
     fun onImagePromptSendDirect(prompt: String) {
         if (_state.value.isGenerating) {
@@ -748,7 +888,16 @@ class ChatBotViewModel(
                             stableDiffusionModels = _state.value.stableDiffusionModels.map {
                                 if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                             },
+                            vlmModels = _state.value.vlmModels.map {
+                                if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
+                            },
                         )
+
+                        // If this is a VLM model with an mmproj companion, download the mmproj too
+                        if (model.isVlm) {
+                            val mmprojUrl = model.mmprojUrl ?: return@collect
+                            downloadMmprojIfNeeded(model, mmprojUrl, persistedPath)
+                        }
                     }
 
                     is DownloadEvent.Failed -> {
@@ -775,6 +924,48 @@ class ChatBotViewModel(
         }
     }
 
+    private fun downloadMmprojIfNeeded(vlmModel: LlamaModel, mmprojUrl: String, modelLocalPath: String) {
+        val existingJob = downloadJobs[mmprojUrl]
+        if (existingJob?.isActive == true) return
+
+        val job = screenModelScope.launch(AppDispatchersIO) {
+            updateDownload(mmprojUrl) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
+
+            val mmprojModel = LlamaModel(
+                name = "${vlmModel.name}_mmproj",
+                url  = mmprojUrl,
+                sizeMb = vlmModel.mmprojSizeMb,
+            )
+            modelDownloadOrchestrator.download(mmprojModel).collect { ev ->
+                when (ev) {
+                    is DownloadEvent.Progress -> {
+                        updateDownload(mmprojUrl) { it.copy(inProgress = true, progress = ev.percent) }
+                    }
+                    is DownloadEvent.Completed -> {
+                        updateDownload(mmprojUrl) {
+                            it.copy(inProgress = false, progress = 100, done = true, error = null)
+                        }
+                        val mmprojPath = persistedPathForDownloadedModel(mmprojModel, ev.localPath)
+                        getModelsUseCase.saveModelPath("${vlmModel.name}_mmproj", mmprojPath)
+
+                        _state.value = _state.value.copy(
+                            vlmModels = _state.value.vlmModels.map {
+                                if (it.url == vlmModel.url) it.copy(mmprojLocalPath = mmprojPath) else it
+                            }
+                        )
+                    }
+                    is DownloadEvent.Failed -> {
+                        updateDownload(mmprojUrl) {
+                            it.copy(inProgress = false, done = false, error = ev.message)
+                        }
+                        Logger.e { "Failed to download mmproj for ${vlmModel.name}: ${ev.message}" }
+                    }
+                }
+            }
+        }
+        downloadJobs[mmprojUrl] = job
+    }
+
     fun onDeleteModel(model: LlamaModel) {
         screenModelScope.launch(AppDispatchersIO) {
             try {
@@ -792,6 +983,16 @@ class ChatBotViewModel(
                 }
 
                 getModelsUseCase.deleteModelPath(model)
+                // Also delete the mmproj companion if this is a VLM model
+                if (model.isVlm) {
+                    runCatching {
+                        val mmprojPath = model.mmprojLocalPath
+                        if (!mmprojPath.isNullOrBlank()) {
+                            LlamatikTempFile("${model.name}_mmproj").delete(mmprojPath)
+                        }
+                    }
+                    getModelsUseCase.deleteModelPath(LlamaModel(name = "${model.name}_mmproj", url = "", sizeMb = 0))
+                }
                 _state.value = _state.value.copy(
                     embedModels = _state.value.embedModels.map {
                         if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
@@ -802,10 +1003,15 @@ class ChatBotViewModel(
                     sttModels = _state.value.sttModels.map {
                         if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
                     },
+                    vlmModels = _state.value.vlmModels.map {
+                        if (it.url == model.url) it.copy(fileName = null, localPath = null, mmprojLocalPath = null) else it
+                    },
                     selectedSttModelName = if (_state.value.selectedSttModelName == model.name) null else _state.value.selectedSttModelName,
                     isSttModelLoaded = if (_state.value.selectedSttModelName == model.name) false else _state.value.isSttModelLoaded,
                     selectedStableDiffusionModelName = if (_state.value.selectedStableDiffusionModelName == model.name) null else _state.value.selectedStableDiffusionModelName,
-                    isStableDiffusionModelLoaded = if (_state.value.selectedStableDiffusionModelName == model.name) false else _state.value.isStableDiffusionModelLoaded
+                    isStableDiffusionModelLoaded = if (_state.value.selectedStableDiffusionModelName == model.name) false else _state.value.isStableDiffusionModelLoaded,
+                    selectedVlmModelName = if (_state.value.selectedVlmModelName == model.name) null else _state.value.selectedVlmModelName,
+                    isVlmModelLoaded = if (_state.value.selectedVlmModelName == model.name) false else _state.value.isVlmModelLoaded,
                 )
             } catch (t: Throwable) {
                 Logger.e(t) { "LlamaVM - error deleting model ${model.name}" }
@@ -834,7 +1040,8 @@ class ChatBotViewModel(
                 val allModels = (_state.value.generateModels +
                         _state.value.embedModels +
                         _state.value.sttModels +
-                        _state.value.stableDiffusionModels)
+                        _state.value.stableDiffusionModels +
+                        _state.value.vlmModels)
                     .distinctBy { it.url }
 
                 for (model in allModels) {
@@ -860,14 +1067,17 @@ class ChatBotViewModel(
                         embedModels = s.embedModels.map { it.copy(localPath = null, fileName = null) },
                         sttModels = s.sttModels.map { it.copy(localPath = null, fileName = null) },
                         stableDiffusionModels = s.stableDiffusionModels.map { it.copy(localPath = null, fileName = null) },
+                        vlmModels = s.vlmModels.map { it.copy(localPath = null, fileName = null, mmprojLocalPath = null) },
                         selectedEmbedModelName = null,
                         selectedGenerateModelName = null,
                         selectedSttModelName = null,
                         selectedStableDiffusionModelName = null,
+                        selectedVlmModelName = null,
                         isEmbedModelLoaded = false,
                         isGenerateModelLoaded = false,
                         isSttModelLoaded = false,
                         isStableDiffusionModelLoaded = false,
+                        isVlmModelLoaded = false,
                         ragPdfFileName = null,
                         isRagIndexing = false,
                         ragIndexingProgress = 0,
@@ -948,6 +1158,17 @@ class ChatBotViewModel(
         )
         val bytes = json.encodeToString(PersistedRagStore.serializer(), persisted).encodeToByteArray()
         AppStorage.writeBytes(PDF_RAG_STORE_PATH, bytes)
+    }
+
+    fun onPickVisionImage() {
+        screenModelScope.launch {
+            try {
+                val file = FileKit.openFilePicker() ?: return@launch
+                val ext = file.name.substringAfterLast('.', "").lowercase()
+                if (ext !in setOf("jpg", "jpeg", "png", "bmp", "gif", "webp")) return@launch
+                onVisionImageSelected(file.readBytes())
+            } catch (_: Throwable) {}
+        }
     }
 
     fun onPickPdfForRag() {
@@ -1651,14 +1872,17 @@ data class ChatBotState(
     val generateModels: List<LlamaModel> = emptyList(),
     val sttModels: List<LlamaModel> = emptyList(),
     val stableDiffusionModels: List<LlamaModel> = emptyList(),
+    val vlmModels: List<LlamaModel> = emptyList(),
     val isEmbedModelLoaded: Boolean = false,
     val isGenerateModelLoaded: Boolean = false,
     val isSttModelLoaded: Boolean = false,
     val isStableDiffusionModelLoaded: Boolean = false,
+    val isVlmModelLoaded: Boolean = false,
     val selectedEmbedModelName: String? = null,
     val selectedGenerateModelName: String? = null,
     val selectedSttModelName: String? = null,
     val selectedStableDiffusionModelName: String? = null,
+    val selectedVlmModelName: String? = null,
     val isGenerating: Boolean = false,
     val isInitialSetup: Boolean = false,
     val initialSetupModelName: String? = null,
@@ -1667,6 +1891,7 @@ data class ChatBotState(
     val chatSessions: List<ChatSessionSummary> = emptyList(),
     val isTemporaryChat: Boolean = false,
     val generationMode: GenerationMode = GenerationMode.TEXT,
+    val pendingVisionImageBytes: ByteArray? = null,
 
     val ragPdfFileName: String? = null,
     val isRagIndexing: Boolean = false,
@@ -1691,6 +1916,8 @@ sealed class ChatBotSideEffects {
     data object OnSettingsChanged : ChatBotSideEffects()
     data object OnStableDiffusionModelLoaded : ChatBotSideEffects()
     data object OnStableDiffusionModelLoadError : ChatBotSideEffects()
+    data object OnVlmModelLoaded : ChatBotSideEffects()
+    data object OnVlmModelLoadError : ChatBotSideEffects()
     data class OnCacheCleared(val message: String) : ChatBotSideEffects()
     data class OnCacheClearFailed(val message: String) : ChatBotSideEffects()
 }

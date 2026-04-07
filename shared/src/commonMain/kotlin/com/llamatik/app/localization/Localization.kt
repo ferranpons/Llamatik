@@ -137,6 +137,7 @@ interface Localization {
     val sttModels: String
     val speak: String
 
+    val vlmModels: String
     val imageGenerationModels: String
     val failedToDecodeImageError: String
     val imageGeneration: String
@@ -155,6 +156,7 @@ interface Localization {
     val thereIsAProblemWithAI: String
     val iDontHaveEnoughInfoInSources: String
     val imageModeEnabledButNoModelLoadedError: String
+    val visionModeEnabledButNoModelLoadedError: String
     val imageGenerationFailedError: String
     val imageGenerationError: String
     val allCachedModelsRemoved: String

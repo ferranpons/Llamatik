@@ -52,6 +52,17 @@ class GetModelsUseCase(
         }
     }
 
+    fun getDefaultVlmModels(): Result<List<LlamaModel>> = runCatching {
+        return@runCatching modelsRepository.getDefaultVlmModels().map { model ->
+            val localFilePath = modelsRepository.getSavedModelPath(modelName = model.name)
+            val mmprojFilePath = modelsRepository.getSavedModelPath(modelName = "${model.name}_mmproj")
+            model.copy(
+                localPath = localFilePath.takeIf { it.isNotEmpty() },
+                mmprojLocalPath = mmprojFilePath.takeIf { it.isNotEmpty() },
+            )
+        }
+    }
+
     // --- Legacy-style download returning bytes + base64 (kept as-is) ---
 
     suspend fun downloadModel(modelUrl: String): Result<Pair<ByteArray?, String>> =

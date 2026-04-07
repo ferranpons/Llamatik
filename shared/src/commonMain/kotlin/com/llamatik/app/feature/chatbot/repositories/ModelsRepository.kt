@@ -219,6 +219,29 @@ class ModelsRepository(private val service: ServiceClient) {
         )
     }
 
+    fun getDefaultVlmModels(): List<LlamaModel> {
+        return listOf(
+            LlamaModel(
+                name = "SmolVLM 256M Instruct (Vision)",
+                sizeMb = 175,
+                url = "https://huggingface.co/ggml-org/SmolVLM-256M-Instruct-GGUF/resolve/main/SmolVLM-256M-Instruct-Q8_0.gguf?download=true",
+                template = Plain,
+                systemPrompt = localization.smolVLM256SystemPrompt.trimIndent(),
+                mmprojUrl = "https://huggingface.co/ggml-org/SmolVLM-256M-Instruct-GGUF/resolve/main/mmproj-SmolVLM-256M-Instruct-f16.gguf?download=true",
+                mmprojSizeMb = 90,
+            ),
+            LlamaModel(
+                name = "SmolVLM 500M Instruct (Vision)",
+                sizeMb = 437,
+                url = "https://huggingface.co/ggml-org/SmolVLM-500M-Instruct-GGUF/resolve/main/SmolVLM-500M-Instruct-Q8_0.gguf?download=true",
+                template = Plain,
+                systemPrompt = localization.smolVLM500SystemPrompt.trimIndent(),
+                mmprojUrl = "https://huggingface.co/ggml-org/SmolVLM-500M-Instruct-GGUF/resolve/main/mmproj-SmolVLM-500M-Instruct-f16.gguf?download=true",
+                mmprojSizeMb = 170,
+            ),
+        )
+    }
+
     fun getDefaultStableDiffusionModels(): List<LlamaModel> {
         return listOf(
             LlamaModel(

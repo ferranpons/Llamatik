@@ -187,6 +187,7 @@ internal object RussianLocalization : Localization {
     override val sttModels = "Модели распознавания речи"
     override val speak = "Озвучить"
 
+    override val vlmModels = "Модели зрения"
     override val imageGenerationModels = "Модели генерации изображений"
     override val failedToDecodeImageError = "🖼️ Не удалось декодировать изображение."
     override val imageGeneration = "Генерация изображений"
@@ -205,6 +206,7 @@ internal object RussianLocalization : Localization {
     override val thereIsAProblemWithAI = "Возникла проблема с ИИ"
     override val iDontHaveEnoughInfoInSources = "У меня недостаточно информации в источниках."
     override val imageModeEnabledButNoModelLoadedError = "🖼️ Режим изображения включён, но модель Stable Diffusion не загружена. Откройте раздел «Модели» и выберите модель SD."
+    override val visionModeEnabledButNoModelLoadedError = "👁️ Режим зрения включён, но VLM-модель не загружена. Откройте раздел «Модели» и выберите модель зрения."
     override val imageGenerationFailedError = "🖼️ Ошибка генерации изображения (пустой результат)."
     override val imageGenerationError = "Ошибка генерации изображения"
     override val allCachedModelsRemoved = "Все кэшированные модели и хранилище PDF RAG успешно удалены."

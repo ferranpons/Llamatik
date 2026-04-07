@@ -1,0 +1,11 @@
+headers = llama_multimodal_embed.h
+headerFilter = llama_multimodal_embed.h
+
+# Links against the merged archive that contains llama_multimodal_embed.cpp + mtmd sources
+staticLibraries = libllama_merged.a
+
+compilerOpts = -I$PROJECT_DIR/src/iosMain/c_interop/include
+
+linkerOpts = -framework Accelerate -framework Metal -lc++ -ObjC
+
+package = com.llamatik.library.platform.vlm

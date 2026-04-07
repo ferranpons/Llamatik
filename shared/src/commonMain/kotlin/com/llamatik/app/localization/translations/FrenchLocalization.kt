@@ -188,6 +188,7 @@ tout en évitant les sorties volumineuses sauf demande explicite.
     override val sttModels = "Modèles de reconnaissance vocale"
     override val speak = "Parler"
 
+    override val vlmModels = "Modèles de vision"
     override val imageGenerationModels = "Modèles de génération d’images"
     override val failedToDecodeImageError = "🖼️ Impossible de décoder l’image."
     override val imageGeneration = "Génération d’image"
@@ -206,6 +207,7 @@ tout en évitant les sorties volumineuses sauf demande explicite.
     override val thereIsAProblemWithAI = "Il y a un problème avec l’IA"
     override val iDontHaveEnoughInfoInSources = "Je n’ai pas suffisamment d’informations dans mes sources."
     override val imageModeEnabledButNoModelLoadedError = "🖼️ Le mode image est activé, mais aucun modèle Stable Diffusion n’est chargé. Ouvrez Modèles et sélectionnez un modèle SD."
+    override val visionModeEnabledButNoModelLoadedError = "👁️ Le mode vision est activé, mais aucun modèle VLM n’est chargé. Ouvrez Modèles et sélectionnez un modèle de vision."
     override val imageGenerationFailedError = "🖼️ Échec de la génération d’image (sortie vide)."
     override val imageGenerationError = "Erreur de génération d’image"
     override val allCachedModelsRemoved = "Tous les modèles en cache et l’index PDF RAG ont été supprimés avec succès."

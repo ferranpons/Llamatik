@@ -187,6 +187,7 @@ pero evita salidas extensas salvo que se soliciten explícitamente.
     override val sttModels = "Modelos de reconocimiento de voz"
     override val speak = "Hablar"
 
+    override val vlmModels = "Modelos de visión"
     override val imageGenerationModels = "Modelos de generación de imágenes"
     override val failedToDecodeImageError = "🖼️ Error al decodificar la imagen."
     override val imageGeneration = "Generación de imágenes"
@@ -205,6 +206,7 @@ pero evita salidas extensas salvo que se soliciten explícitamente.
     override val thereIsAProblemWithAI = "Hay un problema con la IA"
     override val iDontHaveEnoughInfoInSources = "No tengo suficiente información en mis fuentes."
     override val imageModeEnabledButNoModelLoadedError = "🖼️ El modo imagen está activado, pero no hay ningún modelo Stable Diffusion cargado. Abre Modelos y selecciona un modelo SD."
+    override val visionModeEnabledButNoModelLoadedError = "👁️ El modo visión está activado, pero no hay ningún modelo VLM cargado. Abre Modelos y selecciona un modelo de visión."
     override val imageGenerationFailedError = "🖼️ La generación de imagen falló (salida vacía)."
     override val imageGenerationError = "Error de generación de imagen"
     override val allCachedModelsRemoved = "Todos los modelos en caché y el almacenamiento PDF RAG se eliminaron correctamente."

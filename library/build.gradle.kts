@@ -319,6 +319,15 @@ kotlin {
                     extraOpts("-libraryPath", libPath)
                     tasks.named(interopProcessingTaskName).configure { dependsOn(mergeTask) }
                 }
+
+                create("multimodal") {
+                    val defFileName = "multimodal_ios.def"
+                    defFile("src/iosMain/c_interop/$defFileName")
+                    packageName("com.llamatik.library.platform.vlm")
+                    compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
+                    extraOpts("-libraryPath", libPath)
+                    tasks.named(interopProcessingTaskName).configure { dependsOn(mergeTask) }
+                }
             }
 
             val merged = "$libPath/libllama_merged.a"
