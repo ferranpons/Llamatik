@@ -16,6 +16,9 @@ set(JNI_INCLUDE_DIR "${REPO_ROOT}/library/src/commonMain/c_interop/include")
 set(LLAMA_EMBED_SRC "${REPO_ROOT}/library/src/commonMain/cpp/llama_embed.cpp")
 set(WHISPER_STT_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_stt.cpp")
 set(WHISPER_JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/whisper_jni.cpp")
+set(MULTIMODAL_JNI_SRC "${REPO_ROOT}/library/src/commonMain/cpp/multimodal_jni.cpp")
+
+set(MTMD_DIR "${LLAMA_CPP_DIR}/tools/mtmd")
 
 set(WHISPER_CPP_DIR "${REPO_ROOT}/whisper.cpp")
 
@@ -130,7 +133,48 @@ if(HAVE_WHISPER)
     )
 endif()
 
-add_library(llama_jni SHARED ${LLAMA_JNI_SOURCES})
+add_library(mtmd_sources OBJECT
+    "${MTMD_DIR}/mtmd.cpp"
+    "${MTMD_DIR}/mtmd-helper.cpp"
+    "${MTMD_DIR}/mtmd-audio.cpp"
+    "${MTMD_DIR}/clip.cpp"
+    "${MTMD_DIR}/models/cogvlm.cpp"
+    "${MTMD_DIR}/models/conformer.cpp"
+    "${MTMD_DIR}/models/glm4v.cpp"
+    "${MTMD_DIR}/models/internvl.cpp"
+    "${MTMD_DIR}/models/kimivl.cpp"
+    "${MTMD_DIR}/models/llama4.cpp"
+    "${MTMD_DIR}/models/llava.cpp"
+    "${MTMD_DIR}/models/minicpmv.cpp"
+    "${MTMD_DIR}/models/mobilenetv5.cpp"
+    "${MTMD_DIR}/models/pixtral.cpp"
+    "${MTMD_DIR}/models/qwen2vl.cpp"
+    "${MTMD_DIR}/models/qwen3vl.cpp"
+    "${MTMD_DIR}/models/siglip.cpp"
+    "${MTMD_DIR}/models/whisper-enc.cpp"
+    "${MTMD_DIR}/models/youtuvl.cpp"
+    "${MTMD_DIR}/deprecation-warning.cpp"
+)
+
+target_include_directories(mtmd_sources PRIVATE
+    "${MTMD_DIR}"
+    "${LLAMA_CPP_DIR}/include"
+    "${LLAMA_CPP_DIR}/src"
+    "${LLAMA_CPP_DIR}/ggml/include"
+    "${LLAMA_CPP_DIR}/ggml/src"
+    "${LLAMA_CPP_DIR}/common"
+    "${LLAMA_CPP_DIR}/vendor"
+    "${LLAMA_CPP_DIR}/vendor/stb"
+    "${LLAMA_CPP_DIR}/vendor/nlohmann"
+)
+
+target_compile_options(mtmd_sources PRIVATE -Wno-cast-qual)
+target_compile_features(mtmd_sources PRIVATE cxx_std_17)
+set_property(TARGET mtmd_sources PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+list(APPEND LLAMA_JNI_SOURCES "${MULTIMODAL_JNI_SRC}")
+
+add_library(llama_jni SHARED ${LLAMA_JNI_SOURCES} $<TARGET_OBJECTS:mtmd_sources>)
 
 target_include_directories(llama_jni
     PRIVATE
@@ -138,6 +182,8 @@ target_include_directories(llama_jni
     "${LLAMA_CPP_DIR}/common"
     "${LLAMA_CPP_DIR}/vendor"
     "${LLAMA_CPP_DIR}/vendor/nlohmann"
+    "${LLAMA_CPP_DIR}/vendor/stb"
+    "${MTMD_DIR}"
     "${JNI_INCLUDE_DIR}"
     "${JNI_INCLUDE_DIR}/.."
     ${JNI_INCLUDE_DIRS}
