@@ -165,7 +165,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:0.17.0")
+    implementation("com.llamatik:library:0.19.0")
 }
 ```
 
@@ -378,6 +378,80 @@ val imageBytes = StableDiffusionBridge.generateImage(
 
 // Save imageBytes as PNG file
 ```
+
+### 👁️ Vision / Multimodal (MultimodalBridge)
+
+MultimodalBridge wraps llama.cpp's multimodal (VLM) support for on-device image analysis using vision-language models such as SmolVLM.
+
+The workflow is:
+1. Download a VLM GGUF model and its matching mmproj GGUF file to local storage.
+2. Initialize the bridge once with both file paths.
+3. Pass image bytes (JPEG/PNG/BMP) and a text prompt to receive a streamed response.
+
+### MultimodalBridge API surface
+
+```kotlin
+object MultimodalBridge {
+    /**
+     * Load the vision model and its multimodal projector (mmproj) side-by-side.
+     * Both files must be available on disk before calling this.
+     *
+     * @param modelPath  Absolute path to the GGUF vision model.
+     * @param mmprojPath Absolute path to the GGUF mmproj file.
+     * @return true on success.
+     */
+    fun initModel(modelPath: String, mmprojPath: String): Boolean
+
+    /**
+     * Analyze an image given as raw bytes (JPEG/PNG/BMP), streaming the response
+     * token by token via [callback].
+     *
+     * Must be called from a background thread/coroutine; blocks until generation completes.
+     */
+    fun analyzeImageBytesStream(imageBytes: ByteArray, prompt: String, callback: GenStream)
+
+    /** Cancel an in-progress analyzeImageBytesStream call. */
+    fun cancelAnalysis()
+
+    /** Free all native resources (model, mmproj context, llama context). */
+    fun release()
+}
+```
+
+#### Example
+
+```kotlin
+import com.llamatik.library.platform.MultimodalBridge
+
+// 1) Init once — both model and mmproj must be downloaded first
+val loaded = MultimodalBridge.initModel(
+    modelPath  = "/path/to/SmolVLM-256M-Instruct-Q8_0.gguf",
+    mmprojPath = "/path/to/mmproj-SmolVLM-256M-Instruct-f16.gguf"
+)
+
+// 2) Analyze an image (e.g. loaded from disk or camera)
+val imageBytes: ByteArray = File("/path/to/photo.jpg").readBytes()
+
+MultimodalBridge.analyzeImageBytesStream(
+    imageBytes = imageBytes,
+    prompt     = "Describe what you see in this image.",
+    callback   = object : GenStream {
+        override fun onDelta(text: String)   { print(text) }
+        override fun onComplete()            { println("\n[done]") }
+        override fun onError(message: String){ println("Error: $message") }
+    }
+)
+
+// 3) Optional: cancel mid-stream
+MultimodalBridge.cancelAnalysis()
+
+// 4) Optional: release on app shutdown
+MultimodalBridge.release()
+```
+
+**Note**: MultimodalBridge requires both a vision model GGUF **and** a matching mmproj GGUF. Llamatik's app downloads both automatically when you select a VLM model.
+
+---
 
 ## 🧑‍💻 Backend Usage
 
