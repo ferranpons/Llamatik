@@ -138,15 +138,16 @@ jobs:
           brew install cmake
           cmake --version
 
-      - name: Install Windows deps (cmake)
+      - name: Install Windows deps (cmake + ninja)
         if: ${{ runner.os == 'Windows' }}
         shell: pwsh
         run: |
-          # GitHub windows runners often have cmake, but your build.gradle.kts tool check didn't find it.
-          # Ensure it's installed and on PATH.
+          # Ensure cmake and ninja are installed and on PATH.
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          choco install ninja -y
           refreshenv
           cmake --version
+          ninja --version
 
       - name: Resolve Windows tool paths
         if: ${{ runner.os == 'Windows' }}
@@ -154,6 +155,8 @@ jobs:
         run: |
           Write-Host "where cmake:"
           where.exe cmake || $true
+          Write-Host "where ninja:"
+          where.exe ninja || $true
 
           $candidates = @(
             "C:\Program Files\CMake\bin\cmake.exe",
@@ -166,7 +169,6 @@ jobs:
           }
 
           if (-not $cmake) {
-            # Try resolving via where
             $w = (where.exe cmake 2>$null | Select-Object -First 1)
             if ($w) { $cmake = $w }
           }
@@ -178,14 +180,23 @@ jobs:
 
           Write-Host "Resolved CMAKE_PATH=$cmake"
           "CMAKE_PATH=$cmake" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
           & $cmake --version
+
+          # Ensure ninja is on PATH (choco installs to C:\ProgramData\chocolatey\bin)
+          $ninjaPath = (where.exe ninja 2>$null | Select-Object -First 1)
+          if ($ninjaPath) {
+            $ninjaDir = Split-Path $ninjaPath -Parent
+            "$ninjaDir" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+            Write-Host "Ninja dir on PATH: $ninjaDir"
+          } else {
+            Write-Warning "ninja not found on PATH; CMake Ninja generator may fail"
+          }
 
       # ---------- Build ----------
       - name: Build desktop distributables (Compose Multiplatform)
         shell: bash
         run: |
-          ./gradlew :composeApp:packageReleaseDistributionForCurrentOS --no-daemon --stacktrace
+          ./gradlew :composeApp:packageReleaseDistributionForCurrentOS --no-daemon --stacktrace --info
 
       # ---------- Collect artifacts ----------
       - name: Collect artifacts (Linux/macOS)

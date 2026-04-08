@@ -408,6 +408,12 @@ kotlin {
                 args += listOf("-DCMAKE_SYSTEM_NAME=Darwin")
             }
 
+            if (desktopPlatform == "windows") {
+                // Use Ninja on Windows CI for faster, more reliable builds than Visual Studio generator.
+                // Ninja is pre-installed on GitHub windows-latest runners.
+                args += listOf("-G", "Ninja")
+            }
+
             commandLine(args)
         }
     }

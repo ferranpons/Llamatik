@@ -168,7 +168,11 @@ target_include_directories(mtmd_sources PRIVATE
     "${LLAMA_CPP_DIR}/vendor/nlohmann"
 )
 
-target_compile_options(mtmd_sources PRIVATE -Wno-cast-qual)
+if(MSVC)
+    target_compile_options(mtmd_sources PRIVATE /wd4090)
+else()
+    target_compile_options(mtmd_sources PRIVATE -Wno-cast-qual)
+endif()
 target_compile_features(mtmd_sources PRIVATE cxx_std_17)
 set_property(TARGET mtmd_sources PROPERTY POSITION_INDEPENDENT_CODE ON)
 
