@@ -981,6 +981,21 @@ class ChatBotViewModel(
                                 if (it.url == vlmModel.url) it.copy(mmprojLocalPath = mmprojPath) else it
                             }
                         )
+
+                        // Auto-load VLM once both model and mmproj are available
+                        if (!_state.value.isVlmModelLoaded) {
+                            val modelPath = resolveAndMigratePath(vlmModel)
+                            if (!modelPath.isNullOrBlank()) {
+                                val loaded = MultimodalBridge.initModel(modelPath, mmprojPath)
+                                if (loaded) {
+                                    _state.value = _state.value.copy(
+                                        selectedVlmModelName = vlmModel.name,
+                                        isVlmModelLoaded = true
+                                    )
+                                    _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoaded)
+                                }
+                            }
+                        }
                     }
                     is DownloadEvent.Failed -> {
                         updateDownload(mmprojUrl) {

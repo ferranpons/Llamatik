@@ -153,5 +153,5 @@ target_link_options(llamatik_wasm PRIVATE
   "-sFORCE_FILESYSTEM=1"
 
   "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_session_prompt,_llamatik_llama_session_continue,_llamatik_llama_session_reset,_llamatik_llama_generate,_llamatik_llama_generate_continue,_llamatik_llama_generate_stream,_llamatik_llama_generate_continue_stream,_llamatik_free_string,_llamatik_vlm_init,_llamatik_vlm_analyze_stream,_llamatik_vlm_cancel,_llamatik_vlm_release]"
-  "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,FS]"
+  "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,FS,HEAPU8]"
 )

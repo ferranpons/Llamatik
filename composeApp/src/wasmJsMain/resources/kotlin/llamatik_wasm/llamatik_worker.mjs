@@ -243,17 +243,23 @@ self.onmessage = async (ev) => {
       currentRequestId = m.requestId || 0;
 
       const imgU8 = m.imageBytes instanceof Uint8Array ? m.imageBytes : new Uint8Array(m.imageBytes);
+      // _malloc returns a plain Number (wrapped by Emscripten's applySignatureConversions)
       const ptr = Module._malloc(imgU8.length);
-      Module.HEAPU8.set(imgU8, ptr);
+      const heap = Module.HEAPU8 ?? (Module.wasmMemory ? new Uint8Array(Module.wasmMemory.buffer) : null);
+      if (!heap) throw new Error("WASM memory not accessible — rebuild with HEAPU8 in EXPORTED_RUNTIME_METHODS");
+      heap.set(imgU8, ptr);
+      // Allocate prompt string in WASM memory manually (ccall wraps pointer args as BigInt which breaks things)
+      const promptStr = m.prompt || "";
+      const promptLen = Module.lengthBytesUTF8(promptStr) + 1;
+      const promptPtr = Module._malloc(promptLen);
+      Module.stringToUTF8(promptStr, promptPtr, promptLen);
       try {
-        Module.ccall(
-          "llamatik_vlm_analyze_stream",
-          null,
-          ["number", "number", "string"],
-          [ptr, imgU8.length, m.prompt || ""]
-        );
+        // Call directly — _llamatik_vlm_analyze_stream is NOT signature-wrapped so takes plain Numbers
+        Module._llamatik_vlm_analyze_stream(ptr, imgU8.length, promptPtr);
       } finally {
-        Module._free(ptr);
+        // _free IS wrapped with makeWrapper__p so it expects a BigInt
+        Module._free(BigInt(ptr));
+        Module._free(BigInt(promptPtr));
       }
       return;
     }
