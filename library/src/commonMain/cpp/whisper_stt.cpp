@@ -113,7 +113,7 @@ static bool load_wav_pcm16_mono_16k(const char* path, std::vector<float>& out) {
     return true;
 }
 
-const char* whisper_stt_transcribe_wav(const char* wav_path, const char* language) {
+const char* whisper_stt_transcribe_wav(const char* wav_path, const char* language, const char* initial_prompt) {
     std::lock_guard<std::mutex> lock(g_mu);
     g_last.clear();
 
@@ -136,6 +136,10 @@ const char* whisper_stt_transcribe_wav(const char* wav_path, const char* languag
 
     if (language && language[0]) {
         params.language = language;
+    }
+
+    if (initial_prompt && initial_prompt[0]) {
+        params.initial_prompt = initial_prompt;
     }
 
     if (whisper_full(g_ctx, params, pcmf.data(), (int)pcmf.size()) != 0) {

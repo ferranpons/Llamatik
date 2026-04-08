@@ -286,8 +286,11 @@ object WhisperBridge {
     /**
      * Transcribes a WAV file and returns text.
      * Tip: record WAV as 16 kHz, mono, 16-bit PCM for best compatibility.
+     *
+     * @param initialPrompt Optional text prepended to the decoder input (up to 224 tokens).
+     *   Use it to bias transcription toward domain-specific vocabulary (e.g. medical terms).
      */
-    fun transcribeWav(wavPath: String, language: String? = null): String
+    fun transcribeWav(wavPath: String, language: String? = null, initialPrompt: String? = null): String
 
     /** Frees native resources. */
     fun release()

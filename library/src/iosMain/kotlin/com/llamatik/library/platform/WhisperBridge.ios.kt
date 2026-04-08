@@ -179,8 +179,8 @@ actual object WhisperBridge {
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    actual fun transcribeWav(wavPath: String, language: String?): String {
-        val ptr = whisper_stt_transcribe_wav(wavPath, language) ?: return ""
+    actual fun transcribeWav(wavPath: String, language: String?, initialPrompt: String?): String {
+        val ptr = whisper_stt_transcribe_wav(wavPath, language, initialPrompt) ?: return ""
 
         return try {
             ptr.toKString()

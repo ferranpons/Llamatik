@@ -177,7 +177,7 @@ int32_t whisper_stt_init(const char *model_path) {
 }
 
 // Returns malloc'ed UTF-8 string. Caller must free via whisper_stt_free_string.
-char *whisper_stt_transcribe_wav(const char *wav_path, const char *language) {
+char *whisper_stt_transcribe_wav(const char *wav_path, const char *language, const char *initial_prompt) {
     if (!g_whisper_ctx) {
         std::fprintf(stderr, "whisper_stt_transcribe_wav: context not initialized\n");
         return ::strdup("");
@@ -205,6 +205,10 @@ char *whisper_stt_transcribe_wav(const char *wav_path, const char *language) {
     } else {
         params.language = "auto";
         params.translate = false;
+    }
+
+    if (initial_prompt && initial_prompt[0] != '\0') {
+        params.initial_prompt = initial_prompt;
     }
 
     const int rc = whisper_full(g_whisper_ctx, params, pcmf32.data(), (int)pcmf32.size());

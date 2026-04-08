@@ -5,6 +5,6 @@ expect object WhisperBridge {
     fun getModelPath(modelFileName: String): String
 
     fun initModel(modelPath: String): Boolean
-    fun transcribeWav(wavPath: String, language: String? = null): String
+    fun transcribeWav(wavPath: String, language: String? = null, initialPrompt: String? = null): String
     fun release()
 }
