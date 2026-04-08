@@ -38,6 +38,7 @@ import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.PlatformInfo
 import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
+import com.llamatik.app.platform.normalizeToJpegBytes
 import com.llamatik.app.platform.tts.TtsEngine
 import com.llamatik.library.platform.LlamaBridge
 import com.llamatik.library.platform.MultimodalBridge
@@ -201,6 +202,26 @@ class ChatBotViewModel(
         return migrated
     }
 
+    private fun resolveAndMigrateMmprojPath(model: LlamaModel): String? {
+        val mmprojKey = "${model.name}_mmproj"
+        val rawPath = (model.mmprojLocalPath?.takeIf { it.isNotEmpty() }
+            ?: getModelsUseCase.getSavedModelPath(mmprojKey).takeIf { it.isNotEmpty() })
+            ?: return null
+
+        if (PlatformInfo.isWasm) return rawPath
+
+        val migrated = migrateModelPathIfNeeded(
+            modelNameOrFileName = mmprojKey,
+            savedPath = rawPath
+        )
+
+        if (migrated.isNotBlank() && migrated != rawPath) {
+            runCatching { getModelsUseCase.saveModelPath(mmprojKey, migrated) }
+        }
+
+        return migrated
+    }
+
     fun onStarted(
         navigator: Navigator? = null,
         embedFilePath: String? = null,
@@ -261,7 +282,7 @@ class ChatBotViewModel(
                 .onSuccess { models ->
                     for (model in models) {
                         val path = resolveAndMigratePath(model) ?: continue
-                        val mmprojPath = model.mmprojLocalPath?.takeIf { it.isNotEmpty() } ?: continue
+                        val mmprojPath = resolveAndMigrateMmprojPath(model) ?: continue
                         Logger.d("LlamaVM - Init VLM Model: ${model.name} at $path + mmproj $mmprojPath")
                         val loaded = MultimodalBridge.initModel(path, mmprojPath)
                         if (loaded) {
@@ -278,12 +299,11 @@ class ChatBotViewModel(
                     }
                     val normalized = models.map { m ->
                         val path = resolveAndMigratePath(m)
-                        val mmprojKey = "${m.name}_mmproj"
-                        val mmprojPath = getModelsUseCase.getSavedModelPath(mmprojKey).takeIf { it.isNotEmpty() }
+                        val mmprojPath = resolveAndMigrateMmprojPath(m)
                         m.copy(
                             localPath = if (!path.isNullOrBlank()) path else m.localPath,
                             fileName = if (!path.isNullOrBlank()) path else m.fileName,
-                            mmprojLocalPath = mmprojPath ?: m.mmprojLocalPath,
+                            mmprojLocalPath = if (!mmprojPath.isNullOrBlank()) mmprojPath else m.mmprojLocalPath,
                         )
                     }
                     _state.value = _state.value.copy(vlmModels = normalized)
@@ -625,7 +645,7 @@ class ChatBotViewModel(
     fun onVlmModelSelected(model: LlamaModel) {
         screenModelScope.launch(AppDispatchersIO) {
             val path = resolveAndMigratePath(model) ?: return@launch
-            val mmprojPath = model.mmprojLocalPath?.takeIf { it.isNotEmpty() } ?: run {
+            val mmprojPath = resolveAndMigrateMmprojPath(model) ?: run {
                 Logger.e { "LlamaVM - no mmproj path for VLM model ${model.name}" }
                 _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoadError)
                 return@launch
@@ -878,7 +898,8 @@ class ChatBotViewModel(
                             it.copy(inProgress = false, progress = 100, done = true, error = null)
                         }
 
-                        val persistedPath = persistedPathForDownloadedModel(model, ev.localPath)
+                        val rawPath = persistedPathForDownloadedModel(model, ev.localPath)
+                        val persistedPath = migrateModelPathIfNeeded(model.name, rawPath)
                         getModelsUseCase.saveModelPath(model.name, persistedPath)
 
                         _state.value = _state.value.copy(
@@ -951,7 +972,8 @@ class ChatBotViewModel(
                         updateDownload(mmprojUrl) {
                             it.copy(inProgress = false, progress = 100, done = true, error = null)
                         }
-                        val mmprojPath = persistedPathForDownloadedModel(mmprojModel, ev.localPath)
+                        val rawMmprojPath = persistedPathForDownloadedModel(mmprojModel, ev.localPath)
+                        val mmprojPath = migrateModelPathIfNeeded("${vlmModel.name}_mmproj", rawMmprojPath)
                         getModelsUseCase.saveModelPath("${vlmModel.name}_mmproj", mmprojPath)
 
                         _state.value = _state.value.copy(
@@ -1171,8 +1193,8 @@ class ChatBotViewModel(
             try {
                 val file = FileKit.openFilePicker() ?: return@launch
                 val ext = file.name.substringAfterLast('.', "").lowercase()
-                if (ext !in setOf("jpg", "jpeg", "png", "bmp", "gif", "webp")) return@launch
-                onVisionImageSelected(file.readBytes())
+                if (ext !in setOf("jpg", "jpeg", "png", "bmp", "gif", "webp", "heic", "heif")) return@launch
+                onVisionImageSelected(normalizeToJpegBytes(file.readBytes()))
             } catch (_: Throwable) {}
         }
     }

@@ -61,6 +61,8 @@ actual fun decodeImageBytesToImageBitmap(bytes: ByteArray, suggestedFileName: St
     }
 }
 
+actual fun normalizeToJpegBytes(bytes: ByteArray): ByteArray = bytes
+
 private fun ByteArray.startsWith(prefix: ByteArray): Boolean {
     if (this.size < prefix.size) return false
     for (i in prefix.indices) if (this[i] != prefix[i]) return false

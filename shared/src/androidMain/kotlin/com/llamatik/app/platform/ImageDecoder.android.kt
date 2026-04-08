@@ -78,6 +78,8 @@ private fun saveTempForInspection(bytes: ByteArray, suggestedName: String?, ext:
     }
 }
 
+actual fun normalizeToJpegBytes(bytes: ByteArray): ByteArray = bytes
+
 /** Very small PPM (P6) parser -> android Bitmap. Assumes 8-bit channels. */
 private fun decodePpmToBitmapAndroid(bytes: ByteArray): android.graphics.Bitmap? {
     try {

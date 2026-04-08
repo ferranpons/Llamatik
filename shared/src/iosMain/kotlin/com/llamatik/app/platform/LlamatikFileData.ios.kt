@@ -300,7 +300,11 @@ actual fun migrateModelPathIfNeeded(
 
     if (savedPath.startsWith(persistentDir)) return savedPath
 
-    val destPath = stableModelFileIos(modelNameOrFileName).path ?: return savedPath
+    // Prefer the actual filename from the source path to preserve the extension.
+    // Fall back to sanitizing the model name only if no filename is available.
+    val sourceFileName = savedPath.substringAfterLast('/').takeIf { it.isNotBlank() }
+        ?: modelNameOrFileName
+    val destPath = stableModelFileIos(sourceFileName).path ?: return savedPath
 
     ensureDirExistsIos(modelsDirIos())
 

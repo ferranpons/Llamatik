@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import org.jetbrains.skia.Image
 
+actual fun normalizeToJpegBytes(bytes: ByteArray): ByteArray = bytes
+
 actual fun decodeImageBytesToImageBitmap(
     bytes: ByteArray,
     suggestedFileName: String?
