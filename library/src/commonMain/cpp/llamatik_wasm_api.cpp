@@ -8,6 +8,11 @@
 
 #include "llama.h"
 
+#if defined(LLAMATIK_HAS_MTMD)
+#include "mtmd.h"
+#include "mtmd-helper.h"
+#endif
+
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
 #endif
@@ -500,5 +505,152 @@ void llamatik_llama_generate_continue_stream(const char * prompt) {
     js_emit_done();
 #endif
 }
+
+
+// -----------------------------------------------------------------------
+// VLM (multimodal) API
+// -----------------------------------------------------------------------
+#if defined(LLAMATIK_HAS_MTMD) && defined(__EMSCRIPTEN__)
+
+static llama_model   * g_vlm_model = nullptr;
+static llama_context * g_vlm_ctx   = nullptr;
+static mtmd_context  * g_vlm_mtmd  = nullptr;
+static bool            g_vlm_cancel = false;
+
+static void destroy_vlm_runtime() {
+    if (g_vlm_mtmd)  { mtmd_free(g_vlm_mtmd);         g_vlm_mtmd  = nullptr; }
+    if (g_vlm_ctx)   { llama_free(g_vlm_ctx);          g_vlm_ctx   = nullptr; }
+    if (g_vlm_model) { llama_model_free(g_vlm_model);  g_vlm_model = nullptr; }
+}
+
+EMSCRIPTEN_KEEPALIVE
+int llamatik_vlm_init(const char * model_path, const char * mmproj_path) {
+    if (!model_path || !*model_path || !mmproj_path || !*mmproj_path) return 0;
+
+    destroy_vlm_runtime();
+    llama_backend_init();
+
+    llama_model_params mparams = llama_model_default_params();
+    mparams.n_gpu_layers = 0;
+    g_vlm_model = llama_model_load_from_file(model_path, mparams);
+    if (!g_vlm_model) return 0;
+
+    llama_context_params cparams = llama_context_default_params();
+    cparams.n_ctx    = 8192;
+    cparams.n_batch  = 256;
+    cparams.n_ubatch = 64;
+    g_vlm_ctx = llama_init_from_model(g_vlm_model, cparams);
+    if (!g_vlm_ctx) { destroy_vlm_runtime(); return 0; }
+
+    mtmd_context_params mctx_params = mtmd_context_params_default();
+    mctx_params.use_gpu = false;
+    mctx_params.print_timings = false;
+    g_vlm_mtmd = mtmd_init_from_file(mmproj_path, g_vlm_model, mctx_params);
+    if (!g_vlm_mtmd) { destroy_vlm_runtime(); return 0; }
+
+    g_vlm_cancel = false;
+    return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void llamatik_vlm_analyze_stream(const uint8_t * image_bytes, int image_len, const char * prompt) {
+    if (!g_vlm_ctx || !g_vlm_model || !g_vlm_mtmd) {
+        js_emit_error_utf8("VLM model not initialized");
+        js_emit_done();
+        return;
+    }
+    if (!image_bytes || image_len <= 0 || !prompt) {
+        js_emit_error_utf8("Invalid VLM arguments");
+        js_emit_done();
+        return;
+    }
+
+    g_vlm_cancel = false;
+
+    mtmd_bitmap * bitmap = mtmd_helper_bitmap_init_from_buf(g_vlm_mtmd, image_bytes, (size_t) image_len);
+    if (!bitmap) {
+        js_emit_error_utf8("Failed to decode image");
+        js_emit_done();
+        return;
+    }
+
+    mtmd_input_text txt;
+    txt.text = prompt;
+    txt.add_special = true;
+    txt.parse_special = true;
+
+    mtmd_input_chunks * chunks = mtmd_input_chunks_init();
+    const mtmd_bitmap * bitmaps[1] = { bitmap };
+    int tok_rc = mtmd_tokenize(g_vlm_mtmd, chunks, &txt, bitmaps, 1);
+    if (tok_rc != 0) {
+        mtmd_bitmap_free(bitmap);
+        mtmd_input_chunks_free(chunks);
+        js_emit_error_utf8("VLM tokenization failed");
+        js_emit_done();
+        return;
+    }
+
+    llama_memory_clear(llama_get_memory(g_vlm_ctx), false);
+
+    llama_pos n_past = 0;
+    int eval_rc = mtmd_helper_eval_chunks(g_vlm_mtmd, g_vlm_ctx, chunks, n_past, 0, 256, true, &n_past);
+    mtmd_bitmap_free(bitmap);
+    mtmd_input_chunks_free(chunks);
+
+    if (eval_rc != 0) {
+        js_emit_error_utf8("VLM prefill failed");
+        js_emit_done();
+        return;
+    }
+
+    const llama_vocab * vocab = llama_model_get_vocab(g_vlm_model);
+    const llama_token eos = llama_vocab_eos(vocab);
+    const int32_t n_ctx  = llama_n_ctx(g_vlm_ctx);
+    const int max_new_tokens = 640;
+
+    llama_sampler * smpl = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40));
+    llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.90f, 1));
+    llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.35f));
+    llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    llama_batch batch = llama_batch_init(1, 0, 1);
+
+    for (int i = 0; i < max_new_tokens && !g_vlm_cancel; i++) {
+        const llama_token id = llama_sampler_sample(smpl, g_vlm_ctx, -1);
+        llama_sampler_accept(smpl, id);
+
+        if (id == eos || llama_vocab_is_eog(vocab, id)) break;
+        if (n_past >= n_ctx - 1) break;
+
+        char buf[8 * 1024];
+        const int32_t n_piece = llama_token_to_piece(vocab, id, buf, (int32_t) sizeof(buf), 0, true);
+        if (n_piece > 0) {
+            if (n_piece < (int32_t) sizeof(buf)) buf[n_piece] = '\0';
+            else buf[sizeof(buf) - 1] = '\0';
+            js_emit_token_utf8(buf);
+        }
+
+        batch_set_one(batch, id, n_past);
+        if (llama_decode(g_vlm_ctx, batch) != 0) break;
+        n_past++;
+    }
+
+    llama_batch_free(batch);
+    llama_sampler_free(smpl);
+    js_emit_done();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void llamatik_vlm_cancel() {
+    g_vlm_cancel = true;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void llamatik_vlm_release() {
+    destroy_vlm_runtime();
+}
+
+#endif // LLAMATIK_HAS_MTMD && __EMSCRIPTEN__
 
 } // extern "C"

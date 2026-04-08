@@ -7,6 +7,10 @@ let initPromise = null;
 let currentRequestId = null;
 let currentModelKey = null; // idbKey + fsPath identity
 
+let vlmInitDone = false;
+let vlmInitPromise = null;
+let vlmModelKey = null; // idbKey + mmprojIdbKey identity
+
 function post(msg) {
   self.postMessage(msg);
 }
@@ -82,6 +86,7 @@ async function loadModule() {
 
   Module.__llamatik_model_loaded = false;
   Module.__llamatik_model_path = null;
+  Module.__llamatik_vlm_loaded = false;
 
   Module.__llamatik_stream_token = (delta) => {
     if (currentRequestId != null) {
@@ -132,29 +137,8 @@ async function ensureModel(idbKey, fsPath) {
   currentModelKey = requestedKey;
 
   initPromise = (async () => {
-    const db = await openDb();
-    const count = await readChunkCount(db, idbKey);
-    if (!count || count <= 0) {
-      throw new Error("Model not found in IndexedDB for key: " + idbKey);
-    }
-
     if (!(mod.__llamatik_model_loaded && mod.__llamatik_model_path === fsPath)) {
-      ensureDir(mod, fsPath);
-
-      let stream;
-      try {
-        stream = mod.FS.open(fsPath, "w+");
-        let offset = 0;
-
-        for (let i = 0; i < count; i++) {
-          const chunkVal = await readChunk(db, idbKey, i);
-          const u8 = chunkToU8(chunkVal);
-          mod.FS.write(stream, u8, 0, u8.length, offset);
-          offset += u8.length;
-        }
-      } finally {
-        try { if (stream) mod.FS.close(stream); } catch (_) {}
-      }
+      await loadFileFromIdb(idbKey, fsPath);
 
       const ok = mod.ccall("llamatik_llama_init_generate", "number", ["string"], [fsPath]);
       if (ok !== 1) {
@@ -175,6 +159,74 @@ async function ensureModel(idbKey, fsPath) {
   }
 }
 
+async function loadFileFromIdb(idbKey, fsPath) {
+  const mod = await loadModule();
+  const db = await openDb();
+  const count = await readChunkCount(db, idbKey);
+  if (!count || count <= 0) {
+    throw new Error("File not found in IndexedDB for key: " + idbKey);
+  }
+
+  ensureDir(mod, fsPath);
+  let stream;
+  try {
+    stream = mod.FS.open(fsPath, "w+");
+    let offset = 0;
+    for (let i = 0; i < count; i++) {
+      const chunkVal = await readChunk(db, idbKey, i);
+      const u8 = chunkToU8(chunkVal);
+      mod.FS.write(stream, u8, 0, u8.length, offset);
+      offset += u8.length;
+    }
+  } finally {
+    try { if (stream) mod.FS.close(stream); } catch (_) {}
+  }
+}
+
+async function ensureVlmModel(idbKey, fsPath, mmprojIdbKey, mmprojFsPath) {
+  const mod = await loadModule();
+  const requestedKey = `${idbKey}::${fsPath}::${mmprojIdbKey}::${mmprojFsPath}`;
+
+  if (vlmInitDone && vlmModelKey === requestedKey) return;
+
+  if (vlmInitPromise && vlmModelKey === requestedKey) {
+    await vlmInitPromise;
+    return;
+  }
+
+  if (vlmInitPromise) {
+    await vlmInitPromise;
+    if (vlmInitDone && vlmModelKey === requestedKey) return;
+  }
+
+  vlmModelKey = requestedKey;
+  vlmInitDone = false;
+
+  vlmInitPromise = (async () => {
+    // Release any existing VLM runtime
+    if (mod.__llamatik_vlm_loaded && mod.ccall) {
+      try { mod.ccall("llamatik_vlm_release", null, [], []); } catch (_) {}
+    }
+    mod.__llamatik_vlm_loaded = false;
+
+    await loadFileFromIdb(idbKey, fsPath);
+    await loadFileFromIdb(mmprojIdbKey, mmprojFsPath);
+
+    const ok = mod.ccall("llamatik_vlm_init", "number", ["string", "string"], [fsPath, mmprojFsPath]);
+    if (ok !== 1) {
+      throw new Error("llamatik_vlm_init returned " + ok);
+    }
+    mod.__llamatik_vlm_loaded = true;
+    vlmInitDone = true;
+  })();
+
+  try {
+    await vlmInitPromise;
+  } finally {
+    vlmInitPromise = null;
+  }
+}
+
 self.onmessage = async (ev) => {
   const m = ev.data || {};
 
@@ -182,6 +234,53 @@ self.onmessage = async (ev) => {
     if (m.type === "init") {
       await ensureModel(m.idbKey, m.fsPath);
       post({ type: "init_ok" });
+      return;
+    }
+
+    if (m.type === "vlm_init") {
+      await ensureVlmModel(m.idbKey, m.fsPath, m.mmprojIdbKey, m.mmprojFsPath);
+      post({ type: "vlm_init_ok" });
+      return;
+    }
+
+    if (m.type === "vlm_analyze") {
+      const mod = await loadModule();
+      if (!mod.__llamatik_vlm_loaded) {
+        post({ type: "error", requestId: m.requestId, error: "VLM model not initialized" });
+        post({ type: "done", requestId: m.requestId });
+        return;
+      }
+      if (currentRequestId != null) {
+        post({ type: "error", requestId: m.requestId, error: "Generation already in progress" });
+        post({ type: "done", requestId: m.requestId });
+        return;
+      }
+
+      currentRequestId = m.requestId;
+
+      // Copy image bytes into WASM heap
+      const imageBytes = m.imageBytes instanceof Uint8Array ? m.imageBytes : new Uint8Array(m.imageBytes);
+      const ptr = mod._malloc(imageBytes.length);
+      mod.HEAPU8.set(imageBytes, ptr);
+
+      try {
+        mod.ccall(
+          "llamatik_vlm_analyze_stream",
+          null,
+          ["number", "number", "string"],
+          [ptr, imageBytes.length, m.prompt]
+        );
+      } finally {
+        mod._free(ptr);
+      }
+      return;
+    }
+
+    if (m.type === "vlm_cancel") {
+      const mod = await loadModule();
+      if (mod.__llamatik_vlm_loaded) {
+        try { mod.ccall("llamatik_vlm_cancel", null, [], []); } catch (_) {}
+      }
       return;
     }
 

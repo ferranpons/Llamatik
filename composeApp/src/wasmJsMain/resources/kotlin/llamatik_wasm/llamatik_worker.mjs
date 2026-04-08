@@ -152,6 +152,41 @@ async function ensureInitialized(idbKey, fsPath) {
   return initPromise;
 }
 
+let vlmInitKey = null;
+let vlmInitPromise = null;
+let vlmLoaded = false;
+
+async function ensureVlmInitialized(idbKey, fsPath, mmprojIdbKey, mmprojFsPath) {
+  await loadModuleOnce();
+
+  const key = `${idbKey}::${fsPath}::${mmprojIdbKey}::${mmprojFsPath}`;
+  if (vlmInitPromise && vlmInitKey === key) return vlmInitPromise;
+
+  vlmInitKey = key;
+  vlmLoaded = false;
+  vlmInitPromise = (async () => {
+    if (Module.ccall && vlmLoaded) {
+      try { Module.ccall("llamatik_vlm_release", null, [], []); } catch (_) {}
+    }
+    vlmLoaded = false;
+
+    await writeModelFromIndexedDb(idbKey, fsPath);
+    await writeModelFromIndexedDb(mmprojIdbKey, mmprojFsPath);
+
+    const ok = Module.ccall(
+      "llamatik_vlm_init",
+      "number",
+      ["string", "string"],
+      [fsPath, mmprojFsPath]
+    );
+
+    if (ok !== 1) throw new Error("llamatik_vlm_init returned " + ok);
+    vlmLoaded = true;
+  })();
+
+  return vlmInitPromise;
+}
+
 // Hooked by C++ via EM_ASM in streaming mode
 globalThis.__llamatik_stream_token = (s) => {
   try { self.postMessage({ type: "delta", requestId: currentRequestId, delta: String(s) }); } catch (_) {}
@@ -191,6 +226,45 @@ self.onmessage = async (ev) => {
       // Note: 'done' is sent by C++ via __llamatik_stream_done
       return;
     }
+
+    if (m.type === "vlm_init") {
+      await ensureVlmInitialized(m.idbKey, m.fsPath, m.mmprojIdbKey, m.mmprojFsPath);
+      self.postMessage({ type: "vlm_init_ok" });
+      return;
+    }
+
+    if (m.type === "vlm_analyze") {
+      if (!vlmLoaded) {
+        self.postMessage({ type: "error", requestId: m.requestId, error: "VLM model not initialized" });
+        self.postMessage({ type: "done", requestId: m.requestId });
+        return;
+      }
+
+      currentRequestId = m.requestId || 0;
+
+      const imgU8 = m.imageBytes instanceof Uint8Array ? m.imageBytes : new Uint8Array(m.imageBytes);
+      const ptr = Module._malloc(imgU8.length);
+      Module.HEAPU8.set(imgU8, ptr);
+      try {
+        Module.ccall(
+          "llamatik_vlm_analyze_stream",
+          null,
+          ["number", "number", "string"],
+          [ptr, imgU8.length, m.prompt || ""]
+        );
+      } finally {
+        Module._free(ptr);
+      }
+      return;
+    }
+
+    if (m.type === "vlm_cancel") {
+      if (vlmLoaded) {
+        try { Module.ccall("llamatik_vlm_cancel", null, [], []); } catch (_) {}
+      }
+      return;
+    }
+
   } catch (e) {
     const msg = String(e && e.message ? e.message : e);
     self.postMessage({ type: "worker-error", message: msg, detail: String(e && e.stack ? e.stack : "") });

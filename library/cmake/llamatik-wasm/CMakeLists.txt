@@ -13,6 +13,7 @@ get_filename_component(REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 set(LLAMA_CPP_DIR "${REPO_ROOT}/llama.cpp")
 set(WHISPER_CPP_DIR "${REPO_ROOT}/whisper.cpp")
 set(SD_CPP_DIR "${REPO_ROOT}/stable-diffusion.cpp")
+set(MTMD_DIR "${LLAMA_CPP_DIR}/tools/mtmd")
 
 if(NOT EXISTS "${LLAMA_CPP_DIR}/CMakeLists.txt")
   message(FATAL_ERROR "llama.cpp not found at ${LLAMA_CPP_DIR}")
@@ -55,9 +56,59 @@ else()
   add_compile_definitions(LLAMATIK_NO_SD=1)
 endif()
 
+# ---- mtmd (multimodal) sources ----
+set(HAVE_MTMD OFF)
+if(EXISTS "${MTMD_DIR}/mtmd.cpp")
+  add_library(mtmd_sources OBJECT
+    "${MTMD_DIR}/mtmd.cpp"
+    "${MTMD_DIR}/mtmd-helper.cpp"
+    "${MTMD_DIR}/mtmd-audio.cpp"
+    "${MTMD_DIR}/clip.cpp"
+    "${MTMD_DIR}/models/cogvlm.cpp"
+    "${MTMD_DIR}/models/conformer.cpp"
+    "${MTMD_DIR}/models/glm4v.cpp"
+    "${MTMD_DIR}/models/internvl.cpp"
+    "${MTMD_DIR}/models/kimivl.cpp"
+    "${MTMD_DIR}/models/llama4.cpp"
+    "${MTMD_DIR}/models/llava.cpp"
+    "${MTMD_DIR}/models/minicpmv.cpp"
+    "${MTMD_DIR}/models/mobilenetv5.cpp"
+    "${MTMD_DIR}/models/pixtral.cpp"
+    "${MTMD_DIR}/models/qwen2vl.cpp"
+    "${MTMD_DIR}/models/qwen3vl.cpp"
+    "${MTMD_DIR}/models/siglip.cpp"
+    "${MTMD_DIR}/models/whisper-enc.cpp"
+    "${MTMD_DIR}/models/youtuvl.cpp"
+    "${MTMD_DIR}/deprecation-warning.cpp"
+  )
+  target_include_directories(mtmd_sources PRIVATE
+    "${MTMD_DIR}"
+    "${LLAMA_CPP_DIR}/include"
+    "${LLAMA_CPP_DIR}/src"
+    "${LLAMA_CPP_DIR}/ggml/include"
+    "${LLAMA_CPP_DIR}/ggml/src"
+    "${LLAMA_CPP_DIR}/common"
+    "${LLAMA_CPP_DIR}/vendor"
+    "${LLAMA_CPP_DIR}/vendor/stb"
+    "${LLAMA_CPP_DIR}/vendor/nlohmann"
+  )
+  target_compile_options(mtmd_sources PRIVATE -Wno-cast-qual)
+  target_compile_features(mtmd_sources PRIVATE cxx_std_17)
+  set(HAVE_MTMD ON)
+else()
+  message(WARNING "mtmd not found at ${MTMD_DIR}. VLM support disabled in WASM.")
+  add_compile_definitions(LLAMATIK_NO_MTMD=1)
+endif()
+
 # ---- our wasm C-API wrapper ----
 set(WRAPPER_SRC "${REPO_ROOT}/library/src/commonMain/cpp/llamatik_wasm_api.cpp")
-add_executable(llamatik_wasm ${WRAPPER_SRC})
+
+if(HAVE_MTMD)
+  add_executable(llamatik_wasm ${WRAPPER_SRC} $<TARGET_OBJECTS:mtmd_sources>)
+  target_compile_definitions(llamatik_wasm PRIVATE LLAMATIK_HAS_MTMD=1)
+else()
+  add_executable(llamatik_wasm ${WRAPPER_SRC})
+endif()
 
 target_include_directories(llamatik_wasm PRIVATE
   "${LLAMA_CPP_DIR}/include"
@@ -65,6 +116,8 @@ target_include_directories(llamatik_wasm PRIVATE
   "${LLAMA_CPP_DIR}/common"
   "${LLAMA_CPP_DIR}/vendor"
   "${LLAMA_CPP_DIR}/vendor/nlohmann"
+  "${LLAMA_CPP_DIR}/vendor/stb"
+  "${MTMD_DIR}"
 )
 
 target_link_libraries(llamatik_wasm PRIVATE llama)
@@ -99,6 +152,6 @@ target_link_options(llamatik_wasm PRIVATE
 
   "-sFORCE_FILESYSTEM=1"
 
-  "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_session_prompt,_llamatik_llama_session_continue,_llamatik_llama_session_reset,_llamatik_llama_generate,_llamatik_llama_generate_continue,_llamatik_llama_generate_stream,_llamatik_llama_generate_continue_stream,_llamatik_free_string]"
+  "-sEXPORTED_FUNCTIONS=[_malloc,_free,_llamatik_llama_init_generate,_llamatik_llama_session_prompt,_llamatik_llama_session_continue,_llamatik_llama_session_reset,_llamatik_llama_generate,_llamatik_llama_generate_continue,_llamatik_llama_generate_stream,_llamatik_llama_generate_continue_stream,_llamatik_free_string,_llamatik_vlm_init,_llamatik_vlm_analyze_stream,_llamatik_vlm_cancel,_llamatik_vlm_release]"
   "-sEXPORTED_RUNTIME_METHODS=[ccall,cwrap,UTF8ToString,stringToUTF8,lengthBytesUTF8,FS]"
 )
