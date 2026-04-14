@@ -7,8 +7,14 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
+}
+
+// Firebase plugins require google-services.json; skip on environments where it is absent
+// (e.g. Linux/Windows CI clones without the config file).
+val hasGoogleServicesJson = file("google-services.json").exists()
+if (hasGoogleServicesJson) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
 }
 
 val versionNum: String? by project
@@ -20,7 +26,15 @@ fun versionCode(): Int {
     return versionMajor * 10000 + versionMinor * 100 + versionPatch
 }
 
-val macNativeDir = project(":library").layout.buildDirectory.dir("llama-jni/macos")
+val hostOsName: String = System.getProperty("os.name").lowercase()
+val desktopPlatform: String = when {
+    hostOsName.contains("mac") -> "macos"
+    hostOsName.contains("linux") -> "linux"
+    hostOsName.contains("win") -> "windows"
+    else -> "linux"
+}
+
+val nativeLibDir = project(":library").layout.buildDirectory.dir("llama-jni/$desktopPlatform")
 val generatedNativeResources = layout.buildDirectory.dir("generated/nativeResources")
 
 kotlin {
@@ -237,17 +251,12 @@ compose.desktop {
     application {
         mainClass = "MainKt"
 
-        val nativeDir = project(":library")
-            .buildDir
-            .resolve("llama-jni/macos")
-            .absolutePath
-
         run {
             dependsOn(":library:compileLlamaJniDesktop")
 
-            jvmArgs(
-                "-Dapple.awt.application.name=Llamatik",
-            )
+            if (hostOsName.contains("mac")) {
+                jvmArgs("-Dapple.awt.application.name=Llamatik")
+            }
         }
 
         nativeDistributions {
@@ -315,7 +324,7 @@ compose.desktop {
 val nativeDir = project(":library")
     .layout
     .buildDirectory
-    .dir("llama-jni/macos")
+    .dir("llama-jni/$desktopPlatform")
     .get()
     .asFile
     .absolutePath
@@ -327,25 +336,31 @@ tasks.matching { it.name == "run" || it.name.endsWith("Run") }.configureEach {
 tasks.withType(org.gradle.api.tasks.JavaExec::class.java).configureEach {
     if (name == "run" || name.endsWith("Run")) {
         dependsOn(":library:compileLlamaJniDesktop")
-        jvmArgs(
-            "-Dapple.awt.application.name=Llamatik",
-            "-Djava.library.path=$nativeDir"
-        )
+        if (hostOsName.contains("mac")) {
+            jvmArgs("-Dapple.awt.application.name=Llamatik")
+        }
+        jvmArgs("-Djava.library.path=$nativeDir")
     }
 }
 
-// Copy dylib into build/generated/nativeResources/native/macos/...
-val copyMacNativeLib by tasks.registering(Copy::class) {
+// Copy the platform-native JNI library into build/generated/nativeResources/native/<platform>/
+val nativeLibPattern = when (desktopPlatform) {
+    "macos" -> "*.dylib"
+    "linux" -> "*.so"
+    else -> "*.dll"
+}
+
+val copyDesktopNativeLib by tasks.registering(Copy::class) {
     dependsOn(":library:compileLlamaJniDesktop")
-    from(macNativeDir)
-    include("libllama_jni.dylib")
-    into(generatedNativeResources.map { it.dir("native/macos") })
+    from(nativeLibDir)
+    include(nativeLibPattern)
+    into(generatedNativeResources.map { it.dir("native/$desktopPlatform") })
 }
 
 // Wire the copy into the Desktop JVM resources pipeline (task name differs by plugin versions)
 tasks.matching { it.name == "desktopProcessResources" || it.name == "processDesktopResources" }
     .configureEach {
-        dependsOn(copyMacNativeLib)
+        dependsOn(copyDesktopNativeLib)
     }
 
 val wasmEngineFromLibrary = project(":library")

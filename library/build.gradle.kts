@@ -59,20 +59,22 @@ fun Project.resolveEmsdkToolOrNull(name: String, emsdkRoot: String?): String? {
 
     if (!emsdkRoot.isNullOrBlank()) {
         // If EMSDK root known, tools live here:
-        // $EMSDK/upstream/emscripten/<tool>
-        val p = File(emsdkRoot, "upstream/emscripten/$name").absolutePath
+        // $EMSDK/upstream/emscripten/<tool>  (Unix)
+        // $EMSDK/upstream/emscripten/<tool>.bat (Windows)
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        val toolNames = if (isWindows) listOf("$name.bat", "$name.cmd", "$name.exe", name) else listOf(name)
 
-        // ✅ Robustness: even if cache restores without +x, return absolute path for clearer failure
-        val f = File(p)
-        if (f.exists()) {
-            if (!f.canExecute()) {
-                logger.warn("Found $name at $p but it's not executable. CI cache can strip +x. " +
-                        "Fix by chmod +x in workflow, or set ${key} to a valid executable.")
-            } else {
+        for (toolName in toolNames) {
+            val p = File(emsdkRoot, "upstream/emscripten/$toolName").absolutePath
+            val f = File(p)
+            if (f.exists()) {
+                if (!f.canExecute() && !isWindows) {
+                    logger.warn("Found $name at $p but it's not executable. CI cache can strip +x. " +
+                            "Fix by chmod +x in workflow, or set ${key} to a valid executable.")
+                }
+                // return it anyway; ensureToolAtExecutionTime will fail with a good message if needed
                 return p
             }
-            // return it anyway; ensureToolAtExecutionTime will fail with a good message if needed
-            return p
         }
     }
 
@@ -133,19 +135,28 @@ kotlin {
         propString("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
         System.getenv("${name.uppercase()}_PATH")?.let { if (file(it).canExecute()) return it }
 
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        val exeSuffix = if (isWindows) ".exe" else ""
         val candidates = mutableListOf(
-            "/opt/homebrew/bin/$name",
-            "/usr/local/bin/$name",
-            "/usr/bin/$name"
+            "/opt/homebrew/bin/$name",                              // macOS Homebrew arm64
+            "/usr/local/bin/$name",                                 // macOS Homebrew x86_64 / Linux
+            "/usr/bin/$name",                                       // Linux system
+            "C:/Program Files/CMake/bin/$name$exeSuffix",          // Windows default CMake install
+            "C:/Program Files (x86)/CMake/bin/$name$exeSuffix"     // Windows x86 install
         )
         candidates.addAll(extraCandidates)
 
         for (p in candidates) if (file(p).canExecute()) return p
 
-        throw GradleException(
-            "Cannot find required tool '$name'. " +
-                    "Install it or set ${name.uppercase()}_PATH=/full/path/to/$name"
+        // Fall back to bare name so PATH resolution happens at task execution time.
+        // This avoids a Gradle sync failure on Windows / Linux where the tool is on
+        // PATH but not in the candidate directories above.
+        logger.warn(
+            "Cannot find '$name' in known locations. " +
+                    "Falling back to bare command — ensure it is on PATH or set " +
+                    "${name.uppercase()}_PATH in gradle.properties."
         )
+        return name
     }
 
     val cmakePath = findTool("cmake")
@@ -527,7 +538,7 @@ kotlin {
 
             if (!emsdkRoot.isNullOrBlank() && !emscriptenBinDir.isNullOrBlank()) {
                 environment("EMSDK", emsdkRoot)
-                environment("PATH", emscriptenBinDir + ":" + System.getenv("PATH"))
+                environment("PATH", emscriptenBinDir + File.pathSeparator + System.getenv("PATH"))
             }
 
             val args = mutableListOf(
@@ -558,7 +569,7 @@ kotlin {
 
             if (!emsdkRoot.isNullOrBlank() && !emscriptenBinDir.isNullOrBlank()) {
                 environment("EMSDK", emsdkRoot)
-                environment("PATH", emscriptenBinDir + ":" + System.getenv("PATH"))
+                environment("PATH", emscriptenBinDir + File.pathSeparator + System.getenv("PATH"))
             }
 
             commandLine(
