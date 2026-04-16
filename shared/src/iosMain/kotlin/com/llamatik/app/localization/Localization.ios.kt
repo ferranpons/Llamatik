@@ -12,20 +12,10 @@ private const val LANGUAGE_KEY = "AppleLanguages"
 
 actual fun getCurrentLanguage(): AvailableLanguages {
     val languageDefaults = NSUserDefaults.standardUserDefaults.objectForKey(LANGUAGE_KEY) as NSArray
-    val mainLanguage = languageDefaults.objectEnumerator().allObjects.first()
-    println("Current Language: $mainLanguage")
-    return when (mainLanguage) {
-        AvailableLanguages.ES.name.lowercase() -> AvailableLanguages.ES
-        AvailableLanguages.EN.name.lowercase() -> AvailableLanguages.EN
-        AvailableLanguages.IT.name.lowercase() -> AvailableLanguages.IT
-        AvailableLanguages.FR.name.lowercase() -> AvailableLanguages.FR
-        AvailableLanguages.DE.name.lowercase() -> AvailableLanguages.DE
-        AvailableLanguages.CN.name.lowercase() -> AvailableLanguages.CN
-        AvailableLanguages.RU.name.lowercase() -> AvailableLanguages.RU
-        "es-ES" -> AvailableLanguages.ES
-        "de-DE" -> AvailableLanguages.DE
-        else -> AvailableLanguages.EN
-    }
+    val mainLanguage = languageDefaults.objectEnumerator().allObjects.first()?.toString() ?: return AvailableLanguages.EN
+    val langCode = mainLanguage.substringBefore('-').lowercase()
+    return AvailableLanguages.entries.firstOrNull { it.name.equals(langCode, ignoreCase = true) }
+        ?: AvailableLanguages.EN
 }
 
 @OptIn(BetaInteropApi::class)

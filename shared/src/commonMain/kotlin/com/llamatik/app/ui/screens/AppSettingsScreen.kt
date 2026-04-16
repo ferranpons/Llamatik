@@ -342,13 +342,18 @@ private fun AvailableLanguages.Companion.toPickerList(action: (AvailableLanguage
 
 fun getCorrectLanguageName(name: String): String {
     return when (name) {
+        "CA" -> "Catalan"
+        "CN" -> "Chinese"
         "DE" -> "German"
         "EN" -> "English"
         "ES" -> "Spanish"
-        "IT" -> "Italian"
+        "FA" -> "Persian"
         "FR" -> "French"
+        "HI" -> "Hindi"
+        "IT" -> "Italian"
+        "JA" -> "Japanese"
+        "PT" -> "Portuguese"
         "RU" -> "Russian"
-        "CN" -> "Chinese"
         else -> "English"
     }
 }

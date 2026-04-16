@@ -6,16 +6,9 @@ import androidx.compose.ui.platform.LocalContext
 import java.util.Locale
 
 actual fun getCurrentLanguage(): AvailableLanguages {
-    return when (Locale.getDefault().language) {
-        AvailableLanguages.ES.name.lowercase() -> AvailableLanguages.ES
-        AvailableLanguages.EN.name.lowercase() -> AvailableLanguages.EN
-        AvailableLanguages.IT.name.lowercase() -> AvailableLanguages.IT
-        AvailableLanguages.FR.name.lowercase() -> AvailableLanguages.FR
-        AvailableLanguages.DE.name.lowercase() -> AvailableLanguages.DE
-        AvailableLanguages.CN.name.lowercase() -> AvailableLanguages.CN
-        AvailableLanguages.RU.name.lowercase() -> AvailableLanguages.RU
-        else -> AvailableLanguages.EN
-    }
+    val lang = Locale.getDefault().language
+    return AvailableLanguages.entries.firstOrNull { it.name.equals(lang, ignoreCase = true) }
+        ?: AvailableLanguages.EN
 }
 
 @Composable

@@ -32,16 +32,8 @@ class GlobalAppSettingsRepository(
     }
 
     fun getCurrentLanguage(): AvailableLanguages {
-        return when (settings.getString(LANGUAGE_KEY, AvailableLanguages.EN.name)) {
-            AvailableLanguages.EN.name -> AvailableLanguages.EN
-            AvailableLanguages.ES.name -> AvailableLanguages.ES
-            AvailableLanguages.FR.name -> AvailableLanguages.FR
-            AvailableLanguages.IT.name -> AvailableLanguages.IT
-            AvailableLanguages.DE.name -> AvailableLanguages.DE
-            else -> {
-                AvailableLanguages.EN
-            }
-        }
+        val saved = settings.getString(LANGUAGE_KEY, AvailableLanguages.EN.name)
+        return AvailableLanguages.entries.firstOrNull { it.name == saved } ?: AvailableLanguages.EN
     }
 
     fun isMockedContentEnabled(): Boolean {

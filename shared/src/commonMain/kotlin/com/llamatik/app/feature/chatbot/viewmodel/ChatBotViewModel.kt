@@ -32,6 +32,7 @@ import com.llamatik.app.feature.news.repositories.FeedItem
 import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.feature.reviews.ReviewRequestManager
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.localization.getLanguageCode
 import com.llamatik.app.platform.AppDispatchersIO
 import com.llamatik.app.platform.AppStorage
 import com.llamatik.app.platform.LlamatikTempFile
@@ -689,7 +690,9 @@ class ChatBotViewModel(
     fun onVisionMessageSend(prompt: String) {
         if (_state.value.isGenerating) return
         val imageBytes = _state.value.pendingVisionImageBytes ?: return
-        val input = prompt.trim().ifBlank { "Describe this image." }
+        val userInput = prompt.trim().ifBlank { "Describe this image." }
+        val langCode = getLanguageCode()
+        val input = if (langCode != null && langCode != "en") "$userInput\n\nReply in language code: $langCode." else userInput
 
         screenModelScope.launch {
             if (!_state.value.isTemporaryChat && currentChatId == null) {
