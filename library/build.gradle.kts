@@ -405,6 +405,9 @@ kotlin {
                 )
             }
 
+            if (desktopJniBuildDir.exists()) {
+                desktopJniBuildDir.deleteRecursively()
+            }
             desktopJniBuildDir.mkdirs()
 
             val args = mutableListOf(
@@ -417,12 +420,6 @@ kotlin {
 
             if (desktopPlatform == "macos") {
                 args += listOf("-DCMAKE_SYSTEM_NAME=Darwin")
-            }
-
-            if (desktopPlatform == "windows") {
-                // Use Ninja on Windows CI for faster, more reliable builds than Visual Studio generator.
-                // Ninja is pre-installed on GitHub windows-latest runners.
-                args += listOf("-G", "Ninja")
             }
 
             commandLine(args)
@@ -450,27 +447,38 @@ kotlin {
         dependsOn(compileLlamaJniDesktop)
 
         val outDir = generatedNativeResourcesDir.resolve("native/$desktopPlatform")
-
-        from(desktopJniBuildDir) {
-            when (desktopPlatform) {
-                "macos" -> include("*.dylib")
-                "linux" -> include("*.so", "*.so.*")
-                "windows" -> include("*.dll")
-            }
+        val nativeMatches = when (desktopPlatform) {
+            "macos" -> listOf("**/*.dylib")
+            "linux" -> listOf("**/*.so", "**/*.so.*")
+            "windows" -> listOf("**/*.dll")
+            else -> emptyList()
         }
+
+        from(fileTree(desktopJniBuildDir) {
+            include(nativeMatches)
+        })
+        eachFile {
+            path = name
+        }
+        includeEmptyDirs = false
         into(outDir)
 
         outputs.dir(outDir)
 
         doFirst {
-            val f = desktopJniBuildDir.resolve(libFileName)
-            if (!f.exists()) throw GradleException("Desktop JNI output not found: ${f.absolutePath}")
+            outDir.deleteRecursively()
+            outDir.mkdirs()
+
+            val f = fileTree(desktopJniBuildDir) {
+                include("**/$libFileName")
+            }.files.singleOrNull()
+            if (f == null) throw GradleException("Desktop JNI output not found under: ${desktopJniBuildDir.absolutePath}")
         }
 
         doLast {
             val copiedLibs = outDir
                 .listFiles()
-                ?.filter { it.isFile }
+                ?.filter { it.isFile && it.name != "native-libs.txt" }
                 ?.map { it.name }
                 ?.sorted()
                 .orEmpty()

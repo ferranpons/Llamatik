@@ -34,7 +34,9 @@ val desktopPlatform: String = when {
     else -> "linux"
 }
 
-val nativeLibDir = project(":library").layout.buildDirectory.dir("llama-jni/$desktopPlatform")
+val libraryNativeResourcesDir = project(":library")
+    .layout.buildDirectory
+    .dir("generated/native-resources/native/$desktopPlatform")
 val generatedNativeResources = layout.buildDirectory.dir("generated/nativeResources")
 
 kotlin {
@@ -343,7 +345,7 @@ tasks.withType(org.gradle.api.tasks.JavaExec::class.java).configureEach {
     }
 }
 
-// Copy the platform-native JNI library into build/generated/nativeResources/native/<platform>/
+// Copy the platform-native JNI library and manifest into build/generated/nativeResources/native/<platform>/
 val nativeLibPattern = when (desktopPlatform) {
     "macos" -> "*.dylib"
     "linux" -> "*.so"
@@ -351,9 +353,9 @@ val nativeLibPattern = when (desktopPlatform) {
 }
 
 val copyDesktopNativeLib by tasks.registering(Copy::class) {
-    dependsOn(":library:compileLlamaJniDesktop")
-    from(nativeLibDir)
-    include(nativeLibPattern)
+    dependsOn(":library:copyDesktopJniToResources")
+    from(libraryNativeResourcesDir)
+    include(nativeLibPattern, "native-libs.txt")
     into(generatedNativeResources.map { it.dir("native/$desktopPlatform") })
 }
 

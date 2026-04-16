@@ -6,9 +6,14 @@ import kotlin.io.path.Path
 
 actual object WhisperBridge {
     init {
-        // Your project already loads native for LlamaBridge on JVM via System.load(...)
-        // If you already have a loader util, reuse it. Otherwise:
-        loadNativeFromResources()
+        val os = System.getProperty("os.name").lowercase()
+        if (os.contains("win")) {
+            // On Windows, re-loading the same DLL from another temp path fails after
+            // LlamaBridge has already loaded it. Reuse LlamaBridge's initialization instead.
+            LlamaBridge
+        } else {
+            loadNativeFromResources()
+        }
     }
 
     actual fun getModelPath(modelFileName: String): String {

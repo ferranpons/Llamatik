@@ -54,6 +54,14 @@ set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama-wrapper-build")
 
+if(WIN32 AND TARGET ggml-base)
+    # whisper.cpp applies this workaround when it owns ggml, but in our combined
+    # desktop build ggml comes from llama.cpp first so the whisper-side branch is skipped.
+    # Keep the Windows fix on the shared ggml-base target used by Java/JNI bindings.
+    target_compile_definitions(ggml-base PRIVATE _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
+    message(STATUS "Applied Windows ggml mutex constructor workaround to target: ggml-base")
+endif()
+
 set(HAVE_WHISPER OFF)
 if(EXISTS "${WHISPER_CPP_DIR}/CMakeLists.txt")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
