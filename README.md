@@ -59,6 +59,9 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ Context-aware generation (system + history)
 - ✅ **Schema-constrained JSON generation**
 - ✅ Embeddings for vector search & RAG
+- ✅ Configurable context length, threads, mmap, Flash Attention
+- ✅ KV cache session save / load / continue
+- ✅ Fine-grained sampling controls (temperature, top-k, top-p, repeat penalty, max tokens)
 
 ### 🎙 Speech-to-Text (whisper.cpp)
 - ✅ On-device transcription
@@ -165,7 +168,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:0.19.0")
+    implementation("com.llamatik:library:1.0.0")
 }
 ```
 
@@ -177,12 +180,26 @@ commonMain.dependencies {
 // Resolve model path (place GGUF in assets / bundle)
 val modelPath = LlamaBridge.getModelPath("phi-2.Q4_0.gguf")
 
+// (Optional) tune parameters before loading — contextLength/useMmap/flashAttention
+// take effect at model init time; the others can be changed at any time
+LlamaBridge.updateGenerateParams(
+    temperature    = 0.7f,
+    maxTokens      = 512,
+    topP           = 0.95f,
+    topK           = 40,
+    repeatPenalty  = 1.1f,
+    contextLength  = 4096,
+    numThreads     = 4,
+    useMmap        = true,
+    flashAttention = false,
+)
+
 // Load model
 LlamaBridge.initGenerateModel(modelPath)
 
 // Generate text
 val output = LlamaBridge.generate(
-"Explain Kotlin Multiplatform in one sentence."
+    "Explain Kotlin Multiplatform in one sentence."
 )
 ```
 
@@ -198,12 +215,11 @@ The public Kotlin API is defined in `LlamaBridge` (an `expect object` with platf
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect object LlamaBridge {
     // Utilities
-    @Composable
     fun getModelPath(modelFileName: String): String   // copy asset/bundle model to app files dir and return absolute path
     fun shutdown()                                    // free native resources
 
     // Embeddings
-    fun initModel(modelPath: String): Boolean         // load embeddings model
+    fun initEmbedModel(modelPath: String): Boolean    // load embeddings model
     fun embed(input: String): FloatArray              // return embedding vector
 
     // Text generation (non-streaming)
@@ -224,6 +240,16 @@ expect object LlamaBridge {
         callback: GenStream
     )
 
+    // Convenience streaming overload (lambda callbacks)
+    fun generateWithContextStream(
+        system: String,
+        context: String,
+        user: String,
+        onDelta: (String) -> Unit,
+        onDone: () -> Unit,
+        onError: (String) -> Unit
+    )
+
     // Text generation with JSON schema (non-streaming)
     fun generateJson(prompt: String, jsonSchema: String? = null): String
     fun generateJsonWithContext(
@@ -233,17 +259,6 @@ expect object LlamaBridge {
         jsonSchema: String? = null
     ): String
 
-    // Convenience streaming overload (callbacks)
-    fun generateStream(prompt: String, callback: GenStream)
-    fun generateStreamWithContext(
-        system: String,
-        context: String,
-        user: String,
-        onDelta: (String) -> Unit,
-        onDone: () -> Unit,
-        onError: (String) -> Unit
-    )
-    
     // Text generation with JSON schema (streaming)
     fun generateJsonStream(prompt: String, jsonSchema: String? = null, callback: GenStream)
     fun generateJsonStreamWithContext(
@@ -254,7 +269,26 @@ expect object LlamaBridge {
         callback: GenStream
     )
 
-    fun nativeCancelGenerate()                        // cancel generation
+    // KV cache session support
+    fun sessionReset(): Boolean                       // clear KV state, keep model loaded
+    fun sessionSave(path: String): Boolean            // persist KV state to file
+    fun sessionLoad(path: String): Boolean            // restore KV state from file
+    fun generateContinue(prompt: String): String      // generate using existing KV cache
+
+    // Generation parameters (applied on next generate call)
+    fun updateGenerateParams(
+        temperature: Float,       // randomness (0.0–2.0)
+        maxTokens: Int,           // max output tokens
+        topP: Float,              // nucleus sampling threshold
+        topK: Int,                // top-k sampling
+        repeatPenalty: Float,     // penalty for repeated tokens
+        contextLength: Int,       // KV context window size (requires model reload)
+        numThreads: Int,          // CPU threads for inference
+        useMmap: Boolean,         // memory-map model weights (requires model reload)
+        flashAttention: Boolean,  // enable Flash Attention (requires model reload)
+    )
+
+    fun nativeCancelGenerate()                        // cancel ongoing generation
 }
 
 interface GenStream {
@@ -262,6 +296,43 @@ interface GenStream {
     fun onComplete()
     fun onError(message: String)
 }
+```
+
+### Generation Parameters
+
+All sampling and hardware parameters are set via `updateGenerateParams`. Parameters that affect model loading (`contextLength`, `useMmap`, `flashAttention`, `numThreads`) must be set **before** calling `initGenerateModel` to take effect — the others can be updated at any time.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `temperature` | `0.7` | Randomness of outputs (0 = deterministic, 2 = very random) |
+| `maxTokens` | `256` | Maximum number of tokens to generate |
+| `topP` | `0.95` | Nucleus sampling: keep tokens covering this probability mass |
+| `topK` | `40` | Only sample from the top-K most likely tokens |
+| `repeatPenalty` | `1.1` | Penalty multiplier for recently generated tokens |
+| `contextLength` | `4096` | KV cache window size in tokens *(reload required)* |
+| `numThreads` | `4` | CPU threads used for inference *(reload required)* |
+| `useMmap` | `true` | Memory-map model weights instead of loading into RAM *(reload required)* |
+| `flashAttention` | `false` | Enable Flash Attention for faster, more memory-efficient attention *(reload required)* |
+
+### KV Cache Sessions
+
+Use the session API to persist and resume conversation state across calls without re-feeding the full prompt:
+
+```kotlin
+// Generate and keep the KV state in memory
+LlamaBridge.generate("Tell me about Kotlin.")
+
+// Save the KV state to disk
+LlamaBridge.sessionSave("/path/to/session.bin")
+
+// ... later or in a new process ...
+
+// Restore state and continue from where you left off
+LlamaBridge.sessionLoad("/path/to/session.bin")
+val continuation = LlamaBridge.generateContinue("What about multiplatform support?")
+
+// Reset state without unloading the model
+LlamaBridge.sessionReset()
 ```
 
 ### Speech-to-Text (WhisperBridge)

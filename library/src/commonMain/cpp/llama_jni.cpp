@@ -484,8 +484,6 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     cparams.embeddings   = false;
     cparams.n_ctx        = (uint32_t)g_context_length.load(std::memory_order_relaxed);
     cparams.n_threads    = g_num_threads.load(std::memory_order_relaxed);
-    cparams.flash_attn   = g_flash_attention.load(std::memory_order_relaxed);
-
     gen_ctx = llama_init_from_model(gen_model, cparams);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -494,11 +492,10 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     }
 
     session_clear_state();
-    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d flash_attn=%d",
+    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d",
          (unsigned)llama_n_ctx(gen_ctx),
          cparams.n_threads,
-         (int)mparams.use_mmap,
-         (int)cparams.flash_attn);
+         (int)mparams.use_mmap);
     return JNI_TRUE;
 }
 

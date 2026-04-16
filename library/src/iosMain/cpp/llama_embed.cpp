@@ -716,8 +716,6 @@ bool llama_generate_init(const char *model_path) {
     ctx_params.embeddings = false;
     ctx_params.n_ctx      = (uint32_t)g_context_length.load(std::memory_order_relaxed);
     ctx_params.n_threads  = g_num_threads.load(std::memory_order_relaxed);
-    ctx_params.flash_attn = g_flash_attention.load(std::memory_order_relaxed);
-
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -726,10 +724,9 @@ bool llama_generate_init(const char *model_path) {
     }
 
     session_clear_state_only();
-    DBG("generate: n_ctx=%u threads=%d flash_attn=%d",
+    DBG("generate: n_ctx=%u threads=%d",
         (unsigned)llama_n_ctx(gen_ctx),
-        ctx_params.n_threads,
-        (int)ctx_params.flash_attn);
+        ctx_params.n_threads);
     return true;
 }
 
