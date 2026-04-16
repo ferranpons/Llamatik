@@ -122,6 +122,7 @@ internal object JapaneseLocalization : Localization {
     override val numThreads = "スレッド数"
     override val useMmap = "メモリマッピング (mmap)"
     override val flashAttention = "Flash Attention"
+    override val batchSize = "バッチサイズ"
     override val apply = "適用"
     override val downloadFinished = "ダウンロード完了"
 

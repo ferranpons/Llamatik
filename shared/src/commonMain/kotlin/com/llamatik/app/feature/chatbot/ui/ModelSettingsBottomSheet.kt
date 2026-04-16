@@ -37,7 +37,7 @@ import kotlin.math.roundToInt
 private val GenerateSettingsSaver: Saver<GenerateSettings, Any> = listSaver(
     save = { gs ->
         listOf(gs.temperature, gs.maxTokens, gs.topP, gs.topK, gs.repeatPenalty,
-               gs.contextLength, gs.numThreads, gs.useMmap, gs.flashAttention)
+               gs.contextLength, gs.numThreads, gs.useMmap, gs.flashAttention, gs.batchSize)
     },
     restore = { list ->
         GenerateSettings(
@@ -50,6 +50,7 @@ private val GenerateSettingsSaver: Saver<GenerateSettings, Any> = listSaver(
             numThreads     = (list[6] as Number).toInt(),
             useMmap        = list[7] as Boolean,
             flashAttention = list[8] as Boolean,
+            batchSize      = (list[9] as Number).toInt(),
         )
     }
 )
@@ -174,6 +175,14 @@ private fun ParamsView(
         label = localization.flashAttention,
         checked = generateSettings.value.flashAttention,
         onChange = { generateSettings.value = generateSettings.value.copy(flashAttention = it) }
+    )
+
+    ParamIntField(
+        label = localization.batchSize,
+        value = generateSettings.value.batchSize,
+        min = 32,
+        max = 2048,
+        onChange = { generateSettings.value = generateSettings.value.copy(batchSize = it) }
     )
 
     Spacer(Modifier.height(12.dp))

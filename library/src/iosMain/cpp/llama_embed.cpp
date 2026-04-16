@@ -66,6 +66,7 @@ static std::atomic<int>   g_context_length{8192};
 static std::atomic<int>   g_num_threads{4};
 static std::atomic<bool>  g_use_mmap{true};
 static std::atomic<bool>  g_flash_attention{false};
+static std::atomic<int>   g_batch_size{512};
 
 // Session / KV bookkeeping
 static std::vector<llama_token> gen_session_tokens;
@@ -716,6 +717,10 @@ bool llama_generate_init(const char *model_path) {
     ctx_params.embeddings = false;
     ctx_params.n_ctx      = (uint32_t)g_context_length.load(std::memory_order_relaxed);
     ctx_params.n_threads  = g_num_threads.load(std::memory_order_relaxed);
+    ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+        : LLAMA_FLASH_ATTN_TYPE_AUTO;
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -1374,7 +1379,8 @@ void llama_generate_set_params(float temperature,
         int context_length,
         int num_threads,
         bool use_mmap,
-        bool flash_attention) {
+        bool flash_attention,
+        int batch_size) {
     g_temperature.store(temperature, std::memory_order_relaxed);
     g_max_tokens.store(max_tokens, std::memory_order_relaxed);
     g_top_p.store(top_p, std::memory_order_relaxed);
@@ -1384,6 +1390,7 @@ void llama_generate_set_params(float temperature,
     g_num_threads.store(num_threads, std::memory_order_relaxed);
     g_use_mmap.store(use_mmap, std::memory_order_relaxed);
     g_flash_attention.store(flash_attention, std::memory_order_relaxed);
+    g_batch_size.store(batch_size, std::memory_order_relaxed);
 }
 
 // ===================== KV session support =====================

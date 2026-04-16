@@ -115,6 +115,7 @@ internal object CatalanLocalization : Localization {
     override val numThreads = "Fils d'execució"
     override val useMmap = "Mapatge de memòria (mmap)"
     override val flashAttention = "Flash Attention"
+    override val batchSize = "Mida del lot"
     override val apply = "Aplicar"
 
     override val defaultSystemPrompt = """

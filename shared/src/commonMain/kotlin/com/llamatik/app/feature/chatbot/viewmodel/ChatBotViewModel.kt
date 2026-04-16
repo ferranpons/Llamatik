@@ -549,6 +549,7 @@ class ChatBotViewModel(
             numThreads = settings.numThreads,
             useMmap = settings.useMmap,
             flashAttention = settings.flashAttention,
+            batchSize = settings.batchSize,
         )
     }
 

@@ -10,4 +10,5 @@ data class GenerateSettings(
     val numThreads: Int = 4,
     val useMmap: Boolean = true,
     val flashAttention: Boolean = false,
+    val batchSize: Int = 512,
 )

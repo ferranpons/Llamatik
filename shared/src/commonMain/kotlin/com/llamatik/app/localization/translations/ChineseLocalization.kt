@@ -120,6 +120,7 @@ internal object ChineseLocalization : Localization {
     override val numThreads = "线程数"
     override val useMmap = "内存映射 (mmap)"
     override val flashAttention = "闪速注意力"
+    override val batchSize = "批处理大小"
     override val apply = "应用"
     override val downloadFinished = "下载完成"
 

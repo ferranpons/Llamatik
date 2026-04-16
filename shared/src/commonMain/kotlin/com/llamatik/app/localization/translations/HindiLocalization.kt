@@ -123,6 +123,7 @@ internal object HindiLocalization : Localization {
     override val numThreads = "थ्रेड्स"
     override val useMmap = "मेमोरी मैपिंग (mmap)"
     override val flashAttention = "Flash Attention"
+    override val batchSize = "बैच साइज़"
     override val apply = "लागू करें"
     override val downloadFinished = "डाउनलोड पूरा हुआ"
 

@@ -46,6 +46,7 @@ actual object LlamaBridge {
         numThreads: Int,
         useMmap: Boolean,
         flashAttention: Boolean,
+        batchSize: Int,
     )
 
     // ===================== KV session (JNI) =====================
@@ -69,8 +70,9 @@ actual object LlamaBridge {
         numThreads: Int,
         useMmap: Boolean,
         flashAttention: Boolean,
+        batchSize: Int,
     ) {
-        nativeUpdateGenerationParams(temperature, maxTokens, topP, topK, repeatPenalty, contextLength, numThreads, useMmap, flashAttention)
+        nativeUpdateGenerationParams(temperature, maxTokens, topP, topK, repeatPenalty, contextLength, numThreads, useMmap, flashAttention, batchSize)
     }
 
     actual fun generateStream(prompt: String, callback: GenStream) {

@@ -108,6 +108,7 @@ interface Localization {
     val numThreads: String
     val useMmap: String
     val flashAttention: String
+    val batchSize: String
     val apply: String
 
     val defaultSystemPrompt: String

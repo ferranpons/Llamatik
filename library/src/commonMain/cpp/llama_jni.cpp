@@ -73,6 +73,7 @@ static std::atomic<int> g_context_length = 4096;
 static std::atomic<int> g_num_threads = 4;
 static std::atomic<bool> g_use_mmap = true;
 static std::atomic<bool> g_flash_attention = false;
+static std::atomic<int>  g_batch_size = 512;
 
 // Session / KV bookkeeping (for nativeSessionReset/Save/Load/GenerateContinue)
 static std::vector<llama_token> g_session_tokens;
@@ -484,6 +485,10 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     cparams.embeddings   = false;
     cparams.n_ctx        = (uint32_t)g_context_length.load(std::memory_order_relaxed);
     cparams.n_threads    = g_num_threads.load(std::memory_order_relaxed);
+    cparams.n_batch      = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+        : LLAMA_FLASH_ATTN_TYPE_AUTO;
     gen_ctx = llama_init_from_model(gen_model, cparams);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -492,10 +497,11 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     }
 
     session_clear_state();
-    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d",
+    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d flash_attn=%d",
          (unsigned)llama_n_ctx(gen_ctx),
          cparams.n_threads,
-         (int)mparams.use_mmap);
+         (int)mparams.use_mmap,
+         (int)g_flash_attention.load(std::memory_order_relaxed));
     return JNI_TRUE;
 }
 
@@ -1051,7 +1057,8 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
         jint contextLength,
         jint numThreads,
         jboolean useMmap,
-        jboolean flashAttention) {
+        jboolean flashAttention,
+        jint batchSize) {
 
     g_temperature     = temperature;
     g_top_p           = topP;
@@ -1062,6 +1069,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
     g_num_threads     = (int)numThreads;
     g_use_mmap        = (bool)useMmap;
     g_flash_attention = (bool)flashAttention;
+    g_batch_size      = (int)batchSize;
 }
 
 // ===================================================================================

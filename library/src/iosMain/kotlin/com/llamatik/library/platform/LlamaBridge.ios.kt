@@ -520,6 +520,7 @@ actual object LlamaBridge {
         numThreads: Int,
         useMmap: Boolean,
         flashAttention: Boolean,
+        batchSize: Int,
     ) {
         llama_generate_set_params(
             temperature,
@@ -530,7 +531,8 @@ actual object LlamaBridge {
             contextLength,
             numThreads,
             useMmap,
-            flashAttention
+            flashAttention,
+            batchSize
         )
     }
 }

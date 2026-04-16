@@ -286,6 +286,7 @@ expect object LlamaBridge {
         numThreads: Int,          // CPU threads for inference
         useMmap: Boolean,         // memory-map model weights (requires model reload)
         flashAttention: Boolean,  // enable Flash Attention (requires model reload)
+        batchSize: Int,           // token batch size for prompt processing (requires model reload)
     )
 
     fun nativeCancelGenerate()                        // cancel ongoing generation
@@ -313,6 +314,7 @@ All sampling and hardware parameters are set via `updateGenerateParams`. Paramet
 | `numThreads` | `4` | CPU threads used for inference *(reload required)* |
 | `useMmap` | `true` | Memory-map model weights instead of loading into RAM *(reload required)* |
 | `flashAttention` | `false` | Enable Flash Attention for faster, more memory-efficient attention *(reload required)* |
+| `batchSize` | `512` | Token batch size for prompt processing — larger = faster prefill, more RAM *(reload required)* |
 
 ### KV Cache Sessions
 

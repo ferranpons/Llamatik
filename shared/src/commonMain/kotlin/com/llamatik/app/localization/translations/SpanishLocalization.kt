@@ -117,6 +117,7 @@ internal object SpanishLocalization : Localization {
     override val numThreads = "Hilos"
     override val useMmap = "Mapeo de memoria (mmap)"
     override val flashAttention = "Flash Attention"
+    override val batchSize = "Tamaño de lote"
     override val apply = "Aplicar"
     override val downloadFinished = "Descarga finalizada"
 

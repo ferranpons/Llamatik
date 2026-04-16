@@ -123,6 +123,7 @@ internal object PersianLocalization : Localization {
     override val numThreads = "نخ‌ها"
     override val useMmap = "نگاشت حافظه (mmap)"
     override val flashAttention = "Flash Attention"
+    override val batchSize = "اندازه دسته"
     override val apply = "اعمال"
     override val downloadFinished = "دانلود کامل شد"
 

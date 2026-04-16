@@ -117,6 +117,7 @@ internal object RussianLocalization : Localization {
     override val numThreads = "Потоки"
     override val useMmap = "Отображение памяти (mmap)"
     override val flashAttention = "Flash Attention"
+    override val batchSize = "Размер пакета"
     override val apply = "Применить"
     override val downloadFinished = "Загрузка завершена"
 
