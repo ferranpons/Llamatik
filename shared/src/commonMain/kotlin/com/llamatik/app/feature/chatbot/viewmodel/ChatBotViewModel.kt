@@ -544,7 +544,11 @@ class ChatBotViewModel(
             maxTokens = settings.maxTokens,
             topP = settings.topP,
             topK = settings.topK,
-            repeatPenalty = settings.repeatPenalty
+            repeatPenalty = settings.repeatPenalty,
+            contextLength = settings.contextLength,
+            numThreads = settings.numThreads,
+            useMmap = settings.useMmap,
+            flashAttention = settings.flashAttention,
         )
     }
 

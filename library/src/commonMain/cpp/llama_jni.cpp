@@ -69,6 +69,28 @@ static std::atomic<float> g_top_p = 0.80f;
 static std::atomic<int> g_top_k = 20;
 static std::atomic<float> g_repeat_penalty = 1.10f;
 static std::atomic<int> g_max_new_tokens = 640;
+static std::atomic<int> g_context_length = 4096;
+static std::atomic<int> g_num_threads = 4;
+static std::atomic<bool> g_use_mmap = true;
+static std::atomic<bool> g_flash_attention = false;
+
+// Session / KV bookkeeping (for nativeSessionReset/Save/Load/GenerateContinue)
+static std::vector<llama_token> g_session_tokens;
+static int g_n_past = 0;
+
+static void session_clear_state() {
+    g_session_tokens.clear();
+    g_n_past = 0;
+}
+
+static void session_hard_reset() {
+    if (gen_ctx) llama_memory_clear(llama_get_memory(gen_ctx), false);
+    session_clear_state();
+}
+
+static bool session_is_active() {
+    return gen_ctx != nullptr && g_n_past > 0 && !g_session_tokens.empty();
+}
 
 // ===================================================================================
 //                              SMALL HELPERS
@@ -449,6 +471,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     }
 
     llama_model_params mparams = llama_model_default_params();
+    mparams.use_mmap = g_use_mmap.load(std::memory_order_relaxed);
     gen_model = llama_model_load_from_file(path, mparams);
     env->ReleaseStringUTFChars(modelPath, path);
 
@@ -458,8 +481,10 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     }
 
     llama_context_params cparams = llama_context_default_params();
-    cparams.embeddings = false;
-    cparams.n_ctx = 4096;
+    cparams.embeddings   = false;
+    cparams.n_ctx        = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_threads    = g_num_threads.load(std::memory_order_relaxed);
+    cparams.flash_attn   = g_flash_attention.load(std::memory_order_relaxed);
 
     gen_ctx = llama_init_from_model(gen_model, cparams);
     if (!gen_ctx) {
@@ -468,7 +493,12 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
         return JNI_FALSE;
     }
 
-    LOGI("Gen context ready. n_ctx=%u", (unsigned)llama_n_ctx(gen_ctx));
+    session_clear_state();
+    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d flash_attn=%d",
+         (unsigned)llama_n_ctx(gen_ctx),
+         cparams.n_threads,
+         (int)mparams.use_mmap,
+         (int)cparams.flash_attn);
     return JNI_TRUE;
 }
 
@@ -1020,11 +1050,169 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
         jint maxTokens,
         jfloat topP,
         jint topK,
-        jfloat repeatPenalty) {
+        jfloat repeatPenalty,
+        jint contextLength,
+        jint numThreads,
+        jboolean useMmap,
+        jboolean flashAttention) {
 
     g_temperature     = temperature;
     g_top_p           = topP;
     g_top_k           = topK;
     g_repeat_penalty  = repeatPenalty;
     g_max_new_tokens  = (int)maxTokens;
+    g_context_length  = (int)contextLength;
+    g_num_threads     = (int)numThreads;
+    g_use_mmap        = (bool)useMmap;
+    g_flash_attention = (bool)flashAttention;
+}
+
+// ===================================================================================
+//                            KV SESSION (nativeSession* / nativeGenerateContinue)
+// ===================================================================================
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeSessionReset(JNIEnv * /*env*/, jobject /*thiz*/) {
+    if (!gen_ctx) return JNI_FALSE;
+    session_hard_reset();
+    return JNI_TRUE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeSessionSave(JNIEnv *env, jobject /*thiz*/, jstring jPath) {
+    if (!gen_ctx || !jPath) return JNI_FALSE;
+    const char *path = env->GetStringUTFChars(jPath, nullptr);
+    if (!path) return JNI_FALSE;
+    const bool ok = llama_state_save_file(
+        gen_ctx,
+        path,
+        g_session_tokens.empty() ? nullptr : g_session_tokens.data(),
+        g_session_tokens.size()
+    );
+    env->ReleaseStringUTFChars(jPath, path);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeSessionLoad(JNIEnv *env, jobject /*thiz*/, jstring jPath) {
+    if (!gen_ctx || !jPath) return JNI_FALSE;
+    const char *path = env->GetStringUTFChars(jPath, nullptr);
+    if (!path) return JNI_FALSE;
+    const int cap = std::max(1, (int)llama_n_ctx(gen_ctx));
+    g_session_tokens.resize(cap);
+    size_t n_loaded = 0;
+    const bool ok = llama_state_load_file(
+        gen_ctx,
+        path,
+        g_session_tokens.data(),
+        g_session_tokens.size(),
+        &n_loaded
+    );
+    env->ReleaseStringUTFChars(jPath, path);
+    if (!ok) {
+        session_clear_state();
+        return JNI_FALSE;
+    }
+    g_session_tokens.resize((int)n_loaded);
+    g_n_past = (int)n_loaded;
+    return JNI_TRUE;
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinue(JNIEnv *env, jobject /*thiz*/, jstring jPrompt) {
+    if (!gen_ctx || !gen_model || !jPrompt) return env->NewStringUTF("");
+    const char *prompt = env->GetStringUTFChars(jPrompt, nullptr);
+    if (!prompt) return env->NewStringUTF("");
+
+    if (!session_is_active()) {
+        // No active session — fall back to a fresh generate via stream_from_prompt is not ideal here;
+        // do a simple one-shot decode instead.
+        env->ReleaseStringUTFChars(jPrompt, prompt);
+        return env->NewStringUTF("[generateContinue: no active session, use generate() instead]");
+    }
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_new_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+
+    const llama_vocab *vocab = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(vocab, prompt, tokens, /*add_bos*/ false, /*parse_special*/ true);
+    env->ReleaseStringUTFChars(jPrompt, prompt);
+    if (n_tokens <= 0) return env->NewStringUTF("");
+    tokens.resize(n_tokens);
+
+    const int n_ctx   = (int)llama_n_ctx(gen_ctx);
+    const int safety  = 16;
+    if (g_n_past + (int)tokens.size() >= n_ctx - safety) {
+        session_hard_reset();
+        return env->NewStringUTF("[context full, session reset]");
+    }
+
+    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
+    batch.n_tokens = (int)tokens.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = g_n_past + i;
+        batch.n_seq_id[i]  = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i]    = (i == batch.n_tokens - 1);
+    }
+    if (llama_decode(gen_ctx, batch) != 0) {
+        llama_batch_free(batch);
+        return env->NewStringUTF("");
+    }
+    g_session_tokens.insert(g_session_tokens.end(), tokens.begin(), tokens.end());
+    g_n_past += (int)tokens.size();
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    std::string result;
+    int cur_pos = g_n_past;
+    char piece_buf[256];
+
+    for (int i = 0; i < max_tokens; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || tok == llama_vocab_eos(vocab)) break;
+        llama_sampler_accept(sampler, tok);
+        int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
+        if (nn > 0) {
+            piece_buf[std::min(nn, (int)sizeof(piece_buf) - 1)] = '\0';
+            result += piece_buf;
+        }
+        g_session_tokens.push_back(tok);
+        ++g_n_past;
+        ++cur_pos;
+        if (cur_pos >= n_ctx) break;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1;
+        step.token[0] = tok;
+        step.pos[0]   = cur_pos - 1;
+        step.n_seq_id[0] = 1;
+        step.seq_id[0][0] = 0;
+        step.logits[0] = true;
+        if (llama_decode(gen_ctx, step) != 0) {
+            llama_batch_free(step);
+            break;
+        }
+        llama_batch_free(step);
+    }
+
+    llama_sampler_free(sampler);
+    llama_batch_free(batch);
+    return env->NewStringUTF(result.c_str());
 }

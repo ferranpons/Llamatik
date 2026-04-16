@@ -113,6 +113,10 @@ internal object ItalianLocalization : Localization {
     override val topP = "Top P"
     override val topK = "Top K"
     override val repeatPenalty = "Penalità di ripetizione"
+    override val contextLength = "Lunghezza contesto"
+    override val numThreads = "Thread"
+    override val useMmap = "Mappatura memoria (mmap)"
+    override val flashAttention = "Flash Attention"
     override val apply = "Applica"
     override val downloadFinished = "Download completato"
 

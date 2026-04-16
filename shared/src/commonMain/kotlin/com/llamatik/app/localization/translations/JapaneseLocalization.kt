@@ -118,6 +118,10 @@ internal object JapaneseLocalization : Localization {
     override val topP = "Top P"
     override val topK = "Top K"
     override val repeatPenalty = "繰り返しペナルティ"
+    override val contextLength = "コンテキスト長"
+    override val numThreads = "スレッド数"
+    override val useMmap = "メモリマッピング (mmap)"
+    override val flashAttention = "Flash Attention"
     override val apply = "適用"
     override val downloadFinished = "ダウンロード完了"
 

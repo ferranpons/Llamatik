@@ -119,6 +119,10 @@ internal object HindiLocalization : Localization {
     override val topP = "टॉप P"
     override val topK = "टॉप K"
     override val repeatPenalty = "दोहराव दंड"
+    override val contextLength = "संदर्भ लंबाई"
+    override val numThreads = "थ्रेड्स"
+    override val useMmap = "मेमोरी मैपिंग (mmap)"
+    override val flashAttention = "Flash Attention"
     override val apply = "लागू करें"
     override val downloadFinished = "डाउनलोड पूरा हुआ"
 

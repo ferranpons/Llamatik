@@ -180,7 +180,11 @@ actual object LlamaBridge {
         maxTokens: Int,
         topP: Float,
         topK: Int,
-        repeatPenalty: Float
+        repeatPenalty: Float,
+        contextLength: Int,
+        numThreads: Int,
+        useMmap: Boolean,
+        flashAttention: Boolean,
     ) {}
 
     private fun sanitizeName(input: String): String =

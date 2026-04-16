@@ -73,6 +73,10 @@ expect object LlamaBridge {
         topP: Float,
         topK: Int,
         repeatPenalty: Float,
+        contextLength: Int,
+        numThreads: Int,
+        useMmap: Boolean,
+        flashAttention: Boolean,
     )
 }
 

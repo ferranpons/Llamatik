@@ -119,6 +119,10 @@ internal object PersianLocalization : Localization {
     override val topP = "Top P"
     override val topK = "Top K"
     override val repeatPenalty = "جریمه تکرار"
+    override val contextLength = "طول زمینه"
+    override val numThreads = "نخ‌ها"
+    override val useMmap = "نگاشت حافظه (mmap)"
+    override val flashAttention = "Flash Attention"
     override val apply = "اعمال"
     override val downloadFinished = "دانلود کامل شد"
 

@@ -516,13 +516,21 @@ actual object LlamaBridge {
         topP: Float,
         topK: Int,
         repeatPenalty: Float,
+        contextLength: Int,
+        numThreads: Int,
+        useMmap: Boolean,
+        flashAttention: Boolean,
     ) {
         llama_generate_set_params(
             temperature,
             maxTokens,
             topP,
             topK,
-            repeatPenalty
+            repeatPenalty,
+            contextLength,
+            numThreads,
+            useMmap,
+            flashAttention
         )
     }
 }

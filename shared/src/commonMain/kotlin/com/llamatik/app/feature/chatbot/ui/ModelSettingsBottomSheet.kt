@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -35,15 +36,20 @@ import kotlin.math.roundToInt
 
 private val GenerateSettingsSaver: Saver<GenerateSettings, Any> = listSaver(
     save = { gs ->
-        listOf(gs.temperature, gs.maxTokens, gs.topP, gs.topK, gs.repeatPenalty)
+        listOf(gs.temperature, gs.maxTokens, gs.topP, gs.topK, gs.repeatPenalty,
+               gs.contextLength, gs.numThreads, gs.useMmap, gs.flashAttention)
     },
     restore = { list ->
         GenerateSettings(
-            temperature   = (list[0] as Number).toFloat(),
-            maxTokens     = (list[1] as Number).toInt(),
-            topP          = (list[2] as Number).toFloat(),
-            topK          = (list[3] as Number).toInt(),
-            repeatPenalty = (list[4] as Number).toFloat()
+            temperature    = (list[0] as Number).toFloat(),
+            maxTokens      = (list[1] as Number).toInt(),
+            topP           = (list[2] as Number).toFloat(),
+            topK           = (list[3] as Number).toInt(),
+            repeatPenalty  = (list[4] as Number).toFloat(),
+            contextLength  = (list[5] as Number).toInt(),
+            numThreads     = (list[6] as Number).toInt(),
+            useMmap        = list[7] as Boolean,
+            flashAttention = list[8] as Boolean,
         )
     }
 )
@@ -142,6 +148,34 @@ private fun ParamsView(
         onChange = { generateSettings.value = generateSettings.value.copy(repeatPenalty = it) }
     )
 
+    ParamIntField(
+        label = localization.contextLength,
+        value = generateSettings.value.contextLength,
+        min = 512,
+        max = 32768,
+        onChange = { generateSettings.value = generateSettings.value.copy(contextLength = it) }
+    )
+
+    ParamIntField(
+        label = localization.numThreads,
+        value = generateSettings.value.numThreads,
+        min = 1,
+        max = 16,
+        onChange = { generateSettings.value = generateSettings.value.copy(numThreads = it) }
+    )
+
+    ParamToggle(
+        label = localization.useMmap,
+        checked = generateSettings.value.useMmap,
+        onChange = { generateSettings.value = generateSettings.value.copy(useMmap = it) }
+    )
+
+    ParamToggle(
+        label = localization.flashAttention,
+        checked = generateSettings.value.flashAttention,
+        onChange = { generateSettings.value = generateSettings.value.copy(flashAttention = it) }
+    )
+
     Spacer(Modifier.height(12.dp))
 
     Row(
@@ -206,5 +240,20 @@ private fun ParamIntField(
             modifier = Modifier.fillMaxWidth()
         )
         Text("${min}–$max", style = Typography.get().labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun ParamToggle(
+    label: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = Typography.get().labelLarge)
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }

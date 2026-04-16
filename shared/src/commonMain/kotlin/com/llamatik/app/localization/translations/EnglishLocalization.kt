@@ -115,6 +115,10 @@ internal object EnglishLocalization : Localization {
     override val topP = "Top P"
     override val topK = "Top K"
     override val repeatPenalty = "Repeat Penalty"
+    override val contextLength = "Context Length"
+    override val numThreads = "Threads"
+    override val useMmap = "Memory Mapping (mmap)"
+    override val flashAttention = "Flash Attention"
     override val apply = "Apply"
     override val downloadFinished = "Download Finished"
 

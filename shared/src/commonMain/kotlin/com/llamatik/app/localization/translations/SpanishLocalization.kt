@@ -113,6 +113,10 @@ internal object SpanishLocalization : Localization {
     override val topP = "Top P"
     override val topK = "Top K"
     override val repeatPenalty = "Penalización por repetición"
+    override val contextLength = "Longitud de contexto"
+    override val numThreads = "Hilos"
+    override val useMmap = "Mapeo de memoria (mmap)"
+    override val flashAttention = "Flash Attention"
     override val apply = "Aplicar"
     override val downloadFinished = "Descarga finalizada"
 

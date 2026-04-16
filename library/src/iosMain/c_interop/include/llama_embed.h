@@ -165,7 +165,11 @@ void llama_generate_set_params(float temperature,
         int max_tokens,
         float top_p,
         int top_k,
-        float repeat_penalty);
+        float repeat_penalty,
+        int context_length,
+        int num_threads,
+        bool use_mmap,
+        bool flash_attention);
 
 // ===================== KV session support =====================
 

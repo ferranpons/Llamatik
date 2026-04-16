@@ -5,5 +5,9 @@ data class GenerateSettings(
     val maxTokens: Int = 256,
     val topP: Float = 0.95f,
     val topK: Int = 40,
-    val repeatPenalty: Float = 1.1f
+    val repeatPenalty: Float = 1.1f,
+    val contextLength: Int = 4096,
+    val numThreads: Int = 4,
+    val useMmap: Boolean = true,
+    val flashAttention: Boolean = false,
 )
