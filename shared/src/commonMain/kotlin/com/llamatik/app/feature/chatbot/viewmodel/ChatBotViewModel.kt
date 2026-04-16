@@ -196,7 +196,13 @@ class ChatBotViewModel(
             savedPath = rawPath
         )
 
-        if (migrated.isNotBlank() && migrated != rawPath) {
+        if (migrated.isBlank()) {
+            // File no longer exists — clear stale saved path
+            runCatching { getModelsUseCase.deleteModelPath(model) }
+            return null
+        }
+
+        if (migrated != rawPath) {
             runCatching { getModelsUseCase.saveModelPath(model.name, migrated) }
         }
 
@@ -927,6 +933,21 @@ class ChatBotViewModel(
                                 if (it.url == url) it.copy(fileName = persistedPath, localPath = persistedPath) else it
                             },
                         )
+
+                        // Auto-initialize generate model if none is loaded yet
+                        val isGenerateModel = _state.value.generateModels.any { it.url == url }
+                        if (isGenerateModel && !_state.value.isGenerateModelLoaded && persistedPath.isNotBlank()) {
+                            val loaded = LlamaBridge.initGenerateModel(persistedPath)
+                            if (loaded) {
+                                _state.value = _state.value.copy(
+                                    selectedGenerateModelName = model.name,
+                                    isGenerateModelLoaded = true
+                                )
+                                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                            } else {
+                                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+                            }
+                        }
 
                         // If this is a VLM model with an mmproj companion, download the mmproj too
                         if (model.isVlm) {

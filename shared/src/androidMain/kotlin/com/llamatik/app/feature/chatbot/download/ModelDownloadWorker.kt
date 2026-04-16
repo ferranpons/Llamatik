@@ -33,11 +33,11 @@ class ModelDownloadWorker(
         .build()
 
     override suspend fun doWork(): Result {
-        setForeground(createForegroundInfo())
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
         val modelId = inputData.getString(KEY_MODEL_ID) ?: return Result.failure()
 
         ensureChannel(applicationContext)
+        setForeground(createForegroundInfo())
 
         val modelsDir = File(applicationContext.filesDir, "models").apply { mkdirs() }
         val partFile = File(modelsDir, "$modelId.gguf.part")
@@ -52,11 +52,17 @@ class ModelDownloadWorker(
             }
 
             if (finalFile.exists()) finalFile.delete()
-            partFile.renameTo(finalFile)
+            val renamed = partFile.renameTo(finalFile)
+            if (!renamed) {
+                // Fallback: copy then delete (handles cross-filesystem on some devices)
+                partFile.copyTo(finalFile, overwrite = true)
+                partFile.delete()
+            }
+            if (!finalFile.exists()) return Result.failure()
 
             Result.success(workDataOf(KEY_PATH to finalFile.absolutePath))
         } catch (t: Throwable) {
-            Result.retry()
+            if (t is OutOfMemoryError) Result.failure() else Result.retry()
         }
     }
 

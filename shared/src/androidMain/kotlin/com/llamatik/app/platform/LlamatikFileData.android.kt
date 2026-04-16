@@ -53,7 +53,7 @@ actual fun migrateModelPathIfNeeded(
     if (savedPath.isBlank()) return savedPath
 
     val saved = File(savedPath)
-    if (!saved.exists()) return savedPath
+    if (!saved.exists()) return ""
 
     // Already in persistent models dir
     val persistentDir = modelsDir(context).absolutePath

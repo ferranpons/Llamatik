@@ -4,8 +4,6 @@ import androidx.compose.material3.SnackbarHostState
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import com.llamatik.app.data.repositories.DownloadFileRepository
-import com.llamatik.app.feature.chatbot.download.DefaultModelDownloadOrchestrator
-import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
 import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
 import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
@@ -96,8 +94,6 @@ val commonModule = module {
 
     single { ServiceClient }
     single { getCurrentLocalization() }
-
-    single<ModelDownloadOrchestrator> { DefaultModelDownloadOrchestrator(get()) }
 
     singleOf(::ChatHistoryRepository)
 }
