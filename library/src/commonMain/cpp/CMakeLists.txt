@@ -60,20 +60,31 @@ add_library(mtmd_sources OBJECT
         ${MTMD_DIR}/mtmd.cpp
         ${MTMD_DIR}/mtmd-helper.cpp
         ${MTMD_DIR}/mtmd-audio.cpp
+        ${MTMD_DIR}/mtmd-image.cpp
         ${MTMD_DIR}/clip.cpp
         ${MTMD_DIR}/models/cogvlm.cpp
         ${MTMD_DIR}/models/conformer.cpp
+        ${MTMD_DIR}/models/deepseekocr.cpp
+        ${MTMD_DIR}/models/dotsocr.cpp
+        ${MTMD_DIR}/models/gemma4a.cpp
+        ${MTMD_DIR}/models/gemma4v.cpp
         ${MTMD_DIR}/models/glm4v.cpp
+        ${MTMD_DIR}/models/hunyuanocr.cpp
         ${MTMD_DIR}/models/internvl.cpp
+        ${MTMD_DIR}/models/kimik25.cpp
         ${MTMD_DIR}/models/kimivl.cpp
         ${MTMD_DIR}/models/llama4.cpp
         ${MTMD_DIR}/models/llava.cpp
         ${MTMD_DIR}/models/minicpmv.cpp
         ${MTMD_DIR}/models/mobilenetv5.cpp
+        ${MTMD_DIR}/models/nemotron-v2-vl.cpp
+        ${MTMD_DIR}/models/paddleocr.cpp
         ${MTMD_DIR}/models/pixtral.cpp
         ${MTMD_DIR}/models/qwen2vl.cpp
+        ${MTMD_DIR}/models/qwen3a.cpp
         ${MTMD_DIR}/models/qwen3vl.cpp
         ${MTMD_DIR}/models/siglip.cpp
+        ${MTMD_DIR}/models/step3vl.cpp
         ${MTMD_DIR}/models/whisper-enc.cpp
         ${MTMD_DIR}/models/youtuvl.cpp
         ${MTMD_DIR}/deprecation-warning.cpp

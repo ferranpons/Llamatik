@@ -36,10 +36,12 @@ set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(${LLAMA_CPP_DIR} llama-local-build EXCLUDE_FROM_ALL)
 
-set(LLAMA_COMMON_CPP      "${LLAMA_CPP_DIR}/common/common.cpp")
-set(LLAMA_SAMPLING_CPP    "${LLAMA_CPP_DIR}/common/sampling.cpp")
-set(LLAMA_LOG_CPP         "${LLAMA_CPP_DIR}/common/log.cpp")
-set(LLAMA_SCHEMA_CPP      "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
+set(LLAMA_COMMON_CPP           "${LLAMA_CPP_DIR}/common/common.cpp")
+set(LLAMA_SAMPLING_CPP         "${LLAMA_CPP_DIR}/common/sampling.cpp")
+set(LLAMA_LOG_CPP              "${LLAMA_CPP_DIR}/common/log.cpp")
+set(LLAMA_SCHEMA_CPP           "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
+set(LLAMA_REASONING_BUDGET_CPP "${LLAMA_CPP_DIR}/common/reasoning-budget.cpp")
+set(LLAMA_UNICODE_CPP          "${LLAMA_CPP_DIR}/common/unicode.cpp")
 set(LLAMA_BUILDINFO_IN    "${LLAMA_CPP_DIR}/common/build-info.cpp.in")
 
 if(NOT EXISTS "${LLAMA_COMMON_CPP}")
@@ -133,6 +135,14 @@ if(EXISTS "${LLAMA_LOG_CPP}")
     target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_LOG_CPP}")
 endif()
 
+if(EXISTS "${LLAMA_REASONING_BUDGET_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_REASONING_BUDGET_CPP}")
+endif()
+
+if(EXISTS "${LLAMA_UNICODE_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_UNICODE_CPP}")
+endif()
+
 target_include_directories(llamatik_llama_common_obj PRIVATE
         ${LLAMA_CPP_DIR}
         ${LLAMA_CPP_DIR}/include
@@ -154,20 +164,31 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/mtmd.cpp
         ${MTMD_DIR}/mtmd-helper.cpp
         ${MTMD_DIR}/mtmd-audio.cpp
+        ${MTMD_DIR}/mtmd-image.cpp
         ${MTMD_DIR}/clip.cpp
         ${MTMD_DIR}/models/cogvlm.cpp
         ${MTMD_DIR}/models/conformer.cpp
+        ${MTMD_DIR}/models/deepseekocr.cpp
+        ${MTMD_DIR}/models/dotsocr.cpp
+        ${MTMD_DIR}/models/gemma4a.cpp
+        ${MTMD_DIR}/models/gemma4v.cpp
         ${MTMD_DIR}/models/glm4v.cpp
+        ${MTMD_DIR}/models/hunyuanocr.cpp
         ${MTMD_DIR}/models/internvl.cpp
+        ${MTMD_DIR}/models/kimik25.cpp
         ${MTMD_DIR}/models/kimivl.cpp
         ${MTMD_DIR}/models/llama4.cpp
         ${MTMD_DIR}/models/llava.cpp
         ${MTMD_DIR}/models/minicpmv.cpp
         ${MTMD_DIR}/models/mobilenetv5.cpp
+        ${MTMD_DIR}/models/nemotron-v2-vl.cpp
+        ${MTMD_DIR}/models/paddleocr.cpp
         ${MTMD_DIR}/models/pixtral.cpp
         ${MTMD_DIR}/models/qwen2vl.cpp
+        ${MTMD_DIR}/models/qwen3a.cpp
         ${MTMD_DIR}/models/qwen3vl.cpp
         ${MTMD_DIR}/models/siglip.cpp
+        ${MTMD_DIR}/models/step3vl.cpp
         ${MTMD_DIR}/models/whisper-enc.cpp
         ${MTMD_DIR}/models/youtuvl.cpp
         ${MTMD_DIR}/deprecation-warning.cpp
