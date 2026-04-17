@@ -164,7 +164,7 @@ async function loadFileFromIdb(idbKey, fsPath) {
   const db = await openDb();
   const count = await readChunkCount(db, idbKey);
   if (!count || count <= 0) {
-    throw new Error("File not found in IndexedDB for key: " + idbKey);
+    throw new Error("Model not downloaded yet. Please download the model first. (key: " + idbKey + ")");
   }
 
   ensureDir(mod, fsPath);
@@ -232,8 +232,14 @@ self.onmessage = async (ev) => {
 
   try {
     if (m.type === "init") {
-      await ensureModel(m.idbKey, m.fsPath);
-      post({ type: "init_ok" });
+      try {
+        await ensureModel(m.idbKey, m.fsPath);
+        post({ type: "init_ok" });
+      } catch (e) {
+        initDone = false;
+        currentModelKey = null;
+        post({ type: "init_err", error: String(e && e.message ? e.message : e) });
+      }
       return;
     }
 

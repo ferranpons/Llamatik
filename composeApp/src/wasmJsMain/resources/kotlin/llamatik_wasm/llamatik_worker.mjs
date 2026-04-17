@@ -105,7 +105,7 @@ async function loadModuleOnce() {
 async function writeModelFromIndexedDb(idbKey, fsPath) {
   const db = await openDb();
   const count = await readChunkCount(db, idbKey);
-  if (!count || count <= 0) throw new Error("Model not found in IndexedDB for key: " + idbKey);
+  if (!count || count <= 0) throw new Error("Model not downloaded yet. Please download the model first. (key: " + idbKey + ")");
 
   ensureDir(fsPath);
 
@@ -147,7 +147,12 @@ async function ensureInitialized(idbKey, fsPath) {
     );
 
     if (ok !== 1) throw new Error("llamatik_llama_init_generate returned " + ok);
-  })();
+  })().catch((e) => {
+    // Reset so next attempt can retry
+    initKey = null;
+    initPromise = null;
+    throw e;
+  });
 
   return initPromise;
 }
@@ -204,8 +209,12 @@ self.onmessage = async (ev) => {
   const m = ev.data || {};
   try {
     if (m.type === "init") {
-      await ensureInitialized(m.idbKey, m.fsPath);
-      self.postMessage({ type: "init_ok" });
+      try {
+        await ensureInitialized(m.idbKey, m.fsPath);
+        self.postMessage({ type: "init_ok" });
+      } catch (e) {
+        self.postMessage({ type: "init_err", error: String(e && e.message ? e.message : e) });
+      }
       return;
     }
 
@@ -213,7 +222,14 @@ self.onmessage = async (ev) => {
       currentRequestId = m.requestId || 0;
 
       // Ensure init (worker can be created before init message arrives in some races)
-      await ensureInitialized(m.idbKey, m.fsPath);
+      try {
+        await ensureInitialized(m.idbKey, m.fsPath);
+      } catch (e) {
+        self.postMessage({ type: "error", requestId: currentRequestId, error: String(e && e.message ? e.message : e) });
+        self.postMessage({ type: "done", requestId: currentRequestId });
+        currentRequestId = 0;
+        return;
+      }
 
       // Run streaming generation (C++ will call __llamatik_stream_* callbacks)
       Module.ccall(
