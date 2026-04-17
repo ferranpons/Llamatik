@@ -38,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -120,6 +121,15 @@ class ChatBotTabScreen : Screen {
 
         LaunchedEffect(Unit) {
             viewModel.onStarted(navigator)
+        }
+
+        LaunchedEffect(Unit) {
+            snapshotFlow { navigator.items.size }
+                .collect { size ->
+                    if (size == 1 && navigator.lastItem is ChatBotTabScreen) {
+                        viewModel.onPrivacyAccepted()
+                    }
+                }
         }
 
         val state by viewModel.state.collectAsState()

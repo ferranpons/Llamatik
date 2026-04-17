@@ -145,11 +145,7 @@ class ChatBotViewModel(
     init {
         // If privacy not accepted yet → show onboarding first.
         if (!hasAcceptedPrivacy) {
-            navigator.push(
-                ChatBotOnboardingScreen { nav ->
-                    onPrivacyAccepted(nav)
-                }
-            )
+            navigator.push(ChatBotOnboardingScreen())
         }
     }
 
@@ -1667,11 +1663,7 @@ class ChatBotViewModel(
     }
 
     fun onShowPrivacyScreen() {
-        navigator.push(
-            ChatBotOnboardingScreen { nav ->
-                onPrivacyAccepted(nav)
-            }
-        )
+        navigator.push(ChatBotOnboardingScreen())
     }
 
     fun onOpenFeedItemDetail(link: String) {
@@ -1718,13 +1710,10 @@ class ChatBotViewModel(
         }
     }
 
-    private fun onPrivacyAccepted(currentNavigator: Navigator) {
-        navigator = currentNavigator
-
+    fun onPrivacyAccepted() {
+        if (hasAcceptedPrivacy) return
         settings.putBoolean(PRIVACY_CHATBOT_VIEWED_KEY, true)
         hasAcceptedPrivacy = true
-
-        currentNavigator.pop()
 
         screenModelScope.launch(AppDispatchersIO) {
             val genModels = _state.value.generateModels.ifEmpty {

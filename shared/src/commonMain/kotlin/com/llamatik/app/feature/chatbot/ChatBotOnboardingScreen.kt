@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.resources.Res
@@ -45,9 +44,7 @@ import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import org.jetbrains.compose.resources.painterResource
 
-class ChatBotOnboardingScreen(
-    private val onAccept: (Navigator) -> Unit
-) : Screen {
+class ChatBotOnboardingScreen : Screen {
 
     @Composable
     override fun Content() {
@@ -110,7 +107,7 @@ class ChatBotOnboardingScreen(
                     )
 
                     Button(
-                        onClick = { onAccept(navigator) },
+                        onClick = { navigator.pop() },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         ),
