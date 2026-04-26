@@ -63,6 +63,18 @@ expect object LlamaBridge {
      */
     fun generateContinue(prompt: String): String
 
+    /**
+     * Returns the chat template string embedded in the loaded GGUF model, or null if unavailable.
+     */
+    fun getModelChatTemplate(): String?
+
+    /**
+     * Renders [messages] (list of role to content pairs) into a prompt string using the model's
+     * own embedded chat template. Pass [addAssistantPrefix] = true when starting a new generation.
+     * Returns null if the model is not loaded or the template is unavailable.
+     */
+    fun applyChatTemplate(messages: List<Pair<String, String>>, addAssistantPrefix: Boolean): String?
+
     fun shutdown()
 
     fun nativeCancelGenerate()

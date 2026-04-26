@@ -834,6 +834,7 @@ static void stream_from_prompt(
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (tok == llama_vocab_eos(vocab)) break;
+        if (tok == llama_vocab_eot(vocab)) break;
 
         int sn = llama_token_to_piece(vocab,
                 tok, spec_buf, (int) sizeof(spec_buf),
@@ -1220,4 +1221,82 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinue(JNIEnv *en
     llama_sampler_free(sampler);
     llama_batch_free(batch);
     return env->NewStringUTF(result.c_str());
+}
+
+// ===================================================================================
+//                            CHAT TEMPLATE (llama_chat_apply_template)
+// ===================================================================================
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_getModelChatTemplate(
+        JNIEnv *env, jobject /*thiz*/) {
+    if (!gen_model) return nullptr;
+    const char *tmpl = llama_model_chat_template(gen_model, /*name*/ nullptr);
+    if (!tmpl) return nullptr;
+    return env->NewStringUTF(tmpl);
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeApplyChatTemplate(
+        JNIEnv *env, jobject /*thiz*/,
+        jstring jTemplate,
+        jobjectArray jRoles,
+        jobjectArray jContents,
+        jboolean addAssistantPrefix) {
+
+    if (!jRoles || !jContents) return nullptr;
+    const jsize n = env->GetArrayLength(jRoles);
+    if (n != env->GetArrayLength(jContents)) return nullptr;
+
+    // Retrieve template string (may be null — llama_chat_apply_template accepts null)
+    const char *tmpl_cstr = nullptr;
+    if (jTemplate) {
+        tmpl_cstr = env->GetStringUTFChars(jTemplate, nullptr);
+    }
+
+    // Build message array — keep Java strings alive until we're done
+    std::vector<const char *> roles_cstr(n), contents_cstr(n);
+    std::vector<jstring> role_jstrs(n), content_jstrs(n);
+    for (jsize i = 0; i < n; ++i) {
+        role_jstrs[i]    = (jstring) env->GetObjectArrayElement(jRoles,    i);
+        content_jstrs[i] = (jstring) env->GetObjectArrayElement(jContents, i);
+        roles_cstr[i]    = env->GetStringUTFChars(role_jstrs[i],    nullptr);
+        contents_cstr[i] = env->GetStringUTFChars(content_jstrs[i], nullptr);
+    }
+
+    std::vector<llama_chat_message> chat(n);
+    for (jsize i = 0; i < n; ++i) {
+        chat[i] = { roles_cstr[i], contents_cstr[i] };
+    }
+
+    // Two-pass sizing: first call with buf=nullptr and length=-1
+    int32_t needed = llama_chat_apply_template(
+            tmpl_cstr, chat.data(), (size_t) n,
+            (bool) addAssistantPrefix,
+            nullptr, -1);
+
+    jstring result = nullptr;
+    if (needed >= 0) {
+        std::string buf(needed, '\0');
+        llama_chat_apply_template(
+                tmpl_cstr, chat.data(), (size_t) n,
+                (bool) addAssistantPrefix,
+                buf.data(), needed);
+        result = env->NewStringUTF(buf.c_str());
+    }
+
+    // Release Java strings
+    for (jsize i = 0; i < n; ++i) {
+        env->ReleaseStringUTFChars(role_jstrs[i],    roles_cstr[i]);
+        env->ReleaseStringUTFChars(content_jstrs[i], contents_cstr[i]);
+        env->DeleteLocalRef(role_jstrs[i]);
+        env->DeleteLocalRef(content_jstrs[i]);
+    }
+    if (jTemplate && tmpl_cstr) {
+        env->ReleaseStringUTFChars(jTemplate, tmpl_cstr);
+    }
+
+    return result;
 }

@@ -61,6 +61,7 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ Embeddings for vector search & RAG
 - ✅ Configurable context length, threads, mmap, Flash Attention
 - ✅ KV cache session save / load / continue
+- ✅ Chat template introspection and rendering (`getModelChatTemplate` / `applyChatTemplate`)
 - ✅ Fine-grained sampling controls (temperature, top-k, top-p, repeat penalty, max tokens)
 
 ### 🎙 Speech-to-Text (whisper.cpp)
@@ -269,6 +270,13 @@ expect object LlamaBridge {
         callback: GenStream
     )
 
+    // Chat template support
+    fun getModelChatTemplate(): String?               // returns the chat template embedded in the loaded GGUF, or null
+    fun applyChatTemplate(
+        messages: List<Pair<String, String>>,         // list of (role, content) pairs
+        addAssistantPrefix: Boolean                   // true to append the assistant turn prefix
+    ): String?                                        // rendered prompt string, or null if model/template unavailable
+
     // KV cache session support
     fun sessionReset(): Boolean                       // clear KV state, keep model loaded
     fun sessionSave(path: String): Boolean            // persist KV state to file
@@ -336,6 +344,37 @@ val continuation = LlamaBridge.generateContinue("What about multiplatform suppor
 // Reset state without unloading the model
 LlamaBridge.sessionReset()
 ```
+
+### Chat Templates
+
+Most modern GGUF models ship with an embedded chat template (a Jinja-style string that describes how to format conversation turns for that model family). The two template helpers give you direct access to it:
+
+| Method | Description |
+|---|---|
+| `getModelChatTemplate()` | Returns the raw template string from the loaded model, or `null` if the model is not loaded or has no embedded template. |
+| `applyChatTemplate(messages, addAssistantPrefix)` | Renders a list of `(role, content)` pairs into a single prompt string using the model's own template. Pass `addAssistantPrefix = true` when you want the model to begin generating the next assistant turn. Returns `null` when the model is not loaded. |
+
+```kotlin
+// Build a multi-turn conversation prompt using the model's own template
+val prompt = LlamaBridge.applyChatTemplate(
+    messages = listOf(
+        "system" to "You are a helpful assistant.",
+        "user"   to "What is Kotlin Multiplatform?",
+    ),
+    addAssistantPrefix = true          // appends the assistant-turn prefix so the model starts generating
+)
+
+if (prompt != null) {
+    val response = LlamaBridge.generate(prompt)
+    println(response)
+}
+
+// Inspect the raw template if needed (e.g. for debugging or custom rendering)
+val templateString = LlamaBridge.getModelChatTemplate()
+println(templateString)
+```
+
+**Note**: `applyChatTemplate` relies on the template embedded in the GGUF file, which is model-specific. If the model has no embedded template (older GGUF files), both helpers return `null` and you should format the prompt manually.
 
 ### Speech-to-Text (WhisperBridge)
 

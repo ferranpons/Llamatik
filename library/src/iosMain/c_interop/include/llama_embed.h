@@ -186,6 +186,27 @@ bool llama_generate_session_load(const char *path_session);
 /** Continues using existing KV cache; returns malloc string. */
 char *llama_generate_continue(const char *prompt);
 
+// ===================== Chat template =====================
+
+/**
+ * Returns the chat template string embedded in the loaded GGUF model.
+ * The returned pointer is owned by the model — do not free it.
+ * Returns NULL if the model is not loaded or has no embedded template.
+ */
+const char *llama_get_model_chat_template(void);
+
+/**
+ * Renders messages into a prompt string using the model's embedded chat template.
+ * roles and contents are parallel arrays of length n_messages.
+ * add_assistant_prefix: append the assistant turn opener at the end.
+ * Returns a newly malloc'd string the caller must free(), or NULL on error.
+ */
+char *llama_apply_chat_template(
+    const char **roles,
+    const char **contents,
+    int n_messages,
+    bool add_assistant_prefix);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
