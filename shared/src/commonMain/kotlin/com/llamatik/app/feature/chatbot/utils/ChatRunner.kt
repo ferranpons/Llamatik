@@ -6,9 +6,10 @@ import kotlin.math.min
 
 /**
  * High-level chat orchestration:
- * - Renders the prompt with PromptRenderer (+ template + RAG).
+ * - Renders the prompt using the model’s own embedded chat template when available,
+ *   falling back to PromptRenderer for models without one.
  * - Streams tokens from LlamaBridge.generateStream.
- * - Enforces client-side stop sequences consistently across apps.
+ * - Enforces client-side stop sequences when the fallback renderer is used.
  */
 object ChatRunner {
 
@@ -18,8 +19,8 @@ object ChatRunner {
      * @param system Optional system prompt (defaults to a safe helper system).
      * @param contexts RAG passages (already ranked/shortened).
      * @param messages Chat history (last one should be the user turn we’re answering).
-     * @param template Which prompt surface to use (Gemma3 by default).
-     * @param maxTokens Hard guard if your engine doesn't supply one.
+     * @param template Fallback template used when the model has no embedded chat template.
+     * @param maxTokens Hard guard if your engine doesn’t supply one.
      */
     fun stream(
         system: String? = null,
@@ -31,8 +32,16 @@ object ChatRunner {
         onComplete: (final: String) -> Unit,
         onError: (String) -> Unit
     ) {
-        val prompt = PromptRenderer.render(system, contexts, messages, template)
-        val stop = template.stopSequences
+        val nativePrompt = buildNativePrompt(system, contexts, messages)
+        val prompt: String
+        val stop: List<String>
+        if (nativePrompt != null) {
+            prompt = nativePrompt
+            stop = emptyList() // model’s EOS token handles termination natively
+        } else {
+            prompt = PromptRenderer.render(system, contexts, messages, template)
+            stop = template.stopSequences
+        }
 
         var acc = StringBuilder()
         var done = false
@@ -80,6 +89,48 @@ object ChatRunner {
 
         // Let the engine do its thing; we keep the semantics above it.
         LlamaBridge.generateStream(prompt, guard)
+    }
+
+    /**
+     * Tries to render the prompt using the model's embedded Jinja chat template via
+     * [LlamaBridge.applyChatTemplate]. Returns null when the model has no embedded template,
+     * so the caller can fall back to [PromptRenderer].
+     *
+     * RAG context is injected as a prefixed block into the last user message content so it
+     * appears in the correct position regardless of the model's template structure.
+     */
+    private fun buildNativePrompt(
+        system: String?,
+        contexts: List<String>,
+        messages: List<ChatMessage>
+    ): String? {
+        val pairs = mutableListOf<Pair<String, String>>()
+
+        if (!system.isNullOrBlank()) {
+            pairs += "system" to system.trim()
+        }
+
+        val ragBlock = if (contexts.isNotEmpty()) {
+            val joined = contexts.joinToString("\n\n—\n") { it.trim() }
+            "Relevant context:\n$joined\n\n"
+        } else ""
+
+        messages.forEachIndexed { index, msg ->
+            val role = when (msg.role) {
+                ChatMessage.Role.System -> "system"
+                ChatMessage.Role.User -> "user"
+                ChatMessage.Role.Assistant -> "assistant"
+            }
+            val isLastUserMessage = msg.role == ChatMessage.Role.User && index == messages.lastIndex
+            val content = if (isLastUserMessage && ragBlock.isNotBlank()) {
+                "$ragBlock${msg.content.trim()}"
+            } else {
+                msg.content.trim()
+            }
+            pairs += role to content
+        }
+
+        return LlamaBridge.applyChatTemplate(pairs, addAssistantPrefix = true)
     }
 
     private fun shouldStop(sb: StringBuilder, stops: List<String>): Boolean {
