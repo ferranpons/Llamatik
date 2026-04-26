@@ -134,6 +134,21 @@ actual object LlamaBridge {
         nativeGenerateWithContextStream(system, context, user, cb)
     }
 
+    actual external fun getModelChatTemplate(): String?
+
+    private external fun nativeApplyChatTemplate(
+        template: String?,
+        roles: Array<String>,
+        contents: Array<String>,
+        addAssistantPrefix: Boolean,
+    ): String?
+
+    actual fun applyChatTemplate(messages: List<Pair<String, String>>, addAssistantPrefix: Boolean): String? {
+        val roles = messages.map { it.first }.toTypedArray()
+        val contents = messages.map { it.second }.toTypedArray()
+        return nativeApplyChatTemplate(getModelChatTemplate(), roles, contents, addAssistantPrefix)
+    }
+
     actual external fun shutdown()
     actual external fun nativeCancelGenerate()
 }

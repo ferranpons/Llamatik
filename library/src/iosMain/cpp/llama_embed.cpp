@@ -320,8 +320,27 @@ static std::string build_plain_prompt(const std::string &context_block,
 static bool apply_chat_template_if_available(const char *system_msg,
         const char *user_msg,
         std::string &wrapped) {
-    (void)system_msg; (void)user_msg; (void)wrapped;
-    return false;
+    if (!gen_model) return false;
+    const char *tmpl = llama_model_chat_template(gen_model, nullptr);
+    if (!tmpl) return false;
+
+    std::vector<llama_chat_message> chat;
+    if (system_msg && system_msg[0]) {
+        chat.push_back({"system", system_msg});
+    }
+    if (user_msg && user_msg[0]) {
+        chat.push_back({"user", user_msg});
+    }
+    if (chat.empty()) return false;
+
+    int32_t needed = llama_chat_apply_template(tmpl, chat.data(), chat.size(),
+                                               /*add_ass*/ true, nullptr, -1);
+    if (needed < 0) return false;
+
+    wrapped.resize(needed);
+    llama_chat_apply_template(tmpl, chat.data(), chat.size(),
+                              /*add_ass*/ true, wrapped.data(), needed);
+    return true;
 }
 
 static std::string build_clean_prompt(const char *system_prompt,
@@ -1123,6 +1142,7 @@ void llama_generate_stream(const char *prompt,
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (llama_vocab_is_eog(v, tok)) break;
+        if (tok == llama_vocab_eot(v)) break;
 
         char spiece[64];
         int nn = llama_token_to_piece(v, tok, spiece, (int)sizeof(spiece), 0, /*special*/ true);
@@ -1573,6 +1593,40 @@ void llama_generate_free(void) {
         llama_backend_free();
         g_backend_inited = false;
     }
+}
+
+// ===================== Chat template =====================
+
+const char *llama_get_model_chat_template(void) {
+    if (!gen_model) return nullptr;
+    return llama_model_chat_template(gen_model, nullptr);
+}
+
+char *llama_apply_chat_template(
+        const char **roles,
+        const char **contents,
+        int n_messages,
+        bool add_assistant_prefix) {
+    if (!gen_model || n_messages <= 0 || !roles || !contents) return nullptr;
+
+    const char *tmpl = llama_model_chat_template(gen_model, nullptr);
+
+    std::vector<llama_chat_message> chat((size_t)n_messages);
+    for (int i = 0; i < n_messages; ++i) {
+        chat[i] = { roles[i], contents[i] };
+    }
+
+    int32_t needed = llama_chat_apply_template(tmpl, chat.data(), chat.size(),
+                                               add_assistant_prefix, nullptr, -1);
+    if (needed < 0) return nullptr;
+
+    char *buf = (char *) std::malloc((size_t)needed + 1);
+    if (!buf) return nullptr;
+
+    llama_chat_apply_template(tmpl, chat.data(), chat.size(),
+                              add_assistant_prefix, buf, needed);
+    buf[needed] = '\0';
+    return buf;
 }
 
 } // extern "C"
