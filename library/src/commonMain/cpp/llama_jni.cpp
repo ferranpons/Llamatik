@@ -17,6 +17,10 @@
 #include <cstdio>
 #include <cstdarg>   // va_list, va_start, va_end
 
+#if defined(__APPLE__)
+#include <cstdlib>   // setenv
+#endif
+
 // ===================================================================================
 //                              PLATFORM LOGGING
 // ===================================================================================
@@ -63,6 +67,25 @@ static bool g_backend_inited = false;
 
 // Streaming cancel flag (for generateStream)
 static std::atomic<bool> g_cancel_requested{false};
+
+// ===================================================================================
+//  JNI_OnLoad — runs immediately when System.load() brings in the native library.
+//  On macOS: disable bf16 Metal pipelines before llama_backend_init() can touch Metal.
+//  Models with bf16 tensors (Gemma 4, etc.) crash the JVM on macOS desktop because
+//  older GPUs lack the kernel_mul_mm_bf16_f32 pipeline; GGML_METAL_BF16_DISABLE=1
+//  makes ggml-metal fall back to f32, avoiding the crash at the cost of some speed.
+//  The env var is only set when it has not already been set by the caller, so the user
+//  can still override it (e.g. GGML_METAL_BF16_DISABLE=0 to re-enable if their GPU
+//  supports it and they need the performance).
+// ===================================================================================
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * /*vm*/, void * /*reserved*/) {
+#if defined(__APPLE__) && !defined(__ANDROID__)
+    if (getenv("GGML_METAL_BF16_DISABLE") == nullptr) {
+        setenv("GGML_METAL_BF16_DISABLE", "1", /*overwrite=*/0);
+    }
+#endif
+    return JNI_VERSION_1_6;
+}
 
 static std::atomic<float> g_temperature = 0.55f;
 static std::atomic<float> g_top_p = 0.80f;
