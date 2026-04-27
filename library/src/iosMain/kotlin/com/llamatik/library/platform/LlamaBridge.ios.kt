@@ -2,6 +2,7 @@
 
 package com.llamatik.library.platform
 
+import com.llamatik.library.platform.llama.llama_apply_chat_template
 import com.llamatik.library.platform.llama.llama_embed
 import com.llamatik.library.platform.llama.llama_embed_free
 import com.llamatik.library.platform.llama.llama_embed_init
@@ -23,15 +24,18 @@ import com.llamatik.library.platform.llama.llama_generate_session_reset
 import com.llamatik.library.platform.llama.llama_generate_session_save
 import com.llamatik.library.platform.llama.llama_generate_set_params
 import com.llamatik.library.platform.llama.llama_generate_stream
+import com.llamatik.library.platform.llama.llama_get_model_chat_template
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.asStableRef
+import kotlinx.cinterop.cstr
 import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.staticCFunction
+import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.toKString
 import platform.Foundation.NSApplicationSupportDirectory
 import platform.Foundation.NSBundle
@@ -504,6 +508,20 @@ actual object LlamaBridge {
             override fun onError(message: String) = onError(message)
         }
         generateStreamWithContext(system, context, user, proxy)
+    }
+
+    actual fun getModelChatTemplate(): String? =
+        llama_get_model_chat_template()?.toKString()
+
+    actual fun applyChatTemplate(messages: List<Pair<String, String>>, addAssistantPrefix: Boolean): String? {
+        if (messages.isEmpty()) return null
+        memScoped {
+            val roles = messages.map { it.first.cstr.getPointer(this) }.toCValues()
+            val contents = messages.map { it.second.cstr.getPointer(this) }.toCValues()
+            val result = llama_apply_chat_template(roles, contents, messages.size, addAssistantPrefix)
+                ?: return null
+            return try { result.toKString() } finally { free(result) }
+        }
     }
 
     actual fun nativeCancelGenerate() {

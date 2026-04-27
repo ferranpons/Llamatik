@@ -169,6 +169,10 @@ actual object LlamaBridge {
         }
     }
 
+    actual fun getModelChatTemplate(): String? = null
+
+    actual fun applyChatTemplate(messages: List<Pair<String, String>>, addAssistantPrefix: Boolean): String? = null
+
     actual fun shutdown() {
         hasSession.store(false)
     }
