@@ -16,6 +16,16 @@ library_body: |
   - On-device inference with llama.cpp, whisper.cpp and stable-diffusion.cpp
   - Remote inference via Llamatik Server
   - Unified API across Kotlin Multiplatform
+code_title: "Llamatik Code"
+code_tagline: "AI coding assistant, fully on-device"
+code_button_text: "Get the Plugin"
+code_button_url: "https://plugins.jetbrains.com/plugin/31304-llamatik-code"
+code_body: |
+  A privacy-first AI coding assistant for IntelliJ IDEA and Android Studio.
+
+  - Runs local LLM models directly inside your IDE
+  - Code completion, generation, and chat — no cloud required
+  - Powered by the same Llamatik engine
 ---
 
 Run AI directly on your device with no setup complexity.

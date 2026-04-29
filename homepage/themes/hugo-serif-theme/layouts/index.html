@@ -123,6 +123,29 @@
                 </div>
             </div>
         </div>
+
+        <div class="row pt-5 align-items-center">
+            <div class="col-12 col-md-6 mb-4">
+                <h2>{{ .Params.code_title }}</h2>
+                <p><strong>{{ .Params.code_tagline }}</strong></p>
+                <div>{{ .Params.code_body | markdownify }}</div>
+
+                <p class="pt-3 products-button-row">
+                    <a class="button button-secondary"
+                       href="{{ .Params.code_button_url }}"
+                       target="_blank"
+                       rel="noopener noreferrer">
+                        {{ .Params.code_button_text }}
+                    </a>
+                </p>
+            </div>
+
+            <div class="col-12 col-md-6 mb-4">
+                <div class="products-screenshots">
+                    <img src="/images/screenshots/llamatik_code_image.png" width="480" alt="Llamatik Code IDE screenshot"/>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {{ end }}
