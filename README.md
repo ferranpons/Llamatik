@@ -61,6 +61,7 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ Embeddings for vector search & RAG
 - ✅ Configurable context length, threads, mmap, Flash Attention
 - ✅ KV cache session save / load / continue
+- ✅ Model metadata introspection (`getModelFinetuneType` — detect base vs instruction-tuned)
 - ✅ Chat template introspection and rendering (`getModelChatTemplate` / `applyChatTemplate`)
 - ✅ Fine-grained sampling controls (temperature, top-k, top-p, repeat penalty, max tokens)
 
@@ -169,7 +170,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:1.0.0")
+    implementation("com.llamatik:library:1.2.0")
 }
 ```
 
@@ -270,6 +271,9 @@ expect object LlamaBridge {
         callback: GenStream
     )
 
+    // Model metadata
+    fun getModelFinetuneType(): String?               // "general.finetune" GGUF key — e.g. "instruct", "chat"; null means base model
+
     // Chat template support
     fun getModelChatTemplate(): String?               // returns the chat template embedded in the loaded GGUF, or null
     fun applyChatTemplate(
@@ -343,6 +347,25 @@ val continuation = LlamaBridge.generateContinue("What about multiplatform suppor
 
 // Reset state without unloading the model
 LlamaBridge.sessionReset()
+```
+
+### Model Metadata
+
+`getModelFinetuneType()` reads the `general.finetune` key from the loaded GGUF's metadata. Use it after `initGenerateModel` to check whether the model is instruction-tuned before sending it chat-style prompts or tool-call XML.
+
+| Return value | Meaning |
+|---|---|
+| `"instruct"` / `"chat"` | Instruction-tuned — suitable for chat, tool calls, structured output |
+| `"base"` | Base model — will complete text but does not reliably follow instructions |
+| `null` | Key absent in the GGUF — treat as base model |
+
+```kotlin
+LlamaBridge.initGenerateModel(modelPath)
+
+when (LlamaBridge.getModelFinetuneType()?.lowercase()) {
+    "instruct", "chat" -> { /* proceed normally */ }
+    else -> showWarning("This appears to be a base model. For best results, use an instruction-tuned model.")
+}
 ```
 
 ### Chat Templates

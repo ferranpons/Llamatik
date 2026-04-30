@@ -64,6 +64,13 @@ expect object LlamaBridge {
     fun generateContinue(prompt: String): String
 
     /**
+     * Returns the value of the "general.finetune" GGUF metadata key, or null if absent.
+     * Typical values: "instruct", "chat". A value of "base" (or null) indicates a base model
+     * that is not instruction-tuned and may produce poor results in chat/tool-call pipelines.
+     */
+    fun getModelFinetuneType(): String?
+
+    /**
      * Returns the chat template string embedded in the loaded GGUF model, or null if unavailable.
      */
     fun getModelChatTemplate(): String?
