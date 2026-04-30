@@ -196,6 +196,14 @@ char *llama_generate_continue(const char *prompt);
 const char *llama_get_model_chat_template(void);
 
 /**
+ * Returns the value of the "general.finetune" GGUF metadata key.
+ * Typical values: "instruct", "chat", "base" (or absent for base models).
+ * Returns a newly malloc'd string the caller must free(), or NULL if the model
+ * is not loaded or the key is absent.
+ */
+char *llama_get_model_finetune_type(void);
+
+/**
  * Renders messages into a prompt string using the model's embedded chat template.
  * roles and contents are parallel arrays of length n_messages.
  * add_assistant_prefix: append the assistant turn opener at the end.

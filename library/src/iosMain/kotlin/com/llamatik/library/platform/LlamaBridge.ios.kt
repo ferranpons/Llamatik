@@ -25,6 +25,7 @@ import com.llamatik.library.platform.llama.llama_generate_session_save
 import com.llamatik.library.platform.llama.llama_generate_set_params
 import com.llamatik.library.platform.llama.llama_generate_stream
 import com.llamatik.library.platform.llama.llama_get_model_chat_template
+import com.llamatik.library.platform.llama.llama_get_model_finetune_type
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
@@ -508,6 +509,11 @@ actual object LlamaBridge {
             override fun onError(message: String) = onError(message)
         }
         generateStreamWithContext(system, context, user, proxy)
+    }
+
+    actual fun getModelFinetuneType(): String? {
+        val c = llama_get_model_finetune_type() ?: return null
+        return try { c.toKString() } finally { free(c) }
     }
 
     actual fun getModelChatTemplate(): String? =

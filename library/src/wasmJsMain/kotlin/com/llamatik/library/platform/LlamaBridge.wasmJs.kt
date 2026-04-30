@@ -169,6 +169,7 @@ actual object LlamaBridge {
         }
     }
 
+    actual fun getModelFinetuneType(): String? = null
     actual fun getModelChatTemplate(): String? = null
 
     actual fun applyChatTemplate(messages: List<Pair<String, String>>, addAssistantPrefix: Boolean): String? = null

@@ -1262,6 +1262,17 @@ Java_com_llamatik_library_platform_LlamaBridge_getModelChatTemplate(
 
 extern "C"
 JNIEXPORT jstring JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_getModelFinetuneType(
+        JNIEnv *env, jobject /*thiz*/) {
+    if (!gen_model) return nullptr;
+    char buf[256];
+    int32_t len = llama_model_meta_val_str(gen_model, "general.finetune", buf, sizeof(buf));
+    if (len < 0) return nullptr;
+    return env->NewStringUTF(buf);
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_nativeApplyChatTemplate(
         JNIEnv *env, jobject /*thiz*/,
         jstring jTemplate,

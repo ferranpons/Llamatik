@@ -1595,6 +1595,16 @@ void llama_generate_free(void) {
     }
 }
 
+// ===================== Model metadata =====================
+
+char *llama_get_model_finetune_type(void) {
+    if (!gen_model) return nullptr;
+    char buf[256];
+    int32_t len = llama_model_meta_val_str(gen_model, "general.finetune", buf, sizeof(buf));
+    if (len < 0) return nullptr;
+    return strdup(buf);
+}
+
 // ===================== Chat template =====================
 
 const char *llama_get_model_chat_template(void) {

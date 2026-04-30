@@ -134,6 +134,7 @@ actual object LlamaBridge {
         nativeGenerateWithContextStream(system, context, user, cb)
     }
 
+    actual external fun getModelFinetuneType(): String?
     actual external fun getModelChatTemplate(): String?
 
     private external fun nativeApplyChatTemplate(
