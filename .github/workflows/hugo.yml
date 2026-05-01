@@ -31,7 +31,10 @@ jobs:
           && sudo dpkg -i ${{ runner.temp }}/hugo.deb
 
       - name: Install Dart Sass
-        run: sudo snap install dart-sass
+        uses: dw-labs-org/dart-sass-gha@v1
+
+      - name: Build site
+        run: hugo --minify
 
       - name: Checkout repository
         uses: actions/checkout@v4
