@@ -259,23 +259,29 @@ self.onmessage = async (ev) => {
       currentRequestId = m.requestId || 0;
 
       const imgU8 = m.imageBytes instanceof Uint8Array ? m.imageBytes : new Uint8Array(m.imageBytes);
-      // _malloc returns a plain Number (wrapped by Emscripten's applySignatureConversions)
-      const ptr = Module._malloc(imgU8.length);
+      // _malloc may return Number or BigInt depending on Emscripten wasm32/wasm64 build.
+      // Normalize: numPtr for heap.set (needs Number), bigPtr for wasm function calls (needs BigInt i64).
+      const rawPtr = Module._malloc(imgU8.length);
+      const numPtr = typeof rawPtr === 'bigint' ? Number(rawPtr) : rawPtr;
+      const bigPtr = typeof rawPtr === 'bigint' ? rawPtr : BigInt(rawPtr);
+
       const heap = Module.HEAPU8 ?? (Module.wasmMemory ? new Uint8Array(Module.wasmMemory.buffer) : null);
       if (!heap) throw new Error("WASM memory not accessible — rebuild with HEAPU8 in EXPORTED_RUNTIME_METHODS");
-      heap.set(imgU8, ptr);
-      // Allocate prompt string in WASM memory manually (ccall wraps pointer args as BigInt which breaks things)
+      heap.set(imgU8, numPtr);
+
       const promptStr = m.prompt || "";
       const promptLen = Module.lengthBytesUTF8(promptStr) + 1;
-      const promptPtr = Module._malloc(promptLen);
-      Module.stringToUTF8(promptStr, promptPtr, promptLen);
+      const rawPromptPtr = Module._malloc(promptLen);
+      const numPromptPtr = typeof rawPromptPtr === 'bigint' ? Number(rawPromptPtr) : rawPromptPtr;
+      const bigPromptPtr = typeof rawPromptPtr === 'bigint' ? rawPromptPtr : BigInt(rawPromptPtr);
+      // stringToUTF8 is a runtime helper that expects Number offset
+      Module.stringToUTF8(promptStr, numPromptPtr, promptLen);
       try {
-        // Call directly — _llamatik_vlm_analyze_stream is NOT signature-wrapped so takes plain Numbers
-        Module._llamatik_vlm_analyze_stream(ptr, imgU8.length, promptPtr);
+        // _llamatik_vlm_analyze_stream takes i64 pointer args (BigInt in JS)
+        Module._llamatik_vlm_analyze_stream(bigPtr, BigInt(imgU8.length), bigPromptPtr);
       } finally {
-        // _free IS wrapped with makeWrapper__p so it expects a BigInt
-        Module._free(BigInt(ptr));
-        Module._free(BigInt(promptPtr));
+        try { Module._free(bigPtr); } catch (_) { Module._free(numPtr); }
+        try { Module._free(bigPromptPtr); } catch (_) { Module._free(numPromptPtr); }
       }
       return;
     }

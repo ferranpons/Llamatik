@@ -80,6 +80,28 @@ private fun saveTempForInspection(bytes: ByteArray, suggestedName: String?, ext:
 
 actual fun normalizeToJpegBytes(bytes: ByteArray): ByteArray = bytes
 
+actual fun decodeImageBytesToRgba(bytes: ByteArray): Triple<ByteArray, Int, Int>? {
+    return try {
+        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val w = bmp.width
+        val h = bmp.height
+        val rgba = ByteArray(w * h * 4)
+        var i = 0
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val argb = bmp.getPixel(x, y)
+                rgba[i++] = ((argb shr 16) and 0xFF).toByte()
+                rgba[i++] = ((argb shr 8) and 0xFF).toByte()
+                rgba[i++] = (argb and 0xFF).toByte()
+                rgba[i++] = ((argb shr 24) and 0xFF).toByte()
+            }
+        }
+        Triple(rgba, w, h)
+    } catch (_: Throwable) {
+        null
+    }
+}
+
 /** Very small PPM (P6) parser -> android Bitmap. Assumes 8-bit channels. */
 private fun decodePpmToBitmapAndroid(bytes: ByteArray): android.graphics.Bitmap? {
     try {

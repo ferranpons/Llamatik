@@ -165,6 +165,104 @@ Java_com_llamatik_library_platform_StableDiffusionBridge_txt2img(
     return out;
 }
 
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_com_llamatik_library_platform_StableDiffusionBridge_img2img(
+        JNIEnv * env,
+        jobject,
+        jbyteArray initImageRgba,
+        jint initImageW,
+        jint initImageH,
+        jstring prompt,
+        jstring negativePrompt,
+        jint width,
+        jint height,
+        jint steps,
+        jfloat cfgScale,
+        jfloat strength,
+        jlong seed
+) {
+    if (!g_sd_ctx) {
+        return env->NewByteArray(0);
+    }
+
+    const std::string p = jstring_to_utf8(env, prompt);
+    const std::string n = jstring_to_utf8(env, negativePrompt);
+    if (p.empty()) {
+        return env->NewByteArray(0);
+    }
+
+    jsize initSize = env->GetArrayLength(initImageRgba);
+    jbyte * initBytes = env->GetByteArrayElements(initImageRgba, nullptr);
+    if (!initBytes || initSize == 0) {
+        if (initBytes) env->ReleaseByteArrayElements(initImageRgba, initBytes, JNI_ABORT);
+        return env->NewByteArray(0);
+    }
+
+    const int pixelCount = (int)initImageW * (int)initImageH;
+    uint8_t * initCopy = (uint8_t *) std::malloc((size_t)pixelCount * 4);
+    if (!initCopy) {
+        env->ReleaseByteArrayElements(initImageRgba, initBytes, JNI_ABORT);
+        return env->NewByteArray(0);
+    }
+    std::memcpy(initCopy, initBytes, (size_t)pixelCount * 4);
+    env->ReleaseByteArrayElements(initImageRgba, initBytes, JNI_ABORT);
+
+    sd_img_gen_params_t gen;
+    sd_img_gen_params_init(&gen);
+
+    gen.prompt = p.c_str();
+    gen.negative_prompt = n.c_str();
+    gen.width    = (int) width;
+    gen.height   = (int) height;
+    gen.seed     = (int64_t) seed;
+    gen.strength = (float) strength;
+
+    gen.sample_params.sample_steps = (int) steps;
+    gen.sample_params.guidance.txt_cfg = (float) cfgScale;
+
+    gen.init_image.data    = initCopy;
+    gen.init_image.width   = (uint32_t) initImageW;
+    gen.init_image.height  = (uint32_t) initImageH;
+    gen.init_image.channel = 4;
+
+    sd_image_t * img = generate_image(g_sd_ctx, &gen);
+    std::free(initCopy);
+
+    if (!img || !img->data || img->width == 0 || img->height == 0) {
+        if (img) {
+            if (img->data) std::free(img->data);
+            std::free(img);
+        }
+        return env->NewByteArray(0);
+    }
+
+    const int w = (int) img->width;
+    const int h = (int) img->height;
+    const int ch = (int) img->channel;
+    const int outPixelCount = w * h;
+
+    std::vector<uint8_t> rgba;
+    if (ch == 4) {
+        rgba.assign(img->data, img->data + (size_t)outPixelCount * 4);
+    } else if (ch == 3) {
+        rgba_from_rgb(img->data, outPixelCount, rgba);
+    } else if (ch == 1) {
+        rgba_from_gray(img->data, outPixelCount, rgba);
+    } else {
+        std::free(img->data);
+        std::free(img);
+        return env->NewByteArray(0);
+    }
+
+    std::free(img->data);
+    std::free(img);
+
+    jbyteArray out = env->NewByteArray((jsize) rgba.size());
+    if (!out) return env->NewByteArray(0);
+    env->SetByteArrayRegion(out, 0, (jsize) rgba.size(), (const jbyte*) rgba.data());
+    return out;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_StableDiffusionBridge_release(
         JNIEnv *,

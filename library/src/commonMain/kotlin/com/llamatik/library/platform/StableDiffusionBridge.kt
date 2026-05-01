@@ -35,5 +35,26 @@ expect object StableDiffusionBridge {
         seed: Long = -1L,
     ): ByteArray
 
+    /**
+     * Image-to-image generation. Modifies [initImageRgba] (RGBA, [initImageW]×[initImageH]×4 bytes)
+     * according to [prompt]. [strength] controls how much the original is altered (0.0 = unchanged,
+     * 1.0 = fully replaced by prompt).
+     *
+     * @return RGBA byte array or an empty array on failure.
+     */
+    fun img2img(
+        initImageRgba: ByteArray,
+        initImageW: Int,
+        initImageH: Int,
+        prompt: String,
+        negativePrompt: String? = null,
+        width: Int = 512,
+        height: Int = 512,
+        steps: Int = 20,
+        cfgScale: Float = 7.0f,
+        strength: Float = 0.75f,
+        seed: Long = -1L,
+    ): ByteArray
+
     fun release()
 }

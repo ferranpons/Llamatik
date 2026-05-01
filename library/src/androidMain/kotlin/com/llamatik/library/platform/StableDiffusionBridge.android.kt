@@ -20,5 +20,19 @@ actual object StableDiffusionBridge {
         seed: Long,
     ): ByteArray
 
+    actual external fun img2img(
+        initImageRgba: ByteArray,
+        initImageW: Int,
+        initImageH: Int,
+        prompt: String,
+        negativePrompt: String?,
+        width: Int,
+        height: Int,
+        steps: Int,
+        cfgScale: Float,
+        strength: Float,
+        seed: Long,
+    ): ByteArray
+
     actual external fun release()
 }
