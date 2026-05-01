@@ -817,8 +817,13 @@ char *llama_generate(const char *prompt) {
     session_hard_reset_context();
 
     std::string wrapped;
-    if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
-        wrapped = build_plain_prompt("", prompt);
+    {
+        const std::string ps(prompt);
+        if (looks_like_chat_formatted_prompt(ps)) {
+            wrapped = ps;
+        } else if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
+            wrapped = build_plain_prompt("", prompt);
+        }
     }
 
     const llama_vocab *v = llama_model_get_vocab(gen_model);
@@ -1089,7 +1094,10 @@ void llama_generate_stream(const char *prompt,
     session_hard_reset_context();
 
     std::string wrapped;
-    if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
+    const std::string prompt_str(prompt);
+    if (looks_like_chat_formatted_prompt(prompt_str)) {
+        wrapped = prompt_str;
+    } else if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
         wrapped = build_plain_prompt("", prompt);
     }
 
@@ -1707,8 +1715,13 @@ void llama_session_stream(int64_t handle,
     llama_memory_clear(llama_get_memory(ss->ctx), false);
 
     std::string wrapped;
-    if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
-        wrapped = build_plain_prompt("", prompt);
+    {
+        const std::string ps(prompt);
+        if (looks_like_chat_formatted_prompt(ps)) {
+            wrapped = ps;
+        } else if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
+            wrapped = build_plain_prompt("", prompt);
+        }
     }
 
     const llama_vocab *v = llama_model_get_vocab(gen_model);

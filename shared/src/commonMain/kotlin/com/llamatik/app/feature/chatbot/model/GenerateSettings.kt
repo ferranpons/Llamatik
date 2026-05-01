@@ -2,7 +2,7 @@ package com.llamatik.app.feature.chatbot.model
 
 data class GenerateSettings(
     val temperature: Float = 0.7f,
-    val maxTokens: Int = 256,
+    val maxTokens: Int = 1024,
     val topP: Float = 0.95f,
     val topK: Int = 40,
     val repeatPenalty: Float = 1.1f,
