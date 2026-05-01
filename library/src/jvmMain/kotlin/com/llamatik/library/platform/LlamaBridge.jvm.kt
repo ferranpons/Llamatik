@@ -154,6 +154,18 @@ actual object LlamaBridge {
         return nativeApplyChatTemplate(getModelChatTemplate(), roles, contents, addAssistantPrefix)
     }
 
+    // ===================== Concurrent sessions (JNI) =====================
+    internal external fun nativeCreateSession(): Long
+    internal external fun nativeCloseSession(handle: Long)
+    internal external fun nativeSessionStream(handle: Long, prompt: String, callback: GenStream)
+    internal external fun nativeSessionCancel(handle: Long)
+
+    actual fun createSession(): LlamaSession? {
+        val handle = nativeCreateSession()
+        if (handle < 0L) return null
+        return LlamaSession(handle)
+    }
+
     actual external fun shutdown()
     actual external fun nativeCancelGenerate()
 

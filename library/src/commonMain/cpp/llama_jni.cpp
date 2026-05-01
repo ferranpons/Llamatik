@@ -16,6 +16,9 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdarg>   // va_list, va_start, va_end
+#include <mutex>
+#include <unordered_map>
+#include <cinttypes>   // PRId64
 
 #if defined(__APPLE__)
 #include <cstdlib>   // setenv
@@ -114,6 +117,31 @@ static void session_hard_reset() {
 
 static bool session_is_active() {
     return gen_ctx != nullptr && g_n_past > 0 && !g_session_tokens.empty();
+}
+
+// ===================================================================================
+//                         PER-SESSION CONCURRENT STATE
+//
+// Each LlamaSession handle is a unique int64 key. The session owns its own
+// llama_context (and shares the already-loaded gen_model). Inference on separate
+// sessions can run concurrently because each has its own KV cache.
+// ===================================================================================
+
+struct SessionState {
+    llama_context *ctx   = nullptr;
+    std::atomic<bool> cancel{false};
+    std::vector<llama_token> session_tokens;
+    int n_past = 0;
+};
+
+static std::mutex              g_sessions_mutex;
+static std::unordered_map<int64_t, SessionState *> g_sessions;
+static std::atomic<int64_t>    g_next_session_id{1};
+
+static SessionState *session_get(int64_t handle) {
+    std::lock_guard<std::mutex> lk(g_sessions_mutex);
+    auto it = g_sessions.find(handle);
+    return it != g_sessions.end() ? it->second : nullptr;
 }
 
 // ===================================================================================
@@ -443,6 +471,16 @@ Java_com_llamatik_library_platform_LlamaBridge_embed(JNIEnv *env, jobject, jstri
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_shutdown(JNIEnv *, jobject) {
+    // Close all concurrent sessions
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        for (auto &kv : g_sessions) {
+            if (kv.second->ctx) llama_free(kv.second->ctx);
+            delete kv.second;
+        }
+        g_sessions.clear();
+    }
+
     // Embeddings/generation helper state
     llama_embed_free();
     llama_generate_free();
@@ -1244,6 +1282,202 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinue(JNIEnv *en
     llama_sampler_free(sampler);
     llama_batch_free(batch);
     return env->NewStringUTF(result.c_str());
+}
+
+// ===================================================================================
+//                        CONCURRENT SESSION JNI API
+// ===================================================================================
+
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeCreateSession(
+        JNIEnv * /*env*/, jobject /*thiz*/) {
+    if (!gen_model) {
+        LOGE("nativeCreateSession: gen_model not loaded");
+        return -1L;
+    }
+
+    llama_context_params cparams = llama_context_default_params();
+    cparams.embeddings   = false;
+    cparams.n_ctx        = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_threads    = g_num_threads.load(std::memory_order_relaxed);
+    cparams.n_batch      = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+
+    llama_context *ctx = llama_init_from_model(gen_model, cparams);
+    if (!ctx) {
+        LOGE("nativeCreateSession: llama_init_from_model failed");
+        return -1L;
+    }
+
+    int64_t handle = g_next_session_id.fetch_add(1, std::memory_order_relaxed);
+    auto *ss = new SessionState();
+    ss->ctx = ctx;
+
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        g_sessions[handle] = ss;
+    }
+
+    LOGI("nativeCreateSession: handle=%" PRId64 " n_ctx=%u", handle, (unsigned)llama_n_ctx(ctx));
+    return handle;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeCloseSession(
+        JNIEnv * /*env*/, jobject /*thiz*/, jlong handle) {
+    SessionState *ss = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        auto it = g_sessions.find((int64_t)handle);
+        if (it == g_sessions.end()) return;
+        ss = it->second;
+        g_sessions.erase(it);
+    }
+    if (ss) {
+        if (ss->ctx) llama_free(ss->ctx);
+        delete ss;
+    }
+    LOGI("nativeCloseSession: handle=%" PRId64, (int64_t)handle);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
+        JNIEnv *env, jobject /*thiz*/, jlong handle, jstring jPrompt, jobject jCallback) {
+
+    if (!jPrompt || !jCallback) return;
+
+    SessionState *ss = session_get((int64_t)handle);
+    if (!ss || !ss->ctx || !gen_model) {
+        StreamMethods m{};
+        if (resolve_stream_methods(env, jCallback, m)) {
+            env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("session not valid"));
+        }
+        return;
+    }
+
+    StreamMethods m{};
+    if (!resolve_stream_methods(env, jCallback, m)) {
+        LOGE("nativeSessionStream: failed to resolve callback methods");
+        return;
+    }
+
+    const char *prompt = env->GetStringUTFChars(jPrompt, nullptr);
+    if (!prompt) {
+        env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("prompt decode failed"));
+        return;
+    }
+
+    ss->cancel.store(false, std::memory_order_relaxed);
+    llama_memory_clear(llama_get_memory(ss->ctx), false);
+
+    const llama_vocab *vocab = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(vocab, prompt, tokens, /*add_bos*/ true, /*parse_special*/ true);
+    env->ReleaseStringUTFChars(jPrompt, prompt);
+
+    if (n_tokens <= 0) {
+        env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("tokenization failed"));
+        return;
+    }
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(ss->ctx);
+    if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+
+    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
+    batch.n_tokens = (int)tokens.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i]    = (i == batch.n_tokens - 1);
+    }
+    if (llama_decode(ss->ctx, batch) != 0) {
+        llama_batch_free(batch);
+        env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed on prompt"));
+        return;
+    }
+
+    float temperature    = g_temperature.load();
+    float top_p          = g_top_p.load();
+    int   top_k          = g_top_k.load();
+    float repeat_penalty = g_repeat_penalty.load();
+    int   max_new_tokens = g_max_new_tokens.load();
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    int cur_pos = batch.n_tokens;
+    char piece_buf[768];
+    char spec_buf[64];
+
+    for (int i = 0; i < max_new_tokens; ++i) {
+        if (ss->cancel.load(std::memory_order_relaxed)) break;
+
+        llama_token tok = llama_sampler_sample(sampler, ss->ctx, -1);
+        if (tok < 0) break;
+        if (tok == llama_vocab_eos(vocab)) break;
+        if (tok == llama_vocab_eot(vocab)) break;
+
+        int sn = llama_token_to_piece(vocab, tok, spec_buf, (int)sizeof(spec_buf), 0, 1);
+        if (sn > 0) {
+            spec_buf[std::min(sn, (int)sizeof(spec_buf) - 1)] = '\0';
+            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0) break;
+        }
+
+        llama_sampler_accept(sampler, tok);
+
+        int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
+        if (nn > 0) {
+            piece_buf[std::min(nn, (int)sizeof(piece_buf) - 1)] = '\0';
+            jstring delta = env->NewStringUTF(piece_buf);
+            if (delta) {
+                env->CallVoidMethod(jCallback, m.onDelta, delta);
+                env->DeleteLocalRef(delta);
+            }
+        }
+
+        if (cur_pos >= n_ctx) break;
+
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1;
+        step.token[0] = tok;
+        step.pos[0]   = cur_pos++;
+        step.n_seq_id[0] = 1;
+        step.seq_id[0][0] = 0;
+        step.logits[0] = true;
+
+        if (llama_decode(ss->ctx, step) != 0) {
+            llama_batch_free(step);
+            env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed mid-stream"));
+            llama_sampler_free(sampler);
+            llama_batch_free(batch);
+            return;
+        }
+        llama_batch_free(step);
+    }
+
+    llama_sampler_free(sampler);
+    llama_batch_free(batch);
+    env->CallVoidMethod(jCallback, m.onComplete);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeSessionCancel(
+        JNIEnv * /*env*/, jobject /*thiz*/, jlong handle) {
+    SessionState *ss = session_get((int64_t)handle);
+    if (ss) ss->cancel.store(true, std::memory_order_relaxed);
 }
 
 // ===================================================================================

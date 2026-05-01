@@ -26,6 +26,7 @@ import com.llamatik.library.platform.llama.llama_generate_set_params
 import com.llamatik.library.platform.llama.llama_generate_stream
 import com.llamatik.library.platform.llama.llama_get_model_chat_template
 import com.llamatik.library.platform.llama.llama_get_model_finetune_type
+import com.llamatik.library.platform.llama.llama_session_create
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
@@ -528,6 +529,12 @@ actual object LlamaBridge {
                 ?: return null
             return try { result.toKString() } finally { free(result) }
         }
+    }
+
+    actual fun createSession(): LlamaSession? {
+        val handle = llama_session_create()
+        if (handle < 0L) return null
+        return LlamaSession(handle)
     }
 
     actual fun nativeCancelGenerate() {

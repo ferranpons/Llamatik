@@ -82,6 +82,13 @@ expect object LlamaBridge {
      */
     fun applyChatTemplate(messages: List<Pair<String, String>>, addAssistantPrefix: Boolean): String?
 
+    /**
+     * Create a new independent inference session backed by the already-loaded generate model.
+     * Returns null if the model is not yet loaded.
+     * Each session has its own KV cache, so multiple sessions may run concurrently.
+     */
+    fun createSession(): LlamaSession?
+
     fun shutdown()
 
     fun nativeCancelGenerate()

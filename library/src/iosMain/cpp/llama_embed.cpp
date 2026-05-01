@@ -15,6 +15,9 @@
 #include <atomic>
 #include <filesystem>
 #include <set>
+#include <mutex>
+#include <unordered_map>
+#include <cinttypes>
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -605,6 +608,25 @@ static void session_append_prompt_tokens_continue(const std::vector<llama_token>
 
 static bool session_is_active() {
     return gen_ctx != nullptr && gen_n_past > 0 && !gen_session_tokens.empty();
+}
+
+// ===================== Per-session concurrent state =====================
+
+struct IosSessionState {
+    llama_context *ctx = nullptr;
+    std::atomic<bool> cancel{false};
+    std::vector<llama_token> session_tokens;
+    int n_past = 0;
+};
+
+static std::mutex                                    g_sessions_mutex;
+static std::unordered_map<int64_t, IosSessionState*> g_sessions;
+static std::atomic<int64_t>                          g_next_session_id{1};
+
+static IosSessionState *session_get_ios(int64_t handle) {
+    std::lock_guard<std::mutex> lk(g_sessions_mutex);
+    auto it = g_sessions.find(handle);
+    return it != g_sessions.end() ? it->second : nullptr;
 }
 
 // ===================== C API =====================
@@ -1583,6 +1605,15 @@ char *llama_generate_continue(const char *prompt) {
 }
 
 void llama_generate_free(void) {
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        for (auto &kv : g_sessions) {
+            if (kv.second->ctx) llama_free(kv.second->ctx);
+            delete kv.second;
+        }
+        g_sessions.clear();
+    }
+
     if (gen_ctx)   llama_free(gen_ctx);
     if (gen_model) llama_model_free(gen_model);
     gen_ctx   = nullptr;
@@ -1637,6 +1668,208 @@ char *llama_apply_chat_template(
                               add_assistant_prefix, buf, needed);
     buf[needed] = '\0';
     return buf;
+}
+
+// ===================== Concurrent session API =====================
+
+int64_t llama_session_create(void) {
+    if (!gen_model) {
+        DBG("llama_session_create: gen_model not loaded");
+        return -1;
+    }
+
+    llama_context_params ctx_params = llama_context_default_params();
+    ctx_params.embeddings = false;
+    ctx_params.n_ctx      = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    ctx_params.n_threads  = g_num_threads.load(std::memory_order_relaxed);
+    ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+
+    llama_context *sctx = llama_init_from_model(gen_model, ctx_params);
+    if (!sctx) {
+        DBG("llama_session_create: llama_init_from_model failed");
+        return -1;
+    }
+
+    int64_t handle = g_next_session_id.fetch_add(1, std::memory_order_relaxed);
+    auto *ss = new IosSessionState();
+    ss->ctx = sctx;
+
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        g_sessions[handle] = ss;
+    }
+
+    DBG("llama_session_create: handle=%" PRId64, handle);
+    return handle;
+}
+
+void llama_session_close(int64_t handle) {
+    IosSessionState *ss = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        auto it = g_sessions.find(handle);
+        if (it == g_sessions.end()) return;
+        ss = it->second;
+        g_sessions.erase(it);
+    }
+    if (ss) {
+        if (ss->ctx) llama_free(ss->ctx);
+        delete ss;
+    }
+    DBG("llama_session_close: handle=%" PRId64, handle);
+}
+
+void llama_session_stream(int64_t handle,
+        const char *prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+
+    IosSessionState *ss = session_get_ios(handle);
+    if (!ss || !ss->ctx || !gen_model || !prompt) {
+        if (on_error) on_error("session not valid", user);
+        return;
+    }
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    ss->cancel.store(false, std::memory_order_relaxed);
+    llama_memory_clear(llama_get_memory(ss->ctx), false);
+
+    std::string wrapped;
+    if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) {
+        wrapped = build_plain_prompt("", prompt);
+    }
+
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ true, /*parse_special*/ true);
+    if (n_tokens <= 0) {
+        if (on_error) on_error("tokenize failed", user);
+        return;
+    }
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(ss->ctx);
+    if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+
+    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
+    batch.n_tokens = (int)tokens.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i]     = tokens[i];
+        batch.pos[i]       = i;
+        batch.n_seq_id[i]  = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i]    = (i == batch.n_tokens - 1);
+    }
+
+    if (llama_decode(ss->ctx, batch) != 0) {
+        llama_batch_free(batch);
+        if (on_error) on_error("decode failed", user);
+        return;
+    }
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) {
+        llama_batch_free(batch);
+        if (on_error) on_error("sampler init failed", user);
+        return;
+    }
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    int cur_pos = batch.n_tokens;
+    const int safety = 16;
+    int remaining_ctx = n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
+
+    std::string assembled;
+    size_t start_idx = std::string::npos;
+    size_t sent_from_start = 0;
+    assembled.reserve(4096);
+
+    for (int i = 0; i < max_new_tokens; ++i) {
+        if (ss->cancel.load(std::memory_order_relaxed)) break;
+
+        llama_token tok = llama_sampler_sample(sampler, ss->ctx, -1);
+        if (tok < 0) break;
+        if (llama_vocab_is_eog(v, tok)) break;
+        if (tok == llama_vocab_eot(v)) break;
+
+        char spiece[64];
+        int nn = llama_token_to_piece(v, tok, spiece, (int)sizeof(spiece), 0, /*special*/ true);
+        if (nn > 0) {
+            if (nn >= (int)sizeof(spiece)) spiece[sizeof(spiece)-1] = '\0';
+            else spiece[nn] = '\0';
+            if (std::strcmp(spiece, "<|eot_id|>") == 0 ||
+                    std::strcmp(spiece, "<end_of_turn>") == 0 ||
+                    std::strcmp(spiece, "</s>") == 0 ||
+                    std::strcmp(spiece, "<start_of_turn>") == 0) break;
+        }
+
+        llama_sampler_accept(sampler, tok);
+
+        char piece[256];
+        int nout = llama_token_to_piece(v, tok, piece, (int)sizeof(piece), 0, /*special*/ false);
+        if (nout > 0) {
+            if (nout >= (int)sizeof(piece)) piece[sizeof(piece)-1] = '\0';
+            assembled.append(piece, nout);
+
+            if (start_idx == std::string::npos) {
+                start_idx = find_stream_start(assembled);
+            }
+
+            if (start_idx != std::string::npos && assembled.size() > start_idx + sent_from_start) {
+                const std::string_view delta(
+                        assembled.data() + start_idx + sent_from_start,
+                        assembled.size() - (start_idx + sent_from_start));
+                if (on_delta && !delta.empty()) {
+                    std::string out_str(delta);
+                    on_delta(out_str.c_str(), user);
+                }
+                sent_from_start += delta.size();
+            }
+        }
+
+        if (cur_pos >= n_ctx) break;
+
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1;
+        step.token[0] = tok;
+        step.pos[0]   = cur_pos;
+        step.n_seq_id[0] = 1;
+        step.seq_id[0][0] = 0;
+        step.logits[0] = true;
+
+        if (llama_decode(ss->ctx, step) != 0) {
+            llama_batch_free(step);
+            break;
+        }
+        cur_pos++;
+        llama_batch_free(step);
+    }
+
+    llama_batch_free(batch);
+    llama_sampler_free(sampler);
+
+    if (on_done) on_done(user);
+}
+
+void llama_session_cancel(int64_t handle) {
+    IosSessionState *ss = session_get_ios(handle);
+    if (ss) ss->cancel.store(true, std::memory_order_relaxed);
 }
 
 } // extern "C"
