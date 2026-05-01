@@ -61,6 +61,7 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ Embeddings for vector search & RAG
 - ✅ Configurable context length, threads, mmap, Flash Attention
 - ✅ KV cache session save / load / continue
+- ✅ **Concurrent sessions** — run multiple independent inference contexts simultaneously via `LlamaSession`
 - ✅ Model metadata introspection (`getModelFinetuneType` — detect base vs instruction-tuned)
 - ✅ Chat template introspection and rendering (`getModelChatTemplate` / `applyChatTemplate`)
 - ✅ Fine-grained sampling controls (temperature, top-k, top-p, repeat penalty, max tokens)
@@ -170,7 +171,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:1.2.0")
+    implementation("com.llamatik:library:1.3.0")
 }
 ```
 
@@ -287,6 +288,9 @@ expect object LlamaBridge {
     fun sessionLoad(path: String): Boolean            // restore KV state from file
     fun generateContinue(prompt: String): String      // generate using existing KV cache
 
+    // Concurrent sessions — each session owns an isolated KV cache; model weights are shared
+    fun createSession(): LlamaSession?                // null on WASM (not supported)
+
     // Generation parameters (applied on next generate call)
     fun updateGenerateParams(
         temperature: Float,       // randomness (0.0–2.0)
@@ -308,6 +312,13 @@ interface GenStream {
     fun onDelta(text: String)
     fun onComplete()
     fun onError(message: String)
+}
+
+// Concurrent session handle — created via LlamaBridge.createSession()
+expect class LlamaSession {
+    fun stream(prompt: String, callback: GenStream)  // run inference in this session's context
+    fun cancel()                                     // cancel the in-progress stream
+    fun close()                                      // release native KV cache resources
 }
 ```
 
@@ -348,6 +359,32 @@ val continuation = LlamaBridge.generateContinue("What about multiplatform suppor
 // Reset state without unloading the model
 LlamaBridge.sessionReset()
 ```
+
+### Concurrent Sessions
+
+`LlamaBridge.createSession()` returns a `LlamaSession` handle that owns an **isolated KV cache context**. The model weights (`gen_model`) are shared across all sessions, so loading the model once is sufficient regardless of how many sessions you create. Each session can run inference independently and concurrently on any thread.
+
+```kotlin
+// Load the model once
+LlamaBridge.initGenerateModel(modelPath)
+
+// Create two independent sessions
+val sessionA = LlamaBridge.createSession() ?: error("Session creation failed")
+val sessionB = LlamaBridge.createSession() ?: error("Session creation failed")
+
+// Run them concurrently (e.g. launch in separate coroutines)
+launch { sessionA.stream("Tell me about Kotlin.", callback = agentACallback) }
+launch { sessionB.stream("Explain coroutines.", callback = agentBCallback) }
+
+// Cancel an in-progress session
+sessionA.cancel()
+
+// Always close sessions when done to free native KV cache memory
+sessionA.close()
+sessionB.close()
+```
+
+`createSession()` returns `null` on WASM (concurrent sessions are not supported in the single-threaded WebAssembly environment — use `LlamaBridge.generateStream()` there instead).
 
 ### Model Metadata
 
