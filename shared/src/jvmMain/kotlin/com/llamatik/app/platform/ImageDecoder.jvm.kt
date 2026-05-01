@@ -63,6 +63,28 @@ actual fun decodeImageBytesToImageBitmap(bytes: ByteArray, suggestedFileName: St
 
 actual fun normalizeToJpegBytes(bytes: ByteArray): ByteArray = bytes
 
+actual fun decodeImageBytesToRgba(bytes: ByteArray): Triple<ByteArray, Int, Int>? {
+    return try {
+        val img = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
+        val w = img.width
+        val h = img.height
+        val rgba = ByteArray(w * h * 4)
+        var i = 0
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val argb = img.getRGB(x, y)
+                rgba[i++] = ((argb shr 16) and 0xFF).toByte()
+                rgba[i++] = ((argb shr 8) and 0xFF).toByte()
+                rgba[i++] = (argb and 0xFF).toByte()
+                rgba[i++] = ((argb shr 24) and 0xFF).toByte()
+            }
+        }
+        Triple(rgba, w, h)
+    } catch (_: Throwable) {
+        null
+    }
+}
+
 private fun ByteArray.startsWith(prefix: ByteArray): Boolean {
     if (this.size < prefix.size) return false
     for (i in prefix.indices) if (this[i] != prefix[i]) return false

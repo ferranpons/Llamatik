@@ -37,6 +37,7 @@ import com.llamatik.app.platform.AppDispatchersIO
 import com.llamatik.app.platform.AppStorage
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.PlatformInfo
+import com.llamatik.app.platform.decodeImageBytesToRgba
 import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.normalizeToJpegBytes
@@ -77,7 +78,7 @@ Be clear, honest, and concise. Answer in the user's language.
 """
 
 private const val PDF_RAG_STORE_PATH = "rag/pdf_rag_store.json"
-enum class GenerationMode { TEXT, IMAGE, VISION }
+enum class GenerationMode { TEXT, IMAGE, IMAGE_TO_IMAGE, VISION }
 const val COSINE_THRESHOLD = 0.15
 
 class ChatBotViewModel(
@@ -629,7 +630,11 @@ class ChatBotViewModel(
     }
 
     fun setGenerationMode(mode: GenerationMode) {
-        _state.value = _state.value.copy(generationMode = mode)
+        _state.value = _state.value.copy(
+            generationMode = mode,
+            pendingImg2ImgBytes = if (mode == GenerationMode.TEXT || mode == GenerationMode.VISION) null
+            else _state.value.pendingImg2ImgBytes
+        )
     }
 
     fun onStableDiffusionModelSelected(model: LlamaModel) {
@@ -653,9 +658,17 @@ class ChatBotViewModel(
     fun onVlmModelSelected(model: LlamaModel) {
         screenModelScope.launch(AppDispatchersIO) {
             val path = resolveAndMigratePath(model) ?: return@launch
-            val mmprojPath = resolveAndMigrateMmprojPath(model) ?: run {
-                Logger.e { "LlamaVM - no mmproj path for VLM model ${model.name}" }
-                _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoadError)
+            val mmprojPath = resolveAndMigrateMmprojPath(model)
+            if (mmprojPath == null) {
+                // mmproj not downloaded yet — start the download if there's a URL
+                val mmprojUrl = model.mmprojUrl
+                if (mmprojUrl != null) {
+                    Logger.d { "LlamaVM - mmproj not available for ${model.name}, triggering download" }
+                    downloadMmprojIfNeeded(model, mmprojUrl, path)
+                } else {
+                    Logger.e { "LlamaVM - no mmproj path for VLM model ${model.name}" }
+                    _sideEffects.trySend(ChatBotSideEffects.OnVlmModelLoadError)
+                }
                 return@launch
             }
 
@@ -691,6 +704,124 @@ class ChatBotViewModel(
             pendingVisionImageBytes = null,
             generationMode = GenerationMode.TEXT
         )
+    }
+
+    /** Pick an image for image-to-image generation. */
+    fun onPickImg2ImgImage() {
+        screenModelScope.launch {
+            try {
+                val file = FileKit.openFilePicker() ?: return@launch
+                val ext = file.name.substringAfterLast('.', "").lowercase()
+                if (ext !in setOf("jpg", "jpeg", "png", "bmp", "webp", "heic", "heif")) return@launch
+                val normalized = normalizeToJpegBytes(file.readBytes())
+                _state.value = _state.value.copy(
+                    pendingImg2ImgBytes = normalized,
+                    generationMode = GenerationMode.IMAGE_TO_IMAGE
+                )
+            } catch (_: Throwable) {}
+        }
+    }
+
+    /** Clear the pending img2img source image and return to IMAGE mode. */
+    fun onClearPendingImg2ImgImage() {
+        _state.value = _state.value.copy(
+            pendingImg2ImgBytes = null,
+            generationMode = GenerationMode.IMAGE
+        )
+    }
+
+    fun onImg2ImgStrengthChanged(strength: Float) {
+        _state.value = _state.value.copy(img2ImgStrength = strength)
+    }
+
+    @OptIn(ExperimentalTime::class)
+    fun onImg2ImgSend(prompt: String) {
+        if (_state.value.isGenerating) {
+            Logger.d { "LlamaVM - onImg2ImgSend ignored because generation is already active" }
+            return
+        }
+
+        val input = prompt.trim()
+        if (input.isBlank()) return
+
+        val encodedBytes = _state.value.pendingImg2ImgBytes ?: return
+        val strength = _state.value.img2ImgStrength
+
+        screenModelScope.launch {
+            if (!_state.value.isTemporaryChat && currentChatId == null) {
+                currentChatId = kotlin.random.Random.nextLong().toString()
+            }
+
+            _conversation.value += ChatUiModel.Message(input, ChatUiModel.Author.me)
+            _sideEffects.trySend(ChatBotSideEffects.OnMessageLoading)
+            _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+            _state.value = _state.value.copy(
+                isGenerating = true,
+                pendingImg2ImgBytes = null,
+            )
+
+            withContext(AppDispatchersIO) {
+                try {
+                    persistCurrentConversationIfNeeded()
+
+                    _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
+
+                    if (!_state.value.isStableDiffusionModelLoaded) {
+                        updateLastBotMessage(localization.imageModeEnabledButNoModelLoadedError)
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        return@withContext
+                    }
+
+                    val decoded = decodeImageBytesToRgba(encodedBytes)
+                    if (decoded == null) {
+                        updateLastBotMessage(localization.imageGenerationFailedError)
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        return@withContext
+                    }
+                    val (initRgba, initW, initH) = decoded
+
+                    fun snapTo64(v: Int) = (v.coerceIn(64, 1024) / 64) * 64
+                    val outW = snapTo64(initW)
+                    val outH = snapTo64(initH)
+
+                    val rgbaBytes = StableDiffusionBridge.img2img(
+                        initImageRgba = initRgba,
+                        initImageW = initW,
+                        initImageH = initH,
+                        prompt = input,
+                        negativePrompt = "",
+                        width = outW,
+                        height = outH,
+                        steps = 20,
+                        strength = strength,
+                        seed = -1,
+                    )
+
+                    if (rgbaBytes.isEmpty()) {
+                        updateLastBotMessage(localization.imageGenerationFailedError)
+                    } else {
+                        val fileName = "img2img_${Random.nextInt()}_${System.now().toString().replace(":", "_")}.png"
+                        updateLastBotImageRgba(
+                            rgbaBytes = rgbaBytes,
+                            width = outW,
+                            height = outH,
+                            fileName = fileName,
+                        )
+                    }
+
+                    persistCurrentConversationIfNeeded()
+                } catch (t: Throwable) {
+                    Logger.e(t.message ?: localization.imageGenerationError)
+                    updateLastBotMessage("🖼️ Error: ${t.message ?: "unknown"}")
+                } finally {
+                    _state.value = _state.value.copy(isGenerating = false)
+                    _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                    _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                }
+            }
+        }
     }
 
     @OptIn(ExperimentalTime::class)
@@ -1953,6 +2084,8 @@ data class ChatBotState(
     val isTemporaryChat: Boolean = false,
     val generationMode: GenerationMode = GenerationMode.TEXT,
     val pendingVisionImageBytes: ByteArray? = null,
+    val pendingImg2ImgBytes: ByteArray? = null,
+    val img2ImgStrength: Float = 0.75f,
 
     val ragPdfFileName: String? = null,
     val isRagIndexing: Boolean = false,

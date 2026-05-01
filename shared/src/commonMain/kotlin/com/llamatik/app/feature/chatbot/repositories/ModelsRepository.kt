@@ -52,7 +52,7 @@ class ModelsRepository(private val service: ServiceClient) {
                 val totalBytes = httpResponse.contentLength() ?: -1L
                 var downloaded = 0L
 
-                Logger.d("${localization.downloading} ${httpResponse.contentLength()} bytes")
+                Logger.d("${localization.downloading} ${if (totalBytes > 0) "$totalBytes bytes" else "unknown size"}")
 
                 if (PlatformInfo.isWasm) {
                     // overwrite/reset any previous partial file for this name

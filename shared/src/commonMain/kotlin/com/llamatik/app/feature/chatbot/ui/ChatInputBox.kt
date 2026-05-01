@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -85,9 +86,11 @@ fun ChatInputBox(
     isTranscribing: Boolean,
     onMicClick: () -> Unit,
 ) {
-    // If SD is not loaded, force TEXT mode (prevents getting stuck in IMAGE mode)
+    // If SD is not loaded, force TEXT mode (prevents getting stuck in IMAGE / IMAGE_TO_IMAGE mode)
     LaunchedEffect(state.isStableDiffusionModelLoaded) {
-        if (!state.isStableDiffusionModelLoaded && state.generationMode == GenerationMode.IMAGE) {
+        if (!state.isStableDiffusionModelLoaded &&
+            (state.generationMode == GenerationMode.IMAGE || state.generationMode == GenerationMode.IMAGE_TO_IMAGE)
+        ) {
             viewModel.setGenerationMode(GenerationMode.TEXT)
         }
     }
@@ -120,6 +123,7 @@ fun ChatInputBox(
                                     when (state.generationMode) {
                                         GenerationMode.TEXT -> viewModel.onMessageSendDirect(message)
                                         GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
+                                        GenerationMode.IMAGE_TO_IMAGE -> viewModel.onImg2ImgSend(message)
                                         GenerationMode.VISION -> viewModel.onMessageSendDirect(message)
                                     }
                                     showSuggestions.value = false
@@ -253,6 +257,73 @@ fun ChatInputBox(
                             }
                         }
 
+                        // Pending img2img source image indicator + strength slider
+                        if (state.generationMode == GenerationMode.IMAGE_TO_IMAGE && state.pendingImg2ImgBytes != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = LlamatikIcons.Image,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.size(6.dp))
+                                        Text(
+                                            text = "${state.pendingImg2ImgBytes.size / 1024} KB",
+                                            style = Typography.get().labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.onClearPendingImg2ImgImage() },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = LlamatikIcons.Close,
+                                            contentDescription = "Remove image",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "Strength",
+                                        style = Typography.get().labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Slider(
+                                        value = state.img2ImgStrength,
+                                        onValueChange = { viewModel.onImg2ImgStrengthChanged(it) },
+                                        valueRange = 0.1f..1.0f,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(horizontal = 8.dp)
+                                    )
+                                    Text(
+                                        text = (kotlin.math.round(state.img2ImgStrength * 100) / 100.0).toString().let {
+                                            if ('.' !in it) "$it.00"
+                                            else it.substringBefore('.') + "." + (it.substringAfter('.') + "00").take(2)
+                                        },
+                                        style = Typography.get().labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+
                         val ragName = state.ragPdfFileName
                         if (ragName != null) {
                             Row(
@@ -316,7 +387,9 @@ fun ChatInputBox(
                             ),
                             keyboardActions = KeyboardActions(
                                 onSend = {
-                                    if (!isGenerating && canSend) {
+                                    val img2ImgCanSend = state.generationMode == GenerationMode.IMAGE_TO_IMAGE &&
+                                            state.pendingImg2ImgBytes != null && canSend
+                                    if (!isGenerating && (canSend || img2ImgCanSend)) {
                                         val message = input.text.trim()
                                         onInputChange(TextFieldValue())
                                         when (state.generationMode) {
@@ -331,6 +404,7 @@ fun ChatInputBox(
                                             }
 
                                             GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
+                                            GenerationMode.IMAGE_TO_IMAGE -> viewModel.onImg2ImgSend(message)
                                             GenerationMode.VISION -> viewModel.onVisionMessageSend(message)
                                         }
                                         showSuggestions.value = false
@@ -404,11 +478,12 @@ fun ChatInputBox(
                             }
 
                             if (state.isStableDiffusionModelLoaded) {
+                                val isInSdMode = state.generationMode == GenerationMode.IMAGE ||
+                                        state.generationMode == GenerationMode.IMAGE_TO_IMAGE
                                 IconButton(
                                     onClick = {
-                                        val next =
-                                            if (state.generationMode == GenerationMode.TEXT) GenerationMode.IMAGE
-                                            else GenerationMode.TEXT
+                                        val next = if (state.generationMode == GenerationMode.TEXT) GenerationMode.IMAGE
+                                        else GenerationMode.TEXT
                                         viewModel.setGenerationMode(next)
                                     },
                                     enabled = !isGenerating && !isTranscribing,
@@ -419,17 +494,37 @@ fun ChatInputBox(
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                 ) {
                                     Icon(
-                                        imageVector = if (state.generationMode == GenerationMode.TEXT) {
-                                            LlamatikIcons.Image
-                                        } else {
-                                            LlamatikIcons.Text
-                                        },
-                                        contentDescription =
-                                            if (state.generationMode == GenerationMode.TEXT) localization.imageGeneration else localization.textGeneration,
+                                        imageVector = if (!isInSdMode) LlamatikIcons.Image else LlamatikIcons.Text,
+                                        contentDescription = if (!isInSdMode) localization.imageGeneration else localization.textGeneration,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 Spacer(modifier = Modifier.size(6.dp))
+
+                                // When in IMAGE mode, show a button to pick a source image for img2img
+                                if (state.generationMode == GenerationMode.IMAGE || state.generationMode == GenerationMode.IMAGE_TO_IMAGE) {
+                                    val hasImg2ImgSource = state.pendingImg2ImgBytes != null
+                                    IconButton(
+                                        onClick = { viewModel.onPickImg2ImgImage() },
+                                        enabled = !isGenerating && !isTranscribing,
+                                        modifier = Modifier
+                                            .padding(end = 6.dp)
+                                            .size(BUTTON_SIZE.dp)
+                                            .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
+                                            .background(
+                                                if (hasImg2ImgSource) MaterialTheme.colorScheme.primaryContainer
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                    ) {
+                                        Icon(
+                                            imageVector = LlamatikIcons.Edit,
+                                            contentDescription = "Pick source image for editing",
+                                            tint = if (hasImg2ImgSource) MaterialTheme.colorScheme.onPrimaryContainer
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.size(6.dp))
+                                }
                             }
 
                             if (state.isVlmModelLoaded) {
@@ -501,7 +596,10 @@ fun ChatInputBox(
                             } else {
                                 val visionCanSend = state.generationMode == GenerationMode.VISION &&
                                         state.pendingVisionImageBytes != null
-                                if (canSend || visionCanSend) {
+                                val img2ImgCanSend = state.generationMode == GenerationMode.IMAGE_TO_IMAGE &&
+                                        state.pendingImg2ImgBytes != null && canSend
+                                val anySendEnabled = canSend || visionCanSend || img2ImgCanSend
+                                if (anySendEnabled) {
                                     IconButton(
                                         onClick = {
                                             val message = input.text.trim()
@@ -518,24 +616,25 @@ fun ChatInputBox(
                                                 }
 
                                                 GenerationMode.IMAGE -> viewModel.onImagePromptSendDirect(message)
+                                                GenerationMode.IMAGE_TO_IMAGE -> viewModel.onImg2ImgSend(message)
                                                 GenerationMode.VISION -> viewModel.onVisionMessageSend(message)
                                             }
                                             showSuggestions.value = false
                                             keyboardController?.hide()
                                         },
-                                        enabled = canSend || visionCanSend,
+                                        enabled = anySendEnabled,
                                         modifier = Modifier
                                             .size(BUTTON_SIZE.dp)
                                             .clip(RoundedCornerShape(ROUNDED_CORNER_SIZE.dp))
                                             .background(
-                                                if (canSend || visionCanSend) MaterialTheme.colorScheme.primary
+                                                if (anySendEnabled) MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.surfaceVariant
                                             )
                                     ) {
                                         Icon(
                                             imageVector = LlamatikIcons.Send,
                                             contentDescription = localization.send,
-                                            tint = if (canSend || visionCanSend) MaterialTheme.colorScheme.onPrimary
+                                            tint = if (anySendEnabled) MaterialTheme.colorScheme.onPrimary
                                             else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }

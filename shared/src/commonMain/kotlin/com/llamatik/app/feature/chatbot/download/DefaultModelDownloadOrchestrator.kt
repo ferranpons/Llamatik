@@ -19,10 +19,11 @@ class DefaultModelDownloadOrchestrator(
             url = model.url,
             fileName = fileName
         ) { downloaded, total ->
-            if (total > 0) {
-                val pct = ((downloaded.toDouble() / total.toDouble()) * 100.0)
+            val effectiveTotal = if (total > 0) total else model.sizeMb.toLong() * 1024L * 1024L
+            if (effectiveTotal > 0) {
+                val pct = ((downloaded.toDouble() / effectiveTotal.toDouble()) * 100.0)
                     .roundToInt()
-                    .coerceIn(0, 100)
+                    .coerceIn(0, if (total > 0) 100 else 99)
                 trySend(DownloadEvent.Progress(pct))
             }
         }
