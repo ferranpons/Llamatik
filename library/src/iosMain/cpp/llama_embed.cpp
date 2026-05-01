@@ -303,6 +303,34 @@ static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int res
     tokens.swap(out);
 }
 
+// Decode prompt tokens in batches of n_batch_size to satisfy llama.cpp's
+// n_tokens_all <= n_batch assertion. pos_offset lets callers start positions
+// at a non-zero index (e.g. for KV-cache continuation).
+static bool decode_prompt_batched(llama_context *ctx,
+        const std::vector<llama_token> &tokens,
+        int n_batch_size,
+        int pos_offset = 0) {
+    if (n_batch_size <= 0) n_batch_size = 512;
+    const int total = (int)tokens.size();
+    for (int start = 0; start < total; start += n_batch_size) {
+        const int end   = std::min(start + n_batch_size, total);
+        const int chunk = end - start;
+        llama_batch b   = llama_batch_init(chunk, 0, 1);
+        b.n_tokens      = chunk;
+        for (int i = 0; i < chunk; ++i) {
+            b.token[i]     = tokens[start + i];
+            b.pos[i]       = pos_offset + start + i;
+            b.n_seq_id[i]  = 1;
+            b.seq_id[i][0] = 0;
+            b.logits[i]    = (start + i == total - 1);
+        }
+        const int rc = llama_decode(ctx, b);
+        llama_batch_free(b);
+        if (rc != 0) return false;
+    }
+    return true;
+}
+
 // ===================== Prompt builders =====================
 
 static std::string build_plain_prompt(const std::string &context_block,
@@ -805,18 +833,8 @@ char *llama_generate(const char *prompt) {
         DBG("generate: prompt truncated");
     }
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
-    for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == batch.n_tokens - 1);
-    }
-
-    if (llama_decode(gen_ctx, batch) != 0) {
-        llama_batch_free(batch);
+    const int n_batch = (int)llama_n_batch(gen_ctx);
+    if (!decode_prompt_batched(gen_ctx, tokens, n_batch)) {
         DBG("generate: decode prompt failed");
         return nullptr;
     }
@@ -824,10 +842,7 @@ char *llama_generate(const char *prompt) {
     session_record_prompt_tokens_fresh(tokens);
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    if (!sampler) {
-        llama_batch_free(batch);
-        return nullptr;
-    }
+    if (!sampler) return nullptr;
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
@@ -835,7 +850,7 @@ char *llama_generate(const char *prompt) {
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     std::vector<llama_token> out;
-    int cur_pos = batch.n_tokens;
+    int cur_pos = (int)tokens.size();
     const int safety = 16;
     int remaining_ctx = (int)n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
@@ -895,7 +910,6 @@ char *llama_generate(const char *prompt) {
         llama_batch_free(step);
     }
 
-    llama_batch_free(batch);
     llama_sampler_free(sampler);
 
     std::string text;
@@ -956,18 +970,8 @@ char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
         DBG("generate_json: prompt truncated");
     }
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
-    for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == batch.n_tokens - 1);
-    }
-
-    if (llama_decode(gen_ctx, batch) != 0) {
-        llama_batch_free(batch);
+    const int n_batch_json = (int)llama_n_batch(gen_ctx);
+    if (!decode_prompt_batched(gen_ctx, tokens, n_batch_json)) {
         DBG("generate_json: decode prompt failed");
         return nullptr;
     }
@@ -975,10 +979,7 @@ char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
     session_record_prompt_tokens_fresh(tokens);
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    if (!sampler) {
-        llama_batch_free(batch);
-        return nullptr;
-    }
+    if (!sampler) return nullptr;
 
     llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
@@ -988,7 +989,7 @@ char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     std::vector<llama_token> out;
-    int cur_pos = batch.n_tokens;
+    int cur_pos = (int)tokens.size();
     const int safety = 16;
     int remaining_ctx = (int)n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
@@ -1034,7 +1035,6 @@ char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
         llama_batch_free(step);
     }
 
-    llama_batch_free(batch);
     llama_sampler_free(sampler);
 
     std::string text;
@@ -1112,18 +1112,8 @@ void llama_generate_stream(const char *prompt,
         truncate_to_ctx(tokens, (int)n_ctx, 8);
     }
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
-    for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == batch.n_tokens - 1);
-    }
-
-    if (llama_decode(gen_ctx, batch) != 0) {
-        llama_batch_free(batch);
+    const int n_batch_stream = (int)llama_n_batch(gen_ctx);
+    if (!decode_prompt_batched(gen_ctx, tokens, n_batch_stream)) {
         if (on_error) on_error("decode failed", user);
         return;
     }
@@ -1132,7 +1122,6 @@ void llama_generate_stream(const char *prompt,
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
-        llama_batch_free(batch);
         if (on_error) on_error("sampler init failed", user);
         return;
     }
@@ -1144,7 +1133,7 @@ void llama_generate_stream(const char *prompt,
 
     const llama_vocab *v = llama_model_get_vocab(gen_model);
 
-    int cur_pos = batch.n_tokens;
+    int cur_pos = (int)tokens.size();
     const int safety = 16;
     int remaining_ctx = (int)n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
@@ -1224,7 +1213,6 @@ void llama_generate_stream(const char *prompt,
         llama_batch_free(step);
     }
 
-    llama_batch_free(batch);
     llama_sampler_free(sampler);
 
     if (on_done) on_done(user);
@@ -1288,18 +1276,8 @@ void llama_generate_json_schema_stream(const char *prompt,
         truncate_to_ctx(tokens, (int)n_ctx, 8);
     }
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
-    for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == batch.n_tokens - 1);
-    }
-
-    if (llama_decode(gen_ctx, batch) != 0) {
-        llama_batch_free(batch);
+    const int n_batch_jss = (int)llama_n_batch(gen_ctx);
+    if (!decode_prompt_batched(gen_ctx, tokens, n_batch_jss)) {
         if (on_error) on_error("decode prompt failed", user);
         return;
     }
@@ -1308,7 +1286,6 @@ void llama_generate_json_schema_stream(const char *prompt,
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
-        llama_batch_free(batch);
         if (on_error) on_error("sampler init failed", user);
         return;
     }
@@ -1324,7 +1301,7 @@ void llama_generate_json_schema_stream(const char *prompt,
     bool started = false;
     size_t start_at = 0;
 
-    int cur_pos = batch.n_tokens;
+    int cur_pos = (int)tokens.size();
     const int safety = 16;
     int remaining_ctx = (int)n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
@@ -1395,7 +1372,6 @@ void llama_generate_json_schema_stream(const char *prompt,
         }
     }
 
-    llama_batch_free(batch);
     llama_sampler_free(sampler);
 
     if (on_done) on_done(user);
@@ -1508,28 +1484,15 @@ char *llama_generate_continue(const char *prompt) {
         return llama_generate(prompt);
     }
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
-    for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i]     = tokens[i];
-        batch.pos[i]       = gen_n_past + i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == batch.n_tokens - 1);
-    }
-
-    if (llama_decode(gen_ctx, batch) != 0) {
-        llama_batch_free(batch);
+    const int n_batch_cont = (int)llama_n_batch(gen_ctx);
+    if (!decode_prompt_batched(gen_ctx, tokens, n_batch_cont, gen_n_past)) {
         return nullptr;
     }
 
     session_append_prompt_tokens_continue(tokens);
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    if (!sampler) {
-        llama_batch_free(batch);
-        return nullptr;
-    }
+    if (!sampler) return nullptr;
 
     llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
@@ -1586,7 +1549,6 @@ char *llama_generate_continue(const char *prompt) {
         llama_batch_free(step);
     }
 
-    llama_batch_free(batch);
     llama_sampler_free(sampler);
 
     std::string text;
@@ -1761,25 +1723,14 @@ void llama_session_stream(int64_t handle,
     const int n_ctx = (int)llama_n_ctx(ss->ctx);
     if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
 
-    llama_batch batch = llama_batch_init((int)tokens.size(), 0, 1);
-    batch.n_tokens = (int)tokens.size();
-    for (int i = 0; i < batch.n_tokens; ++i) {
-        batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == batch.n_tokens - 1);
-    }
-
-    if (llama_decode(ss->ctx, batch) != 0) {
-        llama_batch_free(batch);
+    const int n_batch_sess = (int)llama_n_batch(ss->ctx);
+    if (!decode_prompt_batched(ss->ctx, tokens, n_batch_sess)) {
         if (on_error) on_error("decode failed", user);
         return;
     }
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) {
-        llama_batch_free(batch);
         if (on_error) on_error("sampler init failed", user);
         return;
     }
@@ -1789,7 +1740,7 @@ void llama_session_stream(int64_t handle,
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    int cur_pos = batch.n_tokens;
+    int cur_pos = (int)tokens.size();
     const int safety = 16;
     int remaining_ctx = n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
@@ -1861,7 +1812,6 @@ void llama_session_stream(int64_t handle,
         llama_batch_free(step);
     }
 
-    llama_batch_free(batch);
     llama_sampler_free(sampler);
 
     if (on_done) on_done(user);
