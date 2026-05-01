@@ -1495,6 +1495,7 @@ class ChatBotViewModel(
             _state.value = _state.value.copy(isGenerating = true)
 
             withContext(AppDispatchersIO) {
+                var session: LlamaSession? = null
                 try {
                     val qArr = LlamaBridge.embed(question)
                     if (qArr.isEmpty()) {
@@ -1551,12 +1552,12 @@ class ChatBotViewModel(
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
 
-                    val session = LlamaBridge.createSession()
-                    activeSession?.close()
-                    activeSession = session
-
                     val acc = StringBuilder()
                     val generateSettings = _state.value.generateSettings
+
+                    session = LlamaBridge.createSession()
+                    activeSession?.close()
+                    activeSession = session
 
                     ChatRunner.stream(
                         session = session,

@@ -151,10 +151,18 @@ actual object LlamaBridge {
     }
 
     // ===================== Concurrent sessions (JNI) =====================
-    internal external fun nativeCreateSession(): Long
-    internal external fun nativeCloseSession(handle: Long)
-    internal external fun nativeSessionStream(handle: Long, prompt: String, callback: GenStream)
-    internal external fun nativeSessionCancel(handle: Long)
+    // private so the JVM method name has no $module suffix that would break JNI lookup.
+    private external fun nativeCreateSession(): Long
+    private external fun nativeCloseSession(handle: Long)
+    private external fun nativeSessionStream(handle: Long, prompt: String, callback: GenStream)
+    private external fun nativeSessionCancel(handle: Long)
+
+    // Non-external wrappers so LlamaSession (same module) can call these via internal visibility
+    // without triggering JNI name mangling.
+    internal fun sessionStreamBridge(handle: Long, prompt: String, callback: GenStream) =
+        nativeSessionStream(handle, prompt, callback)
+    internal fun sessionCancelBridge(handle: Long) = nativeSessionCancel(handle)
+    internal fun sessionCloseBridge(handle: Long) = nativeCloseSession(handle)
 
     actual fun createSession(): LlamaSession? {
         val handle = nativeCreateSession()

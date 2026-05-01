@@ -4,14 +4,14 @@ package com.llamatik.library.platform
 actual class LlamaSession(private val handle: Long) {
 
     actual fun stream(prompt: String, callback: GenStream) {
-        LlamaBridge.nativeSessionStream(handle, prompt, callback)
+        LlamaBridge.sessionStreamBridge(handle, prompt, callback)
     }
 
     actual fun cancel() {
-        LlamaBridge.nativeSessionCancel(handle)
+        LlamaBridge.sessionCancelBridge(handle)
     }
 
     actual fun close() {
-        LlamaBridge.nativeCloseSession(handle)
+        LlamaBridge.sessionCloseBridge(handle)
     }
 }
