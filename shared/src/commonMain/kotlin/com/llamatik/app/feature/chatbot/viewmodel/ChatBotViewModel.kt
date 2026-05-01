@@ -43,6 +43,7 @@ import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.normalizeToJpegBytes
 import com.llamatik.app.platform.tts.TtsEngine
 import com.llamatik.library.platform.LlamaBridge
+import com.llamatik.library.platform.LlamaSession
 import com.llamatik.library.platform.MultimodalBridge
 import com.llamatik.library.platform.StableDiffusionBridge
 import com.llamatik.library.platform.WhisperBridge
@@ -131,6 +132,10 @@ class ChatBotViewModel(
     /** Guard to ignore late callbacks when a new request starts or is stopped */
     @Volatile
     private var activeRequestId: String? = null
+
+    /** Active inference session; each new generation creates a fresh one so concurrent calls have isolated KV caches. */
+    @Volatile
+    private var activeSession: LlamaSession? = null
 
     @Volatile
     private var started = false
@@ -1319,6 +1324,9 @@ class ChatBotViewModel(
 
     override fun onDispose() {
         activeRequestId = null
+        activeSession?.cancel()
+        activeSession?.close()
+        activeSession = null
         _state.value = _state.value.copy(isGenerating = false)
         LlamaBridge.shutdown()
     }
@@ -1487,6 +1495,7 @@ class ChatBotViewModel(
             _state.value = _state.value.copy(isGenerating = true)
 
             withContext(AppDispatchersIO) {
+                var session: LlamaSession? = null
                 try {
                     val qArr = LlamaBridge.embed(question)
                     if (qArr.isEmpty()) {
@@ -1546,7 +1555,12 @@ class ChatBotViewModel(
                     val acc = StringBuilder()
                     val generateSettings = _state.value.generateSettings
 
+                    session = LlamaBridge.createSession()
+                    activeSession?.close()
+                    activeSession = session
+
                     ChatRunner.stream(
+                        session = session,
                         system = currentSystemPrompt(),
                         contexts = listOf(compact),
                         messages = chatHistory,
@@ -1593,7 +1607,11 @@ class ChatBotViewModel(
                             _state.value = _state.value.copy(isGenerating = false)
                         }
                     )
+                    session?.close()
+                    if (activeSession === session) activeSession = null
                 } catch (t: Throwable) {
+                    session?.close()
+                    if (activeSession === session) activeSession = null
                     t.printStackTrace()
                     emitBot(localization.thereIsAProblemWithAI)
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
@@ -1634,6 +1652,11 @@ class ChatBotViewModel(
 
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
+
+                    val session = LlamaBridge.createSession()
+                    activeSession?.close()
+                    activeSession = session
+
                     val acc = StringBuilder()
                     var completed = false
 
@@ -1652,6 +1675,7 @@ class ChatBotViewModel(
 
                     try {
                         ChatRunner.stream(
+                            session = session,
                             system = currentSystemPrompt(),
                             contexts = emptyList(),
                             messages = chatHistory,
@@ -1712,6 +1736,8 @@ class ChatBotViewModel(
                             }
                         )
                     } finally {
+                        session?.close()
+                        if (activeSession === session) activeSession = null
                         persistCurrentConversationIfNeeded()
                         if (activeRequestId == null) {
                             _state.value = _state.value.copy(isGenerating = false)
@@ -1738,6 +1764,9 @@ class ChatBotViewModel(
 
         Logger.d { "LlamaVM - stopGeneration() reason=$reason" }
 
+        activeSession?.cancel()
+        activeSession?.close()
+        activeSession = null
         LlamaBridge.nativeCancelGenerate()
         activeRequestId = null
         _state.value = _state.value.copy(isGenerating = false)

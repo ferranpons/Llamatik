@@ -4,8 +4,9 @@
 #ifdef __cplusplus
 extern "C" {
 #else
-// When compiling as C / Obj-C, make sure 'bool' exists
+// When compiling as C / Obj-C, make sure 'bool' and fixed-width types exist
   #include <stdbool.h>   // C99 'bool', 'true', 'false'
+  #include <stdint.h>    // int64_t
 #endif
 
 // ================= Embeddings =================
@@ -214,6 +215,38 @@ char *llama_apply_chat_template(
     const char **contents,
     int n_messages,
     bool add_assistant_prefix);
+
+// ===================== Concurrent session API =====================
+
+/**
+ * Create an independent inference session sharing the already-loaded generate model.
+ * Returns a positive int64 handle on success, or -1 on failure.
+ * Each session has its own KV cache and cancel flag so multiple sessions may run
+ * concurrently on separate threads.
+ */
+int64_t llama_session_create(void);
+
+/**
+ * Release all resources for the given session handle.
+ * Calling this while llama_session_stream() is active on the handle is undefined.
+ */
+void llama_session_close(int64_t handle);
+
+/**
+ * Stream generation for the given session handle.
+ * Semantics are identical to llama_generate_stream() but isolated to this session.
+ */
+void llama_session_stream(int64_t handle,
+        const char *prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user);
+
+/**
+ * Request cancellation of an in-progress llama_session_stream() for this handle.
+ */
+void llama_session_cancel(int64_t handle);
 
 #ifdef __cplusplus
 } // extern "C"

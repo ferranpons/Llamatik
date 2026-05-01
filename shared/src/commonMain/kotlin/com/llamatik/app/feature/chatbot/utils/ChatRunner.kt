@@ -2,6 +2,7 @@ package com.llamatik.app.feature.chatbot.utils
 
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
+import com.llamatik.library.platform.LlamaSession
 import kotlin.math.min
 
 /**
@@ -16,6 +17,9 @@ object ChatRunner {
     /**
      * Stream a chat turn.
      *
+     * @param session When non-null, generation runs in this isolated session (its own KV cache),
+     *   allowing multiple agents to run concurrently. When null, falls back to the legacy global
+     *   [LlamaBridge.generateStream].
      * @param system Optional system prompt (defaults to a safe helper system).
      * @param contexts RAG passages (already ranked/shortened).
      * @param messages Chat history (last one should be the user turn we’re answering).
@@ -23,6 +27,7 @@ object ChatRunner {
      * @param maxTokens Hard guard if your engine doesn’t supply one.
      */
     fun stream(
+        session: LlamaSession? = null,
         system: String? = null,
         contexts: List<String> = emptyList(),
         messages: List<ChatMessage>,
@@ -88,7 +93,11 @@ object ChatRunner {
         }
 
         // Let the engine do its thing; we keep the semantics above it.
-        LlamaBridge.generateStream(prompt, guard)
+        if (session != null) {
+            session.stream(prompt, guard)
+        } else {
+            LlamaBridge.generateStream(prompt, guard)
+        }
     }
 
     /**
