@@ -173,6 +173,7 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/gemma4a.cpp
         ${MTMD_DIR}/models/gemma4v.cpp
         ${MTMD_DIR}/models/glm4v.cpp
+        ${MTMD_DIR}/models/granite-speech.cpp
         ${MTMD_DIR}/models/hunyuanocr.cpp
         ${MTMD_DIR}/models/internvl.cpp
         ${MTMD_DIR}/models/kimik25.cpp
@@ -190,6 +191,7 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/siglip.cpp
         ${MTMD_DIR}/models/step3vl.cpp
         ${MTMD_DIR}/models/whisper-enc.cpp
+        ${MTMD_DIR}/models/yasa2.cpp
         ${MTMD_DIR}/models/youtuvl.cpp
         ${MTMD_DIR}/deprecation-warning.cpp
 )
