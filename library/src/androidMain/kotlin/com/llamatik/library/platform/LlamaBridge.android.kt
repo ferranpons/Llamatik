@@ -164,10 +164,10 @@ actual object LlamaBridge {
     internal fun sessionCancelBridge(handle: Long) = nativeSessionCancel(handle)
     internal fun sessionCloseBridge(handle: Long) = nativeCloseSession(handle)
 
-    actual fun createSession(): LlamaSession? {
+    actual fun createSession(name: String): LlamaSession? {
         val handle = nativeCreateSession()
         if (handle < 0L) return null
-        return LlamaSession(handle)
+        return LlamaSession(handle, name)
     }
 
     actual external fun shutdown()

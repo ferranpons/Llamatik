@@ -8,6 +8,9 @@ package com.llamatik.library.platform
  */
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect class LlamaSession {
+    /** Human-readable name assigned at creation time. */
+    val name: String
+
     /** Stream tokens for [prompt] into [callback]. Blocking — call from a background thread. */
     fun stream(prompt: String, callback: GenStream)
 

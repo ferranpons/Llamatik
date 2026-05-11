@@ -86,8 +86,9 @@ expect object LlamaBridge {
      * Create a new independent inference session backed by the already-loaded generate model.
      * Returns null if the model is not yet loaded.
      * Each session has its own KV cache, so multiple sessions may run concurrently.
+     * [name] is a human-readable label stored on the session for display purposes.
      */
-    fun createSession(): LlamaSession?
+    fun createSession(name: String = ""): LlamaSession?
 
     fun shutdown()
 
