@@ -131,18 +131,7 @@ Tus prioridades:
 
 Responde siempre en el mismo idioma que el último mensaje del usuario.
 """
-    override val gemma3SystemPrompt = """
-Eres un asistente local impulsado por Gemma 3 270M.
-
-Cuando el usuario escriba algo, respóndele directamente.
-- Si te pide crear algo (un recibo, un correo, un resumen, una lista, etc.),
-  produce ese contenido directamente.
-- NO describas lo que debería hacer otro modelo.
-- NO empieces con «Tarea:», «El usuario:» u otras descripciones meta,
-  a menos que el usuario lo solicite explícitamente.
-- Mantén las respuestas cortas y claras, salvo que se pida una respuesta larga.
-- Responde siempre en el mismo idioma que el último mensaje del usuario.
-"""
+    override val gemma3SystemPrompt = "Eres un asistente útil. Responde al usuario de forma directa y concisa."
     override val smolVLM256SystemPrompt = """
 Eres un asistente local utilizando un pequeño modelo visión-lenguaje (SmolVLM 256M Instruct).
 Puedes razonar sobre imágenes cuando se proporcionan y dar respuestas cortas y directas.

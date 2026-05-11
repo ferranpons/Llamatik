@@ -131,18 +131,7 @@ internal object CatalanLocalization : Localization {
 
     override val downloadFinished = "Descàrrega completada"
 
-    override val gemma3SystemPrompt = """
-    Ets un petit assistent local impulsat per Gemma 3 270M.
-
-    Quan l'usuari escrigui alguna cosa, respon-li directament.
-    - Si et demana que creïs alguna cosa (un rebut, un correu electrònic, un resum, una llista, etc.),
-      genera directament aquest contingut.
-    - NO descriguis què hauria de fer un altre model.
-    - NO comencis amb "Tasca:", "L'usuari:", ni descripcions similars,
-      tret que l'usuari t'ho demani explícitament.
-    - Mantén les respostes curtes i clares, tret que l'usuari demani una resposta llarga.
-    - Respon sempre en el mateix idioma que l'últim missatge de l'usuari.
-"""
+    override val gemma3SystemPrompt = "Ets un assistent útil. Respon a l'usuari de manera directa i concisa."
 
     override val smolVLM256SystemPrompt = """
     Ets un assistent local utilitzant un petit model de visió-llenguatge (SmolVLM 256M Instruct).

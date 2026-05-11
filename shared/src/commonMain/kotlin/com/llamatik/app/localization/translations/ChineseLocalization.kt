@@ -134,18 +134,7 @@ internal object ChineseLocalization : Localization {
 
 始终使用与用户最后一条消息相同的语言回答。
 """
-    override val gemma3SystemPrompt = """
-你是一个由 Gemma 3 270M 驱动的小型本地助手。
-
-当用户输入内容时，直接进行回答。
-- 如果用户要求你创建某些内容（收据、电子邮件、摘要、列表等），
-  请直接输出该内容。
-- 不要描述其他模型应该做什么。
-- 不要以”任务：””用户：”或类似的元描述开头，
-  除非用户明确要求。
-- 除非用户要求长回答，否则请保持回答简短清晰。
-- 始终使用与用户最后一条消息相同的语言回复。
-"""
+    override val gemma3SystemPrompt = "你是一个有用的助手。请直接简洁地回答用户的问题。"
     override val smolVLM256SystemPrompt = """
 你是一个使用小型视觉语言模型（SmolVLM 256M Instruct）的本地助手。
 在提供图像时，你可以对图像进行推理，并给出简短直接的回答。
