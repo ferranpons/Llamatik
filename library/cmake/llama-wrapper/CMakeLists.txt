@@ -42,6 +42,8 @@ set(LLAMA_LOG_CPP              "${LLAMA_CPP_DIR}/common/log.cpp")
 set(LLAMA_SCHEMA_CPP           "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
 set(LLAMA_REASONING_BUDGET_CPP "${LLAMA_CPP_DIR}/common/reasoning-budget.cpp")
 set(LLAMA_UNICODE_CPP          "${LLAMA_CPP_DIR}/common/unicode.cpp")
+set(LLAMA_FIT_CPP              "${LLAMA_CPP_DIR}/common/fit.cpp")
+set(LLAMA_DEBUG_CPP            "${LLAMA_CPP_DIR}/common/debug.cpp")
 set(LLAMA_BUILDINFO_IN    "${LLAMA_CPP_DIR}/common/build-info.cpp.in")
 
 if(NOT EXISTS "${LLAMA_COMMON_CPP}")
@@ -143,6 +145,14 @@ if(EXISTS "${LLAMA_UNICODE_CPP}")
     target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_UNICODE_CPP}")
 endif()
 
+if(EXISTS "${LLAMA_FIT_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_FIT_CPP}")
+endif()
+
+if(EXISTS "${LLAMA_DEBUG_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_DEBUG_CPP}")
+endif()
+
 target_include_directories(llamatik_llama_common_obj PRIVATE
         ${LLAMA_CPP_DIR}
         ${LLAMA_CPP_DIR}/include
@@ -173,6 +183,7 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/gemma4a.cpp
         ${MTMD_DIR}/models/gemma4v.cpp
         ${MTMD_DIR}/models/glm4v.cpp
+        ${MTMD_DIR}/models/granite-speech.cpp
         ${MTMD_DIR}/models/hunyuanocr.cpp
         ${MTMD_DIR}/models/internvl.cpp
         ${MTMD_DIR}/models/kimik25.cpp
@@ -190,6 +201,7 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/siglip.cpp
         ${MTMD_DIR}/models/step3vl.cpp
         ${MTMD_DIR}/models/whisper-enc.cpp
+        ${MTMD_DIR}/models/yasa2.cpp
         ${MTMD_DIR}/models/youtuvl.cpp
         ${MTMD_DIR}/deprecation-warning.cpp
 )

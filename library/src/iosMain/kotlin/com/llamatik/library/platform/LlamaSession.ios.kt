@@ -17,7 +17,7 @@ import kotlinx.cinterop.toKString
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 @OptIn(BetaInteropApi::class)
-actual class LlamaSession(private val handle: Long) {
+actual class LlamaSession(private val handle: Long, actual val name: String) {
 
     actual fun stream(prompt: String, callback: GenStream) {
         memScoped {

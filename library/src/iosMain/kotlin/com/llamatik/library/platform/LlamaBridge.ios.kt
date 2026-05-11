@@ -531,10 +531,10 @@ actual object LlamaBridge {
         }
     }
 
-    actual fun createSession(): LlamaSession? {
+    actual fun createSession(name: String): LlamaSession? {
         val handle = llama_session_create()
         if (handle < 0L) return null
-        return LlamaSession(handle)
+        return LlamaSession(handle, name)
     }
 
     actual fun nativeCancelGenerate() {

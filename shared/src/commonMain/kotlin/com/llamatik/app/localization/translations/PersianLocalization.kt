@@ -128,12 +128,8 @@ internal object PersianLocalization : Localization {
     override val downloadFinished = "دانلود کامل شد"
 
     override val defaultSystemPrompt = EnglishLocalization.defaultSystemPrompt
-    override val gemma3SystemPrompt = EnglishLocalization.gemma3SystemPrompt
     override val smolVLM256SystemPrompt = EnglishLocalization.smolVLM256SystemPrompt
     override val smolVLM500SystemPrompt = EnglishLocalization.smolVLM500SystemPrompt
-    override val qwen25BSystemPrompt = EnglishLocalization.qwen25BSystemPrompt
-    override val phi15SystemPrompt = EnglishLocalization.phi15SystemPrompt
-    override val llama32SystemPrompt = EnglishLocalization.llama32SystemPrompt
 
     override val assistant = "دستیار"
     override val user = "کاربر"

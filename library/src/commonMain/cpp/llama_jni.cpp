@@ -132,6 +132,9 @@ struct SessionState {
     std::atomic<bool> cancel{false};
     std::vector<llama_token> session_tokens;
     int n_past = 0;
+    // Held by nativeSessionStream for its entire duration so nativeCloseSession
+    // can block until inference finishes before calling llama_free.
+    std::mutex run_mutex;
 };
 
 static std::mutex              g_sessions_mutex;
@@ -1331,6 +1334,10 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeCloseSession(
         g_sessions.erase(it);
     }
     if (ss) {
+        // Signal cancel, then wait for any running nativeSessionStream to finish
+        // before freeing the context (prevents SIGSEGV in OpenMP worker threads).
+        ss->cancel.store(true, std::memory_order_relaxed);
+        std::lock_guard<std::mutex> run_lk(ss->run_mutex);
         if (ss->ctx) llama_free(ss->ctx);
         delete ss;
     }
@@ -1364,6 +1371,9 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("prompt decode failed"));
         return;
     }
+
+    // Hold run_mutex for the entire inference so nativeCloseSession blocks until we exit.
+    std::lock_guard<std::mutex> run_lk(ss->run_mutex);
 
     ss->cancel.store(false, std::memory_order_relaxed);
     llama_memory_clear(llama_get_memory(ss->ctx), false);

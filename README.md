@@ -76,7 +76,8 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 ### 🎨 Image Generation (stable-diffusion.cpp)
 
 - ✅ On-device Stable Diffusion inference
-- ✅ Text-to-image generation
+- ✅ Text-to-image generation (`txt2img`)
+- ✅ Image-to-image generation (`img2img`) with configurable `strength`
 - ✅ Fully offline
 - ✅ Works with optimized SD models
 - ✅ Native C++ integration
@@ -146,9 +147,9 @@ only configuration.
 
 ## 📦 Current Versions
 
-- llama.cpp version: [b8816](https://github.com/ggml-org/llama.cpp/releases/tag/b8816)
+- llama.cpp version: [b9102](https://github.com/ggml-org/llama.cpp/releases/tag/b9102)
 - whisper.cpp version [v1.8.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.4)
-- stablediffusion.cpp version [master-572-1b4e9be](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-572-1b4e9be)
+- stablediffusion.cpp version [master-596-90e87bc](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-596-90e87bc)
 
 ---
 
@@ -289,7 +290,7 @@ expect object LlamaBridge {
     fun generateContinue(prompt: String): String      // generate using existing KV cache
 
     // Concurrent sessions — each session owns an isolated KV cache; model weights are shared
-    fun createSession(): LlamaSession?                // null on WASM (not supported)
+    fun createSession(name: String = ""): LlamaSession? // null on WASM (not supported)
 
     // Generation parameters (applied on next generate call)
     fun updateGenerateParams(
@@ -316,6 +317,7 @@ interface GenStream {
 
 // Concurrent session handle — created via LlamaBridge.createSession()
 expect class LlamaSession {
+    val name: String                                  // human-readable label assigned at creation
     fun stream(prompt: String, callback: GenStream)  // run inference in this session's context
     fun cancel()                                     // cancel the in-progress stream
     fun close()                                      // release native KV cache resources
@@ -368,9 +370,9 @@ LlamaBridge.sessionReset()
 // Load the model once
 LlamaBridge.initGenerateModel(modelPath)
 
-// Create two independent sessions
-val sessionA = LlamaBridge.createSession() ?: error("Session creation failed")
-val sessionB = LlamaBridge.createSession() ?: error("Session creation failed")
+// Create two independent sessions with human-readable names
+val sessionA = LlamaBridge.createSession(name = "Agent A") ?: error("Session creation failed")
+val sessionB = LlamaBridge.createSession(name = "Agent B") ?: error("Session creation failed")
 
 // Run them concurrently (e.g. launch in separate coroutines)
 launch { sessionA.stream("Tell me about Kotlin.", callback = agentACallback) }
@@ -510,48 +512,84 @@ object StableDiffusionBridge {
     /** Returns absolute model path (copied from assets/bundle if needed). */
     fun getModelPath(modelFileName: String): String
 
-    /** Loads the Stable Diffusion model. */
-    fun initModel(modelPath: String): Boolean
+    /**
+     * Loads the Stable Diffusion model.
+     * @param threads CPU threads to use; -1 lets the backend decide.
+     */
+    fun initModel(modelPath: String, threads: Int = -1): Boolean
 
     /**
-     * Generates an image from a prompt.
-     *
-     * @param prompt Text prompt
-     * @param width Output width
-     * @param height Output height
-     * @param steps Inference steps
-     * @param cfgScale Guidance scale
-     * @return PNG image as ByteArray
+     * Text-to-image generation. Returns raw RGBA pixels (width * height * 4 bytes).
+     * Returns an empty array on failure.
      */
-    fun generateImage(
+    fun txt2img(
         prompt: String,
+        negativePrompt: String? = null,
         width: Int = 512,
         height: Int = 512,
         steps: Int = 20,
-        cfgScale: Float = 7.5f
+        cfgScale: Float = 7.0f,
+        seed: Long = -1L,
     ): ByteArray
 
-    /** Releases native resources */
+    /**
+     * Image-to-image generation. Starts from [initImageRgba] and steers it with [prompt].
+     * [strength] controls how much the source image is preserved (0.0 = unchanged, 1.0 = ignored).
+     * Returns raw RGBA pixels (width * height * 4 bytes). Returns an empty array on failure.
+     */
+    fun img2img(
+        initImageRgba: ByteArray,
+        initImageW: Int,
+        initImageH: Int,
+        prompt: String,
+        negativePrompt: String? = null,
+        width: Int = 512,
+        height: Int = 512,
+        steps: Int = 20,
+        cfgScale: Float = 7.0f,
+        strength: Float = 0.75f,
+        seed: Long = -1L,
+    ): ByteArray
+
+    /** Releases native resources. */
     fun release()
 }
 ```
 
-#### Example
+#### txt2img example
 
 ```kotlin
 import com.llamatik.library.platform.StableDiffusionBridge
 
-val modelPath = StableDiffusionBridge.getModelPath("sd-model.bin")
+val modelPath = StableDiffusionBridge.getModelPath("dreamshaper.safetensors")
+StableDiffusionBridge.initModel(modelPath, threads = 4)
 
-StableDiffusionBridge.initModel(modelPath)
-
-val imageBytes = StableDiffusionBridge.generateImage(
+val rgba = StableDiffusionBridge.txt2img(
     prompt = "A cyberpunk llama in neon Tokyo",
+    negativePrompt = "blurry, low quality",
     width = 512,
-    height = 512
+    height = 512,
+    steps = 20,
+    cfgScale = 7.0f,
+    seed = 42L,
 )
+// Convert rgba (ByteArray, width*height*4) to a platform Bitmap / UIImage / BufferedImage
+```
 
-// Save imageBytes as PNG file
+#### img2img example
+
+```kotlin
+val sourceRgba: ByteArray = /* existing RGBA image bytes */
+
+val rgba = StableDiffusionBridge.img2img(
+    initImageRgba = sourceRgba,
+    initImageW = 512,
+    initImageH = 512,
+    prompt = "The same scene as a watercolor painting",
+    negativePrompt = "low quality",
+    strength = 0.75f,
+    seed = 42L,
+)
 ```
 
 ### 👁️ Vision / Multimodal (MultimodalBridge)

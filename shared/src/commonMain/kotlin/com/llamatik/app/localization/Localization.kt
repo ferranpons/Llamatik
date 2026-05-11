@@ -114,12 +114,8 @@ interface Localization {
     val defaultSystemPrompt: String
     val downloadFinished: String
 
-    val gemma3SystemPrompt: String
     val smolVLM256SystemPrompt: String
     val smolVLM500SystemPrompt: String
-    val qwen25BSystemPrompt: String
-    val phi15SystemPrompt: String
-    val llama32SystemPrompt: String
 
     val relevantContext: String
     val system: String
