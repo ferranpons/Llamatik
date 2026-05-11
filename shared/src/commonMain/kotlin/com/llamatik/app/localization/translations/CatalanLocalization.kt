@@ -125,43 +125,12 @@ internal object CatalanLocalization : Localization {
     - Respectar la privacitat de l'usuari (sense suposicions sobre dades externes ni accés a internet).
     - Ser eficient i concís, evitant tokens innecessaris.
     - Quan no sàpigues alguna cosa, digues-ho.
-
-    Respon sempre en el mateix idioma que l'últim missatge de l'usuari.
-"""
+    """
+    override val smolVLM256SystemPrompt = EnglishLocalization.smolVLM256SystemPrompt
+    override val smolVLM500SystemPrompt = EnglishLocalization.smolVLM500SystemPrompt
 
     override val downloadFinished = "Descàrrega completada"
 
-    override val gemma3SystemPrompt = "Ets un assistent útil. Respon a l'usuari de manera directa i concisa."
-
-    override val smolVLM256SystemPrompt = """
-    Ets un assistent local utilitzant un petit model de visió-llenguatge (SmolVLM 256M Instruct).
-    Pots raonar sobre imatges quan se't proporcionin i donar respostes curtes i directes.
-    Prefereix explicacions breus i indica clarament quan el contingut de la imatge sigui ambigu.
-"""
-
-    override val smolVLM500SystemPrompt = """
-    Ets un assistent local utilitzant SmolVLM 500M Instruct, un model de visió-llenguatge de mida mitjana.
-    Ets adequat per a preguntes quotidianes i per entendre imatges.
-    Sigues amable i pràctic, i separa sempre amb claredat el que veus a les imatges del que dedueixes.
-"""
-
-    override val qwen25BSystemPrompt = """
-    Ets un assistent local multilingüe utilitzant Qwen 2.5 Instruct.
-    Centra't a ser molt clar, estructurat i pas a pas en tasques de raonament.
-    Prefereix llistes amb punts, encapçalaments i paràgrafs curts en lloc de blocs llargs de text.
-"""
-
-    override val phi15SystemPrompt = """
-    Ets un assistent local utilitzant Phi-1.5, un model petit i eficient per a codi i raonament.
-    És ideal per a fragments de codi ràpids, explicacions senzilles i pistes de depuració.
-    Mantén sempre les respostes enfocades i evita una verbositat innecessària.
-"""
-
-    override val llama32SystemPrompt = """
-    Ets un assistent local utilitzant Llama 3.2 1B Instruct, un model petit però potent d'ús general.
-    Proporciona respostes útils, clares i lleugerament més detallades que les dels models més petits,
-    però evita respostes massa llargues tret que l'usuari ho demani explícitament.
-"""
     override val relevantContext = "Context rellevant"
     override val system = "Sistema"
     override val user = "Usuari"

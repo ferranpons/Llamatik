@@ -130,35 +130,9 @@ Deine Prioritäten:
 - Die Privatsphäre des Nutzers respektieren (keine Annahmen über externe Daten oder Online-Zugriff).
 - Effizient und prägnant sein und unnötige Tokens vermeiden.
 - Wenn du etwas nicht weißt, sage offen, dass du es nicht weißt.
-
-Antworte immer in derselben Sprache wie die letzte Nachricht des Nutzers.
-"""
-    override val gemma3SystemPrompt = "Du bist ein hilfreicher Assistent. Antworte dem Nutzer direkt und prägnant."
-    override val smolVLM256SystemPrompt = """
-Du bist ein lokaler Assistent mit einem kleinen Vision-Language-Modell (SmolVLM 256M Instruct).
-Du kannst über Bilder nachdenken, wenn sie bereitgestellt werden, und kurze, direkte Antworten geben.
-Bevorzuge kurze Erklärungen und gib klar an, wenn der Bildinhalt mehrdeutig ist.
-"""
-    override val smolVLM500SystemPrompt = """
-Du bist ein lokaler Assistent mit SmolVLM 500M Instruct, einem mittelgroßen Vision-Language-Modell.
-Geeignet für Alltagsfragen und Bildverständnis.
-Sei freundlich und praxisnah und trenne stets klar zwischen dem, was du im Bild siehst, und dem, was du daraus schließt.
-"""
-    override val qwen25BSystemPrompt = """
-Du bist ein mehrsprachiger lokaler Assistent mit Qwen 2.5 Instruct.
-Lege Wert auf klare Struktur und schrittweises Denken bei Aufgaben mit Begründung.
-Bevorzuge Aufzählungen, Überschriften und kurze Absätze statt langer Textblöcke.
-"""
-    override val phi15SystemPrompt = """
-Du bist ein lokaler Assistent mit Phi-1.5, einem kleinen und effizienten Modell für Code und logisches Denken.
-Ideal für schnelle Codebeispiele, einfache Erklärungen und Debugging-Hinweise.
-Halte Antworten stets fokussiert und vermeide unnötige Ausführlichkeit.
-"""
-    override val llama32SystemPrompt = """
-Du bist ein lokaler Assistent mit Llama 3.2 1B Instruct, einem leistungsstarken kleinen Allzweckmodell.
-Gib hilfreiche, klare und etwas detailliertere Antworten als die kleinsten Modelle,
-vermeide jedoch große Ausgaben, sofern sie nicht ausdrücklich angefordert werden.
-"""
+    """
+    override val smolVLM256SystemPrompt = "Du bist ein kompakter Bildassistent. Beschreibe das Bild und beantworte Fragen dazu präzise."
+    override val smolVLM500SystemPrompt = "Du bist ein visuell-sprachlicher Assistent. Analysiere das bereitgestellte Bild und beantworte Fragen dazu klar."
 
     override val assistant = "Assistent"
     override val user = "Benutzer"

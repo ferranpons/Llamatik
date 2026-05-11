@@ -120,7 +120,7 @@ class ModelsRepository(private val service: ServiceClient) {
                 sizeMb = 292,
                 url = "https://huggingface.co/ggml-org/gemma-3-270m-it-GGUF/resolve/main/gemma-3-270m-it-Q8_0.gguf?download=true",
                 template = Gemma3,
-                systemPrompt = localization.gemma3SystemPrompt.trimIndent()
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
             LlamaModel(
                 name = "SmolVLM 256M Instruct",
@@ -141,21 +141,21 @@ class ModelsRepository(private val service: ServiceClient) {
                 sizeMb = 753,
                 url = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q2_k.gguf?download=true",
                 template = QwenChat,
-                systemPrompt = localization.qwen25BSystemPrompt.trimIndent()
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
             LlamaModel(
                 name = "Phi-1_5 Q2 K",
                 sizeMb = 613,
                 url = "https://huggingface.co/TKDKid1000/phi-1_5-GGUF/resolve/main/phi-1_5-Q2_K.gguf?download=true",
                 template = Plain,
-                systemPrompt = localization.phi15SystemPrompt.trimIndent()
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
             LlamaModel(
                 name = "Llama 3.2 1B Instruct Q2 K",
                 sizeMb = 581,
                 url = "https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q2_K.gguf?download=true",
                 template = Llama3Instruct,
-                systemPrompt = localization.llama32SystemPrompt.trimIndent()
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
         )
     }
