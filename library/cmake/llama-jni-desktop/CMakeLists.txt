@@ -265,9 +265,13 @@ if(HAVE_WHISPER)
 endif()
 
 # Link llama.cpp 'common' utilities if present (schema, json helpers, etc.)
+# Target was renamed from 'common' to 'llama-common' in llama.cpp b9102 (commit 6990e2f1f)
 if(TARGET common)
     target_link_libraries(llama_jni PRIVATE common)
     message(STATUS "Linking llama.cpp target: common")
+elseif(TARGET llama-common)
+    target_link_libraries(llama_jni PRIVATE llama-common)
+    message(STATUS "Linking llama.cpp target: llama-common")
 endif()
 
 set_target_properties(llama_jni PROPERTIES OUTPUT_NAME "llama_jni")
