@@ -692,7 +692,9 @@ Visit the repository for full setup instructions, configuration options, and usa
 
 Llamatik is already used in production apps.
 
-<iframe width="384px" height="319px" src="https://plugins.jetbrains.com/embeddable/card/31304"></iframe>
+### Llamatik — JetBrains IDE Plugin
+
+[![JetBrains Plugin](https://img.shields.io/jetbrains/plugin/v/31304)](https://plugins.jetbrains.com/plugin/31304)
 
 Want to showcase your app here?
 Open a PR and add it to the list 🚀
