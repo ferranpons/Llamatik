@@ -20,6 +20,7 @@
   <img src="https://img.shields.io/badge/STT-whisper.cpp-blue" alt="whisper.cpp badge"/>
   <img src="https://img.shields.io/badge/Image-stablediffusion.cpp-purple" alt="stablediffusion badge"/>
   <img src="https://img.shields.io/badge/License-MIT-lightgrey" alt="license badge"/>
+  <a href="https://plugins.jetbrains.com/plugin/31304"><img src="https://img.shields.io/jetbrains/plugin/v/31304" alt="jetbrains plugin badge"/></a>
 </p>
 
 ---
@@ -692,9 +693,19 @@ Visit the repository for full setup instructions, configuration options, and usa
 
 Llamatik is already used in production apps.
 
-### Llamatik — JetBrains IDE Plugin
-
-[![JetBrains Plugin](https://img.shields.io/jetbrains/plugin/v/31304)](https://plugins.jetbrains.com/plugin/31304)
+<table>
+  <tr>
+    <td width="80" align="center">
+      <a href="https://plugins.jetbrains.com/plugin/31304">
+        <img src="https://plugins.jetbrains.com/files/31304/1043300/icon/default.svg" width="64" alt="Llamatik Code icon"/>
+      </a>
+    </td>
+    <td>
+      <b><a href="https://plugins.jetbrains.com/plugin/31304">Llamatik Code</a></b><br/>
+      Local-first AI coding assistant for IntelliJ-based IDEs. Project-aware chat, on-device inference, AI agent with diff previews, and MCP server support — your code never leaves your machine.
+    </td>
+  </tr>
+</table>
 
 Want to showcase your app here?
 Open a PR and add it to the list 🚀
