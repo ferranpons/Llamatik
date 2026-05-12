@@ -690,7 +690,9 @@ Visit the repository for full setup instructions, configuration options, and usa
 
 ## 📦 Apps using Llamatik
 
-Llamatik is already used in production apps on Google Play and App Store.
+Llamatik is already used in production apps.
+
+<iframe width="384px" height="319px" src="https://plugins.jetbrains.com/embeddable/card/31304"></iframe>
 
 Want to showcase your app here?
 Open a PR and add it to the list 🚀
