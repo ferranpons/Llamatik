@@ -2,6 +2,7 @@ package com.llamatik.app.feature.chatbot.repositories
 
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.model.ModelSource
 import com.llamatik.app.feature.chatbot.utils.Gemma3
 import com.llamatik.app.feature.chatbot.utils.Llama3Instruct
 import com.llamatik.app.feature.chatbot.utils.Plain
@@ -22,8 +23,28 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.io.readByteArray
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 private const val DEFAULT_BUFFER_SIZE: Int = 64 * 1024
+private const val USER_IMPORTED_MODELS_KEY = "llamatik_user_imported_models_v1"
+
+@Serializable
+private data class PersistedImportedModel(
+    val name: String,
+    @SerialName("local_path") val localPath: String,
+    @SerialName("display_name") val displayName: String? = null,
+    @SerialName("size_bytes") val sizeBytes: Long? = null,
+    val quantization: String? = null,
+    @SerialName("context_length") val contextLength: Int? = null,
+    @SerialName("created_at") val createdAtEpochMs: Long? = null,
+)
+
+@Serializable
+private data class ImportedModelStore(
+    val models: List<PersistedImportedModel> = emptyList(),
+)
 
 class ModelsRepository(private val service: ServiceClient) {
     val localization = getCurrentLocalization()
@@ -272,4 +293,73 @@ class ModelsRepository(private val service: ServiceClient) {
     fun deleteModelPath(modelName: String) {
         Settings().remove(modelName)
     }
+
+    // ---- User-imported model persistence ----
+
+    private val importedJson = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
+
+    fun getImportedModels(): List<LlamaModel> {
+        val raw = Settings().getString(USER_IMPORTED_MODELS_KEY, "")
+        if (raw.isBlank()) return emptyList()
+        return runCatching {
+            importedJson.decodeFromString(ImportedModelStore.serializer(), raw).models
+                .map { it.toLlamaModel() }
+        }.getOrElse { emptyList() }
+    }
+
+    fun saveImportedModel(model: LlamaModel) {
+        require(model.source == ModelSource.UserImported) { "Only UserImported models may be saved here." }
+        val store = readImportedStore()
+        val updated = store.models
+            .filterNot { it.name == model.name }
+            .toMutableList()
+            .apply { add(model.toPersistedImportedModel()) }
+        writeImportedStore(ImportedModelStore(updated))
+        saveModelPath(model.name, model.localPath ?: "")
+    }
+
+    fun deleteImportedModel(modelName: String) {
+        val store = readImportedStore()
+        writeImportedStore(ImportedModelStore(store.models.filterNot { it.name == modelName }))
+        deleteModelPath(modelName)
+    }
+
+    private fun readImportedStore(): ImportedModelStore {
+        val raw = Settings().getString(USER_IMPORTED_MODELS_KEY, "")
+        if (raw.isBlank()) return ImportedModelStore()
+        return runCatching {
+            importedJson.decodeFromString(ImportedModelStore.serializer(), raw)
+        }.getOrElse { ImportedModelStore() }
+    }
+
+    private fun writeImportedStore(store: ImportedModelStore) {
+        Settings().putString(USER_IMPORTED_MODELS_KEY, importedJson.encodeToString(ImportedModelStore.serializer(), store))
+    }
 }
+
+private fun PersistedImportedModel.toLlamaModel() = LlamaModel(
+    name = name,
+    url = "",
+    sizeMb = sizeBytes?.let { (it / 1_048_576).toInt() } ?: 0,
+    localPath = localPath,
+    source = ModelSource.UserImported,
+    displayName = displayName,
+    sizeBytes = sizeBytes,
+    quantization = quantization,
+    importedContextLength = contextLength,
+    createdAtEpochMs = createdAtEpochMs,
+)
+
+private fun LlamaModel.toPersistedImportedModel() = PersistedImportedModel(
+    name = name,
+    localPath = localPath ?: "",
+    displayName = displayName,
+    sizeBytes = sizeBytes,
+    quantization = quantization,
+    contextLength = importedContextLength,
+    createdAtEpochMs = createdAtEpochMs,
+)

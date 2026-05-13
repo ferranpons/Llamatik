@@ -186,4 +186,12 @@ Deine Prioritäten:
     override val clearCachedModelsDialogMessage = "Dadurch werden alle heruntergeladenen Modelldateien und der gespeicherte PDF-RAG-Index gelöscht. Dies kann nicht rückgängig gemacht werden."
     override val cancel = "Abbrechen"
     override val clear = "Löschen"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
 }

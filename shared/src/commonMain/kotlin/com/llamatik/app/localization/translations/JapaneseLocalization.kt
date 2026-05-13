@@ -183,4 +183,12 @@ internal object JapaneseLocalization : Localization {
     override val clearCachedModelsDialogMessage = "これにより、ダウンロード済みのすべてのモデルファイルと保存されたPDF RAGインデックスが削除されます。この操作は元に戻せません。"
     override val cancel = "キャンセル"
     override val clear = "削除"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
 }

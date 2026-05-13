@@ -167,6 +167,15 @@ interface Localization {
     val clearCachedModelsDialogMessage: String
     val cancel: String
     val clear: String
+
+    // Onboarding model choice (final page)
+    val onboardingModelChoiceTitle: String
+    val onboardingModelChoiceDescription: String
+    val onboardingDownloadDefaultModel: String
+    val onboardingBrowseCatalog: String
+    val onboardingSkipForNow: String
+    val onboardingNoModelEmptyState: String
+    val onboardingNoModelEmptyStateAction: String
 }
 
 enum class AvailableLanguages {

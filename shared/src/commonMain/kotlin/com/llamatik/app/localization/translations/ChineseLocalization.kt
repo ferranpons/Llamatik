@@ -185,4 +185,12 @@ internal object ChineseLocalization : Localization {
     override val clearCachedModelsDialogMessage = "这将删除所有已下载的模型文件和已保存的 PDF RAG 索引。此操作无法撤销。"
     override val cancel = "取消"
     override val clear = "清除"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
 }

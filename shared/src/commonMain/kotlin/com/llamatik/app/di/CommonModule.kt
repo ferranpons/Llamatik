@@ -4,10 +4,17 @@ import androidx.compose.material3.SnackbarHostState
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import com.llamatik.app.data.repositories.DownloadFileRepository
+import com.llamatik.app.feature.agent.AgentActionLogRepository
+import com.llamatik.app.feature.agent.AgentFeatureFlags
+import com.llamatik.app.feature.agent.ToolPermissionRepository
+import com.llamatik.app.feature.agent.ToolRegistry
 import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
 import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
 import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
+import com.llamatik.app.feature.chatbot.usecases.ImportModelUseCase
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
+import com.llamatik.app.feature.chatgroup.ChatGroupRepository
+import com.llamatik.app.feature.companion.CompanionRepository
 import com.llamatik.app.feature.debugmenu.repositories.GlobalAppSettingsRepository
 import com.llamatik.app.feature.debugmenu.viewmodel.DebugMenuViewModel
 import com.llamatik.app.feature.news.repositories.NewsRepository
@@ -84,6 +91,7 @@ val commonModule = module {
     singleOf(::NewsRepository)
 
     factoryOf(::GetModelsUseCase)
+    factoryOf(::ImportModelUseCase)
     singleOf(::ModelsRepository)
 
     singleOf(::DownloadFileRepository)
@@ -96,4 +104,10 @@ val commonModule = module {
     single { getCurrentLocalization() }
 
     singleOf(::ChatHistoryRepository)
+    singleOf(::ChatGroupRepository)
+    singleOf(::CompanionRepository)
+    singleOf(::ToolPermissionRepository)
+    singleOf(::AgentActionLogRepository)
+    singleOf(::AgentFeatureFlags)
+    single { ToolRegistry() }
 }

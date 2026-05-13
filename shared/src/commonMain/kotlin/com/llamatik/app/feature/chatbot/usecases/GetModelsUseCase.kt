@@ -150,4 +150,11 @@ class GetModelsUseCase(
     fun deleteModelPath(model: LlamaModel) {
         modelsRepository.deleteModelPath(modelName = model.name)
     }
+
+    fun getUserImportedModels(): Result<List<LlamaModel>> = runCatching {
+        modelsRepository.getImportedModels().map { model ->
+            val savedPath = modelsRepository.getSavedModelPath(model.name)
+            if (savedPath.isNotEmpty()) model.copy(localPath = savedPath) else model
+        }
+    }
 }

@@ -140,6 +140,7 @@ kotlin {
         }
 
         commonTest.dependencies {
+            implementation(kotlin("test"))
             implementation(libs.junit)
             implementation(libs.koin.test)
             implementation(libs.kotlinx.coroutines.core)
