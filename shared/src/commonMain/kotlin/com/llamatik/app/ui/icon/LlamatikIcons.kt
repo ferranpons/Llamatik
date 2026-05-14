@@ -43,7 +43,9 @@ import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PersonAddAlt
+import androidx.compose.material.icons.rounded.PersonPin
 import androidx.compose.material.icons.rounded.Pets
+import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Send
@@ -68,6 +70,8 @@ object LlamatikIcons {
     val Check = Icons.Rounded.Check
     val Close = Icons.Rounded.Close
     val Person = Icons.Rounded.Person
+
+    val PersonPin = Icons.Rounded.PersonPin
     val Settings = Icons.Rounded.Settings
     val Info = Icons.Outlined.Info
     val Home = Icons.Rounded.Home
@@ -120,6 +124,7 @@ object LlamatikIcons {
     val Stop = Icons.Rounded.StopCircle
     val Image = Icons.Rounded.Image
     val Text = Icons.AutoMirrored.Rounded.TextSnippet
+    val Models = Icons.Rounded.Psychology
 }
 
 /**

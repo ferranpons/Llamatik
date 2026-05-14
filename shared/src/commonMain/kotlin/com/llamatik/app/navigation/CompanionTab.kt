@@ -14,7 +14,7 @@ internal object CompanionTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val icon = rememberVectorPainter(LlamatikIcons.Pets)
+            val icon = rememberVectorPainter(LlamatikIcons.PersonPin)
             return remember {
                 TabOptions(index = 3u, title = "Companion", icon = icon)
             }

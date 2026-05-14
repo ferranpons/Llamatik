@@ -14,7 +14,7 @@ internal object ModelsTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val icon = rememberVectorPainter(LlamatikIcons.Download)
+            val icon = rememberVectorPainter(LlamatikIcons.Models)
             return remember {
                 TabOptions(index = 1u, title = "Models", icon = icon)
             }

@@ -1,7 +1,9 @@
 package com.llamatik.app.ui.screens
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -64,9 +66,11 @@ fun MainScreenView() {
                     TabNavigationItem(SettingsTab, rootNavigatorRepository)
                 }
             },
-        ) {
-            SlideTransition(LocalNavigator.currentOrThrow) { screen ->
-                screen.Content()
+        ) { paddingValues ->
+            Box(modifier = androidx.compose.ui.Modifier.padding(paddingValues)) {
+                SlideTransition(LocalNavigator.currentOrThrow) { screen ->
+                    screen.Content()
+                }
             }
         }
     }
