@@ -174,42 +174,52 @@ class SettingsTabScreen : Screen {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
             ModalBottomSheet(
                 onDismissRequest = { showLanguagePicker.value = false },
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.onBackground,
                 sheetState = sheetState,
             ) {
-                Text(
-                    text = localization.chooseLanguage,
-                    style = Typography.get().headlineSmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-                LazyColumn {
-                    items(AvailableLanguages.languages) { language ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.onSelectedLanguage(language)
-                                    showLanguagePicker.value = false
-                                }
-                                .padding(horizontal = 16.dp, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = language.displayName,
-                                style = Typography.get().bodyLarge
-                            )
-                            if (language == state.currentLanguage) {
-                                Icon(
-                                    imageVector = LlamatikIcons.Check,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                LlamatikTheme {
+                    Text(
+                        text = localization.chooseLanguage,
+                        style = Typography.get().headlineSmall,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.size(16.dp))
+
+                    LazyColumn {
+                        items(AvailableLanguages.languages) { language ->
+                            if (language.ordinal == 1) {
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                             }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.onSelectedLanguage(language)
+                                        showLanguagePicker.value = false
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = language.displayName,
+                                    style = Typography.get().bodyLarge
+                                )
+                                if (language == state.currentLanguage) {
+                                    Icon(
+                                        imageVector = LlamatikIcons.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                         }
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }
