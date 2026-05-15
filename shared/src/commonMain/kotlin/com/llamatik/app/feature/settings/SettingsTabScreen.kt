@@ -1,6 +1,7 @@
 package com.llamatik.app.feature.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,14 +12,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxColors
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -27,6 +32,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,7 +40,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
@@ -45,14 +50,10 @@ import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.debugmenu.viewmodel.DebugMenuViewModel
 import com.llamatik.app.localization.AvailableLanguages
 import com.llamatik.app.localization.SetLanguage
+import com.llamatik.app.localization.displayName
 import com.llamatik.app.localization.getCurrentLanguage
 import com.llamatik.app.localization.getCurrentLocalization
-import com.llamatik.app.platform.Environment
-import com.llamatik.app.platform.ServerEnvironment
 import com.llamatik.app.ui.components.ColoredSnackBarHost
-import com.llamatik.app.ui.components.Picker
-import com.llamatik.app.ui.components.PickerModel
-import com.llamatik.app.ui.components.PickerOption
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
@@ -98,23 +99,10 @@ class SettingsTabScreen : Screen {
     ) {
         val localization = getCurrentLocalization()
         val state by viewModel.state.collectAsState()
-        val showingModal = remember { mutableStateOf(false) }
+        val showLanguagePicker = remember { mutableStateOf(false) }
 
         if (state.currentLanguage != getCurrentLanguage()) {
             SetLanguage(state.currentLanguage)
-        }
-
-        val pickerModel = remember {
-            mutableStateOf(
-                PickerModel(
-                    "Choose Environment",
-                    null,
-                    ServerEnvironment.toPickerList {
-                        viewModel.onSelectedEnvironment(it)
-                        showingModal.value = false
-                    }
-                )
-            )
         }
 
         LlamatikTheme {
@@ -122,9 +110,7 @@ class SettingsTabScreen : Screen {
                 snackbarHost = {
                     SnackbarHost(
                         hostState = snackbarHostState,
-                        snackbar = {
-                            ColoredSnackBarHost(snackbarHostState)
-                        }
+                        snackbar = { ColoredSnackBarHost(snackbarHostState) }
                     )
                 },
                 topBar = {
@@ -140,60 +126,37 @@ class SettingsTabScreen : Screen {
                         ),
                     )
                 },
-            ) {
-                val scrollState = rememberScrollState()
-
+            ) { paddingValues ->
                 Column(
-                    modifier =
-                        Modifier
-                            .padding(it).padding(bottom = 46.dp)
-                            .background(MaterialTheme.colorScheme.background)
-                            .verticalScroll(scrollState)
+                    modifier = Modifier
+                        .padding(paddingValues)
+                        .padding(bottom = 46.dp)
+                        .background(MaterialTheme.colorScheme.background)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Row {
-                                Text(
-                                    text = "Language: "
-                                )
-                                Spacer(Modifier.size(16.dp))
-                                Text(
-                                    text = state.currentLanguage.toString(),
-                                    style = Typography.get().bodyMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                pickerModel.value = PickerModel(
-                                    "Choose Language",
-                                    null,
-                                    AvailableLanguages.toPickerList { language ->
-                                        viewModel.onSelectedLanguage(language)
-                                        showingModal.value = false
-                                    }
-                                )
-                                showingModal.value = true
-                            }
-                        ) {
+                            Text(text = "Language", style = Typography.get().bodyMedium)
                             Text(
-                                text = "Change"
+                                text = state.currentLanguage.displayName,
+                                style = Typography.get().labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                         }
-                    }
 
-                    Spacer(Modifier.size(16.dp))
+                        Button(onClick = { showLanguagePicker.value = true }) {
+                            Text(text = "Change")
+                        }
+                    }
 
                     if (onOpenModelSettings != null) {
                         Spacer(Modifier.size(16.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -205,11 +168,49 @@ class SettingsTabScreen : Screen {
                     }
                 }
             }
-            if (showingModal.value) {
-                Picker(
-                    modifier = Modifier.padding(bottom = 0.dp),
-                    pickerModel = pickerModel.value
-                ) { showingModal.value = false }
+        }
+
+        if (showLanguagePicker.value) {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+            ModalBottomSheet(
+                onDismissRequest = { showLanguagePicker.value = false },
+                sheetState = sheetState,
+            ) {
+                Text(
+                    text = "Choose Language",
+                    style = Typography.get().headlineSmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                LazyColumn {
+                    items(AvailableLanguages.languages) { language ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.onSelectedLanguage(language)
+                                    showLanguagePicker.value = false
+                                }
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = language.displayName,
+                                style = Typography.get().bodyLarge
+                            )
+                            if (language == state.currentLanguage) {
+                                Icon(
+                                    imageVector = LlamatikIcons.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
+                    item { Spacer(Modifier.height(16.dp)) }
+                }
             }
         }
     }
@@ -268,28 +269,4 @@ class SettingsTabScreen : Screen {
             )
         }
     }
-}
-
-private fun AvailableLanguages.Companion.toPickerList(action: (AvailableLanguages) -> Unit): List<PickerOption> {
-    val pickerList = mutableListOf<PickerOption>()
-    this.languages.map {
-        pickerList.add(
-            PickerOption(it.name, null) {
-                action.invoke(it)
-            }
-        )
-    }
-    return pickerList
-}
-
-private fun ServerEnvironment.Companion.toPickerList(action: (Environment) -> Unit): List<PickerOption> {
-    val pickerList = mutableListOf<PickerOption>()
-    this.environments.map {
-        pickerList.add(
-            PickerOption(it.name, null) {
-                action.invoke(it)
-            }
-        )
-    }
-    return pickerList
 }

@@ -233,3 +233,36 @@ fun getLanguageCode(): String? {
         AvailableLanguages.CA -> "ca"
     }
 }
+
+fun getLanguageName(): String? {
+    return when (getCurrentLanguage()) {
+        AvailableLanguages.EN -> "English"
+        AvailableLanguages.ES -> "Español"
+        AvailableLanguages.IT -> "Italiano"
+        AvailableLanguages.FR -> "Français"
+        AvailableLanguages.DE -> "Deutsch"
+        AvailableLanguages.RU -> "Русский"
+        AvailableLanguages.CN -> "中文"
+        AvailableLanguages.PT -> "Português"
+        AvailableLanguages.HI -> "हिन्दी"
+        AvailableLanguages.FA -> "فارسی"
+        AvailableLanguages.JA -> "日本語"
+        AvailableLanguages.CA -> "Català"
+    }
+}
+
+val AvailableLanguages.displayName: String
+    get() = when (this) {
+        AvailableLanguages.EN -> "English"
+        AvailableLanguages.ES -> "Español"
+        AvailableLanguages.IT -> "Italiano"
+        AvailableLanguages.FR -> "Français"
+        AvailableLanguages.DE -> "Deutsch"
+        AvailableLanguages.RU -> "Русский"
+        AvailableLanguages.CN -> "中文"
+        AvailableLanguages.PT -> "Português"
+        AvailableLanguages.HI -> "हिन्दी"
+        AvailableLanguages.FA -> "فارسی"
+        AvailableLanguages.JA -> "日本語"
+        AvailableLanguages.CA -> "Català"
+    }
