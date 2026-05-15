@@ -21,19 +21,29 @@ import cafe.adriel.voyager.core.screen.Screen
 import com.llamatik.app.feature.companion.CompanionMode
 import com.llamatik.app.feature.companion.CompanionRepository
 import com.llamatik.app.feature.entitlement.EntitlementRepository
+import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.ui.theme.Typography
 import org.koin.mp.KoinPlatform
 
 class CompanionTabScreen : Screen {
     @Composable
     override fun Content() {
         val scope = rememberCoroutineScope()
+        val localization = getCurrentLocalization()
         val companionRepo: CompanionRepository = KoinPlatform.getKoin().get()
         val entitlementRepo: EntitlementRepository = KoinPlatform.getKoin().get()
         val isPremium by entitlementRepo.isPremium.collectAsState(initial = false)
 
         Scaffold(
             topBar = {
-                TopAppBar(title = { Text("Companion") })
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Companion",
+                            style = Typography.get().titleLarge
+                        )
+                    }
+                )
             }
         ) { padding ->
             CompanionScreenContent(

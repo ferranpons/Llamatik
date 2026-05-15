@@ -31,6 +31,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.feature.chatbot.ui.ModelCategoryRow
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.ui.theme.Typography
 import org.koin.core.parameter.ParametersHolder
 
 class ModelsTabScreen : Screen {
@@ -74,7 +75,12 @@ class ModelsTabScreen : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Models") },
+                    title = {
+                        Text(
+                            text = "Models",
+                            style = Typography.get().titleLarge
+                        )
+                    },
                     actions = {
                         IconButton(onClick = { showConfirmClear = true }) {
                             Icon(
