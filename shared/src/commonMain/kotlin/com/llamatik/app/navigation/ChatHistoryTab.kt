@@ -10,7 +10,7 @@ import cafe.adriel.voyager.transitions.SlideTransition
 import com.llamatik.app.feature.chathistory.ChatHistoryTabScreen
 import com.llamatik.app.ui.icon.LlamatikIcons
 
-internal object ModelsTab : Tab {
+internal object ChatHistoryTab : Tab {
     override val options: TabOptions
         @Composable
         get() {

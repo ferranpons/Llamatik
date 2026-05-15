@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
@@ -137,50 +137,54 @@ class SettingsTabScreen : Screen {
                         .background(MaterialTheme.colorScheme.background)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(text = localization.language, style = Typography.get().bodyMedium)
-                            Text(
-                                text = state.currentLanguage.displayName,
-                                style = Typography.get().labelMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
-
-                        Button(onClick = { showLanguagePicker.value = true }) {
-                            Text(text = localization.change)
-                        }
-                    }
-
                     if (onOpenModels != null) {
                         Spacer(Modifier.size(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(localization.modelsTitle)
-                            Button(onClick = onOpenModels) {
-                                Text(localization.configure)
-                            }
-                        }
+                        SettingsRow(
+                            icon = LlamatikIcons.Models,
+                            label = localization.modelsTitle,
+                            buttonLabel = localization.configure,
+                            onClick = onOpenModels
+                        )
                     }
 
                     if (onOpenModelSettings != null) {
                         Spacer(Modifier.size(16.dp))
+                        SettingsRow(
+                            icon = LlamatikIcons.Tune,
+                            label = localization.generationSettings,
+                            buttonLabel = localization.configure,
+                            onClick = onOpenModelSettings
+                        )
+                    }
+
+                    Spacer(Modifier.size(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(localization.generationSettings)
-                            Button(onClick = onOpenModelSettings) {
-                                Text(localization.configure)
+                            Icon(
+                                imageVector = LlamatikIcons.Language,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Column {
+                                Text(text = localization.language, style = Typography.get().bodyMedium)
+                                Text(
+                                    text = state.currentLanguage.displayName,
+                                    style = Typography.get().labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
                             }
+                        }
+
+                        Button(onClick = { showLanguagePicker.value = true }) {
+                            Text(text = localization.change)
                         }
                     }
                 }
@@ -238,6 +242,36 @@ class SettingsTabScreen : Screen {
                         item { Spacer(Modifier.height(16.dp)) }
                     }
                 }
+            }
+        }
+    }
+
+    @Composable
+    fun SettingsRow(
+        icon: ImageVector,
+        label: String,
+        buttonLabel: String,
+        onClick: () -> Unit
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(text = label, style = Typography.get().bodyMedium)
+            }
+            Button(onClick = onClick) {
+                Text(buttonLabel)
             }
         }
     }
