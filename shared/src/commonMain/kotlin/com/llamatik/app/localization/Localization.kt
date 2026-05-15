@@ -176,6 +176,8 @@ interface Localization {
     val onboardingSkipForNow: String
     val onboardingNoModelEmptyState: String
     val onboardingNoModelEmptyStateAction: String
+
+    val configure: String
 }
 
 enum class AvailableLanguages {

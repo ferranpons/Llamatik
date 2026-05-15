@@ -140,7 +140,7 @@ class SettingsTabScreen : Screen {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = "Language", style = Typography.get().bodyMedium)
+                            Text(text = localization.language, style = Typography.get().bodyMedium)
                             Text(
                                 text = state.currentLanguage.displayName,
                                 style = Typography.get().labelMedium,
@@ -149,7 +149,7 @@ class SettingsTabScreen : Screen {
                         }
 
                         Button(onClick = { showLanguagePicker.value = true }) {
-                            Text(text = "Change")
+                            Text(text = localization.change)
                         }
                     }
 
@@ -160,9 +160,9 @@ class SettingsTabScreen : Screen {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Generation Settings")
+                            Text(localization.generationSettings)
                             Button(onClick = onOpenModelSettings) {
-                                Text("Configure")
+                                Text(localization.configure)
                             }
                         }
                     }
@@ -177,7 +177,7 @@ class SettingsTabScreen : Screen {
                 sheetState = sheetState,
             ) {
                 Text(
-                    text = "Choose Language",
+                    text = localization.chooseLanguage,
                     style = Typography.get().headlineSmall,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
