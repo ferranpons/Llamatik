@@ -194,4 +194,5 @@ internal object EnglishLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configure"
+    override val modelsTitle = "Models"
 }

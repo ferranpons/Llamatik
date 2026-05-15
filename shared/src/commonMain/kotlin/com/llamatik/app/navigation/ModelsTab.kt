@@ -7,22 +7,22 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import cafe.adriel.voyager.transitions.SlideTransition
-import com.llamatik.app.feature.models.ModelsTabScreen
+import com.llamatik.app.feature.chathistory.ChatHistoryTabScreen
 import com.llamatik.app.ui.icon.LlamatikIcons
 
 internal object ModelsTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val icon = rememberVectorPainter(LlamatikIcons.Models)
+            val icon = rememberVectorPainter(LlamatikIcons.ChatHistory)
             return remember {
-                TabOptions(index = 1u, title = "Models", icon = icon)
+                TabOptions(index = 1u, title = "History", icon = icon)
             }
         }
 
     @Composable
     override fun Content() {
-        Navigator(ModelsTabScreen()) {
+        Navigator(ChatHistoryTabScreen()) {
             SlideTransition(it)
         }
     }

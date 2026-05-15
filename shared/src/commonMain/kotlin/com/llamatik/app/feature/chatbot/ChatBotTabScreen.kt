@@ -56,12 +56,12 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.llamatik.app.feature.chatbot.ui.ChatHistoryBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ChatInputBox
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
+import com.llamatik.app.feature.chathistory.PendingSessionRepository
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.localization.getLanguageCode
@@ -83,6 +83,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
+import org.koin.mp.KoinPlatform
 
 private const val CHAT_BUBBLE_MAX_WIDTH_DP = 800
 
@@ -105,6 +106,17 @@ class ChatBotTabScreen : Screen {
 
         LaunchedEffect(Unit) {
             viewModel.onStarted(navigator)
+        }
+
+        val pendingSessionRepository = remember { KoinPlatform.getKoin().get<PendingSessionRepository>() }
+        LaunchedEffect(Unit) {
+            pendingSessionRepository.pendingId.collect { id ->
+                if (id != null) {
+                    viewModel.onLoadChatSession(id)
+                    showSuggestions.value = false
+                    pendingSessionRepository.consume()
+                }
+            }
         }
 
         LaunchedEffect(Unit) {
@@ -243,8 +255,6 @@ class ChatBotTabScreen : Screen {
         state: ChatBotState,
         showSuggestions: MutableState<Boolean>,
     ) {
-        val showChatHistorySheet = remember { mutableStateOf(false) }
-
         BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
             Scaffold(
                 topBar = {
@@ -268,16 +278,6 @@ class ChatBotTabScreen : Screen {
                             containerColor = MaterialTheme.colorScheme.background
                         ),
                         actions = {
-                            IconButton(
-                                onClick = {
-                                    showChatHistorySheet.value = true
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = LlamatikIcons.ChatHistory,
-                                    contentDescription = localization.chatHistory
-                                )
-                            }
                             IconButton(
                                 onClick = {
                                     showSuggestions.value = false
@@ -332,7 +332,6 @@ class ChatBotTabScreen : Screen {
                         isLoading,
                         state,
                         showSuggestions,
-                        showChatHistorySheet,
                     )
                 }
             }
@@ -375,7 +374,6 @@ class ChatBotTabScreen : Screen {
         isLoading: MutableState<Boolean>,
         state: ChatBotState,
         showSuggestions: MutableState<Boolean>,
-        showChatHistorySheet: MutableState<Boolean>,
     ) {
         val audioPermissionRequester = rememberAudioPermissionRequester()
         var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
@@ -501,21 +499,6 @@ class ChatBotTabScreen : Screen {
                 }
             )
 
-            if (showChatHistorySheet.value) {
-                ChatHistoryBottomSheet(
-                    localization = localization,
-                    sessions = state.chatSessions,
-                    onLoad = { id ->
-                        viewModel.onLoadChatSession(id)
-                        showSuggestions.value = false
-                        showChatHistorySheet.value = false
-                    },
-                    onDelete = { id ->
-                        viewModel.onDeleteChatSession(id)
-                    },
-                    onDismiss = { showChatHistorySheet.value = false }
-                )
-            }
         }
     }
 

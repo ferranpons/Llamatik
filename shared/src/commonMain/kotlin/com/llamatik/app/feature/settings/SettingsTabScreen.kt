@@ -48,6 +48,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.debugmenu.viewmodel.DebugMenuViewModel
+import com.llamatik.app.feature.models.ModelsTabScreen
 import com.llamatik.app.localization.AvailableLanguages
 import com.llamatik.app.localization.SetLanguage
 import com.llamatik.app.localization.displayName
@@ -77,6 +78,7 @@ class SettingsTabScreen : Screen {
                 viewModel = debugViewModel,
                 snackbarHostState = snackbarHostState,
                 onClose = { navigator.pop() },
+                onOpenModels = { navigator.push(ModelsTabScreen()) },
                 onOpenModelSettings = { showModelSettings.value = true },
             )
 
@@ -96,6 +98,7 @@ class SettingsTabScreen : Screen {
         snackbarHostState: SnackbarHostState,
         onClose: () -> Unit,
         onOpenModelSettings: (() -> Unit)? = null,
+        onOpenModels: (() -> Unit)? = null,
     ) {
         val localization = getCurrentLocalization()
         val state by viewModel.state.collectAsState()
@@ -150,6 +153,20 @@ class SettingsTabScreen : Screen {
 
                         Button(onClick = { showLanguagePicker.value = true }) {
                             Text(text = localization.change)
+                        }
+                    }
+
+                    if (onOpenModels != null) {
+                        Spacer(Modifier.size(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(localization.modelsTitle)
+                            Button(onClick = onOpenModels) {
+                                Text(localization.configure)
+                            }
                         }
                     }
 

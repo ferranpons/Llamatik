@@ -195,4 +195,5 @@ Deine Prioritäten:
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Konfigurieren"
+    override val modelsTitle = "Modelle"
 }

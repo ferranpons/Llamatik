@@ -192,4 +192,5 @@ internal object JapaneseLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "設定する"
+    override val modelsTitle = "モデル"
 }

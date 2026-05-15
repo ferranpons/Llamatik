@@ -14,6 +14,8 @@ import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.usecases.ImportModelUseCase
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatgroup.ChatGroupRepository
+import com.llamatik.app.feature.chathistory.ChatHistoryScreenModel
+import com.llamatik.app.feature.chathistory.PendingSessionRepository
 import com.llamatik.app.feature.companion.CompanionRepository
 import com.llamatik.app.feature.debugmenu.repositories.GlobalAppSettingsRepository
 import com.llamatik.app.feature.debugmenu.viewmodel.DebugMenuViewModel
@@ -104,6 +106,8 @@ val commonModule = module {
     single { getCurrentLocalization() }
 
     singleOf(::ChatHistoryRepository)
+    singleOf(::PendingSessionRepository)
+    factoryOf(::ChatHistoryScreenModel)
     singleOf(::ChatGroupRepository)
     singleOf(::CompanionRepository)
     singleOf(::ToolPermissionRepository)

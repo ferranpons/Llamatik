@@ -178,6 +178,7 @@ interface Localization {
     val onboardingNoModelEmptyStateAction: String
 
     val configure: String
+    val modelsTitle: String
 }
 
 enum class AvailableLanguages {
