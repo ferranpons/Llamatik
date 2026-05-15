@@ -181,7 +181,7 @@ class SettingsTabScreen : Screen {
                 LlamatikTheme {
                     Text(
                         text = localization.chooseLanguage,
-                        style = Typography.get().headlineSmall,
+                        style = Typography.get().titleLarge,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
 
