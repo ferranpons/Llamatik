@@ -1582,7 +1582,6 @@ class ChatBotViewModel(
                                 activeRequestId = null
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
-                                notifyChatCompletedForReview()
                             }
                             _state.value = _state.value.copy(isGenerating = false)
                         },
@@ -1698,7 +1697,6 @@ class ChatBotViewModel(
                                     activeRequestId = null
                                     _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                    notifyChatCompletedForReview()
                                     return@stream
                                 }
 
@@ -1710,7 +1708,6 @@ class ChatBotViewModel(
                                             ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
                                     _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                    notifyChatCompletedForReview()
                                 }
                             },
                             onComplete = { final ->
@@ -1781,7 +1778,6 @@ class ChatBotViewModel(
 
         _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
-        notifyChatCompletedForReview()
     }
 
     private fun emitBot(text: String) {
