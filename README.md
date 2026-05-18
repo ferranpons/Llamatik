@@ -66,6 +66,7 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ Model metadata introspection (`getModelFinetuneType` — detect base vs instruction-tuned)
 - ✅ Chat template introspection and rendering (`getModelChatTemplate` / `applyChatTemplate`)
 - ✅ Fine-grained sampling controls (temperature, top-k, top-p, repeat penalty, max tokens)
+- ✅ **Multi-Token Prediction (MTP)** — speculative drafting for faster generation on supported models (Qwen3.5, GLM-4)
 
 ### 🎙 Speech-to-Text (whisper.cpp)
 - ✅ On-device transcription
@@ -148,7 +149,7 @@ only configuration.
 
 ## 📦 Current Versions
 
-- llama.cpp version: [b9102](https://github.com/ggml-org/llama.cpp/releases/tag/b9102)
+- llama.cpp version: [b9208](https://github.com/ggml-org/llama.cpp/releases/tag/b9208)
 - whisper.cpp version [v1.8.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.4)
 - stablediffusion.cpp version [master-596-90e87bc](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-596-90e87bc)
 
@@ -308,6 +309,10 @@ expect object LlamaBridge {
     )
 
     fun nativeCancelGenerate()                        // cancel ongoing generation
+
+    // Multi-Token Prediction (MTP) — speculative drafting
+    fun initMtp(modelPath: String, draftLen: Int = 3): Boolean  // enable MTP; same GGUF as generation model
+    fun shutdownMtp()                                 // disable MTP; generation continues without it
 }
 
 interface GenStream {
@@ -388,6 +393,45 @@ sessionB.close()
 ```
 
 `createSession()` returns `null` on WASM (concurrent sessions are not supported in the single-threaded WebAssembly environment — use `LlamaBridge.generateStream()` there instead).
+
+### Multi-Token Prediction (MTP)
+
+MTP is a speculative decoding technique where a lightweight **draft head** — embedded directly in the same GGUF file — predicts several tokens ahead. The trunk model then verifies all drafts in a single batched forward pass and accepts the ones that match. This delivers a throughput boost (typically 1.5–2.5× on CPU) with **no change in output quality**.
+
+Supported model families: **Qwen3.5**, **Qwen3.5-MoE**, **GLM-4** (and others with `nextn_predict_layers` in their GGUF metadata).
+
+```kotlin
+val modelPath = LlamaBridge.getModelPath("Qwen3.5-1.7B-Instruct-Q4_K_M.gguf")
+
+// 1. Load the trunk model as usual
+LlamaBridge.initGenerateModel(modelPath)
+
+// 2. Enable MTP — pass the same GGUF, the library loads only the MTP layers
+//    draftLen: max speculative tokens per step (1–8 recommended, default 3)
+val mtpReady = LlamaBridge.initMtp(modelPath, draftLen = 3)
+if (!mtpReady) {
+    println("Model does not contain MTP layers — running without speculative drafting.")
+}
+
+// 3. Use the API exactly as before — MTP is transparent
+LlamaBridge.generateStream(
+    prompt = prompt,
+    callback = object : GenStream {
+        override fun onDelta(text: String) { print(text) }
+        override fun onComplete()          { println("\n[done]") }
+        override fun onError(msg: String)  { println("Error: $msg") }
+    }
+)
+
+// 4. Optionally disable MTP at runtime (trunk model stays loaded)
+LlamaBridge.shutdownMtp()
+```
+
+**Notes:**
+- `initMtp` must be called **after** `initGenerateModel` because the trunk context must already exist.
+- MTP is active for streaming generation only (`generateStream` / `generateStreamWithContext` / `generateWithContextStream`). Non-streaming and JSON-constrained paths run the standard decode loop.
+- `shutdown()` also releases MTP resources automatically.
+- On WASM, `initMtp` always returns `false` (not supported).
 
 ### Model Metadata
 
