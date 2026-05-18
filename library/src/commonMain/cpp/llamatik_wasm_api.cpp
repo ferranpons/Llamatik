@@ -160,21 +160,34 @@ static bool feed_tokens(const std::vector<llama_token> & tokens) {
     if (!g_ctx || !g_vocab) return false;
     if (tokens.empty()) return true;
 
-    const int32_t n_ctx = llama_n_ctx(g_ctx);
-    if (g_cur_pos + (int32_t) tokens.size() >= n_ctx - 1) {
+    const int32_t n_ctx   = llama_n_ctx(g_ctx);
+    const int32_t n_batch = (int32_t) llama_n_batch(g_ctx);
+    const int32_t total   = (int32_t) tokens.size();
+
+    if (g_cur_pos + total >= n_ctx - 1) {
         return false;
     }
 
-    llama_batch batch = llama_batch_init(std::max<int32_t>(1, (int32_t) tokens.size()), 0, 1);
-    batch_set_tokens(batch, tokens.data(), (int32_t) tokens.size(), g_cur_pos);
-    batch.logits[batch.n_tokens - 1] = true;
+    // Feed in chunks no larger than n_batch to satisfy llama_decode's assertion.
+    llama_batch batch = llama_batch_init(n_batch, 0, 1);
 
-    const int rc = llama_decode(g_ctx, batch);
+    for (int32_t start = 0; start < total; start += n_batch) {
+        const int32_t end   = std::min(start + n_batch, total);
+        const int32_t chunk = end - start;
+
+        batch_set_tokens(batch, tokens.data() + start, chunk, g_cur_pos);
+        // Only request logits on the very last token of the entire sequence
+        batch.logits[batch.n_tokens - 1] = (end == total);
+
+        const int rc = llama_decode(g_ctx, batch);
+        if (rc != 0) {
+            llama_batch_free(batch);
+            return false;
+        }
+        g_cur_pos += chunk;
+    }
+
     llama_batch_free(batch);
-
-    if (rc != 0) return false;
-
-    g_cur_pos += (int32_t) tokens.size();
     return true;
 }
 

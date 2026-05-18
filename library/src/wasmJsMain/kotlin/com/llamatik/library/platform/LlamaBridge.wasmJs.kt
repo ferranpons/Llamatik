@@ -95,14 +95,15 @@ actual object LlamaBridge {
             return
         }
 
-        val continueMode = hasSession.load()
-
+        // Always pass the full prompt — WASM rebuilds the full conversation each turn
+        // because applyChatTemplate returns null. generate_continue would corrupt the
+        // KV cache by appending a full prompt on top of a prior turn's context.
         wasmScope.launch {
             runGenerateStreamWorker(
                 idbKey = idbKey,
                 fsPath = fsPath,
                 prompt = prompt,
-                continueMode = continueMode,
+                continueMode = false,
                 onDelta = { callback.onDelta(it) },
                 onDone = {
                     hasSession.store(true)
@@ -151,14 +152,12 @@ actual object LlamaBridge {
             return
         }
 
-        val continueMode = hasSession.load()
-
         wasmScope.launch {
             runGenerateStreamWorker(
                 idbKey = idbKey,
                 fsPath = fsPath,
                 prompt = "$system\n\n$context\n\n$user",
-                continueMode = continueMode,
+                continueMode = false,
                 onDelta = onDelta,
                 onDone = {
                     hasSession.store(true)
