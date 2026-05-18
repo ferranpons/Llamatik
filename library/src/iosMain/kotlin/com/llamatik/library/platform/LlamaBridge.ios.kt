@@ -26,6 +26,8 @@ import com.llamatik.library.platform.llama.llama_generate_set_params
 import com.llamatik.library.platform.llama.llama_generate_stream
 import com.llamatik.library.platform.llama.llama_get_model_chat_template
 import com.llamatik.library.platform.llama.llama_get_model_finetune_type
+import com.llamatik.library.platform.llama.llama_mtp_init
+import com.llamatik.library.platform.llama.llama_mtp_shutdown
 import com.llamatik.library.platform.llama.llama_session_create
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
@@ -539,6 +541,15 @@ actual object LlamaBridge {
 
     actual fun nativeCancelGenerate() {
         llama_generate_cancel()
+    }
+
+    actual fun initMtp(modelPath: String, draftLen: Int): Boolean {
+        val resolved = resolveExistingModelPath(modelPath) ?: modelPath
+        return llama_mtp_init(resolved, draftLen)
+    }
+
+    actual fun shutdownMtp() {
+        llama_mtp_shutdown()
     }
 
     actual fun updateGenerateParams(

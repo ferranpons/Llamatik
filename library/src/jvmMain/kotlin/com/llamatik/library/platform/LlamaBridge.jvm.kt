@@ -174,6 +174,10 @@ actual object LlamaBridge {
     actual external fun shutdown()
     actual external fun nativeCancelGenerate()
 
+    actual external fun initMtp(modelPath: String, draftLen: Int): Boolean
+    actual fun shutdownMtp() = nativeShutdownMtp()
+    private external fun nativeShutdownMtp()
+
     private fun loadNativeFromResources() {
         val os = System.getProperty("os.name").lowercase(Locale.ROOT)
         val platform = when {

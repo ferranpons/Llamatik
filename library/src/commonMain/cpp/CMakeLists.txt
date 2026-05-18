@@ -124,6 +124,7 @@ target_include_directories(
         PRIVATE
         ${CMAKE_SOURCE_DIR}/../c_interop/include
         ${LLAMA_CPP_DIR}/include
+        ${LLAMA_CPP_DIR}/src
         ${LLAMA_CPP_DIR}/ggml/include
         ${LLAMA_CPP_DIR}/ggml/src
         ${LLAMA_CPP_DIR}/common

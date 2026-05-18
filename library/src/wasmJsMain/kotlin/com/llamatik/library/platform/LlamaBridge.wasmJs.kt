@@ -182,6 +182,9 @@ actual object LlamaBridge {
 
     actual fun nativeCancelGenerate() {}
 
+    actual fun initMtp(modelPath: String, draftLen: Int): Boolean = false
+    actual fun shutdownMtp() {}
+
     actual fun updateGenerateParams(
         temperature: Float,
         maxTokens: Int,
