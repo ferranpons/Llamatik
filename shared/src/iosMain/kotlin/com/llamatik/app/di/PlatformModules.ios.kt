@@ -4,12 +4,15 @@ import com.llamatik.app.feature.chatbot.download.DefaultModelDownloadOrchestrato
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.platform.tts.AppleTtsEngine
 import com.llamatik.app.platform.tts.TtsEngine
+import com.russhwolf.settings.Settings
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 actual fun platformModules(): List<Module> = listOf(
     module {
         single<ModelDownloadOrchestrator> { DefaultModelDownloadOrchestrator(get()) }
         single<TtsEngine> { AppleTtsEngine() }
+        singleOf(::Settings)
     }
 )

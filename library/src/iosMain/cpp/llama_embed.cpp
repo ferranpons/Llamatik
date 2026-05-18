@@ -854,7 +854,7 @@ char *llama_generate(const char *prompt) {
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) return nullptr;
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -993,7 +993,7 @@ char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
     if (!sampler) return nullptr;
 
     llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1139,7 +1139,7 @@ void llama_generate_stream(const char *prompt,
         if (on_error) on_error("sampler init failed", user);
         return;
     }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1396,7 +1396,7 @@ void llama_generate_json_schema_stream(const char *prompt,
     }
 
     llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1599,7 +1599,7 @@ char *llama_generate_continue(const char *prompt) {
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) return nullptr;
 
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1904,7 +1904,7 @@ void llama_session_stream(int64_t handle,
         if (on_error) on_error("sampler init failed", user);
         return;
     }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));

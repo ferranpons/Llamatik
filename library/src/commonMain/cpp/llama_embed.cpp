@@ -364,7 +364,7 @@ char *llama_generate(const char *prompt) {
         return nullptr;
     }
 
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, 1.10f, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
