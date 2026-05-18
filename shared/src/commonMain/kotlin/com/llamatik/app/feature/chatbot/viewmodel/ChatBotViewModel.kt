@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
+import com.llamatik.app.feature.agent.ToolCallParser
 import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
 import com.llamatik.app.feature.chatbot.download.DownloadEvent
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
@@ -91,6 +92,7 @@ class ChatBotViewModel(
     private val reviewRequestManager: ReviewRequestManager,
     private val chatHistoryRepository: ChatHistoryRepository,
     private val ttsEngine: TtsEngine,
+    val systemPromptOverride: String? = null,
 ) : ScreenModel {
     val localization = getCurrentLocalization()
 
@@ -1719,6 +1721,15 @@ class ChatBotViewModel(
                                 _state.value = _state.value.copy(isGenerating = false)
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 notifyChatCompletedForReview()
+                                if (systemPromptOverride != null) {
+                                    val rawJson = ToolCallParser.extractFirstJsonBlock(final)
+                                    val call = rawJson?.let { ToolCallParser.parse(it) }
+                                    if (call != null) {
+                                        _sideEffects.trySend(
+                                            ChatBotSideEffects.OnToolCallDetected(call.toolId, rawJson)
+                                        )
+                                    }
+                                }
                             },
                             onError = { err ->
                                 if (activeRequestId != requestId) return@stream
@@ -1911,7 +1922,7 @@ class ChatBotViewModel(
     }
 
     private fun currentSystemPrompt(): String {
-        return currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
+        return systemPromptOverride ?: currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
     }
 
     private fun looksLikeEchoOrLoop(full: String, user: String): Boolean {
@@ -2139,4 +2150,5 @@ sealed class ChatBotSideEffects {
     data object OnVlmModelLoadError : ChatBotSideEffects()
     data class OnCacheCleared(val message: String) : ChatBotSideEffects()
     data class OnCacheClearFailed(val message: String) : ChatBotSideEffects()
+    data class OnToolCallDetected(val toolId: String, val rawJson: String) : ChatBotSideEffects()
 }

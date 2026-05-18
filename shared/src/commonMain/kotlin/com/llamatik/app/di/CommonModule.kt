@@ -8,6 +8,9 @@ import com.llamatik.app.feature.agent.AgentActionLogRepository
 import com.llamatik.app.feature.agent.AgentFeatureFlags
 import com.llamatik.app.feature.agent.ToolPermissionRepository
 import com.llamatik.app.feature.agent.ToolRegistry
+import com.llamatik.app.feature.agent.tools.OpenAppTool
+import com.llamatik.app.feature.agent.tools.ReminderTool
+import com.llamatik.app.feature.agent.tools.SystemInteractionTool
 import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
 import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
 import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
@@ -37,6 +40,7 @@ import com.llamatik.app.ui.screens.viewmodel.SettingsViewModel
 import com.russhwolf.settings.Settings
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val commonModule = module {
@@ -72,6 +76,20 @@ val commonModule = module {
             reviewRequestManager = get(),
             chatHistoryRepository = get(),
             ttsEngine = get()
+        )
+    }
+
+    factory(named("companion")) { (navigator: Navigator, systemPrompt: String) ->
+        ChatBotViewModel(
+            navigator = navigator,
+            settings = get(),
+            getAllNewsUseCase = get(),
+            getModelsUseCase = get(),
+            modelDownloadOrchestrator = get(),
+            reviewRequestManager = get(),
+            chatHistoryRepository = get(),
+            ttsEngine = get(),
+            systemPromptOverride = systemPrompt
         )
     }
 
@@ -113,5 +131,11 @@ val commonModule = module {
     singleOf(::ToolPermissionRepository)
     singleOf(::AgentActionLogRepository)
     singleOf(::AgentFeatureFlags)
-    single { ToolRegistry() }
+    single {
+        ToolRegistry().also { registry ->
+            registry.register(ReminderTool())
+            registry.register(OpenAppTool())
+            registry.register(SystemInteractionTool())
+        }
+    }
 }

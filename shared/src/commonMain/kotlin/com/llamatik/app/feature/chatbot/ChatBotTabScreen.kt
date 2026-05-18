@@ -241,6 +241,7 @@ class ChatBotTabScreen : Screen {
                         dialogMessage.value = effect.message
                         isDialogOpen.value = true
                     }
+                    is ChatBotSideEffects.OnToolCallDetected -> {}  // companion only
                 }
             }
         }
