@@ -216,6 +216,25 @@ char *llama_apply_chat_template(
     int n_messages,
     bool add_assistant_prefix);
 
+// ===================== MTP (Multi-Token Prediction) =====================
+
+/**
+ * Load the same GGUF as the trunk model a second time with a MTP context type.
+ * Must be called AFTER llama_generate_init() because the trunk model must already
+ * be loaded (MTP needs it to enable pre-norm embeddings on the trunk context).
+ *
+ * model_path: path to the same .gguf used for generation (MTP layers are embedded in it).
+ * draft_len:  max speculative tokens per step (1-8 recommended, 0 = use default of 3).
+ *
+ * Returns true on success, false if the model has no MTP layers or loading fails.
+ */
+bool llama_mtp_init(const char *model_path, int draft_len);
+
+/**
+ * Release MTP resources.  Generation continues normally with the trunk model.
+ */
+void llama_mtp_shutdown(void);
+
 // ===================== Concurrent session API =====================
 
 /**

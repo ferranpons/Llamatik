@@ -5,12 +5,15 @@ import com.llamatik.app.feature.chatbot.download.AndroidWorkManagerModelDownload
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.platform.tts.AndroidTtsEngine
 import com.llamatik.app.platform.tts.TtsEngine
+import com.russhwolf.settings.Settings
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 actual fun platformModules(): List<Module> = listOf(
     module {
         single<ModelDownloadOrchestrator> { AndroidWorkManagerModelDownloadOrchestrator(get<Context>()) }
         single<TtsEngine> { AndroidTtsEngine(get<Context>()) }
+        singleOf(::Settings)
     }
 )

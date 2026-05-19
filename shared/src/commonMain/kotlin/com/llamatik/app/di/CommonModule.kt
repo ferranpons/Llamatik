@@ -25,7 +25,6 @@ import com.llamatik.app.platform.RootSnackbarHostStateRepository
 import com.llamatik.app.platform.ServiceClient
 import com.llamatik.app.ui.screens.viewmodel.HomeScreenViewModel
 import com.llamatik.app.ui.screens.viewmodel.SettingsViewModel
-import com.russhwolf.settings.Settings
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -87,7 +86,6 @@ val commonModule = module {
     singleOf(::ModelsRepository)
 
     singleOf(::DownloadFileRepository)
-    singleOf(::Settings)
 
     single<ReviewService> { createReviewService() }
     singleOf(::ReviewRequestManager)

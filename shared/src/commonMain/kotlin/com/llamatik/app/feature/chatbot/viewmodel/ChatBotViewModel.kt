@@ -1495,7 +1495,6 @@ class ChatBotViewModel(
             _state.value = _state.value.copy(isGenerating = true)
 
             withContext(AppDispatchersIO) {
-                var session: LlamaSession? = null
                 try {
                     val qArr = LlamaBridge.embed(question)
                     if (qArr.isEmpty()) {
@@ -1554,13 +1553,15 @@ class ChatBotViewModel(
 
                     val acc = StringBuilder()
                     val generateSettings = _state.value.generateSettings
+                    val priorBotTextsEmbed = chatHistory
+                        .filter { it.role == ChatMessage.Role.Assistant }
+                        .map { it.content }
 
-                    session = LlamaBridge.createSession()
                     activeSession?.close()
-                    activeSession = session
+                    activeSession = null
 
                     ChatRunner.stream(
-                        session = session,
+                        session = null,
                         system = currentSystemPrompt(),
                         contexts = listOf(compact),
                         messages = chatHistory,
@@ -1575,8 +1576,8 @@ class ChatBotViewModel(
                                     ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
                             _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
-                            if (looksLikeEchoOrLoop(full = acc.toString(), user = question)) {
-                                val trimmed = trimLoop(acc.toString(), user = question)
+                            if (looksLikeEchoOrLoop(full = acc.toString(), user = question, priorBotTexts = priorBotTextsEmbed)) {
+                                val trimmed = trimLoop(acc.toString(), user = question, priorBotTexts = priorBotTextsEmbed)
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
                                 activeRequestId = null
@@ -1607,11 +1608,9 @@ class ChatBotViewModel(
                             _state.value = _state.value.copy(isGenerating = false)
                         }
                     )
-                    session?.close()
-                    if (activeSession === session) activeSession = null
+                    activeSession = null
                 } catch (t: Throwable) {
-                    session?.close()
-                    if (activeSession === session) activeSession = null
+                    activeSession = null
                     t.printStackTrace()
                     emitBot(localization.thereIsAProblemWithAI)
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
@@ -1653,12 +1652,15 @@ class ChatBotViewModel(
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
 
-                    val session = LlamaBridge.createSession()
                     activeSession?.close()
-                    activeSession = session
+                    activeSession = null
 
                     val acc = StringBuilder()
                     var completed = false
+
+                    val priorBotTexts = chatHistory
+                        .filter { it.role == ChatMessage.Role.Assistant }
+                        .map { it.content }
 
                     fun looksLikeBabble(s: String): Boolean {
                         if (s.length < 60) return false
@@ -1675,7 +1677,7 @@ class ChatBotViewModel(
 
                     try {
                         ChatRunner.stream(
-                            session = session,
+                            session = null,
                             system = currentSystemPrompt(),
                             contexts = emptyList(),
                             messages = chatHistory,
@@ -1690,8 +1692,8 @@ class ChatBotViewModel(
                                         ChatUiModel.Message(acc.toString(), ChatUiModel.Author.bot)
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
 
-                                if (looksLikeEchoOrLoop(full = acc.toString(), user = input)) {
-                                    val trimmed = trimLoop(acc.toString(), user = input)
+                                if (looksLikeEchoOrLoop(full = acc.toString(), user = input, priorBotTexts = priorBotTexts)) {
+                                    val trimmed = trimLoop(acc.toString(), user = input, priorBotTexts = priorBotTexts)
                                     _conversation.value = _conversation.value.dropLast(1) +
                                             ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
                                     completed = true
@@ -1736,8 +1738,7 @@ class ChatBotViewModel(
                             }
                         )
                     } finally {
-                        session?.close()
-                        if (activeSession === session) activeSession = null
+                        activeSession = null
                         persistCurrentConversationIfNeeded()
                         if (activeRequestId == null) {
                             _state.value = _state.value.copy(isGenerating = false)
@@ -1918,7 +1919,11 @@ class ChatBotViewModel(
         return currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
     }
 
-    private fun looksLikeEchoOrLoop(full: String, user: String): Boolean {
+    private fun looksLikeEchoOrLoop(
+        full: String,
+        user: String,
+        priorBotTexts: List<String> = emptyList()
+    ): Boolean {
         val f = full.trim()
         if (f.isEmpty()) return false
 
@@ -1934,13 +1939,37 @@ class ChatBotViewModel(
             val lastIdx = f.lastIndexOf(last)
             if (firstIdx >= 0 && lastIdx > firstIdx) return true
         }
+
+        // Cross-turn: stop if current output is regenerating text from a prior assistant turn
+        if (priorBotTexts.isNotEmpty()) {
+            val allSentences = f.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length >= 60 }
+            for (sentence in allSentences) {
+                if (priorBotTexts.any { prior -> prior.contains(sentence) }) return true
+            }
+        }
         return false
     }
 
-    private fun trimLoop(full: String, user: String): String {
+    private fun trimLoop(
+        full: String,
+        user: String,
+        priorBotTexts: List<String> = emptyList()
+    ): String {
         val f = full.trim()
         val idxEcho = f.indexOf(user, startIndex = minOf(80, f.length))
         if (idxEcho >= 0) return f.substring(0, idxEcho).trim()
+
+        // Cross-turn: keep only sentences that don't appear in any prior assistant turn
+        if (priorBotTexts.isNotEmpty()) {
+            val sentences = f.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }
+            val out = StringBuilder()
+            for (s in sentences) {
+                if (s.length >= 60 && priorBotTexts.any { prior -> prior.contains(s) }) break
+                if (out.isNotEmpty()) out.append(' ')
+                out.append(s)
+            }
+            if (out.isNotEmpty()) return out.toString().trim()
+        }
 
         val sentences = f.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }
         if (sentences.isNotEmpty()) {

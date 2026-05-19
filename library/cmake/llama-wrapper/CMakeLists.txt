@@ -44,6 +44,10 @@ set(LLAMA_REASONING_BUDGET_CPP "${LLAMA_CPP_DIR}/common/reasoning-budget.cpp")
 set(LLAMA_UNICODE_CPP          "${LLAMA_CPP_DIR}/common/unicode.cpp")
 set(LLAMA_FIT_CPP              "${LLAMA_CPP_DIR}/common/fit.cpp")
 set(LLAMA_DEBUG_CPP            "${LLAMA_CPP_DIR}/common/debug.cpp")
+set(LLAMA_SPECULATIVE_CPP      "${LLAMA_CPP_DIR}/common/speculative.cpp")
+set(LLAMA_NGRAM_CACHE_CPP      "${LLAMA_CPP_DIR}/common/ngram-cache.cpp")
+set(LLAMA_NGRAM_MAP_CPP        "${LLAMA_CPP_DIR}/common/ngram-map.cpp")
+set(LLAMA_NGRAM_MOD_CPP        "${LLAMA_CPP_DIR}/common/ngram-mod.cpp")
 set(LLAMA_BUILDINFO_IN    "${LLAMA_CPP_DIR}/common/build-info.cpp.in")
 
 if(NOT EXISTS "${LLAMA_COMMON_CPP}")
@@ -153,6 +157,22 @@ if(EXISTS "${LLAMA_DEBUG_CPP}")
     target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_DEBUG_CPP}")
 endif()
 
+if(EXISTS "${LLAMA_SPECULATIVE_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_SPECULATIVE_CPP}")
+endif()
+
+if(EXISTS "${LLAMA_NGRAM_CACHE_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_NGRAM_CACHE_CPP}")
+endif()
+
+if(EXISTS "${LLAMA_NGRAM_MAP_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_NGRAM_MAP_CPP}")
+endif()
+
+if(EXISTS "${LLAMA_NGRAM_MOD_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_NGRAM_MOD_CPP}")
+endif()
+
 target_include_directories(llamatik_llama_common_obj PRIVATE
         ${LLAMA_CPP_DIR}
         ${LLAMA_CPP_DIR}/include
@@ -191,6 +211,7 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/llama4.cpp
         ${MTMD_DIR}/models/llava.cpp
         ${MTMD_DIR}/models/minicpmv.cpp
+        ${MTMD_DIR}/models/mimovl.cpp
         ${MTMD_DIR}/models/mobilenetv5.cpp
         ${MTMD_DIR}/models/nemotron-v2-vl.cpp
         ${MTMD_DIR}/models/paddleocr.cpp
