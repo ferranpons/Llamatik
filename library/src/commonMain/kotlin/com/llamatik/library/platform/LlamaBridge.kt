@@ -1,5 +1,8 @@
 package com.llamatik.library.platform
 
+import com.llamatik.library.platform.LlamaBridge.initGenerateModel
+
+
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect object LlamaBridge {
     fun getModelPath(modelFileName: String): String
@@ -89,6 +92,25 @@ expect object LlamaBridge {
      * [name] is a human-readable label stored on the session for display purposes.
      */
     fun createSession(name: String = ""): LlamaSession?
+
+    /**
+     * Load the same GGUF as the trunk model a second time as an MTP (Multi-Token Prediction)
+     * head context.  Must be called after [initGenerateModel].
+     *
+     * The MTP head enables speculative drafting: on each trunk decode step the MTP head predicts
+     * up to [draftLen] extra tokens which are verified by the trunk in a single batch, giving a
+     * throughput boost with no quality loss on supporting models (e.g. Qwen3.5, GLM-4).
+     *
+     * @param modelPath Path to the same .gguf used for generation (MTP layers are embedded in it).
+     * @param draftLen  Maximum draft tokens per step (1–8 recommended).  Pass 0 for default (3).
+     * @return true on success, false if the model has no MTP layers or loading fails.
+     */
+    fun initMtp(modelPath: String, draftLen: Int = 3): Boolean
+
+    /**
+     * Release MTP resources.  Generation continues normally using the trunk model only.
+     */
+    fun shutdownMtp()
 
     fun shutdown()
 

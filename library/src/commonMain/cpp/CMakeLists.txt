@@ -77,6 +77,7 @@ add_library(mtmd_sources OBJECT
         ${MTMD_DIR}/models/llama4.cpp
         ${MTMD_DIR}/models/llava.cpp
         ${MTMD_DIR}/models/minicpmv.cpp
+        ${MTMD_DIR}/models/mimovl.cpp
         ${MTMD_DIR}/models/mobilenetv5.cpp
         ${MTMD_DIR}/models/nemotron-v2-vl.cpp
         ${MTMD_DIR}/models/paddleocr.cpp
@@ -124,6 +125,7 @@ target_include_directories(
         PRIVATE
         ${CMAKE_SOURCE_DIR}/../c_interop/include
         ${LLAMA_CPP_DIR}/include
+        ${LLAMA_CPP_DIR}/src
         ${LLAMA_CPP_DIR}/ggml/include
         ${LLAMA_CPP_DIR}/ggml/src
         ${LLAMA_CPP_DIR}/common

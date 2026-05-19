@@ -1,6 +1,7 @@
 #include <jni.h>
 #include "llama.h"
 #include "llama_jni.h"
+#include "llama-ext.h"
 
 #include "json-schema-to-grammar.h"
 #include "nlohmann/json.hpp"
@@ -100,6 +101,27 @@ static std::atomic<int> g_num_threads = 4;
 static std::atomic<bool> g_use_mmap = true;
 static std::atomic<bool> g_flash_attention = false;
 static std::atomic<int>  g_batch_size = 512;
+
+// ===================================================================================
+//                              MTP (Multi-Token Prediction) STATE
+// ===================================================================================
+//
+// The same GGUF is loaded twice: once as the trunk (gen_model/gen_ctx above) and
+// once as the MTP head (g_mtp_model/g_mtp_ctx below).  The MTP head context uses
+// LLAMA_CONTEXT_TYPE_MTP and a smaller n_ctx (just enough for one speculative step).
+// Both contexts have pre-norm embeddings enabled via llama_set_embeddings_pre_norm().
+//
+// Speculative loop (per-step):
+//   1. Trunk produces a token T0 via normal sampling.
+//   2. MTP head receives (h_trunk, T0) and produces a draft token D1.
+//   3. Trunk verifies D1: decode (T0, D1) in a 2-token batch with logits on both.
+//   4. If trunk agrees with D1, emit it; repeat from step 2 with D1 as input.
+//   5. Otherwise emit T0 and restart.
+// This gives up to g_mtp_draft_len extra tokens per trunk forward pass.
+
+static struct llama_model   *g_mtp_model = nullptr;
+static struct llama_context *g_mtp_ctx   = nullptr;
+static std::atomic<int>      g_mtp_draft_len{3};   // max draft tokens per step
 
 // Session / KV bookkeeping (for nativeSessionReset/Save/Load/GenerateContinue)
 static std::vector<llama_token> g_session_tokens;
@@ -513,6 +535,10 @@ Java_com_llamatik_library_platform_LlamaBridge_shutdown(JNIEnv *, jobject) {
     llama_embed_free();
     llama_generate_free();
 
+    // MTP state
+    if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
+    if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
+
     // Streaming state (owned in this TU)
     if (gen_ctx) llama_free(gen_ctx);
     if (gen_model) llama_model_free(gen_model);
@@ -531,6 +557,77 @@ Java_com_llamatik_library_platform_LlamaBridge_shutdown(JNIEnv *, jobject) {
         llama_backend_free();
         g_backend_inited = false;
     }
+}
+
+// ===================================================================================
+//                         MTP INIT / SHUTDOWN
+// ===================================================================================
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeInitMtp(
+        JNIEnv *env, jobject /*thiz*/, jstring jModelPath, jint draftLen) {
+
+    if (!gen_model) {
+        LOGE("nativeInitMtp: trunk model not loaded — call initGenerateModel first");
+        return JNI_FALSE;
+    }
+
+    const char *path = jModelPath ? env->GetStringUTFChars(jModelPath, nullptr) : nullptr;
+    if (!path) {
+        LOGE("nativeInitMtp: path is null");
+        return JNI_FALSE;
+    }
+
+    // Free any previous MTP resources
+    if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
+    if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
+
+    llama_model_params mparams = llama_model_default_params();
+    mparams.use_mmap = g_use_mmap.load(std::memory_order_relaxed);
+    g_mtp_model = llama_model_load_from_file(path, mparams);
+    env->ReleaseStringUTFChars(jModelPath, path);
+
+    if (!g_mtp_model) {
+        LOGE("nativeInitMtp: model load failed");
+        return JNI_FALSE;
+    }
+
+    llama_context_params cparams = llama_context_default_params();
+    cparams.ctx_type      = LLAMA_CONTEXT_TYPE_MTP;
+    cparams.n_ctx         = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_threads     = g_num_threads.load(std::memory_order_relaxed);
+    cparams.n_batch       = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+
+    g_mtp_ctx = llama_init_from_model(g_mtp_model, cparams);
+    if (!g_mtp_ctx) {
+        LOGE("nativeInitMtp: context creation failed (model may not have MTP layers)");
+        llama_model_free(g_mtp_model);
+        g_mtp_model = nullptr;
+        return JNI_FALSE;
+    }
+
+    // Enable pre-norm embedding extraction on both trunk and MTP contexts
+    llama_set_embeddings_pre_norm(gen_ctx,   true, /*masked*/ false);
+    llama_set_embeddings_pre_norm(g_mtp_ctx, true, /*masked*/ true);
+
+    if (draftLen > 0) g_mtp_draft_len.store((int)draftLen, std::memory_order_relaxed);
+
+    LOGI("nativeInitMtp: ready. draft_len=%d", g_mtp_draft_len.load());
+    return JNI_TRUE;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeShutdownMtp(JNIEnv * /*env*/, jobject /*thiz*/) {
+    if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
+    if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
+    // Disable pre-norm extraction on trunk if still alive
+    if (gen_ctx) llama_set_embeddings_pre_norm(gen_ctx, false, false);
+    LOGI("nativeShutdownMtp: done");
 }
 
 // ===================================================================================
@@ -625,7 +722,7 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
         // Hard constraint first
         llama_sampler_chain_add(sampler, llama_sampler_init_grammar(vocab, grammar, "root"));
     }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -884,7 +981,7 @@ static void stream_from_prompt(
         llama_sampler_chain_add(sampler, llama_sampler_init_grammar(vocab, grammar_gbnf, "root"));
     }
 
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -895,60 +992,193 @@ static void stream_from_prompt(
     char piece_buf[768];
     char spec_buf[64];
 
-    for (int i = 0; i < max_new_tokens; ++i) {
-        if (g_cancel_requested.load(std::memory_order_relaxed)) {
-            break;
+    // Helper: emit a token text to the JNI callback; returns false on stop token.
+    auto emit_token = [&](llama_token tok) -> bool {
+        int sn = llama_token_to_piece(vocab, tok, spec_buf, (int)sizeof(spec_buf), 0, 1);
+        if (sn > 0) {
+            spec_buf[std::min(sn, (int)sizeof(spec_buf)-1)] = '\0';
+            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0) return false;
+        }
+        int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
+        if (nn > 0) {
+            piece_buf[std::min(nn, (int)sizeof(piece_buf)-1)] = '\0';
+            jstring delta = env->NewStringUTF(piece_buf);
+            if (delta) { env->CallVoidMethod(jCallback, m.onDelta, delta); env->DeleteLocalRef(delta); }
+        }
+        return true;
+    };
+
+    const bool use_mtp = (g_mtp_ctx != nullptr && g_mtp_model != nullptr);
+    const int  n_embd  = use_mtp ? llama_model_n_embd(gen_model) : 0;
+    const int  draft_len = use_mtp ? g_mtp_draft_len.load(std::memory_order_relaxed) : 0;
+
+    // MTP needs a separate sampler for the draft context (greedy from top-k=10)
+    llama_sampler *mtp_sampler = nullptr;
+    if (use_mtp) {
+        const llama_vocab *mtp_vocab = llama_model_get_vocab(g_mtp_model);
+        mtp_sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+        llama_sampler_chain_add(mtp_sampler, llama_sampler_init_top_k(10));
+        llama_sampler_chain_add(mtp_sampler, llama_sampler_init_greedy());
+        (void)mtp_vocab;
+    }
+
+    int tokens_generated = 0;
+    bool error_flag = false;
+
+    while (tokens_generated < max_new_tokens) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+
+        // ── Step 1: sample next token from trunk ──────────────────────────────
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || tok == llama_vocab_eos(vocab) || tok == llama_vocab_eot(vocab)) break;
+        llama_sampler_accept(sampler, tok);
+
+        if (!emit_token(tok)) break;
+        ++tokens_generated;
+        if (tokens_generated >= max_new_tokens) break;
+
+        if (!use_mtp) {
+            // Standard single-token decode
+            if (cur_pos >= n_ctx) break;
+            llama_batch step = llama_batch_init(1, 0, 1);
+            step.n_tokens    = 1;
+            step.token[0]    = tok;
+            step.pos[0]      = cur_pos++;
+            step.n_seq_id[0] = 1; step.seq_id[0][0] = 0;
+            step.logits[0]   = true;
+            const int rc = llama_decode(gen_ctx, step);
+            llama_batch_free(step);
+            if (rc != 0) { error_flag = true; break; }
+            continue;
         }
 
-        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
-        if (tok < 0) break;
-        if (tok == llama_vocab_eos(vocab)) break;
-        if (tok == llama_vocab_eot(vocab)) break;
+        // ── MTP speculative decode ────────────────────────────────────────────
+        // We have just emitted tok (the trunk-verified token at position cur_pos-1).
+        // Feed tok to the trunk to advance KV and get its pre-norm hidden state.
+        if (cur_pos >= n_ctx) break;
+        {
+            llama_batch step = llama_batch_init(1, 0, 1);
+            step.n_tokens    = 1;
+            step.token[0]    = tok;
+            step.pos[0]      = cur_pos++;
+            step.n_seq_id[0] = 1; step.seq_id[0][0] = 0;
+            step.logits[0]   = true;
+            const int rc = llama_decode(gen_ctx, step);
+            llama_batch_free(step);
+            if (rc != 0) { error_flag = true; break; }
+        }
 
-        int sn = llama_token_to_piece(vocab,
-                tok, spec_buf, (int) sizeof(spec_buf),
-                /* lstrip */ 0, /* special */ 1);
-        if (sn > 0) {
-            spec_buf[std::min(sn, (int) sizeof(spec_buf) - 1)] = '\0';
-            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0) {
-                break;
+        // Draft up to draft_len tokens using the MTP head
+        std::vector<llama_token> drafts;
+        drafts.reserve(draft_len);
+
+        {
+            const float *h_row = llama_get_embeddings_pre_norm(gen_ctx);
+            if (h_row) {
+                for (int d = 0; d < draft_len; ++d) {
+                    if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+
+                    llama_token prev_tok = drafts.empty() ? tok : drafts.back();
+                    llama_batch mtp_b = llama_batch_init(1, n_embd, 1);
+                    mtp_b.n_tokens    = 1;
+                    std::memcpy(mtp_b.embd, h_row, (size_t)n_embd * sizeof(float));
+                    mtp_b.token[0]    = prev_tok;
+                    mtp_b.pos[0]      = (llama_pos)(cur_pos - 1 + d);
+                    mtp_b.n_seq_id[0] = 1; mtp_b.seq_id[0][0] = 0;
+                    mtp_b.logits[0]   = true;
+
+                    const int rc = llama_decode(g_mtp_ctx, mtp_b);
+                    llama_batch_free(mtp_b);
+                    if (rc != 0) break;
+
+                    const llama_token draft_tok = llama_sampler_sample(mtp_sampler, g_mtp_ctx, -1);
+                    if (draft_tok < 0 || draft_tok == llama_vocab_eos(vocab) || draft_tok == llama_vocab_eot(vocab)) break;
+
+                    drafts.push_back(draft_tok);
+                    h_row = llama_get_embeddings_pre_norm(g_mtp_ctx);
+                    if (!h_row) break;
+                }
             }
         }
 
-        llama_sampler_accept(sampler, tok);
+        if (drafts.empty()) continue;   // no drafts produced; trunk already advanced
 
-        int nn = llama_token_to_piece(vocab,
-                tok, piece_buf, (int) sizeof(piece_buf),
-                /* lstrip */ 0, /* special */ 0);
-        if (nn > 0) {
-            piece_buf[std::min(nn, (int) sizeof(piece_buf) - 1)] = '\0';
-            jstring delta = env->NewStringUTF(piece_buf);
-            if (delta) {
-                env->CallVoidMethod(jCallback, m.onDelta, delta);
-                env->DeleteLocalRef(delta);
+        // ── Verify draft tokens with the trunk ───────────────────────────────
+        // Build a batch containing all draft tokens so trunk can verify them
+        // in one forward pass.
+        {
+            const int nd = (int)drafts.size();
+            llama_batch vbatch = llama_batch_init(nd, 0, 1);
+            vbatch.n_tokens = nd;
+            for (int i = 0; i < nd; ++i) {
+                vbatch.token[i]     = drafts[i];
+                vbatch.pos[i]       = cur_pos + i;
+                vbatch.n_seq_id[i]  = 1; vbatch.seq_id[i][0] = 0;
+                vbatch.logits[i]    = true;
+            }
+            const int rc = llama_decode(gen_ctx, vbatch);
+            llama_batch_free(vbatch);
+            if (rc != 0) { error_flag = true; break; }
+
+            // Accept consecutive matching tokens
+            int n_accepted = 0;
+            for (int i = 0; i < nd && tokens_generated < max_new_tokens; ++i) {
+                if (g_cancel_requested.load(std::memory_order_relaxed)) goto stream_done;
+
+                // Sample what the trunk would pick at this position
+                const llama_token verified = llama_sampler_sample(sampler, gen_ctx, i);
+                if (verified != drafts[i]) {
+                    // Mismatch: emit trunk's choice and stop accepting
+                    if (verified == llama_vocab_eos(vocab) || verified == llama_vocab_eot(vocab)) goto stream_done;
+                    llama_sampler_accept(sampler, verified);
+                    if (!emit_token(verified)) goto stream_done;
+                    ++tokens_generated;
+                    cur_pos++;
+                    break;
+                }
+
+                // Draft accepted
+                llama_sampler_accept(sampler, verified);
+                if (!emit_token(verified)) goto stream_done;
+                ++tokens_generated;
+                cur_pos++;
+                ++n_accepted;
+            }
+
+            if (n_accepted == nd && tokens_generated < max_new_tokens) {
+                // All drafts accepted — sample one more bonus token from the last trunk logits
+                const llama_token bonus = llama_sampler_sample(sampler, gen_ctx, nd - 1);
+                if (bonus == llama_vocab_eos(vocab) || bonus == llama_vocab_eot(vocab)) break;
+                llama_sampler_accept(sampler, bonus);
+                if (!emit_token(bonus)) break;
+                ++tokens_generated;
+
+                // Advance trunk KV for the bonus token
+                if (cur_pos < n_ctx) {
+                    llama_batch step = llama_batch_init(1, 0, 1);
+                    step.n_tokens    = 1;
+                    step.token[0]    = bonus;
+                    step.pos[0]      = cur_pos++;
+                    step.n_seq_id[0] = 1; step.seq_id[0][0] = 0;
+                    step.logits[0]   = true;
+                    const int rc2 = llama_decode(gen_ctx, step);
+                    llama_batch_free(step);
+                    if (rc2 != 0) { error_flag = true; break; }
+                }
             }
         }
 
         if (cur_pos >= n_ctx) break;
-
-        llama_batch step = llama_batch_init(1, 0, 1);
-        step.n_tokens = 1;
-        step.token[0] = tok;
-        step.pos[0] = cur_pos++;
-        step.n_seq_id[0] = 1;
-        step.seq_id[0][0] = 0;
-        step.logits[0] = true;
-
-        if (llama_decode(gen_ctx, step) != 0) {
-            llama_batch_free(step);
-            env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed mid-stream"));
-            llama_sampler_free(sampler);
-            return;
-        }
-        llama_batch_free(step);
     }
 
+    stream_done:
+    if (mtp_sampler) llama_sampler_free(mtp_sampler);
     llama_sampler_free(sampler);
+
+    if (error_flag) {
+        env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed mid-stream"));
+        return;
+    }
 
     // Always signal completion – Kotlin side will ignore if it has nulled activeRequestId
     env->CallVoidMethod(jCallback, m.onComplete);
@@ -1238,7 +1468,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinue(JNIEnv *en
     g_n_past += (int)tokens.size();
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1405,7 +1635,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
     int   max_new_tokens = g_max_new_tokens.load();
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));

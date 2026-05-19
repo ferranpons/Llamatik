@@ -162,6 +162,7 @@ add_library(mtmd_sources OBJECT
     "${MTMD_DIR}/models/llama4.cpp"
     "${MTMD_DIR}/models/llava.cpp"
     "${MTMD_DIR}/models/minicpmv.cpp"
+    "${MTMD_DIR}/models/mimovl.cpp"
     "${MTMD_DIR}/models/mobilenetv5.cpp"
     "${MTMD_DIR}/models/nemotron-v2-vl.cpp"
     "${MTMD_DIR}/models/paddleocr.cpp"
@@ -204,6 +205,7 @@ add_library(llama_jni SHARED ${LLAMA_JNI_SOURCES} $<TARGET_OBJECTS:mtmd_sources>
 target_include_directories(llama_jni
     PRIVATE
     "${LLAMA_INCLUDE_DIR}"
+    "${LLAMA_CPP_DIR}/src"
     "${LLAMA_CPP_DIR}/common"
     "${LLAMA_CPP_DIR}/vendor"
     "${LLAMA_CPP_DIR}/vendor/nlohmann"

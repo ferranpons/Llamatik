@@ -77,6 +77,7 @@ if(EXISTS "${MTMD_DIR}/mtmd.cpp")
     "${MTMD_DIR}/models/internvl.cpp"
     "${MTMD_DIR}/models/kimik25.cpp"
     "${MTMD_DIR}/models/kimivl.cpp"
+    "${MTMD_DIR}/models/mimovl.cpp"
     "${MTMD_DIR}/models/llama4.cpp"
     "${MTMD_DIR}/models/llava.cpp"
     "${MTMD_DIR}/models/minicpmv.cpp"

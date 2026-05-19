@@ -6,7 +6,9 @@ import com.llamatik.app.feature.entitlement.EntitlementRepository
 import com.llamatik.app.feature.entitlement.UnlockedEntitlementRepository
 import com.llamatik.app.platform.tts.TtsEngine
 import com.llamatik.app.platform.tts.WasmTtsEngine
+import com.russhwolf.settings.Settings
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 actual fun platformModules(): List<Module> = listOf(
@@ -14,5 +16,6 @@ actual fun platformModules(): List<Module> = listOf(
         single<ModelDownloadOrchestrator> { DefaultModelDownloadOrchestrator(get()) }
         single<TtsEngine> { WasmTtsEngine() }
         single<EntitlementRepository> { UnlockedEntitlementRepository() }
+        singleOf(::Settings)
     }
 )

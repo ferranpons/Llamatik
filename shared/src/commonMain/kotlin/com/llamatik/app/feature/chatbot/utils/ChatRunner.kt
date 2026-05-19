@@ -1,5 +1,6 @@
 package com.llamatik.app.feature.chatbot.utils
 
+import co.touchlab.kermit.Logger
 import com.llamatik.library.platform.GenStream
 import com.llamatik.library.platform.LlamaBridge
 import com.llamatik.library.platform.LlamaSession
@@ -47,6 +48,8 @@ object ChatRunner {
             prompt = PromptRenderer.render(system, contexts, messages, template)
             stop = template.stopSequences
         }
+        Logger.d { "ChatRunner: turns=${messages.size} promptLen=${prompt.length} usedNative=${nativePrompt != null}" }
+        Logger.d { "ChatRunner: prompt tail=...${prompt.takeLast(200)}" }
 
         var acc = StringBuilder()
         var done = false
