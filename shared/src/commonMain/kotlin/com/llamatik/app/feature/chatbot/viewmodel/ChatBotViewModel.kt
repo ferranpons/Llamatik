@@ -1495,7 +1495,6 @@ class ChatBotViewModel(
             _state.value = _state.value.copy(isGenerating = true)
 
             withContext(AppDispatchersIO) {
-                var session: LlamaSession? = null
                 try {
                     val qArr = LlamaBridge.embed(question)
                     if (qArr.isEmpty()) {
@@ -1558,12 +1557,11 @@ class ChatBotViewModel(
                         .filter { it.role == ChatMessage.Role.Assistant }
                         .map { it.content }
 
-                    session = LlamaBridge.createSession()
                     activeSession?.close()
-                    activeSession = session
+                    activeSession = null
 
                     ChatRunner.stream(
-                        session = session,
+                        session = null,
                         system = currentSystemPrompt(),
                         contexts = listOf(compact),
                         messages = chatHistory,
@@ -1610,11 +1608,9 @@ class ChatBotViewModel(
                             _state.value = _state.value.copy(isGenerating = false)
                         }
                     )
-                    session?.close()
-                    if (activeSession === session) activeSession = null
+                    activeSession = null
                 } catch (t: Throwable) {
-                    session?.close()
-                    if (activeSession === session) activeSession = null
+                    activeSession = null
                     t.printStackTrace()
                     emitBot(localization.thereIsAProblemWithAI)
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
@@ -1656,9 +1652,8 @@ class ChatBotViewModel(
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
 
-                    val session = LlamaBridge.createSession()
                     activeSession?.close()
-                    activeSession = session
+                    activeSession = null
 
                     val acc = StringBuilder()
                     var completed = false
@@ -1682,7 +1677,7 @@ class ChatBotViewModel(
 
                     try {
                         ChatRunner.stream(
-                            session = session,
+                            session = null,
                             system = currentSystemPrompt(),
                             contexts = emptyList(),
                             messages = chatHistory,
@@ -1743,8 +1738,7 @@ class ChatBotViewModel(
                             }
                         )
                     } finally {
-                        session?.close()
-                        if (activeSession === session) activeSession = null
+                        activeSession = null
                         persistCurrentConversationIfNeeded()
                         if (activeRequestId == null) {
                             _state.value = _state.value.copy(isGenerating = false)
