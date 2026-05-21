@@ -179,6 +179,15 @@ interface Localization {
 
     val configure: String
     val modelsTitle: String
+
+    val newFolder: String
+    val folderName: String
+    val createFolder: String
+    val moveToFolder: String
+    val removeFromFolder: String
+    val selectOrCreateFolder: String
+    val noFolderName: String
+    val chatsInFolder: String
 }
 
 enum class AvailableLanguages {

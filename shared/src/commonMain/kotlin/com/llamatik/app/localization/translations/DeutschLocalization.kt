@@ -196,4 +196,13 @@ Deine Prioritäten:
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Konfigurieren"
     override val modelsTitle = "Modelle"
+
+    override val newFolder = "Neuer Ordner"
+    override val folderName = "Ordnername"
+    override val createFolder = "Ordner erstellen"
+    override val moveToFolder = "In Ordner verschieben"
+    override val removeFromFolder = "Aus Ordner entfernen"
+    override val selectOrCreateFolder = "Ordner auswählen oder erstellen"
+    override val noFolderName = "Bitte gib einen Ordnernamen ein"
+    override val chatsInFolder = "Chats im Ordner"
 }

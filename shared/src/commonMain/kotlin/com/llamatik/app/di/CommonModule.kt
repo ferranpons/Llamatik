@@ -17,6 +17,7 @@ import com.llamatik.app.feature.chatbot.usecases.GetModelsUseCase
 import com.llamatik.app.feature.chatbot.usecases.ImportModelUseCase
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatgroup.ChatGroupRepository
+import com.llamatik.app.feature.chathistory.ChatFolderScreenModel
 import com.llamatik.app.feature.chathistory.ChatHistoryScreenModel
 import com.llamatik.app.feature.chathistory.PendingSessionRepository
 import com.llamatik.app.feature.companion.CompanionRepository
@@ -124,6 +125,7 @@ val commonModule = module {
     singleOf(::ChatHistoryRepository)
     singleOf(::PendingSessionRepository)
     factoryOf(::ChatHistoryScreenModel)
+    factoryOf(::ChatFolderScreenModel)
     singleOf(::ChatGroupRepository)
     singleOf(::CompanionRepository)
     singleOf(::ToolPermissionRepository)

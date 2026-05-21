@@ -194,4 +194,13 @@ internal object RussianLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Настроить"
     override val modelsTitle = "Модели"
+
+    override val newFolder = "Новая папка"
+    override val folderName = "Название папки"
+    override val createFolder = "Создать папку"
+    override val moveToFolder = "Переместить в папку"
+    override val removeFromFolder = "Убрать из папки"
+    override val selectOrCreateFolder = "Выберите или создайте папку"
+    override val noFolderName = "Введите название папки"
+    override val chatsInFolder = "Чаты в папке"
 }

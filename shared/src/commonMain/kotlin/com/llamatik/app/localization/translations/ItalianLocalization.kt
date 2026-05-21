@@ -194,4 +194,13 @@ Le tue priorità:
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configura"
     override val modelsTitle = "Modelli"
+
+    override val newFolder = "Nuova cartella"
+    override val folderName = "Nome cartella"
+    override val createFolder = "Crea cartella"
+    override val moveToFolder = "Sposta nella cartella"
+    override val removeFromFolder = "Rimuovi dalla cartella"
+    override val selectOrCreateFolder = "Seleziona o crea una cartella"
+    override val noFolderName = "Inserisci un nome per la cartella"
+    override val chatsInFolder = "Chat nella cartella"
 }

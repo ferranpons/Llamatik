@@ -193,4 +193,13 @@ internal object JapaneseLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "設定する"
     override val modelsTitle = "モデル"
+
+    override val newFolder = "新しいフォルダ"
+    override val folderName = "フォルダ名"
+    override val createFolder = "フォルダを作成"
+    override val moveToFolder = "フォルダへ移動"
+    override val removeFromFolder = "フォルダから削除"
+    override val selectOrCreateFolder = "フォルダを選択または作成"
+    override val noFolderName = "フォルダ名を入力してください"
+    override val chatsInFolder = "フォルダ内のチャット"
 }

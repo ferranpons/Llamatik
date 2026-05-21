@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.ConnectingAirports
 import androidx.compose.material.icons.rounded.Construction
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Dns
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Flight
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.HistoryToggleOff
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Password
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
@@ -129,6 +132,9 @@ object LlamatikIcons {
     val Models = Icons.Rounded.Psychology
     val Language = Icons.Rounded.Language
     val Tune = Icons.Rounded.Tune
+    val Folder = Icons.Rounded.Folder
+    val CreateNewFolder = Icons.Rounded.CreateNewFolder
+    val MoreVert = Icons.Rounded.MoreVert
 }
 
 /**

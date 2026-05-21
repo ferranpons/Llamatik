@@ -195,4 +195,13 @@ internal object EnglishLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configure"
     override val modelsTitle = "Models"
+
+    override val newFolder = "New folder"
+    override val folderName = "Folder name"
+    override val createFolder = "Create folder"
+    override val moveToFolder = "Move to folder"
+    override val removeFromFolder = "Remove from folder"
+    override val selectOrCreateFolder = "Select or create a folder"
+    override val noFolderName = "Please enter a folder name"
+    override val chatsInFolder = "Chats in folder"
 }

@@ -194,4 +194,13 @@ internal object CatalanLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configura"
     override val modelsTitle = "Models"
+
+    override val newFolder = "Nova carpeta"
+    override val folderName = "Nom de la carpeta"
+    override val createFolder = "Crea carpeta"
+    override val moveToFolder = "Mou a la carpeta"
+    override val removeFromFolder = "Treu de la carpeta"
+    override val selectOrCreateFolder = "Selecciona o crea una carpeta"
+    override val noFolderName = "Si us plau, introdueix un nom"
+    override val chatsInFolder = "Xats a la carpeta"
 }

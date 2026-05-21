@@ -195,4 +195,13 @@ Vos priorités :
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configurer"
     override val modelsTitle = "Modèles"
+
+    override val newFolder = "Nouveau dossier"
+    override val folderName = "Nom du dossier"
+    override val createFolder = "Créer un dossier"
+    override val moveToFolder = "Déplacer vers un dossier"
+    override val removeFromFolder = "Retirer du dossier"
+    override val selectOrCreateFolder = "Sélectionner ou créer un dossier"
+    override val noFolderName = "Veuillez entrer un nom de dossier"
+    override val chatsInFolder = "Chats dans le dossier"
 }

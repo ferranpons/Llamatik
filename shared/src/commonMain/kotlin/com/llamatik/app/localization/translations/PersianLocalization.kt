@@ -193,4 +193,13 @@ internal object PersianLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "پیکربندی"
     override val modelsTitle = "مدل‌ها"
+
+    override val newFolder = "پوشه جدید"
+    override val folderName = "نام پوشه"
+    override val createFolder = "ایجاد پوشه"
+    override val moveToFolder = "انتقال به پوشه"
+    override val removeFromFolder = "حذف از پوشه"
+    override val selectOrCreateFolder = "یک پوشه انتخاب یا ایجاد کنید"
+    override val noFolderName = "لطفاً نام پوشه را وارد کنید"
+    override val chatsInFolder = "چت‌های پوشه"
 }

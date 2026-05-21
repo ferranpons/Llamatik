@@ -193,4 +193,13 @@ internal object HindiLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "कॉन्फ़िगर करें"
     override val modelsTitle = "मॉडल"
+
+    override val newFolder = "नया फ़ोल्डर"
+    override val folderName = "फ़ोल्डर का नाम"
+    override val createFolder = "फ़ोल्डर बनाएं"
+    override val moveToFolder = "फ़ोल्डर में ले जाएं"
+    override val removeFromFolder = "फ़ोल्डर से हटाएं"
+    override val selectOrCreateFolder = "फ़ोल्डर चुनें या बनाएं"
+    override val noFolderName = "कृपया फ़ोल्डर का नाम दर्ज करें"
+    override val chatsInFolder = "फ़ोल्डर में चैट"
 }

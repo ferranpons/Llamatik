@@ -190,4 +190,13 @@ internal object PortugueseLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configurar"
     override val modelsTitle = "Modelos"
+
+    override val newFolder = "Nova pasta"
+    override val folderName = "Nome da pasta"
+    override val createFolder = "Criar pasta"
+    override val moveToFolder = "Mover para pasta"
+    override val removeFromFolder = "Remover da pasta"
+    override val selectOrCreateFolder = "Selecionar ou criar uma pasta"
+    override val noFolderName = "Por favor insira um nome para a pasta"
+    override val chatsInFolder = "Chats na pasta"
 }

@@ -195,4 +195,13 @@ internal object ChineseLocalization : Localization {
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "配置"
     override val modelsTitle = "模型"
+
+    override val newFolder = "新建文件夹"
+    override val folderName = "文件夹名称"
+    override val createFolder = "创建文件夹"
+    override val moveToFolder = "移至文件夹"
+    override val removeFromFolder = "从文件夹移除"
+    override val selectOrCreateFolder = "选择或创建文件夹"
+    override val noFolderName = "请输入文件夹名称"
+    override val chatsInFolder = "文件夹中的聊天"
 }
