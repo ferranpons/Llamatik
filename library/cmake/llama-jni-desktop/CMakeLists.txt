@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.10)
 project(llama_jni_desktop LANGUAGES C CXX)
 
+# LLAMA_CURL is disabled so OpenSSL is not needed at runtime. Prevent CMake from
+# finding (and linking) Homebrew OpenSSL on macOS, which would embed an absolute
+# /opt/homebrew path into the dylib and break loading on clean systems.
+if(APPLE)
+    set(CMAKE_DISABLE_FIND_PACKAGE_OpenSSL TRUE CACHE BOOL "" FORCE)
+    set(OPENSSL_FOUND FALSE CACHE BOOL "" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)

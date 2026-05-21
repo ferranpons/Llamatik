@@ -393,9 +393,26 @@ kotlin {
 
     val desktopJniSourceDir = projectDir.resolve("cmake/llama-jni-desktop")
 
+    val libFileName = System.mapLibraryName("llama_jni")
+
+    val generatedNativeResourcesDir = layout.buildDirectory.dir("generated/native-resources").get().asFile
+
+    // When CI pre-populates all three platform folders (publish-mavencentral.yml
+    // downloads artifacts before running jvmJar), we skip the local CMake build so
+    // the downloaded binaries are used as-is. Set LLAMATIK_SKIP_NATIVE_BUILD=1
+    // or pre-place the native file in the output directory to activate this path.
+    val nativesPrebuilt: Boolean = run {
+        val prebuiltDir = generatedNativeResourcesDir.resolve("native/$desktopPlatform")
+        val alreadyPresent = prebuiltDir.exists() &&
+            prebuiltDir.listFiles()?.any { it.isFile && it.name != "native-libs.txt" } == true
+        val envSkip = System.getenv("LLAMATIK_SKIP_NATIVE_BUILD") == "1"
+        alreadyPresent || envSkip
+    }
+
     val buildLlamaJniDesktop by tasks.registering(Exec::class) {
         group = "llama-native"
         description = "Configure CMake for desktop ($desktopPlatform) llama_jni"
+        enabled = !nativesPrebuilt
 
         doFirst {
             if (!desktopJniSourceDir.resolve("CMakeLists.txt").exists()) {
@@ -430,6 +447,7 @@ kotlin {
         group = "llama-native"
         description = "Build desktop ($desktopPlatform) llama_jni native library"
         dependsOn(buildLlamaJniDesktop)
+        enabled = !nativesPrebuilt
 
         commandLine(
             cmakePath,
@@ -438,15 +456,16 @@ kotlin {
         )
     }
 
-    val libFileName = System.mapLibraryName("llama_jni")
-
-    val generatedNativeResourcesDir = layout.buildDirectory.dir("generated/native-resources").get().asFile
-
     val copyDesktopJniToResources by tasks.registering(Copy::class) {
         group = "llama-native"
         dependsOn(compileLlamaJniDesktop)
 
         val outDir = generatedNativeResourcesDir.resolve("native/$desktopPlatform")
+
+        // When natives are pre-built (CI publish path), skip the copy — files are
+        // already in outDir from the artifact download step.
+        onlyIf { !nativesPrebuilt }
+
         val nativeMatches = when (desktopPlatform) {
             "macos" -> listOf("**/*.dylib")
             "linux" -> listOf("**/*.so", "**/*.so.*")
@@ -487,13 +506,36 @@ kotlin {
         }
     }
 
+    // Ensure native-libs.txt exists for each pre-built platform folder so
+    // LlamaBridge.loadNativeFromResources() can read it without a build step.
+    val ensureNativeLibsTxt by tasks.registering {
+        group = "llama-native"
+        description = "Write native-libs.txt for any pre-built platform native folders"
+        onlyIf { nativesPrebuilt }
+        doLast {
+            listOf("macos", "linux", "windows").forEach { platform ->
+                val dir = generatedNativeResourcesDir.resolve("native/$platform")
+                if (dir.exists()) {
+                    val libs = dir.listFiles()
+                        ?.filter { it.isFile && it.name != "native-libs.txt" }
+                        ?.map { it.name }
+                        ?.sorted()
+                        .orEmpty()
+                    dir.resolve("native-libs.txt").writeText(libs.joinToString(separator = "\n"))
+                }
+            }
+        }
+    }
+
     tasks.matching { it.name == "jvmProcessResources" }.configureEach {
-        dependsOn(copyDesktopJniToResources)
+        dependsOn(if (nativesPrebuilt) ensureNativeLibsTxt else copyDesktopJniToResources)
     }
 
     tasks.matching { it.name == "compileKotlinJvm" }.configureEach {
-        dependsOn(compileLlamaJniDesktop)
-        dependsOn(copyDesktopJniToResources)
+        if (!nativesPrebuilt) {
+            dependsOn(compileLlamaJniDesktop)
+            dependsOn(copyDesktopJniToResources)
+        }
     }
 
     sourceSets {

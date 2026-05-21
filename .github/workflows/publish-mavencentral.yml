@@ -5,7 +5,96 @@ on:
     types: [published]
 
 jobs:
+  # ── Step 1: build the JNI .so/.dylib/.dll on each platform ─────────────────
+  build-native:
+    name: Build native JNI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: macos
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install macOS deps
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake
+          cmake --version
+
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+          cmake --version
+
+      - name: Install Windows deps (cmake + ninja)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          choco install ninja -y
+          refreshenv
+          cmake --version
+          ninja --version
+
+      - name: Resolve Windows cmake path
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "C:\Program Files\CMake\bin\cmake.exe",
+            "C:\ProgramData\chocolatey\bin\cmake.exe"
+          )
+          $cmake = $null
+          foreach ($c in $candidates) {
+            if (Test-Path $c) { $cmake = $c; break }
+          }
+          if (-not $cmake) {
+            $cmake = (where.exe cmake 2>$null | Select-Object -First 1)
+          }
+          if (-not $cmake) { Write-Error "cmake not found"; exit 1 }
+          "CMAKE_PATH=$cmake" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & $cmake --version
+
+      - name: Build desktop JNI library
+        shell: bash
+        run: ./gradlew :library:copyDesktopJniToResources --no-daemon --stacktrace
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.platform }}
+          path: library/build/generated/native-resources/native/${{ matrix.platform }}/
+          if-no-files-found: error
+
+  # ── Step 2: publish — macOS runner assembles all three natives into the JAR ─
   publish:
+    name: Publish to Maven Central
+    needs: build-native
     runs-on: macos-14
     permissions:
       contents: read
@@ -36,6 +125,49 @@ jobs:
           brew install cmake
           cmake --version
 
+      # ---------- Download pre-built natives from all platforms ----------
+      - name: Download macOS native
+        uses: actions/download-artifact@v4
+        with:
+          name: native-macos
+          path: library/build/generated/native-resources/native/macos/
+
+      - name: Download Linux native
+        uses: actions/download-artifact@v4
+        with:
+          name: native-linux
+          path: library/build/generated/native-resources/native/linux/
+
+      - name: Download Windows native
+        uses: actions/download-artifact@v4
+        with:
+          name: native-windows
+          path: library/build/generated/native-resources/native/windows/
+
+      # Regenerate native-libs.txt for each platform from the downloaded files
+      - name: Regenerate native-libs.txt for all platforms
+        run: |
+          for platform in macos linux windows; do
+            dir="library/build/generated/native-resources/native/$platform"
+            if [ -d "$dir" ]; then
+              ls "$dir" | grep -v native-libs.txt | sort > "$dir/native-libs.txt"
+              echo "=== $platform ==="
+              cat "$dir/native-libs.txt"
+            fi
+          done
+
+      - name: Verify all three platforms are present
+        run: |
+          for platform in macos linux windows; do
+            dir="library/build/generated/native-resources/native/$platform"
+            count=$(find "$dir" -type f ! -name native-libs.txt 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$count" -eq 0 ]; then
+              echo "ERROR: No native library found for $platform in $dir"
+              exit 1
+            fi
+            echo "$platform: $count file(s)"
+          done
+
       # ---------- Emscripten (WASM) toolchain ----------
       - name: Cache emsdk + emscripten cache
         id: cache-emsdk
@@ -60,7 +192,6 @@ jobs:
           cd ~/emsdk
           ./emsdk activate 3.1.68
 
-          # Ensure scripts are executable (cache sometimes breaks +x)
           chmod +x ~/emsdk/upstream/emscripten/emcmake || true
           chmod +x ~/emsdk/upstream/emscripten/emmake || true
           chmod +x ~/emsdk/upstream/emscripten/emcc || true
@@ -69,11 +200,9 @@ jobs:
           echo "EM_CACHE=$HOME/.emscripten_cache" >> $GITHUB_ENV
           mkdir -p "$HOME/.emscripten_cache"
 
-          # Put emscripten tools on PATH for subsequent steps
           echo "$HOME/emsdk/upstream/emscripten" >> $GITHUB_PATH
           echo "$HOME/emsdk/upstream/bin" >> $GITHUB_PATH
 
-          # emsdk ships node; add it too
           NODE_BIN="$(ls -d $HOME/emsdk/node/*/bin | head -n1 || true)"
           if [ -n "$NODE_BIN" ]; then
             echo "$NODE_BIN" >> $GITHUB_PATH
@@ -137,11 +266,28 @@ jobs:
           jar tf /tmp/aar/classes.jar | grep -E "com/llamatik/.*(platform|library)" >/dev/null \
             || (echo "ERROR: Android classes missing in AAR (androidMain not published)" && exit 1)
 
-          # Optional: enforce arm64 .so presence if you ship JNI
           if [ -d /tmp/aar/jni ]; then
             find /tmp/aar/jni -type f | grep arm64-v8a >/dev/null \
               || (echo "ERROR: arm64-v8a .so missing in AAR" && exit 1)
           fi
+
+      # Tell Gradle to skip the native build steps — natives are already in place
+      # from the download steps above. jvmProcessResources will pick them up via
+      # the generatedNativeResourcesDir source set.
+      - name: Verify JVM JAR includes all three platform natives
+        run: |
+          ./gradlew :library:jvmJar --no-daemon --stacktrace
+          JAR=$(find library/build/libs -name "library-jvm-*.jar" ! -name "*sources*" ! -name "*javadoc*" | head -1)
+          echo "Inspecting $JAR"
+          unzip -l "$JAR" | grep "native/" || true
+          for platform in macos linux windows; do
+            count=$(unzip -l "$JAR" | grep "native/$platform/" | grep -v '/$' | wc -l | tr -d ' ')
+            echo "$platform: $count native file(s) in JAR"
+            if [ "$count" -eq 0 ]; then
+              echo "ERROR: $platform native library missing from JVM JAR"
+              exit 1
+            fi
+          done
 
       # ---------- Publish to Sonatype ----------
       - name: Publish to Sonatype (staging + release)
