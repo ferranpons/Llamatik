@@ -186,7 +186,7 @@ commonMain.dependencies {
 // Resolve model path (place GGUF in assets / bundle)
 val modelPath = LlamaBridge.getModelPath("phi-2.Q4_0.gguf")
 
-// (Optional) tune parameters before loading — contextLength/useMmap/flashAttention
+// (Optional) tune parameters before loading — contextLength/useMmap/flashAttention/gpuLayers
 // take effect at model init time; the others can be changed at any time
 LlamaBridge.updateGenerateParams(
     temperature    = 0.7f,
@@ -198,6 +198,7 @@ LlamaBridge.updateGenerateParams(
     numThreads     = 4,
     useMmap        = true,
     flashAttention = false,
+    gpuLayers      = 0,
 )
 
 // Load model
@@ -306,6 +307,7 @@ expect object LlamaBridge {
         useMmap: Boolean,         // memory-map model weights (requires model reload)
         flashAttention: Boolean,  // enable Flash Attention (requires model reload)
         batchSize: Int,           // token batch size for prompt processing (requires model reload)
+        gpuLayers: Int = 0,       // layers to offload to GPU: 0 = CPU only, -1 = all layers, N = exactly N layers (requires model reload)
     )
 
     fun nativeCancelGenerate()                        // cancel ongoing generation
@@ -346,6 +348,7 @@ All sampling and hardware parameters are set via `updateGenerateParams`. Paramet
 | `useMmap` | `true` | Memory-map model weights instead of loading into RAM *(reload required)* |
 | `flashAttention` | `false` | Enable Flash Attention for faster, more memory-efficient attention *(reload required)* |
 | `batchSize` | `512` | Token batch size for prompt processing — larger = faster prefill, more RAM *(reload required)* |
+| `gpuLayers` | `0` | Transformer layers to offload to GPU. `0` = CPU only, `-1` = all layers (Metal / CUDA), `N` = exactly N layers *(reload required, ignored on WASM)* |
 
 ### KV Cache Sessions
 
