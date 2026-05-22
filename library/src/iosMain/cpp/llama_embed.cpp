@@ -71,6 +71,8 @@ static std::atomic<int>   g_num_threads{4};
 static std::atomic<bool>  g_use_mmap{true};
 static std::atomic<bool>  g_flash_attention{false};
 static std::atomic<int>   g_batch_size{512};
+// 0 = CPU only, -1 = all layers on GPU (Metal)
+static std::atomic<int>   g_gpu_layers{0};
 
 // Session / KV bookkeeping
 static std::vector<llama_token> gen_session_tokens;
@@ -256,8 +258,10 @@ static llama_model *load_model_with_fallback(const char *path) {
     DBG("load_model_with_fallback: final_path=%s", final_path);
 
     llama_model_params mp = llama_model_default_params();
+    mp.n_gpu_layers = g_gpu_layers.load(std::memory_order_relaxed);
 
 #if TARGET_OS_SIMULATOR
+    // Simulator does not support Metal — force CPU
     mp.use_mmap     = false;
     mp.use_mlock    = false;
     mp.n_gpu_layers = 0;
@@ -267,6 +271,7 @@ static llama_model *load_model_with_fallback(const char *path) {
     llama_model *m = llama_model_load_from_file(final_path, mp);
     if (m) return m;
 
+    // Fallback: disable mmap/mlock and GPU offload
     mp.use_mmap     = false;
     mp.use_mlock    = false;
     mp.n_gpu_layers = 0;
@@ -1503,7 +1508,8 @@ void llama_generate_set_params(float temperature,
         int num_threads,
         bool use_mmap,
         bool flash_attention,
-        int batch_size) {
+        int batch_size,
+        int gpu_layers) {
     g_temperature.store(temperature, std::memory_order_relaxed);
     g_max_tokens.store(max_tokens, std::memory_order_relaxed);
     g_top_p.store(top_p, std::memory_order_relaxed);
@@ -1514,6 +1520,7 @@ void llama_generate_set_params(float temperature,
     g_use_mmap.store(use_mmap, std::memory_order_relaxed);
     g_flash_attention.store(flash_attention, std::memory_order_relaxed);
     g_batch_size.store(batch_size, std::memory_order_relaxed);
+    g_gpu_layers.store(gpu_layers, std::memory_order_relaxed);
 }
 
 // ===================== KV session support =====================
@@ -1688,7 +1695,8 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
     if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
 
     llama_model_params mparams = llama_model_default_params();
-    mparams.use_mmap = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.use_mmap     = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.n_gpu_layers = g_gpu_layers.load(std::memory_order_relaxed);
     g_mtp_model = llama_model_load_from_file(model_path, mparams);
     if (!g_mtp_model) {
         DBG("llama_mtp_init: model load failed");

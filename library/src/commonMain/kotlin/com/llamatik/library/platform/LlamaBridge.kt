@@ -127,6 +127,7 @@ expect object LlamaBridge {
         useMmap: Boolean,
         flashAttention: Boolean,
         batchSize: Int,
+        gpuLayers: Int = 0,
     )
 }
 
