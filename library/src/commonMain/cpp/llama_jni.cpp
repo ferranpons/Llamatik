@@ -101,6 +101,8 @@ static std::atomic<int> g_num_threads = 4;
 static std::atomic<bool> g_use_mmap = true;
 static std::atomic<bool> g_flash_attention = false;
 static std::atomic<int>  g_batch_size = 512;
+// 0 = CPU only, -1 = all layers on GPU (Metal/CUDA)
+static std::atomic<int>  g_gpu_layers = 0;
 
 // ===================================================================================
 //                              MTP (Multi-Token Prediction) STATE
@@ -584,7 +586,8 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeInitMtp(
     if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
 
     llama_model_params mparams = llama_model_default_params();
-    mparams.use_mmap = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.use_mmap     = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.n_gpu_layers = g_gpu_layers.load(std::memory_order_relaxed);
     g_mtp_model = llama_model_load_from_file(path, mparams);
     env->ReleaseStringUTFChars(jModelPath, path);
 
@@ -658,7 +661,8 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     }
 
     llama_model_params mparams = llama_model_default_params();
-    mparams.use_mmap = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.use_mmap    = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.n_gpu_layers = g_gpu_layers.load(std::memory_order_relaxed);
     gen_model = llama_model_load_from_file(path, mparams);
     env->ReleaseStringUTFChars(modelPath, path);
 
@@ -683,11 +687,12 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     }
 
     session_clear_state();
-    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d flash_attn=%d",
+    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d flash_attn=%d gpu_layers=%d",
          (unsigned)llama_n_ctx(gen_ctx),
          cparams.n_threads,
          (int)mparams.use_mmap,
-         (int)g_flash_attention.load(std::memory_order_relaxed));
+         (int)g_flash_attention.load(std::memory_order_relaxed),
+         (int)g_gpu_layers.load(std::memory_order_relaxed));
     return JNI_TRUE;
 }
 
@@ -1356,7 +1361,8 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
         jint numThreads,
         jboolean useMmap,
         jboolean flashAttention,
-        jint batchSize) {
+        jint batchSize,
+        jint gpuLayers) {
 
     g_temperature     = temperature;
     g_top_p           = topP;
@@ -1368,6 +1374,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeUpdateGenerationParams(
     g_use_mmap        = (bool)useMmap;
     g_flash_attention = (bool)flashAttention;
     g_batch_size      = (int)batchSize;
+    g_gpu_layers      = (int)gpuLayers;
 }
 
 // ===================================================================================

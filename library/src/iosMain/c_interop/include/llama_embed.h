@@ -171,7 +171,8 @@ void llama_generate_set_params(float temperature,
         int num_threads,
         bool use_mmap,
         bool flash_attention,
-        int batch_size);
+        int batch_size,
+        int gpu_layers);
 
 // ===================== KV session support =====================
 

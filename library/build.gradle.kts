@@ -744,11 +744,12 @@ publishing {
 }
 
 signing {
-    useInMemoryPgpKeys(
-        (findProperty("signingInMemoryKey") as String?) ?: System.getenv("SIGNING_KEY"),
-        (findProperty("signingInMemoryKeyPassword") as String?) ?: System.getenv("SIGNING_PASSWORD")
-    )
-    sign(publishing.publications)
+    val signingKey = (findProperty("signingInMemoryKey") as String?) ?: System.getenv("SIGNING_KEY")
+    val signingPassword = (findProperty("signingInMemoryKeyPassword") as String?) ?: System.getenv("SIGNING_PASSWORD")
+    if (!signingKey.isNullOrBlank()) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign(publishing.publications)
+    }
 }
 
 afterEvaluate {

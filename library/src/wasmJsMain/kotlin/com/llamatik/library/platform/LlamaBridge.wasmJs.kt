@@ -195,6 +195,7 @@ actual object LlamaBridge {
         useMmap: Boolean,
         flashAttention: Boolean,
         batchSize: Int,
+        gpuLayers: Int,
     ) {}
 
     private fun sanitizeName(input: String): String =
