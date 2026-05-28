@@ -398,7 +398,9 @@ static bool looks_like_chat_formatted_prompt(const std::string &prompt) {
     const std::string low = lower_ascii(prompt);
 
     return low.find("<start_of_turn>") != std::string::npos ||
-            low.find("<end_of_turn>")   != std::string::npos ||
+            low.find("<end_of_turn>")       != std::string::npos ||
+            low.find("<|turn>")             != std::string::npos ||
+            low.find("<turn|>")             != std::string::npos ||
             low.find("<|start_header_id|>") != std::string::npos ||
             low.find("<|end_header_id|>")   != std::string::npos ||
             low.find("<|eot_id|>")          != std::string::npos ||
@@ -517,7 +519,7 @@ static void drop_lines_containing_ci(std::string &s, const char *needle_ci) {
 static std::string sanitize_generation_ios(std::string s) {
     if (s.empty()) return s;
 
-    for (const char* stop : { "<end_of_turn>", "<|eot_id|>", "</s>", "<start_of_turn>" }) {
+    for (const char* stop : { "<end_of_turn>", "<|eot_id|>", "</s>", "<start_of_turn>", "<turn|>", "<|turn>" }) {
         size_t p = s.find(stop);
         if (p != std::string::npos) {
             s = s.substr(0, p);
@@ -893,7 +895,9 @@ char *llama_generate(const char *prompt) {
             if (std::strcmp(piece, "<|eot_id|>") == 0 ||
                     std::strcmp(piece, "<end_of_turn>") == 0 ||
                     std::strcmp(piece, "</s>") == 0 ||
-                    std::strcmp(piece, "<start_of_turn>") == 0) {
+                    std::strcmp(piece, "<start_of_turn>") == 0 ||
+                    std::strcmp(piece, "<turn|>") == 0 ||
+                    std::strcmp(piece, "<|turn>") == 0) {
                 DBG("generate: hit EOT piece: %s", piece);
                 break;
             }
@@ -1183,7 +1187,8 @@ void llama_generate_stream(const char *prompt,
             if (nn >= (int)sizeof(spiece)) spiece[sizeof(spiece)-1] = '\0';
             else spiece[nn] = '\0';
             if (std::strcmp(spiece, "<|eot_id|>") == 0 || std::strcmp(spiece, "<end_of_turn>") == 0 ||
-                std::strcmp(spiece, "</s>") == 0 || std::strcmp(spiece, "<start_of_turn>") == 0)
+                std::strcmp(spiece, "</s>") == 0 || std::strcmp(spiece, "<start_of_turn>") == 0 ||
+                std::strcmp(spiece, "<turn|>") == 0 || std::strcmp(spiece, "<|turn>") == 0)
                 return false;
         }
         session_append_generated_token(tok);
@@ -1633,7 +1638,9 @@ char *llama_generate_continue(const char *prompt) {
             if (std::strcmp(sp, "<|eot_id|>") == 0 ||
                     std::strcmp(sp, "<end_of_turn>") == 0 ||
                     std::strcmp(sp, "<start_of_turn>") == 0 ||
-                    std::strcmp(sp, "</s>") == 0) {
+                    std::strcmp(sp, "</s>") == 0 ||
+                    std::strcmp(sp, "<turn|>") == 0 ||
+                    std::strcmp(sp, "<|turn>") == 0) {
                 break;
             }
         }
@@ -1778,6 +1785,28 @@ const char *llama_get_model_chat_template(void) {
     return llama_model_chat_template(gen_model, nullptr);
 }
 
+// Fallback formatter for Gemma 4 — used when llama_chat_apply_template returns -1
+// because llama.cpp doesn't recognise the <|turn>/<turn|> template yet.
+static bool is_gemma4_template(const char *tmpl) {
+    if (!tmpl) return false;
+    return std::strstr(tmpl, "<|turn>") != nullptr && std::strstr(tmpl, "<turn|>") != nullptr;
+}
+
+static std::string apply_gemma4_template_ios(
+        const std::vector<llama_chat_message> &chat,
+        bool add_ass) {
+    std::string out;
+    for (const auto &msg : chat) {
+        std::string role = msg.role;
+        if (role == "assistant") role = "model";
+        out += "<|turn>" + role + "\n";
+        out += trim_ios(std::string(msg.content));
+        out += "<turn|>\n";
+    }
+    if (add_ass) out += "<|turn>model\n";
+    return out;
+}
+
 char *llama_apply_chat_template(
         const char **roles,
         const char **contents,
@@ -1794,7 +1823,14 @@ char *llama_apply_chat_template(
 
     int32_t needed = llama_chat_apply_template(tmpl, chat.data(), chat.size(),
                                                add_assistant_prefix, nullptr, -1);
-    if (needed < 0) return nullptr;
+    if (needed < 0) {
+        if (!is_gemma4_template(tmpl)) return nullptr;
+        std::string formatted = apply_gemma4_template_ios(chat, add_assistant_prefix);
+        char *buf = (char *) std::malloc(formatted.size() + 1);
+        if (!buf) return nullptr;
+        std::memcpy(buf, formatted.c_str(), formatted.size() + 1);
+        return buf;
+    }
 
     char *buf = (char *) std::malloc((size_t)needed + 1);
     if (!buf) return nullptr;
@@ -1945,7 +1981,9 @@ void llama_session_stream(int64_t handle,
             if (std::strcmp(spiece, "<|eot_id|>") == 0 ||
                     std::strcmp(spiece, "<end_of_turn>") == 0 ||
                     std::strcmp(spiece, "</s>") == 0 ||
-                    std::strcmp(spiece, "<start_of_turn>") == 0) break;
+                    std::strcmp(spiece, "<start_of_turn>") == 0 ||
+                    std::strcmp(spiece, "<turn|>") == 0 ||
+                    std::strcmp(spiece, "<|turn>") == 0) break;
         }
 
         llama_sampler_accept(sampler, tok);

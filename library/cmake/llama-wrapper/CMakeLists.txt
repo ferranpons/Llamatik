@@ -204,7 +204,7 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/gemma4v.cpp
         ${MTMD_DIR}/models/glm4v.cpp
         ${MTMD_DIR}/models/granite-speech.cpp
-        ${MTMD_DIR}/models/hunyuanocr.cpp
+        ${MTMD_DIR}/models/hunyuanvl.cpp
         ${MTMD_DIR}/models/internvl.cpp
         ${MTMD_DIR}/models/kimik25.cpp
         ${MTMD_DIR}/models/kimivl.cpp

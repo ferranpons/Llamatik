@@ -149,7 +149,7 @@ only configuration.
 
 ## 📦 Current Versions
 
-- llama.cpp version: [b9208](https://github.com/ggml-org/llama.cpp/releases/tag/b9208)
+- llama.cpp version: [b9371](https://github.com/ggml-org/llama.cpp/releases/tag/b9371)
 - whisper.cpp version [v1.8.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.4)
 - stablediffusion.cpp version [master-596-90e87bc](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-596-90e87bc)
 
@@ -174,7 +174,7 @@ dependencyResolutionManagement {
 }
 
 commonMain.dependencies {
-    implementation("com.llamatik:library:1.5.0")
+    implementation("com.llamatik:library:1.7.0")
 }
 ```
 
