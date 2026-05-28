@@ -950,6 +950,7 @@ static void stream_from_prompt(
     // Reset cancel flag at the start of each stream
     g_cancel_requested.store(false, std::memory_order_relaxed);
     llama_memory_clear(llama_get_memory(gen_ctx), false);
+    session_clear_state();
 
     std::vector<llama_token> tokens(2048);
     int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),
@@ -970,6 +971,8 @@ static void stream_from_prompt(
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed on prompt"));
         return;
     }
+    g_session_tokens = tokens;
+    g_n_past = (int)tokens.size();
 
     float temperature    = g_temperature.load();
     float top_p          = g_top_p.load();
@@ -1010,6 +1013,8 @@ static void stream_from_prompt(
             jstring delta = env->NewStringUTF(piece_buf);
             if (delta) { env->CallVoidMethod(jCallback, m.onDelta, delta); env->DeleteLocalRef(delta); }
         }
+        g_session_tokens.push_back(tok);
+        ++g_n_past;
         return true;
     };
 
