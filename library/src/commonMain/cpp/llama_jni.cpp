@@ -272,11 +272,12 @@ static void drop_lines_with_prefix(std::string &s, const char *prefix_lc) {
 static std::string sanitize_generation(std::string s) {
     if (s.empty()) return s;
 
-    for (const char *stop: {"<end_of_turn>", "<|eot_id|>", "</s>"}) {
+    for (const char *stop: {"<end_of_turn>", "<|eot_id|>", "</s>", "<turn|>"}) {
         size_t p = s.find(stop);
         if (p != std::string::npos) { s = s.substr(0, p); }
     }
     drop_lines_with_prefix(s, "<start_of_turn>");
+    drop_lines_with_prefix(s, "<|turn>");
     drop_lines_with_prefix(s, "<|start_header_id|>");
     drop_lines_with_prefix(s, "<|end_header_id|>");
 
@@ -751,7 +752,7 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
         int sn = llama_token_to_piece(vocab, tok, sp, (int) sizeof(sp), 0, /*special*/ 1);
         if (sn > 0) {
             sp[std::min(sn, (int) sizeof(sp) - 1)] = '\0';
-            if (std::strcmp(sp, "<end_of_turn>") == 0 || std::strcmp(sp, "<|eot_id|>") == 0 || std::strcmp(sp, "<start_of_turn>") == 0) {
+            if (std::strcmp(sp, "<end_of_turn>") == 0 || std::strcmp(sp, "<|eot_id|>") == 0 || std::strcmp(sp, "<start_of_turn>") == 0 || std::strcmp(sp, "<turn|>") == 0 || std::strcmp(sp, "<|turn>") == 0) {
                 break;
             }
         }
@@ -930,7 +931,8 @@ static bool resolve_stream_methods(JNIEnv *env, jobject cb, StreamMethods &m) {
 }
 
 static inline bool is_eot_piece(const char *s) {
-    return std::strcmp(s, "<end_of_turn>") == 0 || std::strcmp(s, "<|eot_id|>") == 0;
+    return std::strcmp(s, "<end_of_turn>") == 0 || std::strcmp(s, "<|eot_id|>") == 0
+        || std::strcmp(s, "<turn|>") == 0;
 }
 
 // Streams tokens from a prepared prompt string.
@@ -950,6 +952,7 @@ static void stream_from_prompt(
     // Reset cancel flag at the start of each stream
     g_cancel_requested.store(false, std::memory_order_relaxed);
     llama_memory_clear(llama_get_memory(gen_ctx), false);
+    session_clear_state();
 
     std::vector<llama_token> tokens(2048);
     int n_tokens = tokenize_with_retry(llama_model_get_vocab(gen_model),
@@ -970,6 +973,8 @@ static void stream_from_prompt(
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed on prompt"));
         return;
     }
+    g_session_tokens = tokens;
+    g_n_past = (int)tokens.size();
 
     float temperature    = g_temperature.load();
     float top_p          = g_top_p.load();
@@ -1002,7 +1007,7 @@ static void stream_from_prompt(
         int sn = llama_token_to_piece(vocab, tok, spec_buf, (int)sizeof(spec_buf), 0, 1);
         if (sn > 0) {
             spec_buf[std::min(sn, (int)sizeof(spec_buf)-1)] = '\0';
-            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0) return false;
+            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0 || std::strcmp(spec_buf, "<|turn>") == 0) return false;
         }
         int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
         if (nn > 0) {
@@ -1010,6 +1015,8 @@ static void stream_from_prompt(
             jstring delta = env->NewStringUTF(piece_buf);
             if (delta) { env->CallVoidMethod(jCallback, m.onDelta, delta); env->DeleteLocalRef(delta); }
         }
+        g_session_tokens.push_back(tok);
+        ++g_n_past;
         return true;
     };
 
@@ -1663,7 +1670,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
         int sn = llama_token_to_piece(vocab, tok, spec_buf, (int)sizeof(spec_buf), 0, 1);
         if (sn > 0) {
             spec_buf[std::min(sn, (int)sizeof(spec_buf) - 1)] = '\0';
-            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0) break;
+            if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0 || std::strcmp(spec_buf, "<|turn>") == 0) break;
         }
 
         llama_sampler_accept(sampler, tok);
@@ -1734,6 +1741,28 @@ Java_com_llamatik_library_platform_LlamaBridge_getModelFinetuneType(
     return env->NewStringUTF(buf);
 }
 
+// Fallback formatter for Gemma 4 — used when llama_chat_apply_template returns -1
+// because llama.cpp doesn't recognise the <|turn>/<turn|> template yet.
+static bool is_gemma4_template(const char *tmpl) {
+    if (!tmpl) return false;
+    return std::strstr(tmpl, "<|turn>") != nullptr && std::strstr(tmpl, "<turn|>") != nullptr;
+}
+
+static std::string apply_gemma4_template(
+        const std::vector<llama_chat_message> &chat,
+        bool add_ass) {
+    std::string out;
+    for (const auto &msg : chat) {
+        std::string role = msg.role;
+        if (role == "assistant") role = "model";
+        out += "<|turn>" + role + "\n";
+        out += trim(std::string(msg.content));
+        out += "<turn|>\n";
+    }
+    if (add_ass) out += "<|turn>model\n";
+    return out;
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_llamatik_library_platform_LlamaBridge_nativeApplyChatTemplate(
@@ -1781,6 +1810,9 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeApplyChatTemplate(
                 tmpl_cstr, chat.data(), (size_t) n,
                 (bool) addAssistantPrefix,
                 buf.data(), needed);
+        result = env->NewStringUTF(buf.c_str());
+    } else if (is_gemma4_template(tmpl_cstr)) {
+        std::string buf = apply_gemma4_template(chat, (bool) addAssistantPrefix);
         result = env->NewStringUTF(buf.c_str());
     }
 
