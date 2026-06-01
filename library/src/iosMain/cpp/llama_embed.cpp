@@ -82,6 +82,7 @@ static int gen_n_past = 0;
 static struct llama_model   *g_mtp_model   = nullptr;
 static struct llama_context *g_mtp_ctx     = nullptr;
 static std::atomic<int>      g_mtp_draft_len{3};
+static constexpr uint32_t    MTP_RS_SNAPSHOTS = 16;
 
 // ===================== Helpers =====================
 
@@ -798,6 +799,7 @@ bool llama_generate_init(const char *model_path) {
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = false;
     ctx_params.n_ctx      = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    ctx_params.n_rs_seq   = MTP_RS_SNAPSHOTS;
     ctx_params.n_threads  = g_num_threads.load(std::memory_order_relaxed);
     ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
@@ -1208,6 +1210,16 @@ void llama_generate_stream(const char *prompt,
         return true;
     };
 
+    auto decode_trunk_token = [&](llama_token token, int pos) -> bool {
+        if (pos >= (int)n_ctx) return false;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = token; step.pos[0] = pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        const int rc = llama_decode(gen_ctx, step);
+        llama_batch_free(step);
+        return rc == 0;
+    };
+
     int tokens_generated = 0;
 
     while (tokens_generated < max_new_tokens) {
@@ -1252,12 +1264,21 @@ void llama_generate_stream(const char *prompt,
         std::vector<llama_token> drafts;
         drafts.reserve(draft_len);
 
+        // The draft head predicts a short local chain from the trunk hidden
+        // state. Do not keep its KV positions between speculative steps.
+        llama_memory_clear(llama_get_memory(g_mtp_ctx), false);
+
         const float *h_row = llama_get_embeddings_pre_norm(gen_ctx);
         if (h_row) {
             for (int d = 0; d < draft_len && tokens_generated + (int)drafts.size() < max_new_tokens; ++d) {
                 if (g_cancel_requested.load(std::memory_order_relaxed)) break;
                 llama_token prev_tok = drafts.empty() ? tok : drafts.back();
                 llama_batch mtp_b = llama_batch_init(1, n_embd, 1);
+                mtp_b.token = (llama_token *)std::malloc(sizeof(llama_token));
+                if (!mtp_b.token) {
+                    llama_batch_free(mtp_b);
+                    break;
+                }
                 mtp_b.n_tokens = 1;
                 std::memcpy(mtp_b.embd, h_row, (size_t)n_embd * sizeof(float));
                 mtp_b.token[0] = prev_tok;
@@ -1276,47 +1297,71 @@ void llama_generate_stream(const char *prompt,
 
         if (drafts.empty()) continue;
 
-        // Verify drafts with trunk in one batch
         const int nd = (int)drafts.size();
+        const int verify_start = cur_pos;
+        const llama_token first_verified = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (first_verified != drafts[0]) {
+            if (llama_vocab_is_eog(v, first_verified) || first_verified == llama_vocab_eot(v)) goto ios_stream_done;
+            llama_sampler_accept(sampler, first_verified);
+            if (!emit_tok(first_verified)) goto ios_stream_done;
+            ++tokens_generated;
+            if (!decode_trunk_token(first_verified, verify_start)) break;
+            cur_pos = verify_start + 1;
+            gen_n_past = cur_pos;
+            continue;
+        }
+
+        // Verify the accepted first draft and remaining drafts in one trunk pass.
         llama_batch vbatch = llama_batch_init(nd, 0, 1);
         vbatch.n_tokens = nd;
         for (int i = 0; i < nd; ++i) {
-            vbatch.token[i] = drafts[i]; vbatch.pos[i] = cur_pos + i;
+            vbatch.token[i] = drafts[i]; vbatch.pos[i] = verify_start + i;
             vbatch.n_seq_id[i] = 1; vbatch.seq_id[i][0] = 0; vbatch.logits[i] = true;
         }
         const int vrc = llama_decode(gen_ctx, vbatch);
         llama_batch_free(vbatch);
         if (vrc != 0) break;
 
-        int n_accepted = 0;
-        for (int i = 0; i < nd && tokens_generated < max_new_tokens; ++i) {
+        llama_sampler_accept(sampler, first_verified);
+        if (!emit_tok(first_verified)) goto ios_stream_done;
+        ++tokens_generated;
+        cur_pos = verify_start + 1;
+
+        bool mismatch = false;
+        int n_accepted = 1;
+        for (int i = 1; i < nd && tokens_generated < max_new_tokens; ++i) {
             if (g_cancel_requested.load(std::memory_order_relaxed)) goto ios_stream_done;
-            const llama_token verified = llama_sampler_sample(sampler, gen_ctx, i);
+            const llama_token verified = llama_sampler_sample(sampler, gen_ctx, i - 1);
             if (verified != drafts[i]) {
                 if (llama_vocab_is_eog(v, verified) || verified == llama_vocab_eot(v)) goto ios_stream_done;
+                const int mismatch_pos = verify_start + i;
+                if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, mismatch_pos, -1)) break;
                 llama_sampler_accept(sampler, verified);
                 if (!emit_tok(verified)) goto ios_stream_done;
-                ++tokens_generated; cur_pos++;
+                ++tokens_generated;
+                if (!decode_trunk_token(verified, mismatch_pos)) break;
+                cur_pos = mismatch_pos + 1;
+                mismatch = true;
                 break;
             }
             llama_sampler_accept(sampler, verified);
             if (!emit_tok(verified)) goto ios_stream_done;
-            ++tokens_generated; cur_pos++; ++n_accepted;
+            ++tokens_generated; cur_pos = verify_start + i + 1; ++n_accepted;
         }
 
-        if (n_accepted == nd && tokens_generated < max_new_tokens) {
+        if (!mismatch && n_accepted < nd) {
+            if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, cur_pos, -1)) break;
+        }
+
+        if (!mismatch && n_accepted == nd && tokens_generated < max_new_tokens) {
             const llama_token bonus = llama_sampler_sample(sampler, gen_ctx, nd - 1);
             if (!llama_vocab_is_eog(v, bonus) && bonus != llama_vocab_eot(v)) {
                 llama_sampler_accept(sampler, bonus);
                 if (emit_tok(bonus)) {
                     ++tokens_generated;
-                    if (cur_pos < (int)n_ctx) {
-                        llama_batch step = llama_batch_init(1, 0, 1);
-                        step.n_tokens = 1; step.token[0] = bonus; step.pos[0] = cur_pos;
-                        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
-                        const int rc2 = llama_decode(gen_ctx, step);
-                        llama_batch_free(step);
-                        if (rc2 == 0) { cur_pos++; gen_n_past = cur_pos; }
+                    if (decode_trunk_token(bonus, cur_pos)) {
+                        cur_pos++;
+                        gen_n_past = cur_pos;
                     }
                 }
             }
@@ -1713,6 +1758,7 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
     llama_context_params cparams = llama_context_default_params();
     cparams.ctx_type      = LLAMA_CONTEXT_TYPE_MTP;
     cparams.n_ctx         = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_rs_seq      = MTP_RS_SNAPSHOTS;
     cparams.n_threads     = g_num_threads.load(std::memory_order_relaxed);
     cparams.n_batch       = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
