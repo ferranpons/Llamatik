@@ -26,6 +26,8 @@ object ChatRunner {
      * @param messages Chat history (last one should be the user turn we’re answering).
      * @param template Fallback template used when the model has no embedded chat template.
      * @param maxTokens Hard guard if your engine doesn’t supply one.
+     * @param contextTokens The model’s configured context window in tokens. Used to size the
+     *   history window so the prompt never crowds out the generation budget.
      */
     fun stream(
         session: LlamaSession? = null,
@@ -34,18 +36,20 @@ object ChatRunner {
         messages: List<ChatMessage>,
         template: PromptTemplate = Gemma3,
         maxTokens: Int = 1024,
+        contextTokens: Int = 4096,
         onDelta: (String) -> Unit,
         onComplete: (final: String) -> Unit,
         onError: (String) -> Unit
     ) {
-        val nativePrompt = buildNativePrompt(system, contexts, messages)
+        val windowedMessages = windowHistory(messages, system, contextTokens, maxTokens)
+        val nativePrompt = buildNativePrompt(system, contexts, windowedMessages)
         val prompt: String
         val stop: List<String>
         if (nativePrompt != null) {
             prompt = nativePrompt
             stop = emptyList() // model’s EOS token handles termination natively
         } else {
-            prompt = PromptRenderer.render(system, contexts, messages, template)
+            prompt = PromptRenderer.render(system, contexts, windowedMessages, template)
             stop = template.stopSequences
         }
         Logger.d { "ChatRunner: turns=${messages.size} promptLen=${prompt.length} usedNative=${nativePrompt != null}" }
@@ -143,6 +147,47 @@ object ChatRunner {
         }
 
         return LlamaBridge.applyChatTemplate(pairs, addAssistantPrefix = true)
+    }
+
+    // Trims history so the prompt fits within the model's context window.
+    // Uses a character budget (4 chars ≈ 1 token) to leave room for generation.
+    // Always keeps system messages, the first user+assistant pair (topic anchor), and the
+    // last user message. Middle turns are dropped oldest-first when the budget is exceeded.
+    private fun windowHistory(
+        messages: List<ChatMessage>,
+        system: String?,
+        contextTokens: Int,
+        maxTokens: Int
+    ): List<ChatMessage> {
+        val systemMessages = messages.filter { it.role == ChatMessage.Role.System }
+        val dialogue = messages.filter { it.role != ChatMessage.Role.System }
+
+        // Reserve tokens for system prompt, RAG/contexts, generation output, and template overhead
+        val systemChars = (system?.length ?: 0) + systemMessages.sumOf { it.content.length }
+        val reservedTokens = maxTokens + (systemChars / 4) + 256  // 256 for template tags
+        val historyBudgetChars = (contextTokens - reservedTokens).coerceAtLeast(512) * 4
+
+        if (dialogue.sumOf { it.content.length } <= historyBudgetChars) return messages
+
+        // Pinned: first user+assistant pair preserves the topic anchor
+        val pinned = dialogue.take(2)
+        val middle = dialogue.drop(2).dropLast(1)
+        val last = dialogue.last()
+
+        var budget = historyBudgetChars -
+                pinned.sumOf { it.content.length } -
+                last.content.length
+        budget = budget.coerceAtLeast(0)
+
+        // Fill remaining budget from the most recent middle turns backwards
+        val keptMiddle = mutableListOf<ChatMessage>()
+        for (msg in middle.asReversed()) {
+            if (budget <= 0) break
+            keptMiddle.add(0, msg)
+            budget -= msg.content.length
+        }
+
+        return systemMessages + pinned + keptMiddle + last
     }
 
     private fun shouldStop(sb: StringBuilder, stops: List<String>): Boolean {

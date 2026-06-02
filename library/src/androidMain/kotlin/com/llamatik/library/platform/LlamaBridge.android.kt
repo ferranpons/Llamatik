@@ -96,18 +96,30 @@ actual object LlamaBridge {
     }
 
     private fun buildChatPrompt(systemPrompt: String, contextBlock: String, userPrompt: String): String {
-        return buildString {
-            append("<start_of_turn>system\n")
-            append(systemPrompt.trim())
-            append("\n<end_of_turn>\n")
-            append("<start_of_turn>user\n")
-            append("CONTEXT:\n")
-            append(contextBlock.trim())
-            append("\n\nQUESTION:\n")
+        val userTurn = buildString {
+            if (contextBlock.isNotBlank()) {
+                append("CONTEXT:\n")
+                append(contextBlock.trim())
+                append("\n\nQUESTION:\n")
+            }
             append(userPrompt.trim())
-            append("\n<end_of_turn>\n")
-            append("<start_of_turn>assistant\n")
         }
+        val messages = buildList {
+            if (systemPrompt.isNotBlank()) add("system" to systemPrompt.trim())
+            add("user" to userTurn)
+        }
+        return applyChatTemplate(messages, addAssistantPrefix = true)
+            ?: buildString {
+                if (systemPrompt.isNotBlank()) {
+                    append("<start_of_turn>system\n")
+                    append(systemPrompt.trim())
+                    append("\n<end_of_turn>\n")
+                }
+                append("<start_of_turn>user\n")
+                append(userTurn)
+                append("\n<end_of_turn>\n")
+                append("<start_of_turn>assistant\n")
+            }
     }
 
     actual fun generateStreamWithContext(

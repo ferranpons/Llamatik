@@ -1547,7 +1547,7 @@ class ChatBotViewModel(
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val chatHistory: List<ChatMessage> =
-                        toChatMessages(_conversation.value.dropLast(1))
+                        toChatMessages(_conversation.value.dropLast(1)).withLanguageHint()
 
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
@@ -1568,6 +1568,7 @@ class ChatBotViewModel(
                         messages = chatHistory,
                         template = currentGenerateTemplate(),
                         maxTokens = generateSettings.maxTokens,
+                        contextTokens = generateSettings.contextLength,
                         onDelta = { chunk ->
                             if (activeRequestId != requestId) return@stream
                             if (chunk.isEmpty()) return@stream
@@ -1648,7 +1649,7 @@ class ChatBotViewModel(
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
                     val chatHistory: List<ChatMessage> =
-                        toChatMessages(_conversation.value.dropLast(1))
+                        toChatMessages(_conversation.value.dropLast(1)).withLanguageHint()
 
                     val requestId = kotlin.random.Random.nextLong().toString()
                     activeRequestId = requestId
@@ -1683,6 +1684,7 @@ class ChatBotViewModel(
                             messages = chatHistory,
                             template = currentGenerateTemplate(),
                             maxTokens = generateSettings.maxTokens,
+                            contextTokens = generateSettings.contextLength,
                             onDelta = { chunk ->
                                 if (activeRequestId != requestId || completed) return@stream
                                 if (chunk.isEmpty()) return@stream
@@ -1922,6 +1924,21 @@ class ChatBotViewModel(
             "$base\nYou MUST reply exclusively in $langName. Do not switch to English or any other language."
         } else {
             base
+        }
+    }
+
+    // Appends a compact language reminder to the last user message on turns 2+.
+    // Skipped on the first turn because the user already writes in the target language;
+    // the hint is only needed when small models drift to English after seeing prior context.
+    private fun List<ChatMessage>.withLanguageHint(): List<ChatMessage> {
+        val langName = getLanguageName() ?: return this
+        val assistantCount = count { it.role == ChatMessage.Role.Assistant }
+        if (assistantCount == 0) return this  // first turn — no hint needed
+        val idx = indexOfLast { it.role == ChatMessage.Role.User }
+        if (idx < 0) return this
+        return toMutableList().also { list ->
+            val original = list[idx]
+            list[idx] = original.copy(content = "${original.content}\n\nReply in $langName.")
         }
     }
 
