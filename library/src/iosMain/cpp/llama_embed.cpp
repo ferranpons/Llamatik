@@ -82,6 +82,7 @@ static int gen_n_past = 0;
 static struct llama_model   *g_mtp_model   = nullptr;
 static struct llama_context *g_mtp_ctx     = nullptr;
 static std::atomic<int>      g_mtp_draft_len{3};
+static constexpr uint32_t    MTP_RS_SNAPSHOTS = 16;
 
 // ===================== Helpers =====================
 
@@ -392,6 +393,48 @@ static std::string build_clean_prompt(const char *system_prompt,
     std::string ctxb = context_block ? context_block : "";
     std::string usr = user_prompt   ? user_prompt   : "";
     return build_plain_prompt(ctxb, usr);
+}
+
+// Builds a properly-formatted multi-turn chat prompt using the model's chat
+// template, matching the Android buildChatPrompt structure. Falls back to a
+// plain formatted string if no template is available.
+static std::string build_chat_prompt(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt) {
+    std::string sys  = system_prompt  ? system_prompt  : "";
+    std::string ctxb = context_block  ? context_block  : "";
+    std::string usr  = user_prompt    ? user_prompt    : "";
+
+    // Build the user turn: context (prior conversation) + current question
+    std::string user_turn;
+    if (!ctxb.empty()) {
+        user_turn += "CONTEXT:\n";
+        user_turn += ctxb;
+        user_turn += "\n\nQUESTION:\n";
+    }
+    user_turn += usr;
+
+    // Try the model's embedded chat template first
+    std::string wrapped;
+    if (apply_chat_template_if_available(
+            sys.empty() ? nullptr : sys.c_str(),
+            user_turn.c_str(),
+            wrapped)) {
+        return wrapped;
+    }
+
+    // Fallback: Gemma-style tags (same format Android uses)
+    std::string p;
+    if (!sys.empty()) {
+        p += "<start_of_turn>system\n";
+        p += sys;
+        p += "\n<end_of_turn>\n";
+    }
+    p += "<start_of_turn>user\n";
+    p += user_turn;
+    p += "\n<end_of_turn>\n";
+    p += "<start_of_turn>assistant\n";
+    return p;
 }
 
 static bool looks_like_chat_formatted_prompt(const std::string &prompt) {
@@ -798,6 +841,7 @@ bool llama_generate_init(const char *model_path) {
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.embeddings = false;
     ctx_params.n_ctx      = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    ctx_params.n_rs_seq   = MTP_RS_SNAPSHOTS;
     ctx_params.n_threads  = g_num_threads.load(std::memory_order_relaxed);
     ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
@@ -953,7 +997,7 @@ char *llama_generate(const char *prompt) {
 char *llama_generate_chat(const char *system_prompt,
         const char *context_block,
         const char *user_prompt) {
-    std::string prompt2 = build_clean_prompt(system_prompt, context_block, user_prompt);
+    std::string prompt2 = build_chat_prompt(system_prompt, context_block, user_prompt);
     return llama_generate(prompt2.c_str());
 }
 
@@ -1079,7 +1123,9 @@ char *llama_generate_chat_json_schema(const char *system_prompt,
         const char *context_block,
         const char *user_prompt,
         const char *json_schema) {
-    std::string prompt2 = build_json_prompt_chat(system_prompt, context_block, user_prompt, json_schema);
+    std::string base = build_chat_prompt(system_prompt, context_block, user_prompt);
+    // Append JSON instruction after the user turn content but before the assistant prefix
+    std::string prompt2 = base + "\n" + build_json_instruction(json_schema);
     return llama_generate_json_schema(prompt2.c_str(), json_schema);
 }
 
@@ -1208,7 +1254,18 @@ void llama_generate_stream(const char *prompt,
         return true;
     };
 
+    auto decode_trunk_token = [&](llama_token token, int pos) -> bool {
+        if (pos >= (int)n_ctx) return false;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = token; step.pos[0] = pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        const int rc = llama_decode(gen_ctx, step);
+        llama_batch_free(step);
+        return rc == 0;
+    };
+
     int tokens_generated = 0;
+    bool error_flag = false;
 
     while (tokens_generated < max_new_tokens) {
         if (g_cancel_requested.load(std::memory_order_relaxed)) {
@@ -1252,12 +1309,21 @@ void llama_generate_stream(const char *prompt,
         std::vector<llama_token> drafts;
         drafts.reserve(draft_len);
 
+        // The draft head predicts a short local chain from the trunk hidden
+        // state. Do not keep its KV positions between speculative steps.
+        llama_memory_clear(llama_get_memory(g_mtp_ctx), false);
+
         const float *h_row = llama_get_embeddings_pre_norm(gen_ctx);
         if (h_row) {
             for (int d = 0; d < draft_len && tokens_generated + (int)drafts.size() < max_new_tokens; ++d) {
                 if (g_cancel_requested.load(std::memory_order_relaxed)) break;
                 llama_token prev_tok = drafts.empty() ? tok : drafts.back();
                 llama_batch mtp_b = llama_batch_init(1, n_embd, 1);
+                mtp_b.token = (llama_token *)std::malloc(sizeof(llama_token));
+                if (!mtp_b.token) {
+                    llama_batch_free(mtp_b);
+                    break;
+                }
                 mtp_b.n_tokens = 1;
                 std::memcpy(mtp_b.embd, h_row, (size_t)n_embd * sizeof(float));
                 mtp_b.token[0] = prev_tok;
@@ -1276,60 +1342,95 @@ void llama_generate_stream(const char *prompt,
 
         if (drafts.empty()) continue;
 
-        // Verify drafts with trunk in one batch
         const int nd = (int)drafts.size();
+        const int verify_start = cur_pos;
+        const llama_token first_verified = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (first_verified != drafts[0]) {
+            if (llama_vocab_is_eog(v, first_verified) || first_verified == llama_vocab_eot(v)) goto ios_stream_done;
+            llama_sampler_accept(sampler, first_verified);
+            if (!emit_tok(first_verified)) goto ios_stream_done;
+            ++tokens_generated;
+            if (!decode_trunk_token(first_verified, verify_start)) break;
+            cur_pos = verify_start + 1;
+            gen_n_past = cur_pos;
+            continue;
+        }
+
+        // Verify the accepted first draft and remaining drafts in one trunk pass.
         llama_batch vbatch = llama_batch_init(nd, 0, 1);
         vbatch.n_tokens = nd;
         for (int i = 0; i < nd; ++i) {
-            vbatch.token[i] = drafts[i]; vbatch.pos[i] = cur_pos + i;
+            vbatch.token[i] = drafts[i]; vbatch.pos[i] = verify_start + i;
             vbatch.n_seq_id[i] = 1; vbatch.seq_id[i][0] = 0; vbatch.logits[i] = true;
         }
         const int vrc = llama_decode(gen_ctx, vbatch);
         llama_batch_free(vbatch);
-        if (vrc != 0) break;
+        if (vrc != 0) { error_flag = true; break; }
 
-        int n_accepted = 0;
-        for (int i = 0; i < nd && tokens_generated < max_new_tokens; ++i) {
+        llama_sampler_accept(sampler, first_verified);
+        if (!emit_tok(first_verified)) goto ios_stream_done;
+        ++tokens_generated;
+        cur_pos = verify_start + 1;
+
+        bool mismatch = false;
+        int n_accepted = 1;
+        for (int i = 1; i < nd && tokens_generated < max_new_tokens; ++i) {
             if (g_cancel_requested.load(std::memory_order_relaxed)) goto ios_stream_done;
-            const llama_token verified = llama_sampler_sample(sampler, gen_ctx, i);
+            const llama_token verified = llama_sampler_sample(sampler, gen_ctx, i - 1);
             if (verified != drafts[i]) {
                 if (llama_vocab_is_eog(v, verified) || verified == llama_vocab_eot(v)) goto ios_stream_done;
+                const int mismatch_pos = verify_start + i;
+                if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, mismatch_pos, -1)) {
+                    error_flag = true; break;
+                }
                 llama_sampler_accept(sampler, verified);
                 if (!emit_tok(verified)) goto ios_stream_done;
-                ++tokens_generated; cur_pos++;
+                ++tokens_generated;
+                if (!decode_trunk_token(verified, mismatch_pos)) { error_flag = true; break; }
+                cur_pos = mismatch_pos + 1;
+                gen_n_past = cur_pos;
+                mismatch = true;
                 break;
             }
             llama_sampler_accept(sampler, verified);
             if (!emit_tok(verified)) goto ios_stream_done;
-            ++tokens_generated; cur_pos++; ++n_accepted;
+            ++tokens_generated; cur_pos = verify_start + i + 1; ++n_accepted;
         }
 
-        if (n_accepted == nd && tokens_generated < max_new_tokens) {
+        if (error_flag) break;
+
+        if (!mismatch && n_accepted < nd) {
+            if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, cur_pos, -1)) {
+                error_flag = true; break;
+            }
+        }
+
+        if (!mismatch && n_accepted == nd && tokens_generated < max_new_tokens) {
             const llama_token bonus = llama_sampler_sample(sampler, gen_ctx, nd - 1);
             if (!llama_vocab_is_eog(v, bonus) && bonus != llama_vocab_eot(v)) {
                 llama_sampler_accept(sampler, bonus);
                 if (emit_tok(bonus)) {
                     ++tokens_generated;
-                    if (cur_pos < (int)n_ctx) {
-                        llama_batch step = llama_batch_init(1, 0, 1);
-                        step.n_tokens = 1; step.token[0] = bonus; step.pos[0] = cur_pos;
-                        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
-                        const int rc2 = llama_decode(gen_ctx, step);
-                        llama_batch_free(step);
-                        if (rc2 == 0) { cur_pos++; gen_n_past = cur_pos; }
+                    if (decode_trunk_token(bonus, cur_pos)) {
+                        cur_pos++;
+                        gen_n_past = cur_pos;
                     }
                 }
             }
         }
 
-        gen_n_past = cur_pos;
         if (cur_pos >= (int)n_ctx) break;
     }
 
     ios_stream_done:
+    gen_n_past = cur_pos;
     if (mtp_sampler) llama_sampler_free(mtp_sampler);
     llama_sampler_free(sampler);
 
+    if (error_flag) {
+        if (on_error) on_error("llama_decode failed mid-stream", user);
+        return;
+    }
     if (on_done) on_done(user);
 }
 
@@ -1340,11 +1441,7 @@ void llama_generate_chat_stream(const char *system_prompt,
         llm_on_done on_done,
         llm_on_error on_error,
         void *user) {
-    std::string prompt2 = build_clean_prompt(
-            system_prompt ? system_prompt : "",
-            context_block ? context_block : "",
-            user_prompt ? user_prompt : ""
-    );
+    std::string prompt2 = build_chat_prompt(system_prompt, context_block, user_prompt);
     llama_generate_stream(prompt2.c_str(), on_delta, on_done, on_error, user);
 }
 
@@ -1500,7 +1597,8 @@ void llama_generate_chat_json_schema_stream(const char *system_prompt,
         llm_on_done on_done,
         llm_on_error on_error,
         void *user) {
-    std::string prompt2 = build_json_prompt_chat(system_prompt, context_block, user_prompt, json_schema);
+    std::string base = build_chat_prompt(system_prompt, context_block, user_prompt);
+    std::string prompt2 = base + "\n" + build_json_instruction(json_schema);
     llama_generate_json_schema_stream(prompt2.c_str(), json_schema, on_delta, on_done, on_error, user);
 }
 
@@ -1713,6 +1811,7 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
     llama_context_params cparams = llama_context_default_params();
     cparams.ctx_type      = LLAMA_CONTEXT_TYPE_MTP;
     cparams.n_ctx         = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_rs_seq      = MTP_RS_SNAPSHOTS;
     cparams.n_threads     = g_num_threads.load(std::memory_order_relaxed);
     cparams.n_batch       = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
