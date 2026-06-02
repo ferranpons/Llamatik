@@ -114,12 +114,34 @@ actual object LlamaBridge {
         }
     }
 
+    private fun buildChatPrompt(systemPrompt: String, contextBlock: String, userPrompt: String): String {
+        val userTurn = buildString {
+            if (contextBlock.isNotBlank()) {
+                append("CONTEXT:\n")
+                append(contextBlock.trim())
+                append("\n\nQUESTION:\n")
+            }
+            append(userPrompt.trim())
+        }
+        return buildString {
+            if (systemPrompt.isNotBlank()) {
+                append("<start_of_turn>system\n")
+                append(systemPrompt.trim())
+                append("\n<end_of_turn>\n")
+            }
+            append("<start_of_turn>user\n")
+            append(userTurn)
+            append("\n<end_of_turn>\n")
+            append("<start_of_turn>assistant\n")
+        }
+    }
+
     actual fun generateStreamWithContext(
         systemPrompt: String,
         contextBlock: String,
         userPrompt: String,
         callback: GenStream
-    ) = generateStream("$systemPrompt\n\n$contextBlock\n\n$userPrompt", callback)
+    ) = generateStream(buildChatPrompt(systemPrompt, contextBlock, userPrompt), callback)
 
     actual fun generateJsonStream(prompt: String, jsonSchema: String?, callback: GenStream) =
         generateStream(prompt, callback)
@@ -156,7 +178,7 @@ actual object LlamaBridge {
             runGenerateStreamWorker(
                 idbKey = idbKey,
                 fsPath = fsPath,
-                prompt = "$system\n\n$context\n\n$user",
+                prompt = buildChatPrompt(system, context, user),
                 continueMode = false,
                 onDelta = onDelta,
                 onDone = {

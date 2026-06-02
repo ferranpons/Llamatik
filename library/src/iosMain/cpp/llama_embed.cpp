@@ -395,6 +395,48 @@ static std::string build_clean_prompt(const char *system_prompt,
     return build_plain_prompt(ctxb, usr);
 }
 
+// Builds a properly-formatted multi-turn chat prompt using the model's chat
+// template, matching the Android buildChatPrompt structure. Falls back to a
+// plain formatted string if no template is available.
+static std::string build_chat_prompt(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt) {
+    std::string sys  = system_prompt  ? system_prompt  : "";
+    std::string ctxb = context_block  ? context_block  : "";
+    std::string usr  = user_prompt    ? user_prompt    : "";
+
+    // Build the user turn: context (prior conversation) + current question
+    std::string user_turn;
+    if (!ctxb.empty()) {
+        user_turn += "CONTEXT:\n";
+        user_turn += ctxb;
+        user_turn += "\n\nQUESTION:\n";
+    }
+    user_turn += usr;
+
+    // Try the model's embedded chat template first
+    std::string wrapped;
+    if (apply_chat_template_if_available(
+            sys.empty() ? nullptr : sys.c_str(),
+            user_turn.c_str(),
+            wrapped)) {
+        return wrapped;
+    }
+
+    // Fallback: Gemma-style tags (same format Android uses)
+    std::string p;
+    if (!sys.empty()) {
+        p += "<start_of_turn>system\n";
+        p += sys;
+        p += "\n<end_of_turn>\n";
+    }
+    p += "<start_of_turn>user\n";
+    p += user_turn;
+    p += "\n<end_of_turn>\n";
+    p += "<start_of_turn>assistant\n";
+    return p;
+}
+
 static bool looks_like_chat_formatted_prompt(const std::string &prompt) {
     const std::string low = lower_ascii(prompt);
 
@@ -955,7 +997,7 @@ char *llama_generate(const char *prompt) {
 char *llama_generate_chat(const char *system_prompt,
         const char *context_block,
         const char *user_prompt) {
-    std::string prompt2 = build_clean_prompt(system_prompt, context_block, user_prompt);
+    std::string prompt2 = build_chat_prompt(system_prompt, context_block, user_prompt);
     return llama_generate(prompt2.c_str());
 }
 
@@ -1081,7 +1123,9 @@ char *llama_generate_chat_json_schema(const char *system_prompt,
         const char *context_block,
         const char *user_prompt,
         const char *json_schema) {
-    std::string prompt2 = build_json_prompt_chat(system_prompt, context_block, user_prompt, json_schema);
+    std::string base = build_chat_prompt(system_prompt, context_block, user_prompt);
+    // Append JSON instruction after the user turn content but before the assistant prefix
+    std::string prompt2 = base + "\n" + build_json_instruction(json_schema);
     return llama_generate_json_schema(prompt2.c_str(), json_schema);
 }
 
@@ -1397,11 +1441,7 @@ void llama_generate_chat_stream(const char *system_prompt,
         llm_on_done on_done,
         llm_on_error on_error,
         void *user) {
-    std::string prompt2 = build_clean_prompt(
-            system_prompt ? system_prompt : "",
-            context_block ? context_block : "",
-            user_prompt ? user_prompt : ""
-    );
+    std::string prompt2 = build_chat_prompt(system_prompt, context_block, user_prompt);
     llama_generate_stream(prompt2.c_str(), on_delta, on_done, on_error, user);
 }
 
@@ -1557,7 +1597,8 @@ void llama_generate_chat_json_schema_stream(const char *system_prompt,
         llm_on_done on_done,
         llm_on_error on_error,
         void *user) {
-    std::string prompt2 = build_json_prompt_chat(system_prompt, context_block, user_prompt, json_schema);
+    std::string base = build_chat_prompt(system_prompt, context_block, user_prompt);
+    std::string prompt2 = base + "\n" + build_json_instruction(json_schema);
     llama_generate_json_schema_stream(prompt2.c_str(), json_schema, on_delta, on_done, on_error, user);
 }
 
