@@ -1221,6 +1221,7 @@ void llama_generate_stream(const char *prompt,
     };
 
     int tokens_generated = 0;
+    bool error_flag = false;
 
     while (tokens_generated < max_new_tokens) {
         if (g_cancel_requested.load(std::memory_order_relaxed)) {
@@ -1320,7 +1321,7 @@ void llama_generate_stream(const char *prompt,
         }
         const int vrc = llama_decode(gen_ctx, vbatch);
         llama_batch_free(vbatch);
-        if (vrc != 0) break;
+        if (vrc != 0) { error_flag = true; break; }
 
         llama_sampler_accept(sampler, first_verified);
         if (!emit_tok(first_verified)) goto ios_stream_done;
@@ -1335,12 +1336,15 @@ void llama_generate_stream(const char *prompt,
             if (verified != drafts[i]) {
                 if (llama_vocab_is_eog(v, verified) || verified == llama_vocab_eot(v)) goto ios_stream_done;
                 const int mismatch_pos = verify_start + i;
-                if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, mismatch_pos, -1)) break;
+                if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, mismatch_pos, -1)) {
+                    error_flag = true; break;
+                }
                 llama_sampler_accept(sampler, verified);
                 if (!emit_tok(verified)) goto ios_stream_done;
                 ++tokens_generated;
-                if (!decode_trunk_token(verified, mismatch_pos)) break;
+                if (!decode_trunk_token(verified, mismatch_pos)) { error_flag = true; break; }
                 cur_pos = mismatch_pos + 1;
+                gen_n_past = cur_pos;
                 mismatch = true;
                 break;
             }
@@ -1349,8 +1353,12 @@ void llama_generate_stream(const char *prompt,
             ++tokens_generated; cur_pos = verify_start + i + 1; ++n_accepted;
         }
 
+        if (error_flag) break;
+
         if (!mismatch && n_accepted < nd) {
-            if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, cur_pos, -1)) break;
+            if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, cur_pos, -1)) {
+                error_flag = true; break;
+            }
         }
 
         if (!mismatch && n_accepted == nd && tokens_generated < max_new_tokens) {
@@ -1367,14 +1375,18 @@ void llama_generate_stream(const char *prompt,
             }
         }
 
-        gen_n_past = cur_pos;
         if (cur_pos >= (int)n_ctx) break;
     }
 
     ios_stream_done:
+    gen_n_past = cur_pos;
     if (mtp_sampler) llama_sampler_free(mtp_sampler);
     llama_sampler_free(sampler);
 
+    if (error_flag) {
+        if (on_error) on_error("llama_decode failed mid-stream", user);
+        return;
+    }
     if (on_done) on_done(user);
 }
 
