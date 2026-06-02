@@ -1011,8 +1011,8 @@ static void stream_from_prompt(
         }
         int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
         if (nn > 0) {
-            piece_buf[std::min(nn, (int)sizeof(piece_buf)-1)] = '\0';
-            jstring delta = env->NewStringUTF(piece_buf);
+            std::string piece_str(piece_buf, nn);
+            jstring delta = env->NewStringUTF(piece_str.c_str());
             if (delta) { env->CallVoidMethod(jCallback, m.onDelta, delta); env->DeleteLocalRef(delta); }
         }
         g_session_tokens.push_back(tok);
@@ -1499,8 +1499,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinue(JNIEnv *en
         llama_sampler_accept(sampler, tok);
         int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
         if (nn > 0) {
-            piece_buf[std::min(nn, (int)sizeof(piece_buf) - 1)] = '\0';
-            result += piece_buf;
+            result.append(piece_buf, nn);
         }
         g_session_tokens.push_back(tok);
         ++g_n_past;
@@ -1677,8 +1676,8 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
 
         int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
         if (nn > 0) {
-            piece_buf[std::min(nn, (int)sizeof(piece_buf) - 1)] = '\0';
-            jstring delta = env->NewStringUTF(piece_buf);
+            std::string piece_str(piece_buf, nn);
+            jstring delta = env->NewStringUTF(piece_str.c_str());
             if (delta) {
                 env->CallVoidMethod(jCallback, m.onDelta, delta);
                 env->DeleteLocalRef(delta);

@@ -33,6 +33,7 @@ import com.llamatik.app.feature.news.usecases.GetAllNewsUseCase
 import com.llamatik.app.feature.reviews.ReviewRequestManager
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.localization.getLanguageCode
+import com.llamatik.app.localization.getLanguageName
 import com.llamatik.app.platform.AppDispatchersIO
 import com.llamatik.app.platform.AppStorage
 import com.llamatik.app.platform.LlamatikTempFile
@@ -75,7 +76,7 @@ import kotlin.time.ExperimentalTime
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
 private const val DEFAULT_SYSTEM_PROMPT = """
 You are Llamatik, a privacy-first local AI assistant running fully on-device.
-Be clear, honest, and concise. Answer in the user's language.
+Be clear, honest, and concise. Always reply in the same language the user is writing in. Never switch languages mid-response.
 """
 
 private const val PDF_RAG_STORE_PATH = "rag/pdf_rag_store.json"
@@ -1657,7 +1658,6 @@ class ChatBotViewModel(
 
                     val acc = StringBuilder()
                     var completed = false
-
                     val priorBotTexts = chatHistory
                         .filter { it.role == ChatMessage.Role.Assistant }
                         .map { it.content }
@@ -1892,8 +1892,8 @@ class ChatBotViewModel(
     private fun toChatMessages(ui: List<ChatUiModel.Message>): List<ChatMessage> {
         return ui.mapNotNull { m ->
             when (m.author) {
-                ChatUiModel.Author.me -> ChatMessage(ChatMessage.Role.User, m.text)
-                ChatUiModel.Author.bot -> ChatMessage(ChatMessage.Role.Assistant, m.text)
+                ChatUiModel.Author.me -> if (m.text.isNotBlank()) ChatMessage(ChatMessage.Role.User, m.text) else null
+                ChatUiModel.Author.bot -> if (m.text.isNotBlank()) ChatMessage(ChatMessage.Role.Assistant, m.text) else null
                 else -> null
             }
         }
@@ -1916,7 +1916,13 @@ class ChatBotViewModel(
     }
 
     private fun currentSystemPrompt(): String {
-        return currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
+        val base = currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
+        val langName = getLanguageName()
+        return if (langName != null) {
+            "$base\nYou MUST reply exclusively in $langName. Do not switch to English or any other language."
+        } else {
+            base
+        }
     }
 
     private fun looksLikeEchoOrLoop(
@@ -1927,12 +1933,26 @@ class ChatBotViewModel(
         val f = full.trim()
         if (f.isEmpty()) return false
 
-        val idx = f.indexOf(user, startIndex = minOf(80, f.length))
-        if (idx >= 0) return true
+        // User echo: user's own message reappears mid-response
+        if (f.indexOf(user, startIndex = minOf(80, f.length)) >= 0) return true
 
-        val tail = f.takeLast(minOf(400, f.length))
-        val sentences =
-            tail.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length >= 60 }
+        // Phrase-level loop: a 70-char phrase from the tail repeats 3+ times
+        val tail = f.takeLast(minOf(500, f.length))
+        val phraseLen = minOf(80, tail.length)
+        if (phraseLen >= 70) {
+            val phrase = tail.takeLast(phraseLen)
+            var count = 0
+            var pos = 0
+            while (true) {
+                val found = f.indexOf(phrase, pos)
+                if (found < 0) break
+                if (++count >= 3) return true
+                pos = found + 1
+            }
+        }
+
+        // Sentence-level within-turn duplicate
+        val sentences = tail.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length >= 60 }
         if (sentences.isNotEmpty()) {
             val last = sentences.last()
             val firstIdx = f.indexOf(last)
@@ -1940,13 +1960,14 @@ class ChatBotViewModel(
             if (firstIdx >= 0 && lastIdx > firstIdx) return true
         }
 
-        // Cross-turn: stop if current output is regenerating text from a prior assistant turn
-        if (priorBotTexts.isNotEmpty()) {
-            val allSentences = f.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.length >= 60 }
-            for (sentence in allSentences) {
-                if (priorBotTexts.any { prior -> prior.contains(sentence) }) return true
+        // Cross-turn verbatim block: only fire when a 150+ char block is reproduced exactly
+        if (priorBotTexts.isNotEmpty() && f.length >= 200) {
+            val blocks = f.split(Regex("(?<=[.!?\"])\\s+")).map { it.trim() }.filter { it.length >= 150 }
+            for (block in blocks) {
+                if (priorBotTexts.any { prior -> prior.contains(block) }) return true
             }
         }
+
         return false
     }
 
@@ -1956,21 +1977,24 @@ class ChatBotViewModel(
         priorBotTexts: List<String> = emptyList()
     ): String {
         val f = full.trim()
+
+        // Trim at user echo
         val idxEcho = f.indexOf(user, startIndex = minOf(80, f.length))
         if (idxEcho >= 0) return f.substring(0, idxEcho).trim()
 
-        // Cross-turn: keep only sentences that don't appear in any prior assistant turn
+        // Trim at first cross-turn verbatim block
         if (priorBotTexts.isNotEmpty()) {
-            val sentences = f.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }
+            val sentences = f.split(Regex("(?<=[.!?\"])\\s+")).map { it.trim() }
             val out = StringBuilder()
             for (s in sentences) {
-                if (s.length >= 60 && priorBotTexts.any { prior -> prior.contains(s) }) break
+                if (s.length >= 150 && priorBotTexts.any { prior -> prior.contains(s) }) break
                 if (out.isNotEmpty()) out.append(' ')
                 out.append(s)
             }
             if (out.isNotEmpty()) return out.toString().trim()
         }
 
+        // Trim within-turn sentence duplicate
         val sentences = f.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }
         if (sentences.isNotEmpty()) {
             val seen = HashSet<String>()
