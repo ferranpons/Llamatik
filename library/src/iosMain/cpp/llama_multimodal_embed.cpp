@@ -256,7 +256,8 @@ void vlm_analyze_image_bytes_stream(
         return;
     }
 
-    mtmd_bitmap *bitmap = mtmd_helper_bitmap_init_from_buf(mm_mtmd, image_bytes, image_len);
+    struct mtmd_helper_bitmap_wrapper bitmap_wrapper = mtmd_helper_bitmap_init_from_buf(mm_mtmd, image_bytes, image_len, false);
+    mtmd_bitmap *bitmap = bitmap_wrapper.bitmap;
     if (!bitmap) {
         if (on_error) on_error("failed to decode image bytes", user_data);
         return;
