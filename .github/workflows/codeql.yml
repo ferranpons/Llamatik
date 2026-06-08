@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up JDK
         if: matrix.language == 'java-kotlin'
@@ -62,7 +64,8 @@ jobs:
       - name: Build C/C++ sources
         if: matrix.language == 'c-cpp'
         run: |
-          cmake -S . -B build-codeql
+          cmake -S library/cmake/llama-jni-desktop -B build-codeql \
+            -DCMAKE_BUILD_TYPE=Release
           cmake --build build-codeql --parallel 2
 
       - name: Perform CodeQL Analysis
