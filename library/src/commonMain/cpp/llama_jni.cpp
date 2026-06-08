@@ -111,7 +111,7 @@ static std::atomic<int>  g_gpu_layers = 0;
 // The same GGUF is loaded twice: once as the trunk (gen_model/gen_ctx above) and
 // once as the MTP head (g_mtp_model/g_mtp_ctx below).  The MTP head context uses
 // LLAMA_CONTEXT_TYPE_MTP and a smaller n_ctx (just enough for one speculative step).
-// Both contexts have pre-norm embeddings enabled via llama_set_embeddings_pre_norm().
+// Both contexts have pre-norm embeddings enabled via llama_set_embeddings_nextn().
 //
 // Speculative loop (per-step):
 //   1. Trunk produces a token T0 via normal sampling.
@@ -617,8 +617,8 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeInitMtp(
     }
 
     // Enable pre-norm embedding extraction on both trunk and MTP contexts
-    llama_set_embeddings_pre_norm(gen_ctx,   true, /*masked*/ false);
-    llama_set_embeddings_pre_norm(g_mtp_ctx, true, /*masked*/ true);
+    llama_set_embeddings_nextn(gen_ctx,   true, /*masked*/ false);
+    llama_set_embeddings_nextn(g_mtp_ctx, true, /*masked*/ true);
 
     if (draftLen > 0) g_mtp_draft_len.store((int)draftLen, std::memory_order_relaxed);
 
@@ -632,7 +632,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeShutdownMtp(JNIEnv * /*env*
     if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
     if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
     // Disable pre-norm extraction on trunk if still alive
-    if (gen_ctx) llama_set_embeddings_pre_norm(gen_ctx, false, false);
+    if (gen_ctx) llama_set_embeddings_nextn(gen_ctx, false, false);
     LOGI("nativeShutdownMtp: done");
 }
 
@@ -1105,7 +1105,7 @@ static void stream_from_prompt(
             // state. Do not keep its KV positions between speculative steps.
             llama_memory_clear(llama_get_memory(g_mtp_ctx), false);
 
-            const float *h_row = llama_get_embeddings_pre_norm(gen_ctx);
+            const float *h_row = llama_get_embeddings_nextn(gen_ctx);
             if (h_row) {
                 for (int d = 0; d < draft_len; ++d) {
                     if (g_cancel_requested.load(std::memory_order_relaxed)) break;
@@ -1132,7 +1132,7 @@ static void stream_from_prompt(
                     if (draft_tok < 0 || draft_tok == llama_vocab_eos(vocab) || draft_tok == llama_vocab_eot(vocab)) break;
 
                     drafts.push_back(draft_tok);
-                    h_row = llama_get_embeddings_pre_norm(g_mtp_ctx);
+                    h_row = llama_get_embeddings_nextn(g_mtp_ctx);
                     if (!h_row) break;
                 }
             }

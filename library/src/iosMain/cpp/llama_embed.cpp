@@ -1313,7 +1313,7 @@ void llama_generate_stream(const char *prompt,
         // state. Do not keep its KV positions between speculative steps.
         llama_memory_clear(llama_get_memory(g_mtp_ctx), false);
 
-        const float *h_row = llama_get_embeddings_pre_norm(gen_ctx);
+        const float *h_row = llama_get_embeddings_nextn(gen_ctx);
         if (h_row) {
             for (int d = 0; d < draft_len && tokens_generated + (int)drafts.size() < max_new_tokens; ++d) {
                 if (g_cancel_requested.load(std::memory_order_relaxed)) break;
@@ -1335,7 +1335,7 @@ void llama_generate_stream(const char *prompt,
                 const llama_token dt = llama_sampler_sample(mtp_sampler, g_mtp_ctx, -1);
                 if (dt < 0 || llama_vocab_is_eog(v, dt) || dt == llama_vocab_eot(v)) break;
                 drafts.push_back(dt);
-                h_row = llama_get_embeddings_pre_norm(g_mtp_ctx);
+                h_row = llama_get_embeddings_nextn(g_mtp_ctx);
                 if (!h_row) break;
             }
         }
@@ -1826,8 +1826,8 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
         return false;
     }
 
-    llama_set_embeddings_pre_norm(gen_ctx,   true, /*masked*/ false);
-    llama_set_embeddings_pre_norm(g_mtp_ctx, true, /*masked*/ true);
+    llama_set_embeddings_nextn(gen_ctx,   true, /*masked*/ false);
+    llama_set_embeddings_nextn(g_mtp_ctx, true, /*masked*/ true);
 
     if (draft_len > 0) g_mtp_draft_len.store(draft_len, std::memory_order_relaxed);
 
@@ -1838,7 +1838,7 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
 void llama_mtp_shutdown(void) {
     if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
     if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
-    if (gen_ctx) llama_set_embeddings_pre_norm(gen_ctx, false, false);
+    if (gen_ctx) llama_set_embeddings_nextn(gen_ctx, false, false);
     DBG("llama_mtp_shutdown: done");
 }
 
