@@ -144,6 +144,20 @@ class ModelsRepository(private val service: ServiceClient) {
                 systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
             LlamaModel(
+                name = "Gemma 3 1B Instruct Q4 KM",
+                sizeMb = 806,
+                url = "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf?download=true",
+                template = Gemma3,
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
+            ),
+            LlamaModel(
+                name = "Qwen 3 1.7B Q8",
+                sizeMb = 1830,
+                url = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf?download=true",
+                template = QwenChat,
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
+            ),
+            LlamaModel(
                 name = "SmolVLM 256M Instruct",
                 sizeMb = 175,
                 url = "https://huggingface.co/ggml-org/SmolVLM-256M-Instruct-GGUF/resolve/main/SmolVLM-256M-Instruct-Q8_0.gguf?download=true",
