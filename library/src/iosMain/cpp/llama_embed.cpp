@@ -736,8 +736,9 @@ bool llama_embed_init(const char *model_path) {
     if (!model) return false;
 
     llama_context_params cp = llama_context_default_params();
-    cp.embeddings = true;
-    cp.n_ctx      = 2048;
+    cp.embeddings      = true;
+    cp.n_ctx           = 2048;
+    cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     ctx = llama_init_from_model(model, cp);
     if (!ctx) {
@@ -846,7 +847,7 @@ bool llama_generate_init(const char *model_path) {
     ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -1816,7 +1817,7 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
     cparams.n_batch       = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     g_mtp_ctx = llama_init_from_model(g_mtp_model, cparams);
     if (!g_mtp_ctx) {
@@ -1955,7 +1956,7 @@ int64_t llama_session_create(void) {
     ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     llama_context *sctx = llama_init_from_model(gen_model, ctx_params);
     if (!sctx) {

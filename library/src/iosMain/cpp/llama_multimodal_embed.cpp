@@ -208,8 +208,9 @@ bool vlm_init(const char *model_path, const char *mmproj_path) {
     }
 
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx      = 8192;
-    cparams.embeddings = false;
+    cparams.n_ctx           = 8192;
+    cparams.embeddings      = false;
+    cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     mm_ctx = llama_init_from_model(mm_model, cparams);
     if (!mm_ctx) {

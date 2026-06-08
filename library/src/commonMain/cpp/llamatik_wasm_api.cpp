@@ -257,9 +257,10 @@ int llamatik_llama_init_generate(const char * model_path) {
     g_vocab = llama_model_get_vocab(g_model);
 
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx    = 4096;
-    cparams.n_batch  = 256;
-    cparams.n_ubatch = 64;
+    cparams.n_ctx           = 4096;
+    cparams.n_batch         = 256;
+    cparams.n_ubatch        = 64;
+    cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     g_ctx = llama_init_from_model(g_model, cparams);
     if (!g_ctx) {
@@ -549,9 +550,10 @@ int llamatik_vlm_init(const char * model_path, const char * mmproj_path) {
     if (!g_vlm_model) return 0;
 
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx    = 8192;
-    cparams.n_batch  = 256;
-    cparams.n_ubatch = 64;
+    cparams.n_ctx           = 8192;
+    cparams.n_batch         = 256;
+    cparams.n_ubatch        = 64;
+    cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
     g_vlm_ctx = llama_init_from_model(g_vlm_model, cparams);
     if (!g_vlm_ctx) { destroy_vlm_runtime(); return 0; }
 

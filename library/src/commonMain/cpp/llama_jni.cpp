@@ -606,7 +606,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeInitMtp(
     cparams.n_batch       = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     g_mtp_ctx = llama_init_from_model(g_mtp_model, cparams);
     if (!g_mtp_ctx) {
@@ -682,7 +682,7 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     cparams.n_batch      = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
     gen_ctx = llama_init_from_model(gen_model, cparams);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -1586,7 +1586,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeCreateSession(
     cparams.n_batch      = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     llama_context *ctx = llama_init_from_model(gen_model, cparams);
     if (!ctx) {
