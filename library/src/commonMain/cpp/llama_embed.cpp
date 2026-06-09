@@ -413,7 +413,7 @@ char *llama_generate(const char *prompt) {
             }
         }
 
-        llama_sampler_accept(sampler, token);
+        // NOTE: llama_sampler_sample already calls llama_sampler_accept internally.
         output_tokens.push_back(token);
 
         if (cur_pos >= n_ctx) break;

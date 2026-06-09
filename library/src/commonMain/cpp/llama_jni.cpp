@@ -102,7 +102,13 @@ static std::atomic<bool> g_use_mmap = true;
 static std::atomic<bool> g_flash_attention = false;
 static std::atomic<int>  g_batch_size = 512;
 // 0 = CPU only, -1 = all layers on GPU (Metal/CUDA)
+// Default to full GPU offload on macOS desktop (Metal) for much faster generation.
+// On Android (no Metal), keep 0 so the caller controls GPU usage.
+#if defined(__APPLE__) && !defined(__ANDROID__)
+static std::atomic<int>  g_gpu_layers = 99;
+#else
 static std::atomic<int>  g_gpu_layers = 0;
+#endif
 
 // ===================================================================================
 //                              MTP (Multi-Token Prediction) STATE
@@ -740,6 +746,7 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
             break;
         }
 
+        // NOTE: llama_sampler_sample already calls llama_sampler_accept internally.
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0) break;
         if (tok == llama_vocab_eos(vocab)) break;
@@ -752,8 +759,6 @@ static std::string generate_with_optional_grammar(const char *prompt, const char
                 break;
             }
         }
-
-        llama_sampler_accept(sampler, tok);
 
         int nn = llama_token_to_piece(vocab, tok, buf, (int) sizeof(buf), 0, /*special*/ 0);
         if (nn > 0) output.append(buf, nn);
@@ -1043,9 +1048,9 @@ static void stream_from_prompt(
         if (g_cancel_requested.load(std::memory_order_relaxed)) break;
 
         // ── Step 1: sample next token from trunk ──────────────────────────────
+        // NOTE: llama_sampler_sample already calls llama_sampler_accept internally.
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0 || tok == llama_vocab_eos(vocab) || tok == llama_vocab_eot(vocab)) break;
-        llama_sampler_accept(sampler, tok);
 
         if (!emit_token(tok)) break;
         ++tokens_generated;
@@ -1527,9 +1532,9 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinue(JNIEnv *en
 
     for (int i = 0; i < max_tokens; ++i) {
         if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+        // NOTE: llama_sampler_sample already calls llama_sampler_accept internally.
         llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
         if (tok < 0 || tok == llama_vocab_eos(vocab)) break;
-        llama_sampler_accept(sampler, tok);
         int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
         if (nn > 0) {
             result.append(piece_buf, nn);
@@ -1705,8 +1710,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
             if (is_eot_piece(spec_buf) || std::strcmp(spec_buf, "<start_of_turn>") == 0 || std::strcmp(spec_buf, "<|turn>") == 0) break;
         }
 
-        llama_sampler_accept(sampler, tok);
-
+        // NOTE: llama_sampler_sample already calls llama_sampler_accept internally.
         int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
         if (nn > 0) {
             std::string piece_str(piece_buf, nn);
