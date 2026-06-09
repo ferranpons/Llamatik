@@ -24,7 +24,7 @@ jobs:
       matrix:
         include:
           - language: java-kotlin
-            build-mode: manual
+            build-mode: none
           - language: c-cpp
             build-mode: manual
           - language: javascript-typescript
@@ -50,16 +50,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-
-      - name: Build Kotlin/JVM/Android sources
-        if: matrix.language == 'java-kotlin'
-        run: |
-          chmod +x ./gradlew
-          ./gradlew clean build -x test --no-daemon
 
       - name: Build C/C++ sources
         if: matrix.language == 'c-cpp'
@@ -69,4 +63,4 @@ jobs:
           cmake --build build-codeql --parallel 2
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
