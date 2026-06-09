@@ -7,6 +7,10 @@ actual class LlamaSession(private val handle: Long, actual val name: String) {
         LlamaBridge.sessionStreamBridge(handle, prompt, callback)
     }
 
+    actual fun reset() {
+        LlamaBridge.sessionResetBridge(handle)
+    }
+
     actual fun cancel() {
         LlamaBridge.sessionCancelBridge(handle)
     }

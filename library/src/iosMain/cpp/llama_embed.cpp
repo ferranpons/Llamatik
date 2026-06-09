@@ -2013,7 +2013,8 @@ void llama_session_stream(int64_t handle,
     const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
 
     ss->cancel.store(false, std::memory_order_relaxed);
-    llama_memory_clear(llama_get_memory(ss->ctx), false);
+
+    const bool is_continuation = !ss->session_tokens.empty();
 
     std::string wrapped;
     {
@@ -2027,7 +2028,9 @@ void llama_session_stream(int64_t handle,
 
     const llama_vocab *v = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, /*add_bos*/ true, /*parse_special*/ true);
+    // On continuation turns skip BOS and append at the existing KV position.
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens,
+            /*add_bos*/ !is_continuation, /*parse_special*/ true);
     if (n_tokens <= 0) {
         if (on_error) on_error("tokenize failed", user);
         return;
@@ -2035,12 +2038,36 @@ void llama_session_stream(int64_t handle,
     tokens.resize(n_tokens);
 
     const int n_ctx = (int)llama_n_ctx(ss->ctx);
-    if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
 
-    const int n_batch_sess = (int)llama_n_batch(ss->ctx);
-    if (!decode_prompt_batched(ss->ctx, tokens, n_batch_sess)) {
-        if (on_error) on_error("decode failed", user);
-        return;
+    if (!is_continuation) {
+        // Fresh turn: wipe KV and decode the full prompt from position 0.
+        llama_memory_clear(llama_get_memory(ss->ctx), false);
+        if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+
+        const int n_batch_sess = (int)llama_n_batch(ss->ctx);
+        if (!decode_prompt_batched(ss->ctx, tokens, n_batch_sess)) {
+            if (on_error) on_error("decode failed", user);
+            return;
+        }
+        ss->session_tokens = tokens;
+        ss->n_past = (int)tokens.size();
+    } else {
+        // Continuation turn: append new prompt tokens at the existing KV position.
+        const int safety = 16;
+        if (ss->n_past + (int)tokens.size() >= n_ctx - safety) {
+            llama_memory_clear(llama_get_memory(ss->ctx), false);
+            ss->session_tokens.clear();
+            ss->n_past = 0;
+            if (on_error) on_error("context full, session reset", user);
+            return;
+        }
+        const int n_batch_sess = (int)llama_n_batch(ss->ctx);
+        if (!decode_prompt_batched(ss->ctx, tokens, n_batch_sess, ss->n_past)) {
+            if (on_error) on_error("decode failed", user);
+            return;
+        }
+        ss->session_tokens.insert(ss->session_tokens.end(), tokens.begin(), tokens.end());
+        ss->n_past += (int)tokens.size();
     }
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
@@ -2054,7 +2081,7 @@ void llama_session_stream(int64_t handle,
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    int cur_pos = (int)tokens.size();
+    int cur_pos = ss->n_past;
     const int safety = 16;
     int remaining_ctx = n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
@@ -2126,11 +2153,21 @@ void llama_session_stream(int64_t handle,
         }
         cur_pos++;
         llama_batch_free(step);
+        ss->session_tokens.push_back(tok);
+        ss->n_past = cur_pos;
     }
 
     llama_sampler_free(sampler);
 
     if (on_done) on_done(user);
+}
+
+void llama_session_reset(int64_t handle) {
+    IosSessionState *ss = session_get_ios(handle);
+    if (!ss) return;
+    if (ss->ctx) llama_memory_clear(llama_get_memory(ss->ctx), false);
+    ss->session_tokens.clear();
+    ss->n_past = 0;
 }
 
 void llama_session_cancel(int64_t handle) {

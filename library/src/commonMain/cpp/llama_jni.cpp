@@ -1657,11 +1657,14 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
     std::lock_guard<std::mutex> run_lk(ss->run_mutex);
 
     ss->cancel.store(false, std::memory_order_relaxed);
-    llama_memory_clear(llama_get_memory(ss->ctx), false);
+
+    const bool is_continuation = !ss->session_tokens.empty();
 
     const llama_vocab *vocab = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(vocab, prompt, tokens, /*add_bos*/ true, /*parse_special*/ true);
+    // On continuation turns skip BOS and append at the existing KV position.
+    int n_tokens = tokenize_with_retry(vocab, prompt, tokens,
+            /*add_bos*/ !is_continuation, /*parse_special*/ true);
     env->ReleaseStringUTFChars(jPrompt, prompt);
 
     if (n_tokens <= 0) {
@@ -1671,12 +1674,38 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
     tokens.resize(n_tokens);
 
     const int n_ctx = (int)llama_n_ctx(ss->ctx);
-    if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
 
-    const int n_batch_sess = (int)llama_n_batch(ss->ctx);
-    if (!decode_prompt_batched(ss->ctx, tokens, n_batch_sess)) {
-        env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed on prompt"));
-        return;
+    if (!is_continuation) {
+        // Fresh turn: wipe KV and decode the full prompt from position 0.
+        llama_memory_clear(llama_get_memory(ss->ctx), false);
+        if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+
+        const int n_batch_sess = (int)llama_n_batch(ss->ctx);
+        if (!decode_prompt_batched(ss->ctx, tokens, n_batch_sess)) {
+            env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed on prompt"));
+            return;
+        }
+        ss->session_tokens = tokens;
+        ss->n_past = (int)tokens.size();
+    } else {
+        // Continuation turn: append new prompt tokens at the existing KV position.
+        const int safety = 16;
+        if (ss->n_past + (int)tokens.size() >= n_ctx - safety) {
+            // Context full — clear and restart.
+            llama_memory_clear(llama_get_memory(ss->ctx), false);
+            ss->session_tokens.clear();
+            ss->n_past = 0;
+            env->CallVoidMethod(jCallback, m.onError,
+                    env->NewStringUTF("context full, session reset"));
+            return;
+        }
+        const int n_batch_sess = (int)llama_n_batch(ss->ctx);
+        if (!decode_prompt_batched(ss->ctx, tokens, n_batch_sess, ss->n_past)) {
+            env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed on prompt"));
+            return;
+        }
+        ss->session_tokens.insert(ss->session_tokens.end(), tokens.begin(), tokens.end());
+        ss->n_past += (int)tokens.size();
     }
 
     float temperature    = g_temperature.load();
@@ -1692,7 +1721,7 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    int cur_pos = (int)tokens.size();
+    int cur_pos = ss->n_past;
     char piece_buf[768];
     char spec_buf[64];
 
@@ -1738,10 +1767,24 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeSessionStream(
             return;
         }
         llama_batch_free(step);
+        ss->session_tokens.push_back(tok);
+        ss->n_past = cur_pos;
     }
 
     llama_sampler_free(sampler);
     env->CallVoidMethod(jCallback, m.onComplete);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeSessionClearKv(
+        JNIEnv * /*env*/, jobject /*thiz*/, jlong handle) {
+    SessionState *ss = session_get((int64_t)handle);
+    if (!ss) return;
+    std::lock_guard<std::mutex> run_lk(ss->run_mutex);
+    if (ss->ctx) llama_memory_clear(llama_get_memory(ss->ctx), false);
+    ss->session_tokens.clear();
+    ss->n_past = 0;
 }
 
 extern "C"

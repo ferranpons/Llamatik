@@ -264,6 +264,12 @@ void llama_session_stream(int64_t handle,
         void *user);
 
 /**
+ * Reset the KV cache and token history for the given session handle.
+ * Subsequent llama_session_stream() calls will start a fresh context.
+ */
+void llama_session_reset(int64_t handle);
+
+/**
  * Request cancellation of an in-progress llama_session_stream() for this handle.
  */
 void llama_session_cancel(int64_t handle);
