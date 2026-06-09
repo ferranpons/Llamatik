@@ -736,8 +736,9 @@ bool llama_embed_init(const char *model_path) {
     if (!model) return false;
 
     llama_context_params cp = llama_context_default_params();
-    cp.embeddings = true;
-    cp.n_ctx      = 2048;
+    cp.embeddings      = true;
+    cp.n_ctx           = 2048;
+    cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     ctx = llama_init_from_model(model, cp);
     if (!ctx) {
@@ -846,7 +847,7 @@ bool llama_generate_init(const char *model_path) {
     ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
         llama_model_free(gen_model);
@@ -1313,7 +1314,7 @@ void llama_generate_stream(const char *prompt,
         // state. Do not keep its KV positions between speculative steps.
         llama_memory_clear(llama_get_memory(g_mtp_ctx), false);
 
-        const float *h_row = llama_get_embeddings_pre_norm(gen_ctx);
+        const float *h_row = llama_get_embeddings_nextn(gen_ctx);
         if (h_row) {
             for (int d = 0; d < draft_len && tokens_generated + (int)drafts.size() < max_new_tokens; ++d) {
                 if (g_cancel_requested.load(std::memory_order_relaxed)) break;
@@ -1335,7 +1336,7 @@ void llama_generate_stream(const char *prompt,
                 const llama_token dt = llama_sampler_sample(mtp_sampler, g_mtp_ctx, -1);
                 if (dt < 0 || llama_vocab_is_eog(v, dt) || dt == llama_vocab_eot(v)) break;
                 drafts.push_back(dt);
-                h_row = llama_get_embeddings_pre_norm(g_mtp_ctx);
+                h_row = llama_get_embeddings_nextn(g_mtp_ctx);
                 if (!h_row) break;
             }
         }
@@ -1816,7 +1817,7 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
     cparams.n_batch       = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     g_mtp_ctx = llama_init_from_model(g_mtp_model, cparams);
     if (!g_mtp_ctx) {
@@ -1826,8 +1827,8 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
         return false;
     }
 
-    llama_set_embeddings_pre_norm(gen_ctx,   true, /*masked*/ false);
-    llama_set_embeddings_pre_norm(g_mtp_ctx, true, /*masked*/ true);
+    llama_set_embeddings_nextn(gen_ctx,   true, /*masked*/ false);
+    llama_set_embeddings_nextn(g_mtp_ctx, true, /*masked*/ true);
 
     if (draft_len > 0) g_mtp_draft_len.store(draft_len, std::memory_order_relaxed);
 
@@ -1838,7 +1839,7 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
 void llama_mtp_shutdown(void) {
     if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
     if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
-    if (gen_ctx) llama_set_embeddings_pre_norm(gen_ctx, false, false);
+    if (gen_ctx) llama_set_embeddings_nextn(gen_ctx, false, false);
     DBG("llama_mtp_shutdown: done");
 }
 
@@ -1955,7 +1956,7 @@ int64_t llama_session_create(void) {
     ctx_params.n_batch    = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     ctx_params.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-        : LLAMA_FLASH_ATTN_TYPE_AUTO;
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     llama_context *sctx = llama_init_from_model(gen_model, ctx_params);
     if (!sctx) {

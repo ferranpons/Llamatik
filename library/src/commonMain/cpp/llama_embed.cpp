@@ -188,8 +188,9 @@ bool llama_embed_init(const char *model_path) {
     if (!model) return false;
 
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.embeddings = true;
-    ctx_params.n_ctx      = 2048;
+    ctx_params.embeddings      = true;
+    ctx_params.n_ctx           = 2048;
+    ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     ctx = llama_init_from_model(model, ctx_params);
     if (!ctx) {
@@ -303,8 +304,9 @@ bool llama_generate_init(const char *model_path) {
     LOGI("Gen model loaded.");
 
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.embeddings = false;
-    ctx_params.n_ctx      = 8192;
+    ctx_params.embeddings       = false;
+    ctx_params.n_ctx            = 8192;
+    ctx_params.flash_attn_type  = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     gen_ctx = llama_init_from_model(gen_model, ctx_params);
     if (!gen_ctx) {
@@ -411,7 +413,7 @@ char *llama_generate(const char *prompt) {
             }
         }
 
-        llama_sampler_accept(sampler, token);
+        // NOTE: llama_sampler_sample already calls llama_sampler_accept internally.
         output_tokens.push_back(token);
 
         if (cur_pos >= n_ctx) break;
