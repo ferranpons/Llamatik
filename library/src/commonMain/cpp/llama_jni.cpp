@@ -651,13 +651,6 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
         return JNI_FALSE;
     }
 
-    bool helper_ok = llama_generate_init(path);
-    if (!helper_ok) {
-        LOGE("initGenerateModel: llama_generate_init failed");
-        env->ReleaseStringUTFChars(modelPath, path);
-        return JNI_FALSE;
-    }
-
     if (!g_backend_inited) {
         llama_backend_init();
         g_backend_inited = true;
@@ -677,7 +670,6 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     llama_context_params cparams = llama_context_default_params();
     cparams.embeddings   = false;
     cparams.n_ctx        = (uint32_t)g_context_length.load(std::memory_order_relaxed);
-    cparams.n_rs_seq     = MTP_RS_SNAPSHOTS;
     cparams.n_threads    = g_num_threads.load(std::memory_order_relaxed);
     cparams.n_batch      = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
     cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
@@ -691,11 +683,12 @@ Java_com_llamatik_library_platform_LlamaBridge_initGenerateModel(JNIEnv *env, jo
     }
 
     session_clear_state();
-    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d flash_attn=%d gpu_layers=%d",
+    LOGI("Gen context ready. n_ctx=%u threads=%d mmap=%d flash_attn_bool=%d flash_attn_type=%d gpu_layers=%d",
          (unsigned)llama_n_ctx(gen_ctx),
          cparams.n_threads,
          (int)mparams.use_mmap,
          (int)g_flash_attention.load(std::memory_order_relaxed),
+         (int)cparams.flash_attn_type,
          (int)g_gpu_layers.load(std::memory_order_relaxed));
     return JNI_TRUE;
 }
@@ -804,18 +797,9 @@ Java_com_llamatik_library_platform_LlamaBridge_generate(JNIEnv *env, jobject, js
         return nullptr;
     }
 
-    char *res = llama_generate(prompt);
-
+    std::string result = generate_with_optional_grammar(prompt, nullptr, /*sanitize=*/false);
     env->ReleaseStringUTFChars(input, prompt);
-
-    if (!res) {
-        LOGE("generate: llama_generate returned null");
-        return env->NewStringUTF("");
-    }
-
-    jstring out = env->NewStringUTF(res);
-    std::free(res); // returned by malloc in llama_embed.cpp
-    return out;
+    return env->NewStringUTF(result.c_str());
 }
 
 extern "C"
@@ -972,10 +956,12 @@ static void stream_from_prompt(
     if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
 
     const int n_batch_stream = (int)llama_n_batch(gen_ctx);
+    LOGI("stream_from_prompt: prefill %d tokens, n_ctx=%d", n_tokens, n_ctx);
     if (!decode_prompt_batched(gen_ctx, tokens, n_batch_stream)) {
         env->CallVoidMethod(jCallback, m.onError, env->NewStringUTF("llama_decode failed on prompt"));
         return;
     }
+    LOGI("stream_from_prompt: prefill OK, starting generation");
     g_session_tokens = tokens;
     g_n_past = (int)tokens.size();
 
@@ -1074,9 +1060,10 @@ static void stream_from_prompt(
             step.pos[0]      = cur_pos++;
             step.n_seq_id[0] = 1; step.seq_id[0][0] = 0;
             step.logits[0]   = true;
+            LOGI("trunk decode: tok=%d pos=%d gen#%d", (int)tok, (int)step.pos[0], tokens_generated);
             const int rc = llama_decode(gen_ctx, step);
             llama_batch_free(step);
-            if (rc != 0) { error_flag = true; break; }
+            if (rc != 0) { LOGE("trunk decode FAILED rc=%d", rc); error_flag = true; break; }
             continue;
         }
 
@@ -1091,9 +1078,10 @@ static void stream_from_prompt(
             step.pos[0]      = cur_pos++;
             step.n_seq_id[0] = 1; step.seq_id[0][0] = 0;
             step.logits[0]   = true;
+            LOGI("trunk+mtp decode: tok=%d pos=%d gen#%d", (int)tok, (int)step.pos[0], tokens_generated);
             const int rc = llama_decode(gen_ctx, step);
             llama_batch_free(step);
-            if (rc != 0) { error_flag = true; break; }
+            if (rc != 0) { LOGE("trunk+mtp decode FAILED rc=%d", rc); error_flag = true; break; }
         }
 
         // Draft up to draft_len tokens using the MTP head
@@ -1124,9 +1112,10 @@ static void stream_from_prompt(
                     mtp_b.n_seq_id[0] = 1; mtp_b.seq_id[0][0] = 0;
                     mtp_b.logits[0]   = true;
 
+                    LOGI("mtp decode: d=%d prev_tok=%d pos=%lld", d, (int)prev_tok, (long long)mtp_b.pos[0]);
                     const int rc = llama_decode(g_mtp_ctx, mtp_b);
                     llama_batch_free(mtp_b);
-                    if (rc != 0) break;
+                    if (rc != 0) { LOGE("mtp decode FAILED d=%d rc=%d", d, rc); break; }
 
                     const llama_token draft_tok = llama_sampler_sample(mtp_sampler, g_mtp_ctx, -1);
                     if (draft_tok < 0 || draft_tok == llama_vocab_eos(vocab) || draft_tok == llama_vocab_eot(vocab)) break;
@@ -1164,9 +1153,10 @@ static void stream_from_prompt(
             vbatch.n_seq_id[i]  = 1; vbatch.seq_id[i][0] = 0;
             vbatch.logits[i]    = true;
         }
+        LOGI("vbatch decode: nd=%d verify_start=%d", nd, verify_start);
         const int rc = llama_decode(gen_ctx, vbatch);
         llama_batch_free(vbatch);
-        if (rc != 0) { error_flag = true; break; }
+        if (rc != 0) { LOGE("vbatch decode FAILED rc=%d", rc); error_flag = true; break; }
 
         llama_sampler_accept(sampler, first_verified);
         if (!emit_token(first_verified)) goto stream_done;
