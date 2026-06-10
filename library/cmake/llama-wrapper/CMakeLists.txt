@@ -248,7 +248,7 @@ target_compile_options(mtmd_ios_obj PRIVATE -Wno-cast-qual)
 target_compile_features(mtmd_ios_obj PRIVATE cxx_std_17)
 
 add_library(llama_static_wrapper STATIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_embed.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/commonMain/cpp/llama_embed.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/whisper_stt.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/stable_diffusion_embed.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_multimodal_embed.cpp
@@ -268,6 +268,7 @@ target_include_directories(llama_static_wrapper PUBLIC
         ${WHISPER_CPP_DIR}/include
         ${STABLE_DIFFUSION_CPP_DIR}
         ${STABLE_DIFFUSION_CPP_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/commonMain/c_interop/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/c_interop/include
 )
 

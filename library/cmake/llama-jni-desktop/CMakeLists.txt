@@ -218,7 +218,10 @@ add_library(llama_jni SHARED ${LLAMA_JNI_SOURCES} $<TARGET_OBJECTS:mtmd_sources>
 target_include_directories(llama_jni
     PRIVATE
     "${LLAMA_INCLUDE_DIR}"
+    "${LLAMA_CPP_DIR}"
     "${LLAMA_CPP_DIR}/src"
+    "${LLAMA_CPP_DIR}/ggml/include"
+    "${LLAMA_CPP_DIR}/ggml/src"
     "${LLAMA_CPP_DIR}/common"
     "${LLAMA_CPP_DIR}/vendor"
     "${LLAMA_CPP_DIR}/vendor/nlohmann"

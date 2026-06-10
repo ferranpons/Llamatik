@@ -129,6 +129,7 @@ target_include_directories(
         llama_jni
         PRIVATE
         ${CMAKE_SOURCE_DIR}/../c_interop/include
+        ${LLAMA_CPP_DIR}
         ${LLAMA_CPP_DIR}/include
         ${LLAMA_CPP_DIR}/src
         ${LLAMA_CPP_DIR}/ggml/include

@@ -305,7 +305,10 @@ kotlin {
                     val defFileName = "llama_ios.def"
                     defFile("src/iosMain/c_interop/$defFileName")
                     packageName("com.llamatik.library.platform.llama")
-                    compilerOpts("-I${projectDir}/src/iosMain/c_interop/include")
+                    compilerOpts(
+                        "-I${projectDir}/src/commonMain/c_interop/include",
+                        "-I${projectDir}/src/iosMain/c_interop/include"
+                    )
                     extraOpts("-libraryPath", libPath)
                     tasks.named(interopProcessingTaskName).configure { dependsOn(mergeTask) }
                 }

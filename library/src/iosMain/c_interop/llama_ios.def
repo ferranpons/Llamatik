@@ -1,13 +1,6 @@
 headers = llama_embed.h
 headerFilter = llama_embed.h
-compilerOpts = -I$PROJECT_DIR/../llama.cpp/include \
-               -I$PROJECT_DIR/../llama.cpp \
-               -I$PROJECT_DIR/../llama.cpp/src \
-               -I$PROJECT_DIR/../llama.cpp/common \
-               -I$PROJECT_DIR/../llama.cpp/vendor \
-               -I$PROJECT_DIR/../llama.cpp/ggml/include \
-               -I$PROJECT_DIR/../llama.cpp/ggml/src \
-               -I$PROJECT_DIR/src/iosMain/c_interop/include
+compilerOpts = -I$PROJECT_DIR/src/commonMain/c_interop/include -I$PROJECT_DIR/src/iosMain/c_interop/include
 staticLibraries = libllama_merged.a
 linkerOpts = -framework Accelerate -framework Metal -lc++ -ObjC
 package = com.llamatik.library.platform.llama
