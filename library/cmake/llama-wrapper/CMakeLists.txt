@@ -199,11 +199,16 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/cogvlm.cpp
         ${MTMD_DIR}/models/conformer.cpp
         ${MTMD_DIR}/models/deepseekocr.cpp
+        ${MTMD_DIR}/models/deepseekocr2.cpp
         ${MTMD_DIR}/models/dotsocr.cpp
+        ${MTMD_DIR}/models/exaone4_5.cpp
         ${MTMD_DIR}/models/gemma4a.cpp
+        ${MTMD_DIR}/models/gemma4ua.cpp
+        ${MTMD_DIR}/models/gemma4uv.cpp
         ${MTMD_DIR}/models/gemma4v.cpp
         ${MTMD_DIR}/models/glm4v.cpp
         ${MTMD_DIR}/models/granite-speech.cpp
+        ${MTMD_DIR}/models/granite4-vision.cpp
         ${MTMD_DIR}/models/hunyuanvl.cpp
         ${MTMD_DIR}/models/internvl.cpp
         ${MTMD_DIR}/models/kimik25.cpp
@@ -243,7 +248,7 @@ target_compile_options(mtmd_ios_obj PRIVATE -Wno-cast-qual)
 target_compile_features(mtmd_ios_obj PRIVATE cxx_std_17)
 
 add_library(llama_static_wrapper STATIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_embed.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/commonMain/cpp/llama_embed.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/whisper_stt.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/stable_diffusion_embed.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/cpp/llama_multimodal_embed.cpp
@@ -263,6 +268,7 @@ target_include_directories(llama_static_wrapper PUBLIC
         ${WHISPER_CPP_DIR}/include
         ${STABLE_DIFFUSION_CPP_DIR}
         ${STABLE_DIFFUSION_CPP_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../src/commonMain/c_interop/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src/iosMain/c_interop/include
 )
 

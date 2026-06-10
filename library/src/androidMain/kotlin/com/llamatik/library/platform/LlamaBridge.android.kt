@@ -169,12 +169,14 @@ actual object LlamaBridge {
     private external fun nativeCreateSession(): Long
     private external fun nativeCloseSession(handle: Long)
     private external fun nativeSessionStream(handle: Long, prompt: String, callback: GenStream)
+    private external fun nativeSessionClearKv(handle: Long)
     private external fun nativeSessionCancel(handle: Long)
 
     // Non-external wrappers so LlamaSession (same module) can call these via internal visibility
     // without triggering JNI name mangling.
     internal fun sessionStreamBridge(handle: Long, prompt: String, callback: GenStream) =
         nativeSessionStream(handle, prompt, callback)
+    internal fun sessionResetBridge(handle: Long) = nativeSessionClearKv(handle)
     internal fun sessionCancelBridge(handle: Long) = nativeSessionCancel(handle)
     internal fun sessionCloseBridge(handle: Long) = nativeCloseSession(handle)
 

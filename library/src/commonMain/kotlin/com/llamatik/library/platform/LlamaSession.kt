@@ -14,6 +14,12 @@ expect class LlamaSession {
     /** Stream tokens for [prompt] into [callback]. Blocking — call from a background thread. */
     fun stream(prompt: String, callback: GenStream)
 
+    /**
+     * Reset the KV cache for this session so the next [stream] call starts a fresh context.
+     * Safe to call between turns; do not call while [stream] is running.
+     */
+    fun reset()
+
     /** Cancel an in-progress [stream] call for this session. */
     fun cancel()
 

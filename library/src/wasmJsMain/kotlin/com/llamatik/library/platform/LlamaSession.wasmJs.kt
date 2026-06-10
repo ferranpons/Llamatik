@@ -5,6 +5,7 @@ actual class LlamaSession(private val handle: Long, actual val name: String) {
     actual fun stream(prompt: String, callback: GenStream) {
         callback.onError("WASM: concurrent sessions not supported; use LlamaBridge.generateStream()")
     }
+    actual fun reset() {}
     actual fun cancel() {}
     actual fun close() {}
 }

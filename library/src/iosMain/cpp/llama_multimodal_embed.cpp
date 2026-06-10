@@ -208,8 +208,9 @@ bool vlm_init(const char *model_path, const char *mmproj_path) {
     }
 
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx      = 8192;
-    cparams.embeddings = false;
+    cparams.n_ctx           = 8192;
+    cparams.embeddings      = false;
+    cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     mm_ctx = llama_init_from_model(mm_model, cparams);
     if (!mm_ctx) {
@@ -256,7 +257,8 @@ void vlm_analyze_image_bytes_stream(
         return;
     }
 
-    mtmd_bitmap *bitmap = mtmd_helper_bitmap_init_from_buf(mm_mtmd, image_bytes, image_len);
+    struct mtmd_helper_bitmap_wrapper bitmap_wrapper = mtmd_helper_bitmap_init_from_buf(mm_mtmd, image_bytes, image_len, false);
+    mtmd_bitmap *bitmap = bitmap_wrapper.bitmap;
     if (!bitmap) {
         if (on_error) on_error("failed to decode image bytes", user_data);
         return;
