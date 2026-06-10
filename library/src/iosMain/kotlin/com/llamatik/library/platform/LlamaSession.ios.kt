@@ -4,6 +4,7 @@ package com.llamatik.library.platform
 
 import com.llamatik.library.platform.llama.llama_session_cancel
 import com.llamatik.library.platform.llama.llama_session_close
+import com.llamatik.library.platform.llama.llama_session_reset
 import com.llamatik.library.platform.llama.llama_session_stream
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ByteVar
@@ -42,6 +43,10 @@ actual class LlamaSession(private val handle: Long, actual val name: String) {
                 ref.dispose()
             }
         }
+    }
+
+    actual fun reset() {
+        llama_session_reset(handle)
     }
 
     actual fun cancel() {

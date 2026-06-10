@@ -1,70 +1,223 @@
-#include "llama_jni.h" // from prebuilt llama.cpp
+#include "common/json-schema-to-grammar.h"
+#include "nlohmann/json.hpp"
+
 #include "llama.h"
+#include "llama-ext.h"
 
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 #include <vector>
 #include <string>
-#if defined(__ANDROID__)
-#include <android/log.h>
-#else
-#include <cstdio>
-#endif
-#include <filesystem>
+#include <cstdint>
 #include <algorithm>
 #include <cctype>
+#include <cstdarg>
+#include <atomic>
+#include <filesystem>
+#include <set>
+#include <mutex>
+#include <unordered_map>
+#include <cinttypes>
 
-// Portable logging macros: use Android log on Android, stderr otherwise.
-#if defined(__ANDROID__)
-#define LOGI(fmt, ...) __android_log_print(ANDROID_LOG_INFO, "llama_jni", fmt, ##__VA_ARGS__)
-#define LOGW(fmt, ...) __android_log_print(ANDROID_LOG_WARN,  "llama_jni", fmt, ##__VA_ARGS__)
-#define LOGE(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, "llama_jni", fmt, ##__VA_ARGS__)
+#ifdef __APPLE__
+#include <TargetConditionals.h>
 #else
-#define LOGI(fmt, ...) (std::fprintf(stderr, "[INFO]  llama_jni: " fmt "\n", ##__VA_ARGS__))
-#define LOGW(fmt, ...) (std::fprintf(stderr, "[WARN]  llama_jni: " fmt "\n", ##__VA_ARGS__))
-#define LOGE(fmt, ...) (std::fprintf(stderr, "[ERROR] llama_jni: " fmt "\n", ##__VA_ARGS__))
+#define TARGET_OS_SIMULATOR 0
 #endif
 
-static struct llama_model  *model      = nullptr;
-static struct llama_context* ctx        = nullptr;
-static int embedding_size              = 0;
+#if defined(__ANDROID__)
+#include <android/log.h>
+#define LOGI(fmt, ...) __android_log_print(ANDROID_LOG_INFO,  "LlamaEmbed", fmt, ##__VA_ARGS__)
+#define LOGW(fmt, ...) __android_log_print(ANDROID_LOG_WARN,  "LlamaEmbed", fmt, ##__VA_ARGS__)
+#define LOGE(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, "LlamaEmbed", fmt, ##__VA_ARGS__)
+#else
+#define LOGI(fmt, ...) (void)0
+#define LOGW(fmt, ...) (void)0
+#define LOGE(fmt, ...) std::fprintf(stderr, "[ERROR] LlamaEmbed: " fmt "\n", ##__VA_ARGS__)
+#endif
 
-// Generation model state
-static struct llama_model  *gen_model  = nullptr;
-static struct llama_context* gen_ctx   = nullptr;
+// ===================== Debug logging =====================
 
-// Track whether backend was initialized
+static bool g_enable_debug = false;
+
+static void dbg_init() {
+    if (g_enable_debug) return;
+    const char *e = std::getenv("LLAMATIK_DEBUG");
+    g_enable_debug = (e && std::strcmp(e, "0") != 0);
+}
+
+static void dbg_printf(const char *fmt, ...) {
+    if (!g_enable_debug) return;
+    va_list args;
+    va_start(args, fmt);
+    std::vfprintf(stderr, fmt, args);
+    std::fprintf(stderr, "\n");
+    va_end(args);
+}
+
+#define DBG(fmt, ...) \
+    do { dbg_printf("[embed] " fmt, ##__VA_ARGS__); } while (0)
+
+// ===================== Global state =====================
+
+static struct llama_model   *model          = nullptr; // embeddings model
+static struct llama_context *ctx            = nullptr;
+static int                   embedding_size = 0;
+
+static struct llama_model   *gen_model  = nullptr; // generation model
+static struct llama_context *gen_ctx    = nullptr;
+
 static bool g_backend_inited = false;
+static std::atomic<bool> g_cancel_requested{false};
 
-static int tokenize_with_retry(
-        const llama_vocab *vocab,
+// Generation parameters
+static std::atomic<float> g_temperature{0.55f};
+static std::atomic<int>   g_max_tokens{640};
+static std::atomic<float> g_top_p{0.80f};
+static std::atomic<int>   g_top_k{20};
+static std::atomic<float> g_repeat_penalty{1.10f};
+static std::atomic<int>   g_context_length{4096};
+static std::atomic<int>   g_num_threads{4};
+static std::atomic<bool>  g_use_mmap{true};
+static std::atomic<bool>  g_flash_attention{false};
+static std::atomic<int>   g_batch_size{512};
+// 0 = CPU only; 99 = all layers on GPU (Metal on macOS desktop)
+#if defined(__APPLE__) && !defined(__ANDROID__)
+static std::atomic<int>   g_gpu_layers{99};
+#else
+static std::atomic<int>   g_gpu_layers{0};
+#endif
+
+// Session / KV bookkeeping
+static std::vector<llama_token> gen_session_tokens;
+static int gen_n_past = 0;
+
+// MTP (Multi-Token Prediction) state
+static struct llama_model   *g_mtp_model  = nullptr;
+static struct llama_context *g_mtp_ctx    = nullptr;
+static std::atomic<int>      g_mtp_draft_len{3};
+static constexpr uint32_t    MTP_RS_SNAPSHOTS = 16;
+
+// ===================== Helpers =====================
+
+static bool build_json_grammar(const char *json_schema, std::string &out_grammar, std::string &out_err) {
+    try {
+        const std::string schema_str = (json_schema && json_schema[0]) ? std::string(json_schema) : std::string("{}");
+        nlohmann::ordered_json schema = nlohmann::ordered_json::parse(schema_str);
+        out_grammar = json_schema_to_grammar(schema, /*force_gbnf=*/false);
+        return !out_grammar.empty();
+    } catch (const std::exception &e) {
+        out_err = e.what();
+        return false;
+    }
+}
+
+static std::string lower_ascii(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+            [](unsigned char c){ return (char)std::tolower(c); });
+    return s;
+}
+
+static std::vector<std::string> split_tokens_normalized(const std::string &s) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (char ch : s) {
+        if (std::isalnum((unsigned char)ch)) {
+            cur.push_back((char)std::tolower((unsigned char)ch));
+        } else {
+            if (!cur.empty()) { out.push_back(cur); cur.clear(); }
+        }
+    }
+    if (!cur.empty()) out.push_back(cur);
+    return out;
+}
+
+static int token_overlap_score(const std::string &a, const std::string &b) {
+    const auto ta = split_tokens_normalized(a);
+    const auto tb = split_tokens_normalized(b);
+    std::set<std::string> sa(ta.begin(), ta.end());
+    std::set<std::string> sb(tb.begin(), tb.end());
+    int score = 0;
+    for (const auto &x : sa) { if (sb.count(x)) ++score; }
+    return score;
+}
+
+static std::string try_resolve_existing_model_path(const char *requested_path_cstr) {
+    if (!requested_path_cstr || !requested_path_cstr[0]) return {};
+    namespace fs = std::filesystem;
+    const std::string requested_path = requested_path_cstr;
+    if (fs::exists(requested_path)) return requested_path;
+
+    const fs::path req(requested_path);
+    const std::string req_name = req.filename().string();
+    const std::string req_stem = req.stem().string();
+
+    std::vector<fs::path> candidates;
+    if (!req.parent_path().empty() && fs::exists(req.parent_path())) {
+        for (const auto &entry : fs::directory_iterator(req.parent_path())) {
+            if (entry.is_regular_file()) candidates.push_back(entry.path());
+        }
+    }
+
+    for (const auto &p : candidates) {
+        if (lower_ascii(p.filename().string()) == lower_ascii(req_name)) return p.string();
+    }
+    for (const auto &p : candidates) {
+        if (lower_ascii(p.stem().string()) == lower_ascii(req_stem)) return p.string();
+    }
+
+    int best_score = -1;
+    std::string best_path;
+    for (const auto &p : candidates) {
+        const std::string cand = p.filename().string();
+        const int score = std::max(token_overlap_score(req_name, cand), token_overlap_score(req_stem, cand));
+        if (score > best_score) { best_score = score; best_path = p.string(); }
+    }
+    if (best_score >= 2 && !best_path.empty()) return best_path;
+    return {};
+}
+
+static llama_model *load_model_with_fallback(const char *path) {
+    namespace fs = std::filesystem;
+    std::string resolved = try_resolve_existing_model_path(path);
+    const char *final_path = resolved.empty() ? path : resolved.c_str();
+    if (!final_path || !final_path[0] || !fs::exists(final_path)) return nullptr;
+
+    llama_model_params mp = llama_model_default_params();
+    mp.n_gpu_layers = g_gpu_layers.load(std::memory_order_relaxed);
+
+#if TARGET_OS_SIMULATOR
+    // iOS Simulator does not support Metal — force CPU-only loading
+    mp.use_mmap     = false;
+    mp.use_mlock    = false;
+    mp.n_gpu_layers = 0;
+    mp.split_mode   = LLAMA_SPLIT_MODE_NONE;
+#endif
+
+    llama_model *m = llama_model_load_from_file(final_path, mp);
+    if (m) return m;
+
+    mp.use_mmap     = false;
+    mp.use_mlock    = false;
+    mp.n_gpu_layers = 0;
+    mp.split_mode   = LLAMA_SPLIT_MODE_NONE;
+    return llama_model_load_from_file(final_path, mp);
+}
+
+static int tokenize_with_retry(const llama_vocab *vocab,
         const char *text,
         std::vector<llama_token> &tokens,
         bool add_bos,
-        bool parse_special
-) {
+        bool parse_special) {
     if (!text) return 0;
-    const int text_len = (int) std::strlen(text);
-
-    int n = llama_tokenize(
-            vocab,
-            text, text_len,
-            tokens.data(),
-            (int) tokens.size(),
-            add_bos, parse_special
-    );
-
+    const int text_len = (int)std::strlen(text);
+    int n = llama_tokenize(vocab, text, text_len, tokens.data(), (int)tokens.size(), add_bos, parse_special);
     if (n < 0) {
         const int need = -n;
         if (need > 0) {
             tokens.resize(need);
-            n = llama_tokenize(
-                    vocab,
-                    text, text_len,
-                    tokens.data(),
-                    (int) tokens.size(),
-                    add_bos, parse_special
-            );
+            n = llama_tokenize(vocab, text, text_len, tokens.data(), (int)tokens.size(), add_bos, parse_special);
         }
     }
     return n;
@@ -73,15 +226,13 @@ static int tokenize_with_retry(
 static void truncate_to_ctx(std::vector<llama_token> &tokens, int n_ctx, int reserve_tail) {
     if ((int)tokens.size() <= n_ctx - reserve_tail) return;
     const int keep = n_ctx - reserve_tail;
-
-    // keep tail (system+user are at the end), drop head
     std::vector<llama_token> out;
     out.reserve(keep);
     out.insert(out.end(), tokens.end() - keep, tokens.end());
     tokens.swap(out);
 }
 
-static bool decode_prompt_batched(llama_context *ctx,
+static bool decode_prompt_batched(llama_context *lctx,
         const std::vector<llama_token> &tokens,
         int n_batch_size,
         int pos_offset = 0) {
@@ -99,384 +250,1357 @@ static bool decode_prompt_batched(llama_context *ctx,
             b.seq_id[i][0] = 0;
             b.logits[i]    = (start + i == total - 1);
         }
-        const int rc = llama_decode(ctx, b);
+        const int rc = llama_decode(lctx, b);
         llama_batch_free(b);
         if (rc != 0) return false;
     }
     return true;
 }
 
-static std::string trim(const std::string &s) {
-    size_t b = s.find_first_not_of(" \t\r\n");
-    if (b == std::string::npos) return "";
-    size_t e = s.find_last_not_of(" \t\r\n");
-    return s.substr(b, e - b + 1);
+// ===================== Prompt builders =====================
+
+static std::string build_plain_prompt(const std::string &context_block, const std::string &user_msg) {
+    std::string p;
+    if (!context_block.empty()) { p += "Context:\n"; p += context_block; p += "\n\n"; }
+    p += "Question:\n"; p += user_msg; p += "\n\nAnswer:\n";
+    return p;
 }
 
-static std::string lower_ascii(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(),
-            [](unsigned char c) { return (char) std::tolower(c); });
-    return s;
+static bool apply_chat_template_if_available(const char *system_msg, const char *user_msg, std::string &wrapped) {
+    if (!gen_model) return false;
+    const char *tmpl = llama_model_chat_template(gen_model, nullptr);
+    if (!tmpl) return false;
+
+    std::vector<llama_chat_message> chat;
+    if (system_msg && system_msg[0]) chat.push_back({"system", system_msg});
+    if (user_msg   && user_msg[0])   chat.push_back({"user",   user_msg});
+    if (chat.empty()) return false;
+
+    int32_t needed = llama_chat_apply_template(tmpl, chat.data(), chat.size(), /*add_ass*/ true, nullptr, -1);
+    if (needed < 0) return false;
+    wrapped.resize(needed);
+    llama_chat_apply_template(tmpl, chat.data(), chat.size(), /*add_ass*/ true, wrapped.data(), needed);
+    return true;
+}
+
+static std::string build_chat_prompt(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt) {
+    std::string sys  = system_prompt ? system_prompt : "";
+    std::string ctxb = context_block ? context_block : "";
+    std::string usr  = user_prompt   ? user_prompt   : "";
+
+    std::string user_turn;
+    if (!ctxb.empty()) { user_turn += "CONTEXT:\n"; user_turn += ctxb; user_turn += "\n\nQUESTION:\n"; }
+    user_turn += usr;
+
+    std::string wrapped;
+    if (apply_chat_template_if_available(sys.empty() ? nullptr : sys.c_str(), user_turn.c_str(), wrapped))
+        return wrapped;
+
+    std::string p;
+    if (!sys.empty()) { p += "<start_of_turn>system\n"; p += sys; p += "\n<end_of_turn>\n"; }
+    p += "<start_of_turn>user\n";
+    p += user_turn;
+    p += "\n<end_of_turn>\n";
+    p += "<start_of_turn>assistant\n";
+    return p;
 }
 
 static bool looks_like_chat_formatted_prompt(const std::string &prompt) {
     const std::string low = lower_ascii(prompt);
-
-    return low.find("<start_of_turn>") != std::string::npos ||
-            low.find("<end_of_turn>")   != std::string::npos ||
-            low.find("<|start_header_id|>") != std::string::npos ||
-            low.find("<|end_header_id|>")   != std::string::npos ||
-            low.find("<|eot_id|>")          != std::string::npos ||
-            low.find("assistant\n")         != std::string::npos ||
-            low.find("user\n")              != std::string::npos;
+    return low.find("<start_of_turn>")     != std::string::npos ||
+           low.find("<end_of_turn>")       != std::string::npos ||
+           low.find("<|turn>")             != std::string::npos ||
+           low.find("<turn|>")             != std::string::npos ||
+           low.find("<|start_header_id|>") != std::string::npos ||
+           low.find("<|end_header_id|>")   != std::string::npos ||
+           low.find("<|eot_id|>")          != std::string::npos ||
+           low.find("assistant\n")         != std::string::npos ||
+           low.find("user\n")              != std::string::npos;
 }
 
-// Conservative JSON-root detector without adding a JSON dependency here.
-// Good enough for schema strings like:
-// {"type":"array", ...}
-// {
-//   "type": "object", ...
-// }
 static bool json_schema_root_is_array(const char *json_schema) {
     if (!json_schema || !json_schema[0]) return false;
-
-    std::string s = lower_ascii(std::string(json_schema));
-    s.erase(std::remove_if(s.begin(), s.end(),
-                    [](unsigned char c) { return std::isspace(c); }),
-            s.end());
-
-    return s.find("\"type\":\"array\"") != std::string::npos;
+    try {
+        nlohmann::ordered_json schema = nlohmann::ordered_json::parse(std::string(json_schema));
+        if (schema.is_object()) {
+            auto it = schema.find("type");
+            if (it != schema.end() && it->is_string()) return it->get<std::string>() == "array";
+        }
+    } catch (...) {}
+    return false;
 }
 
 static std::string build_json_instruction(const char *json_schema) {
-    if (json_schema_root_is_array(json_schema)) {
-        return "Return ONLY a valid JSON array. No markdown, no prose.";
-    }
-    return "Return ONLY valid JSON. No markdown, no prose.";
+    return json_schema_root_is_array(json_schema)
+        ? "Return ONLY a valid JSON array. No markdown, no prose."
+        : "Return ONLY valid JSON. No markdown, no prose.";
 }
 
 static std::string build_json_prompt_single(const char *prompt, const char *json_schema) {
     std::string p = prompt ? prompt : "";
-    if (looks_like_chat_formatted_prompt(p)) {
-        return p;
-    }
-    p += "\n\n";
-    p += build_json_instruction(json_schema);
+    if (looks_like_chat_formatted_prompt(p)) return p;
+    p += "\n\n"; p += build_json_instruction(json_schema);
     return p;
 }
 
+// ===================== Text sanitation =====================
+
+static inline std::string trim_str(std::string s) {
+    auto b = s.find_first_not_of(" \t\r\n");
+    if (b == std::string::npos) return "";
+    auto e = s.find_last_not_of(" \t\r\n");
+    return s.substr(b, e - b + 1);
+}
+
+static inline std::string to_lower_str(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return char(std::tolower(c)); });
+    return s;
+}
+
+static void drop_lines_with_prefix_ci(std::string &s, const char *prefix_ci) {
+    std::string out; out.reserve(s.size());
+    size_t i = 0, line_start = 0;
+    const std::string pfx = to_lower_str(prefix_ci);
+    while (i <= s.size()) {
+        if (i == s.size() || s[i] == '\n') {
+            std::string line(s.data() + line_start, i - line_start);
+            std::string lc = to_lower_str(line);
+            if (!(lc.rfind(pfx, 0) == 0)) { out.append(line); if (i != s.size()) out.push_back('\n'); }
+            line_start = i + 1;
+        }
+        ++i;
+    }
+    s.swap(out);
+}
+
+static void drop_lines_containing_ci(std::string &s, const char *needle_ci) {
+    std::string out; out.reserve(s.size());
+    const std::string ndl = to_lower_str(needle_ci);
+    size_t i = 0, line_start = 0;
+    while (i <= s.size()) {
+        if (i == s.size() || s[i] == '\n') {
+            std::string line(s.data() + line_start, i - line_start);
+            if (to_lower_str(line).find(ndl) == std::string::npos) {
+                out.append(line); if (i != s.size()) out.push_back('\n');
+            }
+            line_start = i + 1;
+        }
+        ++i;
+    }
+    s.swap(out);
+}
+
+static std::string sanitize_generation(std::string s) {
+    if (s.empty()) return s;
+    for (const char *stop : {"<end_of_turn>", "<|eot_id|>", "</s>", "<start_of_turn>", "<turn|>", "<|turn>"}) {
+        size_t p = s.find(stop);
+        if (p != std::string::npos) s = s.substr(0, p);
+    }
+    for (const char *pfx : {"assistant:", "user:", "system:"}) drop_lines_with_prefix_ci(s, pfx);
+    {
+        std::string low = to_lower_str(s);
+        if (low.rfind("answer:", 0) == 0) { size_t cut = 7; if (cut < s.size() && s[cut] == ' ') ++cut; s.erase(0, cut); }
+    }
+    for (const char *sub : {"you are a helpful technical assistant", "answer in plain text",
+                             "do not echo the question", "never write role labels"})
+        drop_lines_containing_ci(s, sub);
+    return trim_str(std::move(s));
+}
+
+static size_t find_stream_start(const std::string &s) {
+    size_t i = 0;
+    auto is_space   = [](char c){ return c==' '||c=='\t'||c=='\r'||c=='\n'; };
+    auto starts_ci  = [&](size_t pos, const char *w)->bool{
+        size_t n = std::strlen(w);
+        if (pos + n > s.size()) return false;
+        for (size_t k = 0; k < n; ++k) {
+            if (std::tolower((unsigned char)s[pos+k]) != std::tolower((unsigned char)w[k])) return false;
+        }
+        return true;
+    };
+    auto is_prefix_ci = [&](size_t pos, const char *w)->bool{
+        size_t n = std::strlen(w), len = std::min(n, s.size() - pos);
+        for (size_t k = 0; k < len; ++k) {
+            if (std::tolower((unsigned char)s[pos+k]) != std::tolower((unsigned char)w[k])) return false;
+        }
+        return true;
+    };
+    while (i < s.size() && is_space(s[i])) ++i;
+    while (i < s.size()) {
+        if (s[i] == '<') {
+            size_t gt = s.find('>', i + 1), nl = s.find('\n', i);
+            if (gt == std::string::npos || (nl != std::string::npos && nl < gt)) return std::string::npos;
+            i = gt + 1;
+            while (i < s.size() && is_space(s[i])) ++i;
+            continue;
+        }
+        if (is_prefix_ci(i, "assistant") || is_prefix_ci(i, "user") ||
+                is_prefix_ci(i, "system") || is_prefix_ci(i, "answer")) {
+            if (!(starts_ci(i, "assistant") || starts_ci(i, "user") ||
+                    starts_ci(i, "system") || starts_ci(i, "answer")))
+                return std::string::npos;
+            size_t j = i;
+            while (j < s.size() && std::isalpha((unsigned char)s[j])) ++j;
+            if (j >= s.size()) return std::string::npos;
+            if (s[j] == ':') {
+                ++j;
+                while (j < s.size() && (s[j] == ' ' || s[j] == '\t')) ++j;
+                if (j < s.size() && s[j] == '\n') { ++j; while (j < s.size() && is_space(s[j])) ++j; }
+                i = j; continue;
+            }
+            return i;
+        }
+        return i;
+    }
+    return std::string::npos;
+}
+
+// ===================== Session helpers =====================
+
+static void session_clear_state_only() {
+    gen_session_tokens.clear();
+    gen_n_past = 0;
+}
+
+static void session_hard_reset_context() {
+    if (!gen_ctx) return;
+    llama_memory_clear(llama_get_memory(gen_ctx), false);
+    session_clear_state_only();
+}
+
+static void session_record_prompt_tokens_fresh(const std::vector<llama_token> &prompt_tokens) {
+    gen_session_tokens = prompt_tokens;
+    gen_n_past = (int)prompt_tokens.size();
+}
+
+static void session_append_generated_token(llama_token tok) {
+    gen_session_tokens.push_back(tok);
+    ++gen_n_past;
+}
+
+static void session_append_prompt_tokens_continue(const std::vector<llama_token> &prompt_tokens) {
+    gen_session_tokens.insert(gen_session_tokens.end(), prompt_tokens.begin(), prompt_tokens.end());
+    gen_n_past += (int)prompt_tokens.size();
+}
+
+static bool session_is_active() {
+    return gen_ctx != nullptr && gen_n_past > 0 && !gen_session_tokens.empty();
+}
+
+// ===================== Per-session concurrent state =====================
+
+struct EmbedSessionState {
+    llama_context *ctx = nullptr;
+    std::atomic<bool> cancel{false};
+    std::vector<llama_token> session_tokens;
+    int n_past = 0;
+    // Held by llama_session_stream for its entire duration so llama_session_close
+    // can block until inference finishes before calling llama_free.
+    std::mutex run_mutex;
+};
+
+static std::mutex                                         g_sessions_mutex;
+static std::unordered_map<int64_t, EmbedSessionState *>  g_sessions;
+static std::atomic<int64_t>                               g_next_session_id{1};
+
+static EmbedSessionState *session_get(int64_t handle) {
+    std::lock_guard<std::mutex> lk(g_sessions_mutex);
+    auto it = g_sessions.find(handle);
+    return it != g_sessions.end() ? it->second : nullptr;
+}
+
+// ===================== Gemma-4 chat template fallback =====================
+
+static bool is_gemma4_template(const char *tmpl) {
+    if (!tmpl) return false;
+    return std::strstr(tmpl, "<|turn>") != nullptr && std::strstr(tmpl, "<turn|>") != nullptr;
+}
+
+static std::string apply_gemma4_template(const std::vector<llama_chat_message> &chat, bool add_ass) {
+    std::string out;
+    for (const auto &msg : chat) {
+        std::string role = msg.role;
+        if (role == "assistant") role = "model";
+        out += "<|turn>" + role + "\n";
+        out += trim_str(std::string(msg.content));
+        out += "<turn|>\n";
+    }
+    if (add_ass) out += "<|turn>model\n";
+    return out;
+}
+
+// ===================== Streaming callback typedefs =====================
+
+typedef void (*llm_on_delta)(const char *utf8, void *user);
+typedef void (*llm_on_done)(void *user);
+typedef void (*llm_on_error)(const char *utf8, void *user);
+
+// ===================== C API =====================
+
 extern "C" {
 
-// ================= Embeddings =================
+// ===================== Embeddings =====================
 
 bool llama_embed_init(const char *model_path) {
-    LOGI("Initializing llama (embeddings)...");
+    dbg_init();
     if (!g_backend_inited) {
         llama_backend_init();
+        llama_log_set([](ggml_log_level level, const char *text, void *) {
+            if (level == GGML_LOG_LEVEL_ERROR) std::fprintf(stderr, "%s", text);
+        }, nullptr);
         g_backend_inited = true;
     }
-
-    llama_model_params model_params = llama_model_default_params();
-
-    LOGI("Embed file: %s", model_path ? model_path : "(null)");
-    if (model_path && std::filesystem::exists(model_path)) {
-        // cast to unsigned long long to avoid platform-specific printf width issues
-        LOGI("Exists, size: %llu", (unsigned long long) std::filesystem::file_size(model_path));
-    }
-
-    model = llama_model_load_from_file(model_path, model_params);
+    model = load_model_with_fallback(model_path);
     if (!model) return false;
 
-    llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.embeddings      = true;
-    ctx_params.n_ctx           = 2048;
-    ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
+    llama_context_params cp = llama_context_default_params();
+    cp.embeddings      = true;
+    cp.n_ctx           = 2048;
+    cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
-    ctx = llama_init_from_model(model, ctx_params);
-    if (!ctx) {
-        llama_model_free(model);
-        model = nullptr;
-        return false;
-    }
-
-    LOGI("Embed context created.");
-
+    ctx = llama_init_from_model(model, cp);
+    if (!ctx) { llama_model_free(model); model = nullptr; return false; }
     embedding_size = llama_model_n_embd(model);
-    LOGI("Embed dim: %d", embedding_size);
+    LOGI("embed: dim=%d", embedding_size);
     return true;
+}
+
+void llama_generate_cancel(void) {
+    g_cancel_requested.store(true, std::memory_order_relaxed);
 }
 
 float *llama_embed(const char *input) {
     if (!ctx || !model || !input) return nullptr;
 
-    const int n_ctx = (int) llama_n_ctx(ctx);
-
     std::vector<llama_token> tokens(1024);
-    LOGI("Tokenizing for embeddings...");
-
-    int n_tokens = tokenize_with_retry(
-            llama_model_get_vocab(model),
-            input,
-            tokens,
-            /*add_bos*/ true,
-            /*parse_special*/ false
-    );
-
-    if (n_tokens <= 0) {
-        LOGW("Embedding tokenize failed. n=%d", n_tokens);
-        return nullptr;
-    }
+    int n_tokens = tokenize_with_retry(llama_model_get_vocab(model), input, tokens, true, false);
+    if (n_tokens <= 0 || n_tokens > (int)llama_n_ctx(ctx)) return nullptr;
     tokens.resize(n_tokens);
 
-    if ((int) tokens.size() > n_ctx) {
-        LOGW("Embedding input too long. n=%d ctx=%d. Truncating tail.", (int) tokens.size(), n_ctx);
-        truncate_to_ctx(tokens, n_ctx, /*reserve_tail*/ 0);
+    llama_batch batch = llama_batch_init(n_tokens, 0, 1);
+    batch.n_tokens = n_tokens;
+    for (int i = 0; i < n_tokens; ++i) {
+        batch.token[i] = tokens[i]; batch.pos[i] = i;
+        batch.n_seq_id[i] = 1; batch.seq_id[i][0] = 0; batch.logits[i] = false;
     }
-
-    llama_batch batch = llama_batch_init((int) tokens.size(), 0, 1);
-    batch.n_tokens = (int) tokens.size();
-    for (int i = 0; i < batch.n_tokens; i++) {
-        batch.token[i]     = tokens[i];
-        batch.pos[i]       = i;
-        batch.n_seq_id[i]  = 1;
-        batch.seq_id[i][0] = 0;
-        batch.logits[i]    = (i == batch.n_tokens - 1);
-    }
-
-    if (llama_encode(ctx, batch) != 0) {
-        LOGE("llama_encode() for embeddings failed");
-        llama_batch_free(batch);
-        return nullptr;
-    }
-
-    const float *embedding = llama_get_embeddings_seq(ctx, 0);
-    if (!embedding) {
-        LOGE("llama_get_embeddings_seq returned null");
-        llama_batch_free(batch);
-        return nullptr;
-    }
+    if (llama_decode(ctx, batch) != 0) { llama_batch_free(batch); return nullptr; }
+    const float *emb = llama_get_embeddings_seq(ctx, 0);
+    if (!emb) { llama_batch_free(batch); return nullptr; }
 
     const int dim = llama_model_n_embd(model);
-    auto *out = (float *) std::malloc(sizeof(float) * (size_t) dim);
-    if (!out) {
-        LOGE("malloc failed for embedding");
-        llama_batch_free(batch);
-        return nullptr;
-    }
-    std::memcpy(out, embedding, sizeof(float) * (size_t) dim);
-
+    float *out = (float *)std::malloc(sizeof(float) * (size_t)dim);
+    if (!out) { llama_batch_free(batch); return nullptr; }
+    std::memcpy(out, emb, sizeof(float) * (size_t)dim);
     llama_batch_free(batch);
     return out;
 }
 
-int llama_embedding_size() {
-    return model ? llama_model_n_embd(model) : 0;
-}
+int llama_embedding_size(void) { return model ? llama_model_n_embd(model) : 0; }
 
-void llama_free_embedding(float *ptr) {
-    if (ptr) std::free(ptr);
-}
+void llama_free_embedding(float *p) { if (p) std::free(p); }
 
-void llama_embed_free() {
+void llama_embed_free(void) {
     if (ctx)   llama_free(ctx);
     if (model) llama_model_free(model);
-    ctx   = nullptr;
-    model = nullptr;
-
-    if (!gen_ctx && !gen_model && g_backend_inited) {
-        llama_backend_free();
-        g_backend_inited = false;
-    }
+    ctx = nullptr; model = nullptr;
+    if (!gen_ctx && !gen_model && g_backend_inited) { llama_backend_free(); g_backend_inited = false; }
 }
 
-// ================= Text Generation =================
+// ===================== Text Generation =====================
 
 bool llama_generate_init(const char *model_path) {
-    LOGI("llama_generate_init...");
-    if (!g_backend_inited) {
-        llama_backend_init();
-        g_backend_inited = true;
-    }
+    dbg_init();
+    if (!g_backend_inited) { llama_backend_init(); g_backend_inited = true; }
 
-    llama_model_params model_params = llama_model_default_params();
-    gen_model = llama_model_load_from_file(model_path, model_params);
+    gen_model = load_model_with_fallback(model_path);
     if (!gen_model) return false;
-    LOGI("Gen model loaded.");
 
-    llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.embeddings       = false;
-    ctx_params.n_ctx            = 8192;
-    ctx_params.flash_attn_type  = LLAMA_FLASH_ATTN_TYPE_DISABLED;
+    llama_context_params cparams = llama_context_default_params();
+    cparams.embeddings     = false;
+    cparams.n_ctx          = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_rs_seq       = MTP_RS_SNAPSHOTS;
+    cparams.n_threads      = g_num_threads.load(std::memory_order_relaxed);
+    cparams.n_batch        = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
-    gen_ctx = llama_init_from_model(gen_model, ctx_params);
-    if (!gen_ctx) {
-        llama_model_free(gen_model);
-        gen_model = nullptr;
-        return false;
-    }
-    LOGI("Gen context created. n_ctx=%d", ctx_params.n_ctx);
+    gen_ctx = llama_init_from_model(gen_model, cparams);
+    if (!gen_ctx) { llama_model_free(gen_model); gen_model = nullptr; return false; }
+    session_clear_state_only();
+    LOGI("generate: n_ctx=%u threads=%d", (unsigned)llama_n_ctx(gen_ctx), cparams.n_threads);
     return true;
 }
 
 char *llama_generate(const char *prompt) {
     if (!gen_ctx || !gen_model || !prompt) return nullptr;
 
-    // Keep prompt exactly as provided.
-    // This preserves already formatted chat prompts and avoids mutating them,
-    // which is the core fix direction for issue #90.
-    const std::string final_prompt = prompt;
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
 
-    llama_memory_clear(llama_get_memory(gen_ctx), false);
-    LOGI("Cleared KV cache for new generation turn");
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+    session_hard_reset_context();
 
+    std::string wrapped;
+    const std::string ps(prompt);
+    if (looks_like_chat_formatted_prompt(ps)) wrapped = ps;
+    else if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) wrapped = build_plain_prompt("", prompt);
+
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    LOGI("Tokenizing (gen)...");
-
-    const llama_vocab* vocab = llama_model_get_vocab(gen_model);
-
-    int n_tokens = tokenize_with_retry(
-            vocab,
-            final_prompt.c_str(),
-            tokens,
-            /*add_bos*/ false,
-            /*parse_special*/ true // allow chat special tokens
-    );
-
-    if (n_tokens <= 0) {
-        LOGE("Tokenization failed. n=%d", n_tokens);
-        return nullptr;
-    }
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, true, true);
+    if (n_tokens <= 0) return nullptr;
     tokens.resize(n_tokens);
 
-    const int n_ctx = (int) llama_n_ctx(gen_ctx);
-    if ((int) tokens.size() > n_ctx - 8) {
-        LOGW("Prompt too long (%d) for ctx (%d). Truncating tail-keep.", (int) tokens.size(), n_ctx);
-        truncate_to_ctx(tokens, n_ctx, 8);
-    }
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
 
-    const int n_batch_gen = (int)llama_n_batch(gen_ctx);
-    if (!decode_prompt_batched(gen_ctx, tokens, n_batch_gen)) {
-        LOGE("llama_decode failed on prompt.");
-        return nullptr;
-    }
+    const int n_batch = (int)llama_n_batch(gen_ctx);
+    if (!decode_prompt_batched(gen_ctx, tokens, n_batch)) return nullptr;
+    session_record_prompt_tokens_fresh(tokens);
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    if (!sampler) {
-        LOGE("Failed to create sampler.");
-        return nullptr;
-    }
-
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, 1.10f, 0.0f, 0.10f));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.80f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.55f));
+    if (!sampler) return nullptr;
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    std::vector<llama_token> output_tokens;
-
+    std::vector<llama_token> out;
     int cur_pos = (int)tokens.size();
     const int safety = 16;
-
     int remaining_ctx = n_ctx - cur_pos - safety;
     if (remaining_ctx < 0) remaining_ctx = 0;
-
-    const int hard_cap = 2048;
-    int max_new_tokens = std::min(remaining_ctx, hard_cap);
-
-    LOGI("Generation loop start. n_ctx=%d, cur_pos=%d, remaining_ctx=%d, max_new_tokens=%d",
-            n_ctx, cur_pos, remaining_ctx, max_new_tokens);
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
 
     for (int i = 0; i < max_new_tokens; ++i) {
-        llama_token token = llama_sampler_sample(sampler, gen_ctx, -1);
-        if (token < 0) break;
-        if (token == llama_vocab_eos(vocab)) break;
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || llama_vocab_is_eog(v, tok)) break;
 
-        // Early stop on chat EOT / next-turn special tokens
-        {
-            char piece_buf[64];
-            int nn = llama_token_to_piece(
-                    vocab,
-                    token,
-                    piece_buf,
-                    (int) sizeof(piece_buf),
-                    /* lstrip = */ 0,
-                    /* special = */ true
-            );
-            if (nn > 0) {
-                piece_buf[std::min(nn, (int) sizeof(piece_buf) - 1)] = '\0';
-                if (std::strcmp(piece_buf, "<end_of_turn>") == 0 ||
-                        std::strcmp(piece_buf, "<|eot_id|>")  == 0 ||
-                        std::strcmp(piece_buf, "<start_of_turn>") == 0 ||
-                        std::strcmp(piece_buf, "<|im_end|>") == 0) {
-                    break;
-                }
-            }
+        char piece[64];
+        int nn = llama_token_to_piece(v, tok, piece, (int)sizeof(piece), 0, true);
+        if (nn > 0) {
+            if (nn >= (int)sizeof(piece)) piece[sizeof(piece)-1] = '\0'; else piece[nn] = '\0';
+            if (std::strcmp(piece, "<|eot_id|>") == 0 || std::strcmp(piece, "<end_of_turn>") == 0 ||
+                    std::strcmp(piece, "</s>") == 0 || std::strcmp(piece, "<start_of_turn>") == 0 ||
+                    std::strcmp(piece, "<turn|>") == 0 || std::strcmp(piece, "<|turn>") == 0) break;
         }
 
-        // NOTE: llama_sampler_sample already calls llama_sampler_accept internally.
-        output_tokens.push_back(token);
+        llama_sampler_accept(sampler, tok);
+        out.push_back(tok);
+        session_append_generated_token(tok);
 
         if (cur_pos >= n_ctx) break;
-
-        llama_batch gen_batch = llama_batch_init(1, 0, 1);
-        gen_batch.n_tokens = 1;
-        gen_batch.token[0] = token;
-        gen_batch.pos[0]   = cur_pos;
-        gen_batch.n_seq_id[0]  = 1;
-        gen_batch.seq_id[0][0] = 0;
-        gen_batch.logits[0]    = true;
-
-        if (llama_decode(gen_ctx, gen_batch) != 0) {
-            LOGE("llama_decode failed in loop.");
-            llama_batch_free(gen_batch);
-            break;
-        }
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        if (llama_decode(gen_ctx, step) != 0) { llama_batch_free(step); break; }
         cur_pos++;
-        llama_batch_free(gen_batch);
+        gen_n_past = cur_pos;
+        llama_batch_free(step);
     }
 
     llama_sampler_free(sampler);
 
-    std::string output;
-    output.reserve(output_tokens.size() * 4);
-
+    std::string text;
     char buf[8192];
-    for (llama_token tok : output_tokens) {
-        int n = llama_token_to_piece(
-                vocab,
-                tok,
-                buf,
-                (int) sizeof(buf),
-                /* lstrip = */ 0,
-                /* special = */ false
-        );
-        if (n > 0) output.append(buf, n);
+    for (llama_token t : out) {
+        int n = llama_token_to_piece(v, t, buf, (int)sizeof(buf), 0, false);
+        if (n > 0) { if (n >= (int)sizeof(buf)) buf[sizeof(buf)-1] = '\0'; text.append(buf, n); }
     }
+    text = sanitize_generation(std::move(text));
 
-    output = trim(output);
-
-    char *result = (char *) std::malloc(output.size() + 1);
-    if (!result) {
-        LOGE("malloc failed for result C string.");
-        return nullptr;
-    }
-    std::memcpy(result, output.c_str(), output.size());
-    result[output.size()] = '\0';
-
-    LOGI("Generation done. bytes=%zu", output.size());
+    char *result = (char *)std::malloc(text.size() + 1);
+    if (!result) return nullptr;
+    std::memcpy(result, text.c_str(), text.size() + 1);
     return result;
 }
 
-void llama_generate_free() {
+char *llama_generate_chat(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt) {
+    std::string prompt2 = build_chat_prompt(system_prompt, context_block, user_prompt);
+    return llama_generate(prompt2.c_str());
+}
+
+char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
+    if (!gen_ctx || !gen_model || !prompt) return nullptr;
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+    session_hard_reset_context();
+
+    std::string grammar, err;
+    if (!build_json_grammar(json_schema, grammar, err)) return nullptr;
+
+    std::string wrapped = build_json_prompt_single(prompt, json_schema);
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, true, true);
+    if (n_tokens <= 0) return nullptr;
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+    if (!decode_prompt_batched(gen_ctx, tokens, (int)llama_n_batch(gen_ctx))) return nullptr;
+    session_record_prompt_tokens_fresh(tokens);
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) return nullptr;
+    llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    std::vector<llama_token> out;
+    int cur_pos = (int)tokens.size();
+    const int safety = 16;
+    int remaining_ctx = n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+    int max_new = std::min(remaining_ctx, max_tokens);
+
+    for (int i = 0; i < max_new; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || llama_vocab_is_eog(v, tok)) break;
+        llama_sampler_accept(sampler, tok);
+        out.push_back(tok);
+        session_append_generated_token(tok);
+        if (cur_pos >= n_ctx) break;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        if (llama_decode(gen_ctx, step) != 0) { llama_batch_free(step); break; }
+        cur_pos++; gen_n_past = cur_pos;
+        llama_batch_free(step);
+    }
+
+    llama_sampler_free(sampler);
+
+    std::string text;
+    char buf[8192];
+    for (llama_token t : out) {
+        int n = llama_token_to_piece(v, t, buf, (int)sizeof(buf), 0, false);
+        if (n > 0) text.append(buf, n);
+    }
+    text = trim_str(text);
+
+    char *result = (char *)std::malloc(text.size() + 1);
+    if (!result) return nullptr;
+    std::memcpy(result, text.c_str(), text.size() + 1);
+    return result;
+}
+
+char *llama_generate_chat_json_schema(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema) {
+    std::string base = build_chat_prompt(system_prompt, context_block, user_prompt);
+    std::string prompt2 = base + "\n" + build_json_instruction(json_schema);
+    return llama_generate_json_schema(prompt2.c_str(), json_schema);
+}
+
+// ===================== Streaming APIs =====================
+
+void llama_generate_stream(const char *prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    if (!gen_ctx || !gen_model || !prompt) {
+        if (on_error) on_error("generator not ready", user);
+        return;
+    }
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+    session_hard_reset_context();
+
+    std::string wrapped;
+    const std::string prompt_str(prompt);
+    if (looks_like_chat_formatted_prompt(prompt_str)) wrapped = prompt_str;
+    else if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) wrapped = build_plain_prompt("", prompt);
+
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, true, true);
+    if (n_tokens <= 0) { if (on_error) on_error("tokenize failed", user); return; }
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+    if (!decode_prompt_batched(gen_ctx, tokens, (int)llama_n_batch(gen_ctx))) {
+        if (on_error) on_error("decode failed", user);
+        return;
+    }
+    session_record_prompt_tokens_fresh(tokens);
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    int cur_pos = (int)tokens.size();
+    const int safety = 16;
+    int remaining_ctx = n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
+
+    std::string assembled;
+    size_t start_idx = std::string::npos;
+    size_t sent_from_start = 0;
+    assembled.reserve(4096);
+
+    const bool use_mtp   = (g_mtp_ctx != nullptr && g_mtp_model != nullptr);
+    const int  n_embd    = use_mtp ? llama_model_n_embd(gen_model) : 0;
+    const int  draft_len = use_mtp ? g_mtp_draft_len.load(std::memory_order_relaxed) : 0;
+
+    llama_sampler *mtp_sampler = nullptr;
+    if (use_mtp) {
+        mtp_sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+        llama_sampler_chain_add(mtp_sampler, llama_sampler_init_top_k(10));
+        llama_sampler_chain_add(mtp_sampler, llama_sampler_init_greedy());
+    }
+
+    auto emit_tok = [&](llama_token tok) -> bool {
+        char spiece[64];
+        int nn = llama_token_to_piece(v, tok, spiece, (int)sizeof(spiece), 0, true);
+        if (nn > 0) {
+            if (nn >= (int)sizeof(spiece)) spiece[sizeof(spiece)-1] = '\0'; else spiece[nn] = '\0';
+            if (std::strcmp(spiece, "<|eot_id|>") == 0 || std::strcmp(spiece, "<end_of_turn>") == 0 ||
+                    std::strcmp(spiece, "</s>") == 0 || std::strcmp(spiece, "<start_of_turn>") == 0 ||
+                    std::strcmp(spiece, "<turn|>") == 0 || std::strcmp(spiece, "<|turn>") == 0) return false;
+        }
+        session_append_generated_token(tok);
+        char piece[256];
+        int nout = llama_token_to_piece(v, tok, piece, (int)sizeof(piece), 0, false);
+        if (nout > 0) {
+            if (nout >= (int)sizeof(piece)) piece[sizeof(piece)-1] = '\0';
+            assembled.append(piece, nout);
+            if (start_idx == std::string::npos) start_idx = find_stream_start(assembled);
+            if (start_idx != std::string::npos && assembled.size() > start_idx + sent_from_start) {
+                const std::string_view delta(assembled.data() + start_idx + sent_from_start,
+                                             assembled.size() - (start_idx + sent_from_start));
+                if (on_delta && !delta.empty()) { std::string out_s(delta); on_delta(out_s.c_str(), user); }
+                sent_from_start += delta.size();
+            }
+        }
+        return true;
+    };
+
+    auto decode_trunk_token = [&](llama_token token, int pos) -> bool {
+        if (pos >= n_ctx) return false;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = token; step.pos[0] = pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        const int rc = llama_decode(gen_ctx, step);
+        llama_batch_free(step);
+        return rc == 0;
+    };
+
+    int tokens_generated = 0;
+    bool error_flag = false;
+
+    while (tokens_generated < max_new_tokens) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || llama_vocab_is_eog(v, tok) || tok == llama_vocab_eot(v)) break;
+        llama_sampler_accept(sampler, tok);
+
+        if (!emit_tok(tok)) break;
+        ++tokens_generated;
+        if (tokens_generated >= max_new_tokens) break;
+
+        if (!use_mtp) {
+            if (cur_pos >= n_ctx) break;
+            llama_batch step = llama_batch_init(1, 0, 1);
+            step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos;
+            step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+            const int rc = llama_decode(gen_ctx, step);
+            llama_batch_free(step);
+            if (rc != 0) break;
+            cur_pos++; gen_n_past = cur_pos;
+            continue;
+        }
+
+        if (cur_pos >= n_ctx) break;
+        {
+            llama_batch step = llama_batch_init(1, 0, 1);
+            step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos;
+            step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+            const int rc = llama_decode(gen_ctx, step);
+            llama_batch_free(step);
+            if (rc != 0) break;
+            cur_pos++; gen_n_past = cur_pos;
+        }
+
+        std::vector<llama_token> drafts;
+        drafts.reserve(draft_len);
+        llama_memory_clear(llama_get_memory(g_mtp_ctx), false);
+
+        const float *h_row = llama_get_embeddings_nextn(gen_ctx);
+        if (h_row) {
+            for (int d = 0; d < draft_len && tokens_generated + (int)drafts.size() < max_new_tokens; ++d) {
+                if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+                llama_token prev_tok = drafts.empty() ? tok : drafts.back();
+                llama_batch mtp_b = llama_batch_init(1, n_embd, 1);
+                mtp_b.token = (llama_token *)std::malloc(sizeof(llama_token));
+                if (!mtp_b.token) { llama_batch_free(mtp_b); break; }
+                mtp_b.n_tokens = 1;
+                std::memcpy(mtp_b.embd, h_row, (size_t)n_embd * sizeof(float));
+                mtp_b.token[0] = prev_tok; mtp_b.pos[0] = (llama_pos)(cur_pos - 1 + d);
+                mtp_b.n_seq_id[0] = 1; mtp_b.seq_id[0][0] = 0; mtp_b.logits[0] = true;
+                const int rc = llama_decode(g_mtp_ctx, mtp_b);
+                llama_batch_free(mtp_b);
+                if (rc != 0) break;
+                const llama_token dt = llama_sampler_sample(mtp_sampler, g_mtp_ctx, -1);
+                if (dt < 0 || llama_vocab_is_eog(v, dt) || dt == llama_vocab_eot(v)) break;
+                drafts.push_back(dt);
+                h_row = llama_get_embeddings_nextn(g_mtp_ctx);
+                if (!h_row) break;
+            }
+        }
+
+        if (drafts.empty()) continue;
+
+        const int nd = (int)drafts.size();
+        const int verify_start = cur_pos;
+        const llama_token first_verified = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (first_verified != drafts[0]) {
+            if (llama_vocab_is_eog(v, first_verified) || first_verified == llama_vocab_eot(v)) goto stream_done;
+            llama_sampler_accept(sampler, first_verified);
+            if (!emit_tok(first_verified)) goto stream_done;
+            ++tokens_generated;
+            if (!decode_trunk_token(first_verified, verify_start)) break;
+            cur_pos = verify_start + 1; gen_n_past = cur_pos;
+            continue;
+        }
+
+        {
+            llama_batch vbatch = llama_batch_init(nd, 0, 1);
+            vbatch.n_tokens = nd;
+            for (int i = 0; i < nd; ++i) {
+                vbatch.token[i] = drafts[i]; vbatch.pos[i] = verify_start + i;
+                vbatch.n_seq_id[i] = 1; vbatch.seq_id[i][0] = 0; vbatch.logits[i] = true;
+            }
+            const int vrc = llama_decode(gen_ctx, vbatch);
+            llama_batch_free(vbatch);
+            if (vrc != 0) { error_flag = true; break; }
+        }
+
+        llama_sampler_accept(sampler, first_verified);
+        if (!emit_tok(first_verified)) goto stream_done;
+        ++tokens_generated;
+        cur_pos = verify_start + 1;
+
+        {
+            bool mismatch = false;
+            int n_accepted = 1;
+            for (int i = 1; i < nd && tokens_generated < max_new_tokens; ++i) {
+                if (g_cancel_requested.load(std::memory_order_relaxed)) goto stream_done;
+                const llama_token verified = llama_sampler_sample(sampler, gen_ctx, i - 1);
+                if (verified != drafts[i]) {
+                    if (llama_vocab_is_eog(v, verified) || verified == llama_vocab_eot(v)) goto stream_done;
+                    const int mismatch_pos = verify_start + i;
+                    if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, mismatch_pos, -1)) { error_flag = true; break; }
+                    llama_sampler_accept(sampler, verified);
+                    if (!emit_tok(verified)) goto stream_done;
+                    ++tokens_generated;
+                    if (!decode_trunk_token(verified, mismatch_pos)) { error_flag = true; break; }
+                    cur_pos = mismatch_pos + 1; gen_n_past = cur_pos;
+                    mismatch = true; break;
+                }
+                llama_sampler_accept(sampler, verified);
+                if (!emit_tok(verified)) goto stream_done;
+                ++tokens_generated; cur_pos = verify_start + i + 1; ++n_accepted;
+            }
+            if (error_flag) break;
+
+            if (!mismatch && n_accepted < nd) {
+                if (!llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, cur_pos, -1)) { error_flag = true; break; }
+            }
+            if (!mismatch && n_accepted == nd && tokens_generated < max_new_tokens) {
+                const llama_token bonus = llama_sampler_sample(sampler, gen_ctx, nd - 1);
+                if (!llama_vocab_is_eog(v, bonus) && bonus != llama_vocab_eot(v)) {
+                    llama_sampler_accept(sampler, bonus);
+                    if (emit_tok(bonus)) {
+                        ++tokens_generated;
+                        if (decode_trunk_token(bonus, cur_pos)) { cur_pos++; gen_n_past = cur_pos; }
+                    }
+                }
+            }
+        }
+
+        if (cur_pos >= n_ctx) break;
+    }
+
+    stream_done:
+    gen_n_past = cur_pos;
+    if (mtp_sampler) llama_sampler_free(mtp_sampler);
+    llama_sampler_free(sampler);
+    if (error_flag) { if (on_error) on_error("llama_decode failed mid-stream", user); return; }
+    if (on_done) on_done(user);
+}
+
+void llama_generate_chat_stream(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    std::string prompt2 = build_chat_prompt(system_prompt, context_block, user_prompt);
+    llama_generate_stream(prompt2.c_str(), on_delta, on_done, on_error, user);
+}
+
+void llama_generate_json_schema_stream(const char *prompt,
+        const char *json_schema,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    if (!gen_ctx || !gen_model || !prompt) { if (on_error) on_error("generator not ready", user); return; }
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+    session_hard_reset_context();
+
+    std::string grammar, err;
+    if (!build_json_grammar(json_schema, grammar, err)) { if (on_error) on_error(err.c_str(), user); return; }
+
+    std::string wrapped = build_json_prompt_single(prompt, json_schema);
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, true, true);
+    if (n_tokens <= 0) { if (on_error) on_error("tokenize failed", user); return; }
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    if (n_tokens > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+    if (!decode_prompt_batched(gen_ctx, tokens, (int)llama_n_batch(gen_ctx))) {
+        if (on_error) on_error("decode prompt failed", user); return;
+    }
+    session_record_prompt_tokens_fresh(tokens);
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
+    llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    std::string pending;
+    bool started = false;
+    size_t start_at = 0;
+    int cur_pos = (int)tokens.size();
+    const int safety = 16;
+    int remaining_ctx = n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+    int max_new = std::min(remaining_ctx, max_tokens);
+
+    for (int i = 0; i < max_new; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || llama_vocab_is_eog(v, tok)) break;
+        llama_sampler_accept(sampler, tok);
+        session_append_generated_token(tok);
+        if (cur_pos >= n_ctx) break;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        if (llama_decode(gen_ctx, step) != 0) { llama_batch_free(step); break; }
+        llama_batch_free(step);
+        cur_pos++; gen_n_past = cur_pos;
+
+        char buf[256];
+        int n = llama_token_to_piece(v, tok, buf, (int)sizeof(buf), 0, false);
+        if (n <= 0) continue;
+        pending.append(buf, (size_t)n);
+
+        if (!started) {
+            size_t st = find_stream_start(pending);
+            if (st == std::string::npos) continue;
+            started = true; start_at = st;
+        }
+        if (started && pending.size() > start_at) {
+            std::string chunk = pending.substr(start_at);
+            pending.clear(); start_at = 0;
+            if (on_delta) on_delta(chunk.c_str(), user);
+        }
+    }
+
+    if (!pending.empty()) {
+        if (!started) {
+            size_t st = find_stream_start(pending);
+            if (st != std::string::npos) { std::string chunk = pending.substr(st); if (on_delta) on_delta(chunk.c_str(), user); }
+        } else { if (on_delta) on_delta(pending.c_str(), user); }
+    }
+
+    llama_sampler_free(sampler);
+    if (on_done) on_done(user);
+}
+
+void llama_generate_chat_json_schema_stream(const char *system_prompt,
+        const char *context_block,
+        const char *user_prompt,
+        const char *json_schema,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    std::string base = build_chat_prompt(system_prompt, context_block, user_prompt);
+    std::string prompt2 = base + "\n" + build_json_instruction(json_schema);
+    llama_generate_json_schema_stream(prompt2.c_str(), json_schema, on_delta, on_done, on_error, user);
+}
+
+void llama_generate_set_params(float temperature,
+        int max_tokens,
+        float top_p,
+        int top_k,
+        float repeat_penalty,
+        int context_length,
+        int num_threads,
+        bool use_mmap,
+        bool flash_attention,
+        int batch_size,
+        int gpu_layers) {
+    g_temperature.store(temperature,       std::memory_order_relaxed);
+    g_max_tokens.store(max_tokens,         std::memory_order_relaxed);
+    g_top_p.store(top_p,                   std::memory_order_relaxed);
+    g_top_k.store(top_k,                   std::memory_order_relaxed);
+    g_repeat_penalty.store(repeat_penalty, std::memory_order_relaxed);
+    g_context_length.store(context_length, std::memory_order_relaxed);
+    g_num_threads.store(num_threads,       std::memory_order_relaxed);
+    g_use_mmap.store(use_mmap,             std::memory_order_relaxed);
+    g_flash_attention.store(flash_attention, std::memory_order_relaxed);
+    g_batch_size.store(batch_size,         std::memory_order_relaxed);
+    g_gpu_layers.store(gpu_layers,         std::memory_order_relaxed);
+}
+
+// ===================== KV session support =====================
+
+bool llama_generate_session_reset(void) {
+    if (!gen_ctx) return false;
+    session_hard_reset_context();
+    return true;
+}
+
+bool llama_generate_session_save(const char *path_session) {
+    if (!gen_ctx || !path_session) return false;
+    return llama_state_save_file(gen_ctx, path_session,
+            gen_session_tokens.empty() ? nullptr : gen_session_tokens.data(),
+            gen_session_tokens.size());
+}
+
+bool llama_generate_session_load(const char *path_session) {
+    if (!gen_ctx || !path_session) return false;
+    const int cap = std::max(1, (int)llama_n_ctx(gen_ctx));
+    gen_session_tokens.resize(cap);
+    size_t n_loaded = 0;
+    const bool ok = llama_state_load_file(gen_ctx, path_session,
+            gen_session_tokens.data(), gen_session_tokens.size(), &n_loaded);
+    if (!ok) { session_clear_state_only(); return false; }
+    gen_session_tokens.resize((int)n_loaded);
+    gen_n_past = (int)n_loaded;
+    return true;
+}
+
+char *llama_generate_continue(const char *prompt) {
+    if (!gen_ctx || !gen_model || !prompt) return nullptr;
+    if (!session_is_active()) return llama_generate(prompt);
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, prompt, tokens, false, true);
+    if (n_tokens <= 0) return nullptr;
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    const int safety = 16;
+    if (gen_n_past + (int)tokens.size() >= n_ctx - safety) return llama_generate(prompt);
+
+    if (!decode_prompt_batched(gen_ctx, tokens, (int)llama_n_batch(gen_ctx), gen_n_past)) return nullptr;
+    session_append_prompt_tokens_continue(tokens);
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) return nullptr;
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    std::vector<llama_token> out;
+    int cur_pos = gen_n_past;
+    int remaining = n_ctx - cur_pos - safety;
+    if (remaining < 0) remaining = 0;
+    int max_new = std::min(remaining, max_tokens);
+
+    for (int i = 0; i < max_new; ++i) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || llama_vocab_is_eog(v, tok)) break;
+
+        char sp[64];
+        int sn = llama_token_to_piece(v, tok, sp, (int)sizeof(sp), 0, true);
+        if (sn > 0) {
+            if (sn >= (int)sizeof(sp)) sp[sizeof(sp)-1] = '\0'; else sp[sn] = '\0';
+            if (std::strcmp(sp, "<|eot_id|>") == 0 || std::strcmp(sp, "<end_of_turn>") == 0 ||
+                    std::strcmp(sp, "<start_of_turn>") == 0 || std::strcmp(sp, "</s>") == 0 ||
+                    std::strcmp(sp, "<turn|>") == 0 || std::strcmp(sp, "<|turn>") == 0) break;
+        }
+
+        llama_sampler_accept(sampler, tok);
+        out.push_back(tok);
+        session_append_generated_token(tok);
+        if (cur_pos >= n_ctx) break;
+
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        if (llama_decode(gen_ctx, step) != 0) { llama_batch_free(step); break; }
+        cur_pos++; gen_n_past = cur_pos;
+        llama_batch_free(step);
+    }
+
+    llama_sampler_free(sampler);
+
+    std::string text;
+    char buf[8192];
+    for (llama_token t : out) {
+        int n = llama_token_to_piece(v, t, buf, (int)sizeof(buf), 0, false);
+        if (n > 0) text.append(buf, n);
+    }
+    text = sanitize_generation(std::move(text));
+    char *result = (char *)std::malloc(text.size() + 1);
+    if (!result) return nullptr;
+    std::memcpy(result, text.c_str(), text.size() + 1);
+    return result;
+}
+
+// ===================== MTP API =====================
+
+bool llama_mtp_init(const char *model_path, int draft_len) {
+    if (!gen_model || !gen_ctx || !model_path) return false;
+    if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
+    if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
+
+    llama_model_params mparams = llama_model_default_params();
+    mparams.use_mmap     = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.n_gpu_layers = g_gpu_layers.load(std::memory_order_relaxed);
+    g_mtp_model = llama_model_load_from_file(model_path, mparams);
+    if (!g_mtp_model) return false;
+
+    llama_context_params cparams = llama_context_default_params();
+    cparams.ctx_type      = LLAMA_CONTEXT_TYPE_MTP;
+    cparams.n_ctx         = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_rs_seq      = MTP_RS_SNAPSHOTS;
+    cparams.n_threads     = g_num_threads.load(std::memory_order_relaxed);
+    cparams.n_batch       = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
+
+    g_mtp_ctx = llama_init_from_model(g_mtp_model, cparams);
+    if (!g_mtp_ctx) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; return false; }
+
+    llama_set_embeddings_nextn(gen_ctx,   true, /*masked*/ false);
+    llama_set_embeddings_nextn(g_mtp_ctx, true, /*masked*/ true);
+    if (draft_len > 0) g_mtp_draft_len.store(draft_len, std::memory_order_relaxed);
+    LOGI("llama_mtp_init: ready. draft_len=%d", g_mtp_draft_len.load());
+    return true;
+}
+
+void llama_mtp_shutdown(void) {
+    if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
+    if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
+    if (gen_ctx) llama_set_embeddings_nextn(gen_ctx, false, false);
+}
+
+void llama_generate_free(void) {
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        for (auto &kv : g_sessions) {
+            if (kv.second->ctx) llama_free(kv.second->ctx);
+            delete kv.second;
+        }
+        g_sessions.clear();
+    }
+    if (g_mtp_ctx)   { llama_free(g_mtp_ctx);        g_mtp_ctx   = nullptr; }
+    if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
     if (gen_ctx)   llama_free(gen_ctx);
     if (gen_model) llama_model_free(gen_model);
     gen_ctx   = nullptr;
     gen_model = nullptr;
+    session_clear_state_only();
+    if (!ctx && !model && g_backend_inited) { llama_backend_free(); g_backend_inited = false; }
+}
 
-    if (!ctx && !model && g_backend_inited) {
-        llama_backend_free();
-        g_backend_inited = false;
+void llama_free_cstr(char *p) { if (p) std::free(p); }
+
+// ===================== Model metadata =====================
+
+char *llama_get_model_finetune_type(void) {
+    if (!gen_model) return nullptr;
+    char buf[256];
+    int32_t len = llama_model_meta_val_str(gen_model, "general.finetune", buf, sizeof(buf));
+    if (len < 0) return nullptr;
+    return strdup(buf);
+}
+
+const char *llama_get_model_chat_template(void) {
+    if (!gen_model) return nullptr;
+    return llama_model_chat_template(gen_model, nullptr);
+}
+
+char *llama_apply_chat_template(
+        const char **roles,
+        const char **contents,
+        int n_messages,
+        bool add_assistant_prefix) {
+    if (!gen_model || n_messages <= 0 || !roles || !contents) return nullptr;
+    const char *tmpl = llama_model_chat_template(gen_model, nullptr);
+
+    std::vector<llama_chat_message> chat((size_t)n_messages);
+    for (int i = 0; i < n_messages; ++i) chat[i] = {roles[i], contents[i]};
+
+    int32_t needed = llama_chat_apply_template(tmpl, chat.data(), chat.size(),
+                                               add_assistant_prefix, nullptr, -1);
+    if (needed < 0) {
+        if (!is_gemma4_template(tmpl)) return nullptr;
+        std::string formatted = apply_gemma4_template(chat, add_assistant_prefix);
+        char *buf = (char *)std::malloc(formatted.size() + 1);
+        if (!buf) return nullptr;
+        std::memcpy(buf, formatted.c_str(), formatted.size() + 1);
+        return buf;
     }
+
+    char *buf = (char *)std::malloc((size_t)needed + 1);
+    if (!buf) return nullptr;
+    llama_chat_apply_template(tmpl, chat.data(), chat.size(), add_assistant_prefix, buf, needed);
+    buf[needed] = '\0';
+    return buf;
+}
+
+// ===================== Concurrent session API =====================
+
+int64_t llama_session_create(void) {
+    if (!gen_model) return -1;
+    llama_context_params cparams = llama_context_default_params();
+    cparams.embeddings   = false;
+    cparams.n_ctx        = (uint32_t)g_context_length.load(std::memory_order_relaxed);
+    cparams.n_threads    = g_num_threads.load(std::memory_order_relaxed);
+    cparams.n_batch      = (uint32_t)g_batch_size.load(std::memory_order_relaxed);
+    cparams.flash_attn_type = g_flash_attention.load(std::memory_order_relaxed)
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
+
+    llama_context *sctx = llama_init_from_model(gen_model, cparams);
+    if (!sctx) return -1;
+
+    int64_t handle = g_next_session_id.fetch_add(1, std::memory_order_relaxed);
+    auto *ss = new EmbedSessionState();
+    ss->ctx = sctx;
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        g_sessions[handle] = ss;
+    }
+    LOGI("llama_session_create: handle=%" PRId64 " n_ctx=%u", handle, (unsigned)llama_n_ctx(sctx));
+    return handle;
+}
+
+void llama_session_close(int64_t handle) {
+    EmbedSessionState *ss = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(g_sessions_mutex);
+        auto it = g_sessions.find(handle);
+        if (it == g_sessions.end()) return;
+        ss = it->second;
+        g_sessions.erase(it);
+    }
+    if (ss) {
+        ss->cancel.store(true, std::memory_order_relaxed);
+        std::lock_guard<std::mutex> run_lk(ss->run_mutex);
+        if (ss->ctx) llama_free(ss->ctx);
+        delete ss;
+    }
+}
+
+void llama_session_stream(int64_t handle,
+        const char *prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    EmbedSessionState *ss = session_get(handle);
+    if (!ss || !ss->ctx || !gen_model || !prompt) {
+        if (on_error) on_error("session not valid", user);
+        return;
+    }
+
+    std::lock_guard<std::mutex> run_lk(ss->run_mutex);
+    ss->cancel.store(false, std::memory_order_relaxed);
+
+    const bool is_continuation = !ss->session_tokens.empty();
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    std::string wrapped;
+    const std::string ps(prompt);
+    if (looks_like_chat_formatted_prompt(ps)) wrapped = ps;
+    else if (!apply_chat_template_if_available(nullptr, prompt, wrapped)) wrapped = build_plain_prompt("", prompt);
+
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, wrapped.c_str(), tokens, !is_continuation, true);
+    if (n_tokens <= 0) { if (on_error) on_error("tokenization failed", user); return; }
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(ss->ctx);
+
+    if (!is_continuation) {
+        llama_memory_clear(llama_get_memory(ss->ctx), false);
+        if ((int)tokens.size() > n_ctx - 8) truncate_to_ctx(tokens, n_ctx, 8);
+        if (!decode_prompt_batched(ss->ctx, tokens, (int)llama_n_batch(ss->ctx))) {
+            if (on_error) on_error("llama_decode failed on prompt", user); return;
+        }
+        ss->session_tokens = tokens;
+        ss->n_past = (int)tokens.size();
+    } else {
+        const int safety = 16;
+        if (ss->n_past + (int)tokens.size() >= n_ctx - safety) {
+            llama_memory_clear(llama_get_memory(ss->ctx), false);
+            ss->session_tokens.clear(); ss->n_past = 0;
+            if (on_error) on_error("context full, session reset", user); return;
+        }
+        if (!decode_prompt_batched(ss->ctx, tokens, (int)llama_n_batch(ss->ctx), ss->n_past)) {
+            if (on_error) on_error("llama_decode failed on prompt", user); return;
+        }
+        ss->session_tokens.insert(ss->session_tokens.end(), tokens.begin(), tokens.end());
+        ss->n_past += (int)tokens.size();
+    }
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    int cur_pos = ss->n_past;
+    const int safety = 16;
+    int remaining_ctx = n_ctx - cur_pos - safety;
+    if (remaining_ctx < 0) remaining_ctx = 0;
+    int max_new_tokens = std::min(remaining_ctx, max_tokens);
+
+    std::string assembled;
+    size_t start_idx = std::string::npos;
+    size_t sent_from_start = 0;
+    assembled.reserve(4096);
+
+    for (int i = 0; i < max_new_tokens; ++i) {
+        if (ss->cancel.load(std::memory_order_relaxed)) break;
+
+        llama_token tok = llama_sampler_sample(sampler, ss->ctx, -1);
+        if (tok < 0) break;
+        if (llama_vocab_is_eog(v, tok)) break;
+        if (tok == llama_vocab_eot(v)) break;
+
+        char spiece[64];
+        int sn = llama_token_to_piece(v, tok, spiece, (int)sizeof(spiece), 0, true);
+        if (sn > 0) {
+            if (sn >= (int)sizeof(spiece)) spiece[sizeof(spiece)-1] = '\0'; else spiece[sn] = '\0';
+            if (std::strcmp(spiece, "<|eot_id|>") == 0 || std::strcmp(spiece, "<end_of_turn>") == 0 ||
+                    std::strcmp(spiece, "</s>") == 0 || std::strcmp(spiece, "<start_of_turn>") == 0 ||
+                    std::strcmp(spiece, "<turn|>") == 0 || std::strcmp(spiece, "<|turn>") == 0) break;
+        }
+
+        char piece[256];
+        int nn = llama_token_to_piece(v, tok, piece, (int)sizeof(piece), 0, false);
+        if (nn > 0) {
+            assembled.append(piece, nn);
+            if (start_idx == std::string::npos) start_idx = find_stream_start(assembled);
+            if (start_idx != std::string::npos && assembled.size() > start_idx + sent_from_start) {
+                const std::string_view delta(assembled.data() + start_idx + sent_from_start,
+                                             assembled.size() - (start_idx + sent_from_start));
+                if (on_delta && !delta.empty()) {
+                    std::string delta_s(delta);
+                    on_delta(delta_s.c_str(), user);
+                }
+                sent_from_start += delta.size();
+            }
+        }
+
+        if (cur_pos >= n_ctx) break;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos++;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        if (llama_decode(ss->ctx, step) != 0) {
+            llama_batch_free(step);
+            if (on_error) on_error("llama_decode failed mid-stream", user);
+            llama_sampler_free(sampler);
+            return;
+        }
+        llama_batch_free(step);
+        ss->session_tokens.push_back(tok);
+        ss->n_past = cur_pos;
+    }
+
+    llama_sampler_free(sampler);
+    if (on_done) on_done(user);
+}
+
+void llama_session_reset(int64_t handle) {
+    EmbedSessionState *ss = session_get(handle);
+    if (!ss) return;
+    std::lock_guard<std::mutex> run_lk(ss->run_mutex);
+    if (ss->ctx) llama_memory_clear(llama_get_memory(ss->ctx), false);
+    ss->session_tokens.clear();
+    ss->n_past = 0;
+}
+
+void llama_session_cancel(int64_t handle) {
+    EmbedSessionState *ss = session_get(handle);
+    if (ss) ss->cancel.store(true, std::memory_order_relaxed);
 }
 
 } // extern "C"

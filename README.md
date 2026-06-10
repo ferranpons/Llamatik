@@ -149,7 +149,7 @@ only configuration.
 
 ## 📦 Current Versions
 
-- llama.cpp version: [b9562](https://github.com/ggml-org/llama.cpp/releases/tag/b9562)
+- llama.cpp version: [b9574](https://github.com/ggml-org/llama.cpp/releases/tag/b9574)
 - whisper.cpp version [v1.8.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.4)
 - stablediffusion.cpp version [master-596-90e87bc](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-596-90e87bc)
 
