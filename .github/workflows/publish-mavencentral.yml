@@ -33,6 +33,7 @@ jobs:
           distribution: jetbrains
           java-version: 21
           cache: gradle
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -222,6 +223,7 @@ jobs:
           distribution: jetbrains
           java-version: 21
           cache: gradle
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Gradle
         uses: gradle/actions/setup-gradle@v4
