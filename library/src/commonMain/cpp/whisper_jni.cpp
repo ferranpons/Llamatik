@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include "whisper_stt.h"
