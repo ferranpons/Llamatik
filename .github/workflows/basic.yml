@@ -16,10 +16,9 @@ jobs:
       - name: set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '21.0.7'
           distribution: 'jetbrains'
           cache: gradle
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew

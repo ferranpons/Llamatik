@@ -17,8 +17,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'jetbrains'
-          java-version: 21
-          token: ${{ secrets.GITHUB_TOKEN }}
+          java-version: 21.0.7
 
       - name: Set up Gradle
         uses: gradle/gradle-build-action@v2
