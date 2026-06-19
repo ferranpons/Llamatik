@@ -14,20 +14,18 @@ actual object MultimodalBridge {
     private var lastFsPath: String? = null
     private var lastMmprojIdbKey: String? = null
     private var lastMmprojFsPath: String? = null
-    private var vlmReady = false
 
     private val wasmScope = CoroutineScope(Dispatchers.Default)
 
     actual fun initModel(modelPath: String, mmprojPath: String): Boolean {
-        // On WASM, modelPath and mmprojPath are IndexedDB keys (sanitized file names).
-        // We use the same sanitizeName logic as LlamaBridge to match the stored key.
+        // Store the sanitized file paths; actual model loading is deferred to
+        // the JS Web Worker (lazy init on first analyzeImageBytesStream call).
         val modelName = sanitizeName(modelPath.substringAfterLast('/'))
         val mmprojName = sanitizeName(mmprojPath.substringAfterLast('/'))
         lastIdbKey = "models/$modelName"
         lastFsPath = "/models/$modelName"
         lastMmprojIdbKey = "models/$mmprojName"
         lastMmprojFsPath = "/models/$mmprojName"
-        vlmReady = false
         return true
     }
 
@@ -72,7 +70,6 @@ actual object MultimodalBridge {
         lastFsPath = null
         lastMmprojIdbKey = null
         lastMmprojFsPath = null
-        vlmReady = false
     }
 }
 
