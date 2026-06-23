@@ -38,8 +38,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: jetbrains
+          java-version: 21.0.7
           cache: gradle
 
       - name: Configure Gradle
