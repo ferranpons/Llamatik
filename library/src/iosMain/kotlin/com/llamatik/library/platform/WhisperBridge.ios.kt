@@ -6,6 +6,7 @@ import com.llamatik.library.platform.whisper.whisper_stt_free_string
 import com.llamatik.library.platform.whisper.whisper_stt_init
 import com.llamatik.library.platform.whisper.whisper_stt_release
 import com.llamatik.library.platform.whisper.whisper_stt_transcribe_wav
+import com.llamatik.library.platform.whisper.whisper_stt_transcribe_wav_segments
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import platform.Foundation.NSApplicationSupportDirectory
@@ -181,6 +182,18 @@ actual object WhisperBridge {
     @OptIn(ExperimentalForeignApi::class)
     actual fun transcribeWav(wavPath: String, language: String?, initialPrompt: String?): String {
         val ptr = whisper_stt_transcribe_wav(wavPath, language, initialPrompt) ?: return ""
+
+        return try {
+            ptr.toKString()
+        } finally {
+            whisper_stt_free_string(ptr)
+        }
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    actual fun transcribeWavSegments(wavPath: String, language: String?, initialPrompt: String?): String {
+        val ptr = whisper_stt_transcribe_wav_segments(wavPath, language, initialPrompt)
+            ?: return "{\"language\":\"\",\"segments\":[]}"
 
         return try {
             ptr.toKString()

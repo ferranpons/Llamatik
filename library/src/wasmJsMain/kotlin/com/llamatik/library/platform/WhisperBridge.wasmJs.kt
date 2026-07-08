@@ -5,5 +5,7 @@ actual object WhisperBridge {
     actual fun initModel(modelPath: String): Boolean = false
     actual fun transcribeWav(wavPath: String, language: String?, initialPrompt: String?): String =
         "Whisper WASM not wired yet."
+    actual fun transcribeWavSegments(wavPath: String, language: String?, initialPrompt: String?): String =
+        "{\"language\":\"\",\"segments\":[]}"
     actual fun release() {}
 }

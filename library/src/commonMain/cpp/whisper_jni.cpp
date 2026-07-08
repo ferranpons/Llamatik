@@ -113,6 +113,22 @@ Java_com_llamatik_library_platform_WhisperBridge_transcribeWav(JNIEnv* env, jobj
     return env->NewStringUTF(safe.c_str());
 }
 
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_llamatik_library_platform_WhisperBridge_transcribeWavSegments(JNIEnv* env, jobject, jstring wavPath, jstring lang, jstring initialPrompt) {
+    const char* cwav = env->GetStringUTFChars(wavPath, nullptr);
+    const char* clang = lang ? env->GetStringUTFChars(lang, nullptr) : nullptr;
+    const char* cprompt = initialPrompt ? env->GetStringUTFChars(initialPrompt, nullptr) : nullptr;
+
+    const char* out = whisper_stt_transcribe_wav_segments(cwav, clang, cprompt);
+
+    if (initialPrompt) env->ReleaseStringUTFChars(initialPrompt, cprompt);
+    if (lang) env->ReleaseStringUTFChars(lang, clang);
+    env->ReleaseStringUTFChars(wavPath, cwav);
+
+    std::string safe = sanitize_for_modified_utf8(out ? out : "");
+    return env->NewStringUTF(safe.c_str());
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_llamatik_library_platform_WhisperBridge_release(JNIEnv*, jobject) {
 whisper_stt_release();
