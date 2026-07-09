@@ -191,8 +191,8 @@ actual object WhisperBridge {
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    actual fun transcribeWavSegments(wavPath: String, language: String?, initialPrompt: String?): String {
-        val ptr = whisper_stt_transcribe_wav_segments(wavPath, language, initialPrompt)
+    actual fun transcribeWavSegments(wavPath: String, language: String?, initialPrompt: String?, diarize: Boolean): String {
+        val ptr = whisper_stt_transcribe_wav_segments(wavPath, language, initialPrompt, if (diarize) 1 else 0)
             ?: return "{\"language\":\"\",\"segments\":[]}"
 
         return try {

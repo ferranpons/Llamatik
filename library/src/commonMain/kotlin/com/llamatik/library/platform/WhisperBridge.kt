@@ -22,8 +22,12 @@ expect object WhisperBridge {
      * `t0`/`t1` are milliseconds. `speaker_turn_next` is meaningful only with a
      * tinydiarize (`…-tdrz`) model and is `false` for regular models. Consumed by
      * language-aware / conversation (diarization) transcript views.
+     *
+     * Pass [diarize] `= true` ONLY with a `…-tdrz` model — it enables whisper's
+     * `tdrz_enable` speaker-turn detection (which also injects `[SPEAKER_TURN]`
+     * markers into the text). Leave `false` for regular models.
      */
-    fun transcribeWavSegments(wavPath: String, language: String? = null, initialPrompt: String? = null): String
+    fun transcribeWavSegments(wavPath: String, language: String? = null, initialPrompt: String? = null, diarize: Boolean = false): String
 
     fun release()
 }

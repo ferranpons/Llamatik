@@ -25,7 +25,7 @@ actual object WhisperBridge {
 
     actual external fun initModel(modelPath: String): Boolean
     actual external fun transcribeWav(wavPath: String, language: String?, initialPrompt: String?): String
-    actual external fun transcribeWavSegments(wavPath: String, language: String?, initialPrompt: String?): String
+    actual external fun transcribeWavSegments(wavPath: String, language: String?, initialPrompt: String?, diarize: Boolean): String
     actual external fun release()
 
     private fun loadNativeFromResources() {

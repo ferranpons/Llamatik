@@ -17,7 +17,7 @@ char *whisper_stt_transcribe_wav(const char *wav_path, const char *language, con
 // whisper_stt_free_string) exposing per-segment text + timestamps (ms) + the
 // tinydiarize speaker-turn flag + the detected language code:
 //   {"language":"de","segments":[{"text":"…","t0":0,"t1":1200,"speaker_turn_next":false}]}
-char *whisper_stt_transcribe_wav_segments(const char *wav_path, const char *language, const char *initial_prompt);
+char *whisper_stt_transcribe_wav_segments(const char *wav_path, const char *language, const char *initial_prompt, int diarize);
 
 void whisper_stt_release(void);
 

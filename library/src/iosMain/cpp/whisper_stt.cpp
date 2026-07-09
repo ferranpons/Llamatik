@@ -256,7 +256,7 @@ static void json_escape(const char *s, std::string &out) {
 //   {"language":"de","segments":[{"text":"…","t0":0,"t1":1200,"speaker_turn_next":false}]}
 // t0/t1 are milliseconds; speaker_turn_next is meaningful only with a tinydiarize model.
 // Caller must free via whisper_stt_free_string.
-char *whisper_stt_transcribe_wav_segments(const char *wav_path, const char *language, const char *initial_prompt) {
+char *whisper_stt_transcribe_wav_segments(const char *wav_path, const char *language, const char *initial_prompt, int diarize) {
     if (!g_whisper_ctx) {
         return ::strdup("{\"error\":\"context not initialized\"}");
     }
@@ -275,6 +275,9 @@ char *whisper_stt_transcribe_wav_segments(const char *wav_path, const char *lang
     params.print_timestamps = false;
     params.print_special = false;
     params.translate = false;
+    // [EXPERIMENTAL][TDRZ] tinydiarize speaker-turn detection (off by default;
+    // only meaningful with a `…-tdrz` model).
+    params.tdrz_enable = diarize != 0;
 
     if (language && language[0] != '\0') {
         params.language = language;

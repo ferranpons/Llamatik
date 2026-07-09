@@ -114,12 +114,12 @@ Java_com_llamatik_library_platform_WhisperBridge_transcribeWav(JNIEnv* env, jobj
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_llamatik_library_platform_WhisperBridge_transcribeWavSegments(JNIEnv* env, jobject, jstring wavPath, jstring lang, jstring initialPrompt) {
+Java_com_llamatik_library_platform_WhisperBridge_transcribeWavSegments(JNIEnv* env, jobject, jstring wavPath, jstring lang, jstring initialPrompt, jboolean diarize) {
     const char* cwav = env->GetStringUTFChars(wavPath, nullptr);
     const char* clang = lang ? env->GetStringUTFChars(lang, nullptr) : nullptr;
     const char* cprompt = initialPrompt ? env->GetStringUTFChars(initialPrompt, nullptr) : nullptr;
 
-    const char* out = whisper_stt_transcribe_wav_segments(cwav, clang, cprompt);
+    const char* out = whisper_stt_transcribe_wav_segments(cwav, clang, cprompt, diarize ? 1 : 0);
 
     if (initialPrompt) env->ReleaseStringUTFChars(initialPrompt, cprompt);
     if (lang) env->ReleaseStringUTFChars(lang, clang);
