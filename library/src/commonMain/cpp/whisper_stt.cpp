@@ -196,7 +196,7 @@ static void json_escape(const char* s, std::string& out) {
 //   ]}
 // t0/t1 are milliseconds. speaker_turn_next is meaningful only with a tinydiarize
 // (…-tdrz) model; it is always false for regular models (never throws).
-const char* whisper_stt_transcribe_wav_segments(const char* wav_path, const char* language, const char* initial_prompt, int diarize) {
+const char* whisper_stt_transcribe_wav_segments(const char* wav_path, const char* language, const char* initial_prompt, int translate, int diarize) {
     std::lock_guard<std::mutex> lock(g_mu);
     g_segments_json.clear();
 
@@ -215,7 +215,10 @@ const char* whisper_stt_transcribe_wav_segments(const char* wav_path, const char
     params.print_progress = false;
     params.print_realtime = false;
     params.print_timestamps = false;
-    params.translate = false;
+    // [translate] whisper's built-in ORIGINAL→ENGLISH translation task. When true,
+    // segment text is the ENGLISH translation regardless of the spoken language — a
+    // real Whisper translation (not an LLM paraphrase). Off = language-preserving.
+    params.translate = translate != 0;
     // [EXPERIMENTAL][TDRZ] enable tinydiarize speaker-turn detection — only meaningful
     // with a `…-tdrz` model. Off by default so regular models are unaffected (a tdrz
     // model additionally emits `[SPEAKER_TURN]` markers in the text, so callers gate this

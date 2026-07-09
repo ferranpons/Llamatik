@@ -6,7 +6,7 @@ extern "C" {
 
 int whisper_stt_init(const char* model_path);
 const char* whisper_stt_transcribe_wav(const char* wav_path, const char* language, const char* initial_prompt);
-const char* whisper_stt_transcribe_wav_segments(const char* wav_path, const char* language, const char* initial_prompt, int diarize);
+const char* whisper_stt_transcribe_wav_segments(const char* wav_path, const char* language, const char* initial_prompt, int translate, int diarize);
 void whisper_stt_release(void);
 
 #ifdef __cplusplus

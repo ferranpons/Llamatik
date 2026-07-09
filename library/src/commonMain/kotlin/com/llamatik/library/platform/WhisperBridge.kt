@@ -23,11 +23,16 @@ expect object WhisperBridge {
      * tinydiarize (`…-tdrz`) model and is `false` for regular models. Consumed by
      * language-aware / conversation (diarization) transcript views.
      *
+     * Pass [translate] `= true` to run whisper's built-in ORIGINAL→ENGLISH
+     * translation task (`params.translate`): segment text becomes the ENGLISH
+     * translation regardless of the language spoken — a real Whisper translation,
+     * not an LLM paraphrase. Leave `false` for a language-preserving transcript.
+     *
      * Pass [diarize] `= true` ONLY with a `…-tdrz` model — it enables whisper's
      * `tdrz_enable` speaker-turn detection (which also injects `[SPEAKER_TURN]`
      * markers into the text). Leave `false` for regular models.
      */
-    fun transcribeWavSegments(wavPath: String, language: String? = null, initialPrompt: String? = null, diarize: Boolean = false): String
+    fun transcribeWavSegments(wavPath: String, language: String? = null, initialPrompt: String? = null, translate: Boolean = false, diarize: Boolean = false): String
 
     fun release()
 }
