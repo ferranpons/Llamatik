@@ -13,6 +13,7 @@
 static std::mutex g_mu;
 static whisper_context* g_ctx = nullptr;
 static std::string g_last;
+static std::string g_segments_json;
 
 int whisper_stt_init(const char* model_path) {
     std::lock_guard<std::mutex> lock(g_mu);
@@ -154,6 +155,114 @@ const char* whisper_stt_transcribe_wav(const char* wav_path, const char* languag
     }
 
     return g_last.c_str();
+}
+
+// Minimal JSON string-content escaper (appends escaped [s] into [out]).
+static void json_escape(const char* s, std::string& out) {
+    if (!s) return;
+    for (const char* p = s; *p; ++p) {
+        const unsigned char c = static_cast<unsigned char>(*p);
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            default:
+                if (c < 0x20) {
+                    char buf[8];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    out += buf;
+                } else {
+                    out += static_cast<char>(c);
+                }
+        }
+    }
+}
+
+// Segment-aware transcription. Same whisper_full call as
+// whisper_stt_transcribe_wav (translate=false — language-PRESERVING), but returns
+// a JSON document exposing per-segment text + timestamps (ms) + the tinydiarize
+// speaker-turn flag, plus the whole-audio detected language code. This is the
+// surface FR-20 (language-aware original + code-switch structuring) and FR-21
+// (diarization / conversation view) consume — the flat transcribeWav concatenates
+// segments and drops all of this.
+//
+// Shape:
+//   {"language":"de","segments":[
+//       {"text":"Guten Morgen.","t0":0,"t1":1200,"speaker_turn_next":false}, ...
+//   ]}
+// t0/t1 are milliseconds. speaker_turn_next is meaningful only with a tinydiarize
+// (…-tdrz) model; it is always false for regular models (never throws).
+const char* whisper_stt_transcribe_wav_segments(const char* wav_path, const char* language, const char* initial_prompt, int translate, int diarize) {
+    std::lock_guard<std::mutex> lock(g_mu);
+    g_segments_json.clear();
+
+    if (!g_ctx) {
+        g_segments_json = "{\"error\":\"Whisper not initialized\"}";
+        return g_segments_json.c_str();
+    }
+
+    std::vector<float> pcmf;
+    if (!load_wav_pcm16_mono_16k(wav_path, pcmf)) {
+        g_segments_json = "{\"error\":\"WAV must be PCM16 mono 16kHz\"}";
+        return g_segments_json.c_str();
+    }
+
+    whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    params.print_progress = false;
+    params.print_realtime = false;
+    params.print_timestamps = false;
+    // [translate] whisper's built-in ORIGINAL→ENGLISH translation task. When true,
+    // segment text is the ENGLISH translation regardless of the spoken language — a
+    // real Whisper translation (not an LLM paraphrase). Off = language-preserving.
+    params.translate = translate != 0;
+    // [EXPERIMENTAL][TDRZ] enable tinydiarize speaker-turn detection — only meaningful
+    // with a `…-tdrz` model. Off by default so regular models are unaffected (a tdrz
+    // model additionally emits `[SPEAKER_TURN]` markers in the text, so callers gate this
+    // to tdrz models only).
+    params.tdrz_enable = diarize != 0;
+
+    if (language && language[0]) {
+        params.language = language;
+    }
+    if (initial_prompt && initial_prompt[0]) {
+        params.initial_prompt = initial_prompt;
+    }
+
+    if (whisper_full(g_ctx, params, pcmf.data(), (int)pcmf.size()) != 0) {
+        g_segments_json = "{\"error\":\"whisper_full failed\"}";
+        return g_segments_json.c_str();
+    }
+
+    const int lang_id = whisper_full_lang_id(g_ctx);
+    const char* lang_str = (lang_id >= 0) ? whisper_lang_str(lang_id) : "";
+
+    g_segments_json = "{\"language\":\"";
+    json_escape(lang_str ? lang_str : "", g_segments_json);
+    g_segments_json += "\",\"segments\":[";
+
+    const int n = whisper_full_n_segments(g_ctx);
+    for (int i = 0; i < n; i++) {
+        if (i > 0) g_segments_json += ",";
+        const char* seg = whisper_full_get_segment_text(g_ctx, i);
+        const long long t0 = static_cast<long long>(whisper_full_get_segment_t0(g_ctx, i)) * 10; // csec → msec
+        const long long t1 = static_cast<long long>(whisper_full_get_segment_t1(g_ctx, i)) * 10;
+        const bool turn = whisper_full_get_segment_speaker_turn_next(g_ctx, i);
+
+        g_segments_json += "{\"text\":\"";
+        json_escape(seg ? seg : "", g_segments_json);
+        char buf[96];
+        std::snprintf(buf, sizeof(buf),
+                      "\",\"t0\":%lld,\"t1\":%lld,\"speaker_turn_next\":%s}",
+                      t0, t1, turn ? "true" : "false");
+        g_segments_json += buf;
+    }
+    g_segments_json += "]}";
+
+    return g_segments_json.c_str();
 }
 
 void whisper_stt_release(void) {

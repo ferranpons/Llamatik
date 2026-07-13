@@ -227,6 +227,102 @@ char *whisper_stt_transcribe_wav(const char *wav_path, const char *language, con
     return ::strdup(out.c_str());
 }
 
+// Minimal JSON string-content escaper (appends escaped [s] into [out]).
+static void json_escape(const char *s, std::string &out) {
+    if (!s) return;
+    for (const char *p = s; *p; ++p) {
+        const unsigned char c = (unsigned char)*p;
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            default:
+                if (c < 0x20) {
+                    char buf[8];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    out += buf;
+                } else {
+                    out += (char)c;
+                }
+        }
+    }
+}
+
+// Segment-aware transcription (see the header). Returns a malloc'ed JSON string:
+//   {"language":"de","segments":[{"text":"…","t0":0,"t1":1200,"speaker_turn_next":false}]}
+// t0/t1 are milliseconds; speaker_turn_next is meaningful only with a tinydiarize model.
+// Caller must free via whisper_stt_free_string.
+char *whisper_stt_transcribe_wav_segments(const char *wav_path, const char *language, const char *initial_prompt, int translate, int diarize) {
+    if (!g_whisper_ctx) {
+        return ::strdup("{\"error\":\"context not initialized\"}");
+    }
+    if (!wav_path || wav_path[0] == '\0') {
+        return ::strdup("{\"error\":\"wav_path is null/empty\"}");
+    }
+
+    std::vector<float> pcmf32;
+    if (!read_wav_pcm16le_to_f32_mono(wav_path, pcmf32)) {
+        return ::strdup("{\"error\":\"failed to read wav\"}");
+    }
+
+    auto params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    params.print_realtime = false;
+    params.print_progress = false;
+    params.print_timestamps = false;
+    params.print_special = false;
+    // [translate] whisper's built-in ORIGINAL→ENGLISH translation task (real Whisper
+    // translation, not an LLM paraphrase). Off = language-preserving.
+    params.translate = translate != 0;
+    // [EXPERIMENTAL][TDRZ] tinydiarize speaker-turn detection (off by default;
+    // only meaningful with a `…-tdrz` model).
+    params.tdrz_enable = diarize != 0;
+
+    if (language && language[0] != '\0') {
+        params.language = language;
+    } else {
+        params.language = "auto";
+    }
+    if (initial_prompt && initial_prompt[0] != '\0') {
+        params.initial_prompt = initial_prompt;
+    }
+
+    const int rc = whisper_full(g_whisper_ctx, params, pcmf32.data(), (int)pcmf32.size());
+    if (rc != 0) {
+        return ::strdup("{\"error\":\"whisper_full failed\"}");
+    }
+
+    const int lang_id = whisper_full_lang_id(g_whisper_ctx);
+    const char *lang_str = (lang_id >= 0) ? whisper_lang_str(lang_id) : "";
+
+    std::string out = "{\"language\":\"";
+    json_escape(lang_str ? lang_str : "", out);
+    out += "\",\"segments\":[";
+
+    const int n_segments = whisper_full_n_segments(g_whisper_ctx);
+    for (int i = 0; i < n_segments; ++i) {
+        if (i > 0) out += ",";
+        const char *txt = whisper_full_get_segment_text(g_whisper_ctx, i);
+        const long long t0 = (long long)whisper_full_get_segment_t0(g_whisper_ctx, i) * 10; // csec → msec
+        const long long t1 = (long long)whisper_full_get_segment_t1(g_whisper_ctx, i) * 10;
+        const bool turn = whisper_full_get_segment_speaker_turn_next(g_whisper_ctx, i);
+
+        out += "{\"text\":\"";
+        json_escape(txt ? txt : "", out);
+        char buf[96];
+        std::snprintf(buf, sizeof(buf),
+                      "\",\"t0\":%lld,\"t1\":%lld,\"speaker_turn_next\":%s}",
+                      t0, t1, turn ? "true" : "false");
+        out += buf;
+    }
+    out += "]}";
+
+    return ::strdup(out.c_str());
+}
+
 void whisper_stt_release(void) {
     if (g_whisper_ctx) {
         whisper_free(g_whisper_ctx);
