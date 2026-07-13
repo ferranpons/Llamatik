@@ -22,7 +22,6 @@ kotlin {
     jvm()
 
     // iOS targets
-    iosX64()
     iosArm64()
     iosSimulatorArm64()
 
@@ -33,7 +32,7 @@ kotlin {
         binaries.executable()
     }
 
-    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "shared"
             isStatic = false
