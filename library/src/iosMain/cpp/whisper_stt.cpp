@@ -109,6 +109,7 @@ static bool read_wav_pcm16le_to_f32_mono(const char *path, std::vector<float> &o
     if (!have_fmt || !have_data) return false;
     if (audio_format != 1) return false;      // PCM only
     if (bits_per_sample != 16) return false;  // PCM16 only
+    if (sample_rate != 16000) return false;   // whisper requires 16kHz
     if (num_channels < 1 || num_channels > 2) return false;
 
     const size_t frame_size = (size_t)num_channels * 2;
