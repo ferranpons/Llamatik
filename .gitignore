@@ -37,6 +37,7 @@ google-services.json
 xcuserdata
 
 *.klib
+*.class
 .kotlin/metadata
 .kotlin/sessions
 

@@ -24,7 +24,7 @@ jobs:
       matrix:
         include:
           - language: java-kotlin
-            build-mode: none
+            build-mode: manual
           - language: c-cpp
             build-mode: manual
           - language: javascript-typescript
@@ -43,11 +43,16 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       - name: Set up Gradle
         if: matrix.language == 'java-kotlin'
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK platform 37
+        if: matrix.language == 'java-kotlin'
+        run: |
+          echo "y" | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platforms;android-37"  
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -55,6 +60,15 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: .github/codeql-config.yml
+
+      - name: Build Java/Kotlin sources
+        if: matrix.language == 'java-kotlin'
+        run: |
+          ./gradlew \
+            :composeApp:compileDebugKotlinAndroid \
+            :composeApp:compileKotlinDesktop \
+            :library:compileDebugKotlinAndroid \
+            --no-build-cache --no-daemon --stacktrace
 
       - name: Build C/C++ sources
         if: matrix.language == 'c-cpp'
