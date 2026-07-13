@@ -74,6 +74,9 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 - ✅ 16kHz mono WAV support
 - ✅ Selectable Whisper models
 - ✅ Integrated model download + management
+- ✅ **Segment-aware transcription** — per-segment text, timestamps, detected language, and speaker-turn boundaries (`transcribeWavSegments`)
+- ✅ Optional **translation to English** (whisper's built-in translate task)
+- ✅ Optional **tinydiarize speaker-turn detection** (`…-tdrz` models)
 
 ### 🎨 Image Generation (stable-diffusion.cpp)
 
@@ -514,6 +517,30 @@ object WhisperBridge {
      */
     fun transcribeWav(wavPath: String, language: String? = null, initialPrompt: String? = null): String
 
+    /**
+     * Segment-aware transcription. Returns a JSON document with per-segment text,
+     * start/end timestamps (milliseconds), speaker-turn flag, and the detected
+     * language code. Shape:
+     *
+     * ```json
+     * {"language":"de","segments":[
+     *     {"text":"Guten Morgen.","t0":0,"t1":1200,"speaker_turn_next":false}
+     * ]}
+     * ```
+     *
+     * @param translate  `true` = translate audio to English (whisper's built-in
+     *                   translate task). Default `false` = language-preserving.
+     * @param diarize    `true` = enable tinydiarize speaker-turn detection. Only
+     *                   meaningful with a `…-tdrz` model; leave `false` otherwise.
+     */
+    fun transcribeWavSegments(
+        wavPath: String,
+        language: String? = null,
+        initialPrompt: String? = null,
+        translate: Boolean = false,
+        diarize: Boolean = false,
+    ): String
+
     /** Frees native resources. */
     fun release()
 }
@@ -541,6 +568,51 @@ WhisperBridge.release()
 ```
 
 **Note**: WhisperBridge expects a WAV file path. Llamatik’s app uses AudioRecorder + AudioPaths.tempWavPath() to generate the WAV before calling transcribeWav(...).
+
+#### Segment-aware transcription
+
+`transcribeWavSegments` returns a JSON document that exposes everything `transcribeWav` discards — per-segment timestamps, the auto-detected language, and (with a `-tdrz` model) speaker-turn boundaries.
+
+```kotlin
+import com.llamatik.library.platform.WhisperBridge
+import kotlinx.serialization.json.*
+
+WhisperBridge.initModel(modelPath)
+
+val json = WhisperBridge.transcribeWavSegments(
+    wavPath  = "/path/to/recording.wav",
+    language = null,           // auto-detect
+)
+// {"language":"de","segments":[{"text":"Guten Morgen.","t0":0,"t1":1200,"speaker_turn_next":false},...]}
+
+// Parse with kotlinx.serialization or any JSON library
+val root     = Json.parseToJsonElement(json).jsonObject
+val language = root["language"]?.jsonPrimitive?.content
+val segments = root["segments"]!!.jsonArray
+for (seg in segments) {
+    val obj   = seg.jsonObject
+    val text  = obj["text"]?.jsonPrimitive?.content
+    val t0Ms  = obj["t0"]?.jsonPrimitive?.long   // start in milliseconds
+    val t1Ms  = obj["t1"]?.jsonPrimitive?.long   // end in milliseconds
+    val turn  = obj["speaker_turn_next"]?.jsonPrimitive?.boolean
+    println("[$t0Ms–$t1Ms ms] $text  (speaker_turn=$turn)")
+}
+```
+
+**Translate to English** — pass `translate = true` to get the English translation of the audio regardless of the spoken language:
+
+```kotlin
+val json = WhisperBridge.transcribeWavSegments(wavPath, translate = true)
+```
+
+**Speaker diarization** — pass `diarize = true` **only** with a tinydiarize (`…-tdrz`) model to get real `speaker_turn_next` boundaries:
+
+```kotlin
+val json = WhisperBridge.transcribeWavSegments(
+    wavPath = wavPath,
+    diarize = true,   // requires a …-tdrz model (e.g. small.en-tdrz)
+)
+```
 
 
 ### 🎨 Image Generation (StableDiffusionBridge)
