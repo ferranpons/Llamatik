@@ -12,6 +12,25 @@
 #include <cstdio>
 #include <cstdarg>
 
+// Returns the byte length of the longest valid UTF-8 prefix of [data, data+len).
+// Trailing incomplete multi-byte sequences are excluded.
+static size_t utf8_complete_prefix_len(const char *data, size_t len) {
+    if (len == 0) return 0;
+    size_t i = 0;
+    while (i < len) {
+        unsigned char c = (unsigned char)data[i];
+        int seq;
+        if      (c < 0x80)           seq = 1;
+        else if ((c & 0xE0) == 0xC0) seq = 2;
+        else if ((c & 0xF0) == 0xE0) seq = 3;
+        else if ((c & 0xF8) == 0xF0) seq = 4;
+        else { ++i; continue; }
+        if (i + (size_t)seq > len) break;
+        i += seq;
+    }
+    return i;
+}
+
 // ===================================================================================
 //                              PLATFORM LOGGING
 // ===================================================================================
@@ -140,8 +159,9 @@ static void stream_vlm(
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.35f));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    char piece_buf[512];
-    char spec_buf[64];
+    char        piece_buf[512];
+    char        spec_buf[64];
+    std::string utf8_tail;  // incomplete multi-byte UTF-8 bytes held from last token
 
     for (int i = 0; i < max_toks; ++i) {
         if (mm_cancel.load(std::memory_order_relaxed)) break;
@@ -166,10 +186,16 @@ static void stream_vlm(
         int nn = llama_token_to_piece(vocab, tok, piece_buf, (int)sizeof(piece_buf), 0, 0);
         if (nn > 0) {
             piece_buf[std::min(nn, (int)sizeof(piece_buf) - 1)] = '\0';
-            jstring delta = env->NewStringUTF(piece_buf);
-            if (delta) {
-                env->CallVoidMethod(jCallback, m.onDelta, delta);
-                env->DeleteLocalRef(delta);
+            utf8_tail.append(piece_buf, (size_t)nn);
+            size_t safe = utf8_complete_prefix_len(utf8_tail.data(), utf8_tail.size());
+            if (safe > 0) {
+                std::string to_send(utf8_tail.data(), safe);
+                utf8_tail.erase(0, safe);
+                jstring delta = env->NewStringUTF(to_send.c_str());
+                if (delta) {
+                    env->CallVoidMethod(jCallback, m.onDelta, delta);
+                    env->DeleteLocalRef(delta);
+                }
             }
         }
 
@@ -192,6 +218,20 @@ static void stream_vlm(
     }
 
     llama_sampler_free(sampler);
+
+    // Flush any leftover bytes before signalling completion (only the valid UTF-8 prefix).
+    if (!utf8_tail.empty()) {
+        size_t safe = utf8_complete_prefix_len(utf8_tail.data(), utf8_tail.size());
+        if (safe > 0) {
+            std::string to_send(utf8_tail.data(), safe);
+            jstring delta = env->NewStringUTF(to_send.c_str());
+            if (delta) {
+                env->CallVoidMethod(jCallback, m.onDelta, delta);
+                env->DeleteLocalRef(delta);
+            }
+        }
+    }
+
     env->CallVoidMethod(jCallback, m.onComplete);
 }
 
