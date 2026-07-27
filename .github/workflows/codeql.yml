@@ -44,11 +44,17 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Gradle
         if: matrix.language == 'java-kotlin'
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK platform 36
+        if: matrix.language == 'java-kotlin'
+        run: |
+          SDKMANAGER=$(find "${ANDROID_SDK_ROOT}/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort -V | tail -1)
+          echo "Using sdkmanager: $SDKMANAGER"
+          echo "y" | "$SDKMANAGER" "platforms;android-36"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4

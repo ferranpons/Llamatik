@@ -8,6 +8,25 @@
 #include <vector>
 #include <cinttypes>
 
+// Returns the number of bytes in the longest valid UTF-8 prefix of [data, data+len).
+// Any incomplete multi-byte sequence at the end is excluded.
+static size_t utf8_complete_prefix_len(const char *data, size_t len) {
+    if (len == 0) return 0;
+    size_t i = 0;
+    while (i < len) {
+        unsigned char c = (unsigned char)data[i];
+        int seq;
+        if      (c < 0x80)                    seq = 1;
+        else if ((c & 0xE0) == 0xC0)          seq = 2;
+        else if ((c & 0xF0) == 0xE0)          seq = 3;
+        else if ((c & 0xF8) == 0xF0)          seq = 4;
+        else { ++i; continue; }  // invalid lead byte — skip
+        if (i + (size_t)seq > len) break;     // incomplete sequence at end
+        i += seq;
+    }
+    return i;
+}
+
 #if defined(__APPLE__)
 #include <cstdlib>
 #endif
@@ -49,6 +68,7 @@ struct JniStreamCtx {
     jmethodID onDelta;
     jmethodID onComplete;
     jmethodID onError;
+    std::string utf8_buf;  // incomplete multi-byte UTF-8 tail from the previous chunk
 };
 
 static bool resolve_stream_methods(JNIEnv *env, jobject cb,
@@ -61,15 +81,26 @@ static bool resolve_stream_methods(JNIEnv *env, jobject cb,
     return onDelta && onComplete && onError;
 }
 
+static void jni_flush_utf8(JniStreamCtx *c) {
+    if (c->utf8_buf.empty()) return;
+    size_t safe = utf8_complete_prefix_len(c->utf8_buf.data(), c->utf8_buf.size());
+    if (safe == 0) return;
+    std::string to_send(c->utf8_buf.data(), safe);
+    c->utf8_buf.erase(0, safe);
+    jstring js = c->env->NewStringUTF(to_send.c_str());
+    if (js) { c->env->CallVoidMethod(c->callback, c->onDelta, js); c->env->DeleteLocalRef(js); }
+}
+
 static void jni_on_delta(const char *text, void *user) {
     auto *c = static_cast<JniStreamCtx *>(user);
     if (!text || !c->env) return;
-    jstring js = c->env->NewStringUTF(text);
-    if (js) { c->env->CallVoidMethod(c->callback, c->onDelta, js); c->env->DeleteLocalRef(js); }
+    c->utf8_buf.append(text);
+    jni_flush_utf8(c);
 }
 
 static void jni_on_done(void *user) {
     auto *c = static_cast<JniStreamCtx *>(user);
+    jni_flush_utf8(c);  // flush any complete UTF-8 bytes still in the buffer
     c->env->CallVoidMethod(c->callback, c->onComplete);
 }
 
