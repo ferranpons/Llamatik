@@ -40,4 +40,4 @@ dependencyResolutionManagement {
 rootProject.name = "Llamatik"
 include(":composeApp")
 include(":shared")
-include(":library")
+include(":core")

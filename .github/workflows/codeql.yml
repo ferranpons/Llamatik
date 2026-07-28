@@ -69,7 +69,7 @@ jobs:
           ./gradlew \
             :composeApp:compileDebugKotlinAndroid \
             :composeApp:compileKotlinDesktop \
-            :library:compileDebugKotlinAndroid \
+            :core:compileDebugKotlinAndroid \
             --no-build-cache --no-daemon --stacktrace
 
       - name: Build C/C++ sources

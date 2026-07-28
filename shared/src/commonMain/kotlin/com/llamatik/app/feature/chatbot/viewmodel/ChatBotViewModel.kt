@@ -44,11 +44,11 @@ import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.normalizeToJpegBytes
 import com.llamatik.app.platform.tts.TtsEngine
-import com.llamatik.library.platform.LlamaBridge
-import com.llamatik.library.platform.LlamaSession
-import com.llamatik.library.platform.MultimodalBridge
-import com.llamatik.library.platform.StableDiffusionBridge
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.LlamaBridge
+import com.llamatik.core.platform.LlamaSession
+import com.llamatik.core.platform.MultimodalBridge
+import com.llamatik.core.platform.StableDiffusionBridge
+import com.llamatik.core.platform.WhisperBridge
 import com.russhwolf.settings.Settings
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.openFilePicker
@@ -869,7 +869,7 @@ class ChatBotViewModel(
                 MultimodalBridge.analyzeImageBytesStream(
                     imageBytes = imageBytes,
                     prompt     = input,
-                    callback   = object : com.llamatik.library.platform.GenStream {
+                    callback   = object : com.llamatik.core.platform.GenStream {
                         override fun onDelta(text: String) {
                             if (activeRequestId != requestId) return
                             acc.append(text)

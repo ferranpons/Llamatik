@@ -53,7 +53,7 @@ kotlin {
         }
 
         commonMain.dependencies {
-            api(project(":library"))
+            api(project(":core"))
 
             implementation(compose.ui)
             implementation(compose.foundation)
@@ -103,9 +103,9 @@ kotlin {
         }
 /*
         // Native/desktop platforms keep using :library.
-        androidMain.dependencies { api(project(":library")) }
-        iosMain.dependencies { api(project(":library")) }
-        jvmMain.dependencies { api(project(":library")) }
+        androidMain.dependencies { api(project(":core")) }
+        iosMain.dependencies { api(project(":core")) }
+        jvmMain.dependencies { api(project(":core")) }
 
         // wasmJsMain does NOT depend on :library (native/JNI). It uses stubbed APIs.
         val wasmJsMain by getting

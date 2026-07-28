@@ -25,7 +25,22 @@ nexusPublishing {
     }
 }
 
+val kotlinVersion: String = libs.versions.kotlin.get()
+
 subprojects {
+    configurations.all {
+        resolutionStrategy {
+            // Prevent transitive deps from upgrading kotlin-stdlib beyond the compiler version.
+            // A stdlib newer than the Kotlin compiler causes "Symbol for Any not found" when
+            // compiling wasm targets because the Gradle plugin stops injecting the correct klib.
+            force(
+                "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion",
+                "org.jetbrains.kotlin:kotlin-stdlib-wasm-js:$kotlinVersion",
+                "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlinVersion",
+            )
+        }
+    }
+
     if (name != "desktopApp") {
         apply(plugin = "org.jlleitschuh.gradle.ktlint")
         apply(plugin = "io.gitlab.arturbosch.detekt")

@@ -1,6 +1,0 @@
-headers = llama_embed.h
-headerFilter = llama_embed.h
-compilerOpts = -I$PROJECT_DIR/src/commonMain/c_interop/include -I$PROJECT_DIR/src/iosMain/c_interop/include
-staticLibraries = libllama_merged.a
-linkerOpts = -framework Accelerate -framework Metal -lc++ -ObjC
-package = com.llamatik.library.platform.llama

@@ -549,7 +549,7 @@ object WhisperBridge {
 #### Example
 
 ```kotlin
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.WhisperBridge
 
 val modelPath = WhisperBridge.getModelPath("ggml-tiny-q8_0.bin")
 
@@ -574,7 +574,7 @@ WhisperBridge.release()
 `transcribeWavSegments` returns a JSON document that exposes everything `transcribeWav` discards — per-segment timestamps, the auto-detected language, and (with a `-tdrz` model) speaker-turn boundaries.
 
 ```kotlin
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.WhisperBridge
 import kotlinx.serialization.json.*
 
 WhisperBridge.initModel(modelPath)
@@ -679,7 +679,7 @@ object StableDiffusionBridge {
 #### txt2img example
 
 ```kotlin
-import com.llamatik.library.platform.StableDiffusionBridge
+import com.llamatik.core.platform.StableDiffusionBridge
 
 val modelPath = StableDiffusionBridge.getModelPath("dreamshaper.safetensors")
 StableDiffusionBridge.initModel(modelPath, threads = 4)
@@ -754,7 +754,7 @@ object MultimodalBridge {
 #### Example
 
 ```kotlin
-import com.llamatik.library.platform.MultimodalBridge
+import com.llamatik.core.platform.MultimodalBridge
 
 // 1) Init once — both model and mmproj must be downloaded first
 val loaded = MultimodalBridge.initModel(

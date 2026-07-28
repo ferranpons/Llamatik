@@ -77,7 +77,7 @@ import com.llamatik.app.ui.components.NewsCardSmall
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.WhisperBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
