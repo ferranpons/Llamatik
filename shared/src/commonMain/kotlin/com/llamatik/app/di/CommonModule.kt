@@ -32,12 +32,21 @@ import com.llamatik.app.feature.reviews.ReviewService
 import com.llamatik.app.feature.reviews.createReviewService
 import com.llamatik.app.feature.webview.viewmodel.WebViewModel
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.platform.AppDispatchersIO
 import com.llamatik.app.platform.LlamatikEventTracker
+import com.llamatik.app.platform.LlamatikFileAccessAdapter
+import com.llamatik.app.platform.ModelPathResolverAdapter
+import com.llamatik.app.platform.RagStorageAdapter
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.platform.RootSnackbarHostStateRepository
 import com.llamatik.app.platform.ServiceClient
 import com.llamatik.app.ui.screens.viewmodel.HomeScreenViewModel
 import com.llamatik.app.ui.screens.viewmodel.SettingsViewModel
+import com.llamatik.sdk.assistant.Assistant
+import com.llamatik.sdk.assistant.ModelPathResolver
+import com.llamatik.sdk.assistant.RagStorage
+import com.llamatik.sdk.http.LlamatikHttpClient
+import com.llamatik.sdk.platform.LlamatikFileAccess
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
@@ -121,6 +130,38 @@ val commonModule = module {
 
     single { ServiceClient }
     single { getCurrentLocalization() }
+
+    // SDK layer — UI-agnostic business logic
+    single<LlamatikFileAccess> { LlamatikFileAccessAdapter() }
+    single { LlamatikHttpClient() }
+    single {
+        val loc = getCurrentLocalization()
+        com.llamatik.sdk.model.ModelsRepository(
+            fileAccess = get(),
+            httpClient = get(),
+            defaultSystemPrompt = loc.defaultSystemPrompt,
+            smolVlm256SystemPrompt = loc.smolVLM256SystemPrompt,
+            smolVlm500SystemPrompt = loc.smolVLM500SystemPrompt,
+        )
+    }
+    single { com.llamatik.sdk.download.DefaultModelDownloadOrchestrator(get()) }
+    single { com.llamatik.sdk.model.GetModelsUseCase(get()) }
+    single { com.llamatik.sdk.model.ImportModelUseCase(get()) }
+    single { com.llamatik.sdk.chat.ChatHistoryRepository(get()) }
+    single<ModelPathResolver> { ModelPathResolverAdapter(get()) }
+    single<RagStorage> { RagStorageAdapter() }
+    factory { (scope: kotlinx.coroutines.CoroutineScope, systemPromptOverride: String?) ->
+        Assistant(
+            scope = scope,
+            ioDispatcher = AppDispatchersIO,
+            getModelsUseCase = get<com.llamatik.sdk.model.GetModelsUseCase>(),
+            modelDownloadOrchestrator = get<com.llamatik.sdk.download.DefaultModelDownloadOrchestrator>(),
+            chatHistoryRepository = get<com.llamatik.sdk.chat.ChatHistoryRepository>(),
+            pathResolver = get(),
+            ragStorage = get(),
+            systemPromptOverride = systemPromptOverride,
+        )
+    }
 
     singleOf(::ChatHistoryRepository)
     singleOf(::PendingSessionRepository)

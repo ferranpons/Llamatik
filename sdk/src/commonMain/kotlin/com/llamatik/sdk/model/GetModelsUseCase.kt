@@ -65,6 +65,10 @@ class GetModelsUseCase(
         modelsRepository.deleteModelPath(modelName = model.name)
     }
 
+    fun clearSavedPath(modelName: String) {
+        modelsRepository.deleteModelPath(modelName = modelName)
+    }
+
     fun getUserImportedModels(): Result<List<LlamaModel>> = runCatching {
         modelsRepository.getImportedModels().map { model ->
             val savedPath = modelsRepository.getSavedModelPath(model.name)
