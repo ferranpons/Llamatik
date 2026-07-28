@@ -1,4 +1,4 @@
-package com.llamatik.app.feature.chatbot.utils
+package com.llamatik.sdk.chat
 
 sealed interface PromptTemplate {
     val name: String

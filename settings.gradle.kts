@@ -41,3 +41,4 @@ rootProject.name = "Llamatik"
 include(":composeApp")
 include(":shared")
 include(":core")
+include(":sdk")

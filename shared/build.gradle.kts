@@ -54,6 +54,7 @@ kotlin {
 
         commonMain.dependencies {
             api(project(":core"))
+            api(project(":sdk"))
 
             implementation(compose.ui)
             implementation(compose.foundation)

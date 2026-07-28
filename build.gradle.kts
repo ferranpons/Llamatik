@@ -37,6 +37,11 @@ subprojects {
                 "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion",
                 "org.jetbrains.kotlin:kotlin-stdlib-wasm-js:$kotlinVersion",
                 "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlinVersion",
+                // kotlinx-serialization 1.11.0 was compiled with Kotlin 2.3.20 (ABI 2.3.0),
+                // which is incompatible with the 2.2.21 Kotlin/Native compiler (ABI max 2.2.0).
+                // Force to 1.8.1 which was compiled with Kotlin 2.2 and is the latest compatible version.
+                "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
+                "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1",
             )
         }
     }

@@ -1,4 +1,4 @@
-package com.llamatik.app.feature.chatbot.utils
+package com.llamatik.sdk.chat
 
 data class ChatMessage(
     val role: Role,
