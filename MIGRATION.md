@@ -160,3 +160,150 @@ ChatRunner.stream(session, system, contexts, messages, template, ...) { ... }
 val labels = PromptRenderer.Labels(/* localised strings */)
 ChatRunner.stream(session, system, contexts, messages, template, labels = labels) { ... }
 ```
+
+---
+
+## Agent Framework (2.0 New)
+
+Llamatik 2.0 introduces `com.llamatik.sdk.framework` — a complete framework for building
+agentic AI applications in Kotlin.
+
+### Creating an Agent
+
+```kotlin
+val agent = Agent {
+    name("Kotlin Assistant")
+    systemPrompt("You are an expert Kotlin developer.")
+    temperature(0.7f)
+    maxTokens(1024)
+}
+```
+
+### Registering Tools
+
+```kotlin
+val agent = Agent {
+    name("Assistant")
+    systemPrompt("You are helpful.")
+    tools {
+        builtIns()          // calculator, datetime, uuid, random
+        calculator()        // or individually
+        datetime()
+    }
+}
+```
+
+### Custom Tools
+
+```kotlin
+class WeatherTool : AgentTool {
+    override val id = "weather"
+    override val displayName = "Weather"
+    override val description = "Returns the current weather for a city."
+    override val schema = buildJsonObject {
+        put("type", "object")
+        putJsonObject("properties") {
+            putJsonObject("city") { put("type", "string") }
+        }
+    }
+    override fun isSupported() = true
+    override suspend fun execute(input: JsonObject): AgentToolResult {
+        val city = input["city"]?.jsonPrimitive?.content ?: return AgentToolResult.Failure("Missing city")
+        return AgentToolResult.Success("Sunny, 22°C in $city")
+    }
+}
+
+val agent = Agent {
+    tools { register(WeatherTool()) }
+}
+```
+
+### Memory
+
+```kotlin
+// Unbounded conversation memory (default)
+val agent = Agent {
+    memory(ConversationMemory())
+}
+
+// Sliding-window memory — retains only last N messages, pins system message
+val agent = Agent {
+    memory(SlidingWindowMemory(windowSize = 20))
+}
+```
+
+### Streaming
+
+```kotlin
+// Flow-based streaming (preferred)
+agent.stream("Create a Compose screen.").collect { chunk ->
+    when (chunk) {
+        is AgentStreamChunk.Delta -> print(chunk.text)
+        is AgentStreamChunk.ToolCallStarted -> println("[tool: ${chunk.toolId}]")
+        is AgentStreamChunk.ToolResult -> println("[result: ${chunk.summary}]")
+        is AgentStreamChunk.Done -> println("\nDone.")
+        is AgentStreamChunk.Failure -> println("Error: ${chunk.message}")
+    }
+}
+
+// Suspend run() — collects stream to a final string
+val response = agent.run("Explain coroutines.")
+println(response)
+```
+
+### Events
+
+```kotlin
+agent.events.collect { event ->
+    when (event) {
+        is AgentEvent.TurnStarted -> println("Turn started: ${event.userMessage}")
+        is AgentEvent.Thinking -> println("Thinking…")
+        is AgentEvent.ToolCallStarted -> println("Calling ${event.toolId}")
+        is AgentEvent.TurnCompleted -> println("Done.")
+        else -> Unit
+    }
+}
+```
+
+### Workflows
+
+```kotlin
+val workflow = Workflow {
+    step("outline") { ctx ->
+        "Create an outline for an article about Kotlin coroutines."
+    }
+    step("write") { ctx ->
+        val outline = ctx["outline"] ?: ""
+        "Write a full article based on this outline:\n$outline"
+    }
+    step("review") { ctx ->
+        val article = ctx["write"] ?: ""
+        "Review this article for clarity and conciseness:\n$article"
+    }
+}
+
+val result = workflow.execute(agent)
+println(result.finalOutput)
+```
+
+### Tool Type Alias
+
+`AgentTool` can also be referenced as `Tool` for more idiomatic usage:
+
+```kotlin
+val myTool: Tool = WeatherTool()
+```
+
+### Package Reference
+
+| Type | Package |
+|------|---------|
+| `Agent` | `com.llamatik.sdk.framework` |
+| `AgentConfig` | `com.llamatik.sdk.framework` |
+| `Memory`, `ConversationMemory`, `SlidingWindowMemory` | `com.llamatik.sdk.framework` |
+| `PromptPipeline`, `PromptStage` | `com.llamatik.sdk.framework` |
+| `AgentEvent`, `AgentStreamChunk` | `com.llamatik.sdk.framework` |
+| `Workflow`, `Step`, `WorkflowResult` | `com.llamatik.sdk.framework` |
+| `Tool` (= `AgentTool`) | `com.llamatik.sdk.framework` |
+| `CalculatorTool`, `DateTimeTool`, `UuidTool`, `RandomTool` | `com.llamatik.sdk.agent` |
+| `ToolRegistry.registerBuiltIns()` | `com.llamatik.sdk.agent` |
