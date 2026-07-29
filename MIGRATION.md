@@ -335,7 +335,223 @@ println(result.finalOutput)
 val myTool: Tool = WeatherTool()
 ```
 
+---
+
+## Agent Platform (2.0 New — `sdk-agent` module)
+
+### Module
+
+```kotlin
+// build.gradle.kts
+implementation("com.llamatik:sdk-agent:<version>")
+```
+
+### Architecture
+
+```
+User message
+     ↓
+AgentRuntime.processMessage()
+     ↓
+AgentPlanner  →  ExecutionPlan  (or ConversationalResponse)
+     ↓
+AgentExecutionEngine
+  ├── PermissionManager.check()
+  ├── ConfirmationHandler.requestConfirmation()
+  ├── ActionRegistry.get()  →  Action.validate() / Action.execute()
+  ├── ToolRegistry.get()    →  ToolDefinition.execute()  (fallback)
+  └── AgentAuditRepository.append()
+     ↓
+LLM generates natural-language response
+     ↓
+AgentRuntimeEvent stream
+```
+
+### Building the Runtime
+
+```kotlin
+val runtime = AgentRuntime.Builder()
+    .toolRegistry(toolRegistry)
+    .actionRegistry(actionRegistry)
+    .permissionManager(permissionManager)
+    .agentMemory(agentMemory)
+    .auditRepository(auditRepository)
+    .confirmationHandler { request ->
+        // Show UI, return true to confirm, false to cancel
+        showConfirmationDialog(request)
+    }
+    .companionProfile(CompanionProfiles.Assistant)
+    .capabilityProvider(AndroidCapabilityProvider())
+    .platformId("android")
+    .build()
+```
+
+### Processing a message
+
+```kotlin
+runtime.processMessage(userMessage, conversationHistory, sessionId).collect { event ->
+    when (event) {
+        is AgentRuntimeEvent.Planning -> showSpinner()
+        is AgentRuntimeEvent.PlanReady -> showPlan(event.plan)
+        is AgentRuntimeEvent.Executing -> showProgress(event.toolId)
+        is AgentRuntimeEvent.StepCompleted -> logResult(event.result)
+        is AgentRuntimeEvent.ConversationalResponse -> showResponse(event.text)
+        is AgentRuntimeEvent.Completed -> showResponse(event.response)
+        is AgentRuntimeEvent.Failed -> showError(event.message)
+        else -> Unit
+    }
+}
+```
+
+### Registering a Custom Tool
+
+```kotlin
+class MyCustomTool(actionExecutor: suspend (ActionContext) -> ActionResult) 
+    : DelegatingToolDefinition(actionExecutor) {
+    override val id = "myapp.custom_action"
+    override val displayName = "Custom Action"
+    override val description = "Does something custom."
+    override val schema = ToolSchema(listOf(
+        ToolParameter("input", "string", "The input value"),
+    ))
+    override val metadata = ToolMetadata(
+        category = ToolCategory.UTILITIES,
+        capabilities = emptySet(),
+        supportedPlatforms = setOf(SupportedPlatform.ALL),
+    )
+    override val requiredPermissions = emptySet<String>()
+}
+
+toolRegistry.registerTool(MyCustomTool { ctx ->
+    val input = ctx.arguments["input"] ?: return@MyCustomTool ActionResult.Failure("Missing input")
+    ActionResult.Success("Processed: $input")
+})
+```
+
+### Companion Profiles
+
+```kotlin
+// Use a built-in profile
+val profile = CompanionProfiles.Professional
+
+// Or create a custom one
+val custom = CompanionProfile(
+    persona = CompanionPersona.ASSISTANT,
+    systemPrompt = "You are a focused coding assistant.",
+    responseStyle = "technical",
+    memoryEnabled = true,
+    planningAggression = 0.8f,
+    verbosity = 0.4f,
+    toolPreference = emptySet(),
+)
+```
+
+### Companion Profiles available
+
+| Profile | Style | Planning |
+|---------|-------|----------|
+| `CompanionProfiles.Assistant` | concise | 0.7 |
+| `CompanionProfiles.Professional` | formal | 0.9 |
+| `CompanionProfiles.Friendly` | casual | 0.5 |
+| `CompanionProfiles.Companion` | empathetic | 0.4 |
+| `CompanionProfiles.Pet` | playful | 0.3 |
+
+### Permissions
+
+```kotlin
+// Check a permission
+val decision = permissionManager.check(KnownPermissions.CALENDAR)
+
+// Grant / deny
+permissionManager.grant(KnownPermissions.CALENDAR)
+permissionManager.deny(KnownPermissions.CONTACTS)
+permissionManager.askEveryTime(KnownPermissions.FILES)
+```
+
+### Audit Log
+
+```kotlin
+val recentActions = auditRepository.getRecent(50)
+val calendarActions = auditRepository.getByTool("calendar.create_event")
+```
+
+### Workflow Engine
+
+```kotlin
+val workflow = AgentWorkflow(
+    id = "morning_routine",
+    name = "Morning Routine",
+    description = "Daily morning briefing workflow",
+    steps = listOf(
+        WorkflowStep(
+            id = "weather",
+            name = "Get Weather",
+            toolId = "network.fetch",
+            argumentsBuilder = { _ -> mapOf("url" to "https://api.weather.example/today") },
+        ),
+        WorkflowStep(
+            id = "calendar",
+            name = "Get Calendar",
+            toolId = "calendar.list_events",
+            argumentsBuilder = { _ -> mapOf("date" to "today") },
+            dependsOn = emptyList(),
+        ),
+        WorkflowStep(
+            id = "briefing",
+            name = "Generate Briefing",
+            toolId = "ai.summarise",
+            argumentsBuilder = { outputs ->
+                mapOf(
+                    "weather" to (outputs["weather"] ?: ""),
+                    "calendar" to (outputs["calendar"] ?: ""),
+                )
+            },
+        ),
+    ),
+)
+
+val engine = AgentWorkflowEngine { toolId, args ->
+    runtime.executeTool(toolId, args)
+}
+engine.execute(workflow).collect { stepResult ->
+    println("${stepResult.stepId}: ${stepResult.status}")
+}
+```
+
+---
+
 ### Package Reference
+
+| Type | Package |
+|------|---------|
+| `AgentRuntime`, `AgentRuntimeEvent` | `com.llamatik.sdk.agent.runtime` |
+| `AgentPlanner`, `AgentExecutionEngine` | `com.llamatik.sdk.agent.runtime` |
+| `ExecutionPlan`, `ExecutionStep`, `ExecutionResult` | `com.llamatik.sdk.agent.runtime` |
+| `AgentContext` | `com.llamatik.sdk.agent.runtime` |
+| `ToolRegistry`, `ActionRegistry`, `CapabilityRegistry`, `WorkflowRegistry` | `com.llamatik.sdk.agent.registry` |
+| `ToolDefinition`, `ToolSchema`, `ToolResult`, `ToolMetadata` | `com.llamatik.sdk.agent.tools` |
+| `ToolCategory`, `ToolCapability`, `SupportedPlatform` | `com.llamatik.sdk.agent.tools` |
+| `DelegatingToolDefinition` | `com.llamatik.sdk.agent.builtintools` |
+| `CreateCalendarEventTool`, `CreateReminderTool`, `OpenAppTool`, `OpenUrlTool` | `com.llamatik.sdk.agent.builtintools` |
+| `ClipboardTool`, `ShareTool`, `NotificationTool`, `SearchContactsTool`, `OpenSettingsTool` | `com.llamatik.sdk.agent.builtintools` |
+| `Action`, `ActionContext`, `ActionResult`, `ActionValidationResult` | `com.llamatik.sdk.agent.action` |
+| `PermissionManager`, `PermissionRepository`, `PermissionState` | `com.llamatik.sdk.agent.permissions` |
+| `KnownPermissions` | `com.llamatik.sdk.agent.permissions` |
+| `PlatformCapabilityProvider`, `Capability`, `KnownCapabilities` | `com.llamatik.sdk.agent.capability` |
+| `ConfirmationHandler`, `ConfirmationPolicy`, `ConfirmationRequest`, `RiskLevel` | `com.llamatik.sdk.agent.confirmation` |
+| `AgentAuditEntry`, `AgentAuditRepository` | `com.llamatik.sdk.agent.audit` |
+| `CompanionProfile`, `CompanionProfiles`, `CompanionPersona` | `com.llamatik.sdk.agent.companion` |
+| `AgentMemory`, `MemoryEntry`, `MemoryType` | `com.llamatik.sdk.agent.memory` |
+| `AgentWorkflow`, `WorkflowStep`, `AgentWorkflowEngine`, `WorkflowRepository` | `com.llamatik.sdk.agent.workflow` |
+| `PlatformCapabilityProvider` (Android) | `com.llamatik.sdk.agent.capability` (androidMain) |
+| `androidPlatformActions()` | `com.llamatik.sdk.agent.action` (androidMain) |
+| `iosPlatformActions()` | `com.llamatik.sdk.agent.action` (iosMain) |
+| `desktopPlatformActions()` | `com.llamatik.sdk.agent.action` (jvmMain) |
+| `wasmPlatformActions()` | `com.llamatik.sdk.agent.action` (wasmJsMain) |
+
+---
+
+### SDK Framework Package Reference
 
 | Type | Package |
 |------|---------|
