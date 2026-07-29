@@ -124,6 +124,7 @@ class Agent internal constructor(val config: AgentConfig) {
                 // No tool call → final response
                 config.memory.add(ChatMessage(ChatMessage.Role.User, userMessage))
                 config.memory.add(ChatMessage(ChatMessage.Role.Assistant, finalOutput))
+                (config.memory as? SummaryMemory)?.maybeCompress()
                 _events.tryEmit(AgentEvent.MemoryUpdated(config.memory.size()))
                 keepGoing = false
             }

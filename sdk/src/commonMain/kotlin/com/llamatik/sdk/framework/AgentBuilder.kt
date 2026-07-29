@@ -49,6 +49,12 @@ class AgentBuilder {
     fun contextLength(value: Int) { contextLength = value }
     fun template(value: PromptTemplate) { template = value }
     fun memory(value: Memory) { memory = value }
+    fun persistentMemory(storage: MemoryStorage, key: String = "memory/conversation.txt", maxEntries: Int = 200) {
+        memory = PersistentMemory(storage, key, maxEntries)
+    }
+    fun summaryMemory(triggerSize: Int = 40, compressCount: Int = 20, summarizer: suspend (String) -> String) {
+        memory = SummaryMemory(triggerSize, compressCount, summarizer)
+    }
     fun ragStore(value: VectorStoreData) { ragStore = value }
     fun pipeline(value: PromptPipeline) { pipeline = value }
     fun executor(value: AgentExecutor) { executor = value }

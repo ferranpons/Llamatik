@@ -230,6 +230,47 @@ val agent = Agent {
 val agent = Agent {
     memory(SlidingWindowMemory(windowSize = 20))
 }
+
+// Persistent memory — survives restarts; implement MemoryStorage for your platform
+val agent = Agent {
+    persistentMemory(storage = myStorage, key = "memory/chat.txt")
+}
+// After creation, restore a prior session:
+// agent.memory.restore()
+// After each turn you want to save:
+// agent.memory.persist()
+
+// Summary memory — compresses old messages via a summarizer call when window fills
+val agent = Agent {
+    summaryMemory(triggerSize = 40, compressCount = 20) { prompt ->
+        // Call your LLM or a dedicated summarizer here; return the summary text
+        assistant.run(prompt)
+    }
+}
+// The agent automatically calls maybeCompress() after each completed turn.
+```
+
+### Workflow Approval Gates
+
+```kotlin
+// A gated step presents its output to the host before proceeding.
+// Return true to allow the next step, false to stop.
+val workflow = Workflow {
+    step("research") { "Research the topic: Kotlin coroutines." }
+
+    gatedStep("plan", gate = { stepName, proposal ->
+        // Show proposal to user, return their decision
+        userConfirms(stepName, proposal)
+    }) { ctx ->
+        val research = ctx["research"] ?: ""
+        "Based on this research:\n$research\n\nCreate an implementation plan."
+    }
+
+    step("implement") { ctx ->
+        val plan = ctx["plan"] ?: ""
+        "Implement according to this plan:\n$plan"
+    }
+}
 ```
 
 ### Streaming
@@ -301,9 +342,11 @@ val myTool: Tool = WeatherTool()
 | `Agent` | `com.llamatik.sdk.framework` |
 | `AgentConfig` | `com.llamatik.sdk.framework` |
 | `Memory`, `ConversationMemory`, `SlidingWindowMemory` | `com.llamatik.sdk.framework` |
+| `PersistentMemory`, `MemoryStorage` | `com.llamatik.sdk.framework` |
+| `SummaryMemory` | `com.llamatik.sdk.framework` |
 | `PromptPipeline`, `PromptStage` | `com.llamatik.sdk.framework` |
 | `AgentEvent`, `AgentStreamChunk` | `com.llamatik.sdk.framework` |
-| `Workflow`, `Step`, `WorkflowResult` | `com.llamatik.sdk.framework` |
+| `Workflow`, `Step`, `WorkflowResult`, `ApprovalGate` | `com.llamatik.sdk.framework` |
 | `Tool` (= `AgentTool`) | `com.llamatik.sdk.framework` |
 | `CalculatorTool`, `DateTimeTool`, `UuidTool`, `RandomTool` | `com.llamatik.sdk.agent` |
 | `ToolRegistry.registerBuiltIns()` | `com.llamatik.sdk.agent` |
