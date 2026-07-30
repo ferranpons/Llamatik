@@ -137,6 +137,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.common)
             implementation("org.apache.pdfbox:pdfbox:2.0.30")
+            implementation(libs.ktor.client.java)
         }
 
         commonTest.dependencies {
@@ -151,6 +152,7 @@ kotlin {
         val wasmJsMain by getting
         wasmJsMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.ktor.client.js)
         }
     }
 }

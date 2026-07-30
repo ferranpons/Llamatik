@@ -159,6 +159,17 @@ kotlin {
     }
 }
 
+// ktor-client-java leaks into the Android classpath from the compose.desktop dependencies block.
+// java.net.http.HttpClient does not exist on Android — exclude it from all Android configurations.
+configurations.configureEach {
+    if (name.contains("debug", ignoreCase = true) || name.contains("release", ignoreCase = true) ||
+        name.contains("android", ignoreCase = true)
+    ) {
+        exclude(group = "io.ktor", module = "ktor-client-java")
+        exclude(group = "io.ktor", module = "ktor-client-java-jvm")
+    }
+}
+
 android {
     namespace = "com.llamatik.app.android"
     compileSdk =

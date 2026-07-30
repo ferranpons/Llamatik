@@ -133,7 +133,7 @@ val commonModule = module {
 
     // SDK layer — UI-agnostic business logic
     single<LlamatikFileAccess> { LlamatikFileAccessAdapter() }
-    single { LlamatikHttpClient() }
+    single { LlamatikHttpClient(ServiceClient.httpClient) }
     single {
         val loc = getCurrentLocalization()
         com.llamatik.sdk.model.ModelsRepository(
