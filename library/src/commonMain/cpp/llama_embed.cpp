@@ -1314,6 +1314,121 @@ char *llama_generate_continue(const char *prompt) {
     return result;
 }
 
+void llama_generate_continue_stream(const char *prompt,
+        llm_on_delta on_delta,
+        llm_on_done on_done,
+        llm_on_error on_error,
+        void *user) {
+    if (!gen_ctx || !gen_model || !prompt) {
+        if (on_error) on_error("generator not ready", user);
+        return;
+    }
+    if (!session_is_active()) {
+        llama_generate_stream(prompt, on_delta, on_done, on_error, user);
+        return;
+    }
+
+    const float temperature    = g_temperature.load(std::memory_order_relaxed);
+    const int   max_tokens     = g_max_tokens.load(std::memory_order_relaxed);
+    const float top_p          = g_top_p.load(std::memory_order_relaxed);
+    const int   top_k          = g_top_k.load(std::memory_order_relaxed);
+    const float repeat_penalty = g_repeat_penalty.load(std::memory_order_relaxed);
+
+    g_cancel_requested.store(false, std::memory_order_relaxed);
+
+    const llama_vocab *v = llama_model_get_vocab(gen_model);
+    std::vector<llama_token> tokens(2048);
+    int n_tokens = tokenize_with_retry(v, prompt, tokens, false, true);
+    if (n_tokens <= 0) { if (on_error) on_error("tokenize failed", user); return; }
+    tokens.resize(n_tokens);
+
+    const int n_ctx = (int)llama_n_ctx(gen_ctx);
+    const int safety = 16;
+    if (gen_n_past + (int)tokens.size() >= n_ctx - safety) {
+        llama_generate_stream(prompt, on_delta, on_done, on_error, user);
+        return;
+    }
+
+    if (!decode_prompt_batched(gen_ctx, tokens, (int)llama_n_batch(gen_ctx), gen_n_past)) {
+        if (on_error) on_error("decode failed", user);
+        return;
+    }
+    session_append_prompt_tokens_continue(tokens);
+
+    llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+
+    int cur_pos = gen_n_past;
+    int remaining = n_ctx - cur_pos - safety;
+    if (remaining < 0) remaining = 0;
+    int max_new_tokens = std::min(remaining, max_tokens);
+
+    std::string assembled;
+    size_t start_idx = std::string::npos;
+    size_t sent_from_start = 0;
+    assembled.reserve(4096);
+
+    auto emit_tok = [&](llama_token tok) -> bool {
+        char spiece[64];
+        int nn = llama_token_to_piece(v, tok, spiece, (int)sizeof(spiece), 0, true);
+        if (nn > 0) {
+            if (nn >= (int)sizeof(spiece)) spiece[sizeof(spiece)-1] = '\0'; else spiece[nn] = '\0';
+            if (std::strcmp(spiece, "<|eot_id|>") == 0 || std::strcmp(spiece, "<end_of_turn>") == 0 ||
+                    std::strcmp(spiece, "</s>") == 0 || std::strcmp(spiece, "<start_of_turn>") == 0 ||
+                    std::strcmp(spiece, "<turn|>") == 0 || std::strcmp(spiece, "<|turn>") == 0) return false;
+        }
+        session_append_generated_token(tok);
+        char piece[256];
+        int nout = llama_token_to_piece(v, tok, piece, (int)sizeof(piece), 0, false);
+        if (nout > 0) {
+            if (nout >= (int)sizeof(piece)) piece[sizeof(piece)-1] = '\0';
+            assembled.append(piece, nout);
+            if (start_idx == std::string::npos) start_idx = find_stream_start(assembled);
+            if (start_idx != std::string::npos && assembled.size() > start_idx + sent_from_start) {
+                const std::string_view delta(assembled.data() + start_idx + sent_from_start,
+                                             assembled.size() - (start_idx + sent_from_start));
+                if (on_delta && !delta.empty()) { std::string out_s(delta); on_delta(out_s.c_str(), user); }
+                sent_from_start += delta.size();
+            }
+        }
+        return true;
+    };
+
+    int tokens_generated = 0;
+    bool error_flag = false;
+
+    while (tokens_generated < max_new_tokens) {
+        if (g_cancel_requested.load(std::memory_order_relaxed)) break;
+
+        llama_token tok = llama_sampler_sample(sampler, gen_ctx, -1);
+        if (tok < 0 || llama_vocab_is_eog(v, tok) || tok == llama_vocab_eot(v)) break;
+        llama_sampler_accept(sampler, tok);
+
+        if (!emit_tok(tok)) break;
+        ++tokens_generated;
+        if (tokens_generated >= max_new_tokens) break;
+
+        if (cur_pos >= n_ctx) break;
+        llama_batch step = llama_batch_init(1, 0, 1);
+        step.n_tokens = 1; step.token[0] = tok; step.pos[0] = cur_pos;
+        step.n_seq_id[0] = 1; step.seq_id[0][0] = 0; step.logits[0] = true;
+        const int rc = llama_decode(gen_ctx, step);
+        llama_batch_free(step);
+        if (rc != 0) { error_flag = true; break; }
+        cur_pos++; gen_n_past = cur_pos;
+    }
+
+    gen_n_past = cur_pos;
+    llama_sampler_free(sampler);
+    if (error_flag) { if (on_error) on_error("llama_decode failed mid-stream", user); return; }
+    if (on_done) on_done(user);
+}
+
 // ===================== MTP API =====================
 
 bool llama_mtp_init(const char *model_path, int draft_len) {

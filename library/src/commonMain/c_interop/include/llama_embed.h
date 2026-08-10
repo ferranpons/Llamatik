@@ -68,6 +68,9 @@ bool  llama_generate_session_reset(void);
 bool  llama_generate_session_save(const char *path_session);
 bool  llama_generate_session_load(const char *path_session);
 char *llama_generate_continue(const char *prompt);
+void  llama_generate_continue_stream(const char *prompt,
+        llm_on_delta on_delta, llm_on_done on_done, llm_on_error on_error,
+        void *user);
 
 // ================= MTP (Multi-Token Prediction) =================
 

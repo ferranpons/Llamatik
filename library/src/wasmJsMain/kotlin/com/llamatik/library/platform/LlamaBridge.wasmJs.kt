@@ -47,7 +47,36 @@ actual object LlamaBridge {
     }
 
     actual fun generateContinue(prompt: String): String {
-        return "Web/WASM: synchronous generateContinue() is not supported in worker-only mode. Use generateStream()."
+        return "Web/WASM: synchronous generateContinue() is not supported in worker-only mode. Use generateContinueStream()."
+    }
+
+    actual fun generateContinueStream(prompt: String, callback: GenStream) {
+        if (!modelReady.load()) {
+            callback.onError("Web/WASM: model is still loading…")
+            return
+        }
+
+        val idbKey = lastIdbKey
+        val fsPath = lastFsPath
+        if (idbKey == null || fsPath == null) {
+            callback.onError("Web/WASM: model path not set (initGenerateModel not called?)")
+            return
+        }
+
+        wasmScope.launch {
+            runGenerateStreamWorker(
+                idbKey = idbKey,
+                fsPath = fsPath,
+                prompt = prompt,
+                continueMode = true,
+                onDelta = { callback.onDelta(it) },
+                onDone = {
+                    hasSession.store(true)
+                    callback.onComplete()
+                },
+                onErr = { callback.onError(it) }
+            )
+        }
     }
 
     actual fun sessionReset(): Boolean {
