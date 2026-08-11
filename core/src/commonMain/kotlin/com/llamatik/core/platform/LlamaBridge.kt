@@ -67,6 +67,13 @@ expect object LlamaBridge {
     fun generateContinue(prompt: String): String
 
     /**
+     * Streaming variant of [generateContinue]: appends [prompt] on top of the KV cache
+     * restored by [sessionLoad] (or accumulated by prior generate calls) and streams tokens
+     * via [callback]. Falls back to a fresh [generateStream] when no session is active.
+     */
+    fun generateContinueStream(prompt: String, callback: GenStream)
+
+    /**
      * Returns the value of the "general.finetune" GGUF metadata key, or null if absent.
      * Typical values: "instruct", "chat". A value of "base" (or null) indicates a base model
      * that is not instruction-tuned and may produce poor results in chat/tool-call pipelines.

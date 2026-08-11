@@ -293,7 +293,8 @@ expect object LlamaBridge {
     fun sessionReset(): Boolean                       // clear KV state, keep model loaded
     fun sessionSave(path: String): Boolean            // persist KV state to file
     fun sessionLoad(path: String): Boolean            // restore KV state from file
-    fun generateContinue(prompt: String): String      // generate using existing KV cache
+    fun generateContinue(prompt: String): String      // generate using existing KV cache (blocking)
+    fun generateContinueStream(prompt: String, callback: GenStream) // streaming equivalent of generateContinue
 
     // Concurrent sessions — each session owns an isolated KV cache; model weights are shared
     fun createSession(name: String = ""): LlamaSession? // null on WASM (not supported)
@@ -373,6 +374,19 @@ val continuation = LlamaBridge.generateContinue("What about multiplatform suppor
 // Reset state without unloading the model
 LlamaBridge.sessionReset()
 ```
+
+**Streaming with KV cache continuity** — use `generateContinueStream` to get token-by-token output while reusing the existing KV cache. The C++ layer tokenizes the full prompt, finds the longest common token prefix with the cached context, discards only the diverging suffix from the KV cache, and decodes just the new tokens — no re-encoding of shared history:
+
+```kotlin
+LlamaBridge.sessionLoad("/path/to/session.bin")
+LlamaBridge.generateContinueStream("What about multiplatform support?", object : GenStream {
+    override fun onDelta(text: String) { print(text) }
+    override fun onComplete() { LlamaBridge.sessionSave("/path/to/session.bin") }
+    override fun onError(message: String) { println("Error: $message") }
+})
+```
+
+Falls back to a fresh `generateStream` when no session is active, so it is safe to use for every turn regardless of whether a session has been loaded.
 
 ### Concurrent Sessions
 

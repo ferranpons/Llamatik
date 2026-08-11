@@ -140,6 +140,14 @@ class ChatBotViewModel(
     @Volatile
     private var activeSession: LlamaSession? = null
 
+    /**
+     * True when the global LlamaBridge KV cache holds valid state from the previous turn of the
+     * current conversation. Set to true after each successful onComplete, reset whenever the
+     * conversation is cleared, a new chat is loaded, the model changes, or generation errors out.
+     */
+    @Volatile
+    private var kvCacheValid: Boolean = false
+
     @Volatile
     private var started = false
 
@@ -594,6 +602,7 @@ class ChatBotViewModel(
 
             if (!path.isNullOrEmpty()) {
                 Logger.d("LlamaVM - initGenerateModel $path")
+                kvCacheValid = false
                 val isLoaded = LlamaBridge.initGenerateModel(path)
                 if (isLoaded) {
                     _state.value = _state.value.copy(
@@ -1327,6 +1336,7 @@ class ChatBotViewModel(
 
     override fun onDispose() {
         activeRequestId = null
+        kvCacheValid = false
         activeSession?.cancel()
         activeSession?.close()
         activeSession = null
@@ -1563,8 +1573,12 @@ class ChatBotViewModel(
                     activeSession?.close()
                     activeSession = null
 
+                    val shouldContinueKv = kvCacheValid
+                    kvCacheValid = false
+
                     ChatRunner.stream(
                         session = null,
+                        continueKvCache = shouldContinueKv,
                         system = currentSystemPrompt(),
                         contexts = listOf(compact),
                         messages = chatHistory,
@@ -1584,6 +1598,8 @@ class ChatBotViewModel(
                                 val trimmed = trimLoop(acc.toString(), user = question, priorBotTexts = priorBotTextsEmbed)
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
+                                LlamaBridge.nativeCancelGenerate()
+                                kvCacheValid = false
                                 activeRequestId = null
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
@@ -1592,6 +1608,7 @@ class ChatBotViewModel(
                         },
                         onComplete = { final ->
                             if (activeRequestId != requestId) return@stream
+                            kvCacheValid = true
                             _conversation.value = _conversation.value.dropLast(1) +
                                     ChatUiModel.Message(final, ChatUiModel.Author.bot)
                             _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
@@ -1601,6 +1618,7 @@ class ChatBotViewModel(
                         },
                         onError = { err ->
                             if (activeRequestId != requestId) return@stream
+                            kvCacheValid = false
                             _conversation.value = _conversation.value.dropLast(1) +
                                     ChatUiModel.Message(
                                         "${localization.thereIsAProblemWithAI}: $err",
@@ -1614,6 +1632,7 @@ class ChatBotViewModel(
                     activeSession = null
                 } catch (t: Throwable) {
                     activeSession = null
+                    kvCacheValid = false
                     t.printStackTrace()
                     emitBot(localization.thereIsAProblemWithAI)
                     _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
@@ -1676,10 +1695,13 @@ class ChatBotViewModel(
                     }
 
                     val generateSettings = _state.value.generateSettings
+                    val shouldContinueKv = kvCacheValid
+                    kvCacheValid = false
 
                     try {
                         ChatRunner.stream(
                             session = null,
+                            continueKvCache = shouldContinueKv,
                             system = currentSystemPrompt(),
                             contexts = emptyList(),
                             messages = chatHistory,
@@ -1699,6 +1721,8 @@ class ChatBotViewModel(
                                     val trimmed = trimLoop(acc.toString(), user = input, priorBotTexts = priorBotTexts)
                                     _conversation.value = _conversation.value.dropLast(1) +
                                             ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
+                                    LlamaBridge.nativeCancelGenerate()
+                                    kvCacheValid = false
                                     completed = true
                                     activeRequestId = null
                                     _state.value = _state.value.copy(isGenerating = false)
@@ -1707,6 +1731,8 @@ class ChatBotViewModel(
                                 }
 
                                 if (looksLikeBabble(acc.toString())) {
+                                    LlamaBridge.nativeCancelGenerate()
+                                    kvCacheValid = false
                                     completed = true
                                     activeRequestId = null
                                     val cleaned = acc.toString().trim().trimEnd(',', ' ', '\n')
@@ -1718,6 +1744,7 @@ class ChatBotViewModel(
                             },
                             onComplete = { final ->
                                 if (activeRequestId != requestId || completed) return@stream
+                                kvCacheValid = true
                                 completed = true
                                 activeRequestId = null
                                 _conversation.value = _conversation.value.dropLast(1) +
@@ -1737,6 +1764,7 @@ class ChatBotViewModel(
                             },
                             onError = { err ->
                                 if (activeRequestId != requestId) return@stream
+                                kvCacheValid = false
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(
                                             "${localization.thereIsAProblemWithAI}: $err",
@@ -1847,6 +1875,7 @@ class ChatBotViewModel(
     fun onToggleTemporaryChat() {
         stopGeneration("toggle_temporary_chat")
         currentChatId = null
+        kvCacheValid = false
         _conversation.value = emptyList()
         _state.value = _state.value.copy(isTemporaryChat = !_state.value.isTemporaryChat)
     }
@@ -1856,6 +1885,7 @@ class ChatBotViewModel(
             val session = chatHistoryRepository.getSession(chatId) ?: return@launch
             stopGeneration("load_chat_session")
             currentChatId = chatId
+            kvCacheValid = false
 
             val restored = session.messages.map {
                 ChatUiModel.Message(
@@ -1874,6 +1904,7 @@ class ChatBotViewModel(
             chatHistoryRepository.delete(chatId)
             if (currentChatId == chatId) {
                 currentChatId = null
+                kvCacheValid = false
                 _conversation.value = emptyList()
             }
             refreshSessions()
