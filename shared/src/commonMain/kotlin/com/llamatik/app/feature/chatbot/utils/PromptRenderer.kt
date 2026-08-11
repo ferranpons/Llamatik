@@ -68,7 +68,7 @@ object PromptRenderer {
                     sb.append("\n<end_of_turn>\n")
                 }
                 ChatMessage.Role.Assistant -> {
-                    sb.append("<start_of_turn>assistant\n")
+                    sb.append("<start_of_turn>model\n")
                     sb.append(msg.content.trim())
                     sb.append("\n<end_of_turn>\n")
                 }
@@ -89,8 +89,8 @@ object PromptRenderer {
         sb.append(finalUser)
         sb.append("\n<end_of_turn>\n")
 
-        // Assistant prefix to cue continuations:
-        sb.append("<start_of_turn>assistant\n")
+        // Model prefix to cue continuations (Gemma uses "model", not "assistant"):
+        sb.append("<start_of_turn>model\n")
 
         return sb.toString()
     }

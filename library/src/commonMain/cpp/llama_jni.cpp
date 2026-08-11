@@ -407,6 +407,24 @@ Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinue(
     return js;
 }
 
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinueStream(
+        JNIEnv *env, jobject, jstring jPrompt, jobject jCb) {
+    if (!jPrompt || !jCb) return;
+
+    jmethodID onDelta, onComplete, onError;
+    if (!resolve_stream_methods(env, jCb, onDelta, onComplete, onError)) {
+        LOGE("nativeGenerateContinueStream: cannot resolve callback methods");
+        return;
+    }
+
+    const char *prompt = env->GetStringUTFChars(jPrompt, nullptr);
+    JniStreamCtx ctx{env, jCb, onDelta, onComplete, onError};
+    llama_generate_continue_stream(prompt, jni_on_delta, jni_on_done, jni_on_error, &ctx);
+    env->ReleaseStringUTFChars(jPrompt, prompt);
+}
+
 // =============================================================================
 //  Concurrent sessions
 // =============================================================================
