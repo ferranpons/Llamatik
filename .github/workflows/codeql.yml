@@ -75,7 +75,7 @@ jobs:
       - name: Build C/C++ sources
         if: matrix.language == 'c-cpp'
         run: |
-          cmake -S library/cmake/llama-jni-desktop -B build-codeql \
+          cmake -S core/cmake/llama-jni-desktop -B build-codeql \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build-codeql --parallel 2
 
