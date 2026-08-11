@@ -180,6 +180,11 @@ interface Localization {
     val configure: String
     val modelsTitle: String
 
+    val downloadFromUrl: String
+    val modelUrlLabel: String
+    val modelNameLabel: String
+    val categoryLabel: String
+
     val newFolder: String
     val folderName: String
     val createFolder: String

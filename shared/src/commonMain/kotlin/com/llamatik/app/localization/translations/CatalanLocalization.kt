@@ -203,4 +203,9 @@ internal object CatalanLocalization : Localization {
     override val selectOrCreateFolder = "Selecciona o crea una carpeta"
     override val noFolderName = "Si us plau, introdueix un nom"
     override val chatsInFolder = "Xats a la carpeta"
+
+    override val downloadFromUrl = "Descarregar des d'URL"
+    override val modelUrlLabel = "URL del model"
+    override val modelNameLabel = "Nom del model"
+    override val categoryLabel = "Categoria"
 }

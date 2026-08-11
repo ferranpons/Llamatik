@@ -10,6 +10,8 @@ import com.llamatik.app.feature.chatbot.download.DownloadEvent
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.model.ModelCategory
+import com.llamatik.app.feature.chatbot.model.ModelSource
 import com.llamatik.app.feature.chatbot.model.isVlm
 import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
 import com.llamatik.app.feature.chatbot.repositories.ChatSession
@@ -402,6 +404,24 @@ class ChatBotViewModel(
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
                 }
+
+            getModelsUseCase.getCustomUrlModels()
+                .onSuccess { entries ->
+                    var s = _state.value
+                    for ((model, category) in entries) {
+                        val path = resolveAndMigratePath(model)
+                        val resolved = if (!path.isNullOrBlank()) model.copy(localPath = path, fileName = path) else model
+                        s = when (category) {
+                            ModelCategory.Generate -> s.copy(generateModels = s.generateModels + resolved)
+                            ModelCategory.Stt -> s.copy(sttModels = s.sttModels + resolved)
+                            ModelCategory.StableDiffusion -> s.copy(stableDiffusionModels = s.stableDiffusionModels + resolved)
+                            ModelCategory.Vlm -> s.copy(vlmModels = s.vlmModels + resolved)
+                            ModelCategory.Embed -> s.copy(embedModels = s.embedModels + resolved)
+                        }
+                    }
+                    _state.value = s
+                }
+                .onFailure { Logger.e(it) { "LlamaVM - failed to load custom URL models" } }
 
             _state.value = _state.value.copy(
                 greeting = getGreeting(),
@@ -1124,6 +1144,123 @@ class ChatBotViewModel(
         }
     }
 
+    fun onDownloadFromUrl(url: String, name: String, category: ModelCategory) {
+        if (downloadJobs[url]?.isActive == true) return
+
+        val existsInCategory = when (category) {
+            ModelCategory.Generate -> _state.value.generateModels.any { it.url == url }
+            ModelCategory.Stt -> _state.value.sttModels.any { it.url == url }
+            ModelCategory.StableDiffusion -> _state.value.stableDiffusionModels.any { it.url == url }
+            ModelCategory.Vlm -> _state.value.vlmModels.any { it.url == url }
+            ModelCategory.Embed -> _state.value.embedModels.any { it.url == url }
+        }
+        if (existsInCategory) return
+
+        val model = LlamaModel(
+            name = name,
+            url = url,
+            sizeMb = 0,
+            source = ModelSource.CustomUrlDownload,
+        )
+
+        getModelsUseCase.saveCustomUrlModel(model, category)
+
+        _state.update { s ->
+            when (category) {
+                ModelCategory.Generate -> s.copy(generateModels = s.generateModels + model)
+                ModelCategory.Stt -> s.copy(sttModels = s.sttModels + model)
+                ModelCategory.StableDiffusion -> s.copy(stableDiffusionModels = s.stableDiffusionModels + model)
+                ModelCategory.Vlm -> s.copy(vlmModels = s.vlmModels + model)
+                ModelCategory.Embed -> s.copy(embedModels = s.embedModels + model)
+            }
+        }
+
+        val job = screenModelScope.launch(AppDispatchersIO) {
+            updateDownload(url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
+
+            modelDownloadOrchestrator.download(model).collect { ev ->
+                when (ev) {
+                    is DownloadEvent.Progress -> {
+                        updateDownload(url) { it.copy(inProgress = true, progress = ev.percent) }
+                    }
+
+                    is DownloadEvent.Completed -> {
+                        updateDownload(url) { it.copy(inProgress = false, progress = 100, done = true, error = null) }
+
+                        val rawPath = persistedPathForDownloadedModel(model, ev.localPath)
+                        val persistedPath = migrateModelPathIfNeeded(model.name, rawPath)
+                        getModelsUseCase.saveModelPath(model.name, persistedPath)
+                        runCatching { getModelsUseCase.updateCustomUrlModelPath(model.name, persistedPath) }
+
+                        val updatedModel = model.copy(localPath = persistedPath, fileName = persistedPath)
+                        _state.update { s ->
+                            when (category) {
+                                ModelCategory.Generate -> s.copy(generateModels = s.generateModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.Stt -> s.copy(sttModels = s.sttModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.StableDiffusion -> s.copy(stableDiffusionModels = s.stableDiffusionModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.Vlm -> s.copy(vlmModels = s.vlmModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.Embed -> s.copy(embedModels = s.embedModels.map { if (it.url == url) updatedModel else it })
+                            }
+                        }
+
+                        if (persistedPath.isNotBlank()) {
+                            autoLoadCustomModel(updatedModel, persistedPath, category)
+                        }
+                    }
+
+                    is DownloadEvent.Failed -> {
+                        updateDownload(url) { it.copy(inProgress = false, done = false, error = ev.message) }
+                    }
+                }
+            }
+        }
+        downloadJobs[url] = job
+    }
+
+    private suspend fun autoLoadCustomModel(model: LlamaModel, path: String, category: ModelCategory) {
+        when (category) {
+            ModelCategory.Generate -> {
+                val loaded = LlamaBridge.initGenerateModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedGenerateModelName = model.name, isGenerateModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+                }
+            }
+            ModelCategory.Stt -> {
+                val loaded = WhisperBridge.initModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedSttModelName = model.name, isSttModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoadError)
+                }
+            }
+            ModelCategory.StableDiffusion -> {
+                val loaded = StableDiffusionBridge.initModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedStableDiffusionModelName = model.name, isStableDiffusionModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnStableDiffusionModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnStableDiffusionModelLoadError)
+                }
+            }
+            ModelCategory.Embed -> {
+                val loaded = LlamaBridge.initEmbedModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedEmbedModelName = model.name, isEmbedModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
+                }
+            }
+            ModelCategory.Vlm -> {
+                // VLM requires a companion mmproj model — skip auto-load
+            }
+        }
+    }
+
     private fun downloadMmprojIfNeeded(vlmModel: LlamaModel, mmprojUrl: String, modelLocalPath: String) {
         val existingJob = downloadJobs[mmprojUrl]
         if (existingJob?.isActive == true) return
@@ -1199,6 +1336,9 @@ class ChatBotViewModel(
                 }
 
                 getModelsUseCase.deleteModelPath(model)
+                if (model.source == ModelSource.CustomUrlDownload) {
+                    runCatching { getModelsUseCase.deleteCustomUrlModel(model.name) }
+                }
                 // Also delete the mmproj companion if this is a VLM model
                 if (model.isVlm) {
                     runCatching {
@@ -1209,19 +1349,18 @@ class ChatBotViewModel(
                     }
                     getModelsUseCase.deleteModelPath(LlamaModel(name = "${model.name}_mmproj", url = "", sizeMb = 0))
                 }
+                val isCustom = model.source == ModelSource.CustomUrlDownload
                 _state.value = _state.value.copy(
-                    embedModels = _state.value.embedModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
-                    },
-                    generateModels = _state.value.generateModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
-                    },
-                    sttModels = _state.value.sttModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
-                    },
-                    vlmModels = _state.value.vlmModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null, mmprojLocalPath = null) else it
-                    },
+                    embedModels = if (isCustom) _state.value.embedModels.filter { it.url != model.url }
+                        else _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    generateModels = if (isCustom) _state.value.generateModels.filter { it.url != model.url }
+                        else _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    sttModels = if (isCustom) _state.value.sttModels.filter { it.url != model.url }
+                        else _state.value.sttModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    stableDiffusionModels = if (isCustom) _state.value.stableDiffusionModels.filter { it.url != model.url }
+                        else _state.value.stableDiffusionModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    vlmModels = if (isCustom) _state.value.vlmModels.filter { it.url != model.url }
+                        else _state.value.vlmModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null, mmprojLocalPath = null) else it },
                     selectedSttModelName = if (_state.value.selectedSttModelName == model.name) null else _state.value.selectedSttModelName,
                     isSttModelLoaded = if (_state.value.selectedSttModelName == model.name) false else _state.value.isSttModelLoaded,
                     selectedStableDiffusionModelName = if (_state.value.selectedStableDiffusionModelName == model.name) null else _state.value.selectedStableDiffusionModelName,

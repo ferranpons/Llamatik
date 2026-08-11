@@ -202,4 +202,9 @@ internal object JapaneseLocalization : Localization {
     override val selectOrCreateFolder = "フォルダを選択または作成"
     override val noFolderName = "フォルダ名を入力してください"
     override val chatsInFolder = "フォルダ内のチャット"
+
+    override val downloadFromUrl = "URLからダウンロード"
+    override val modelUrlLabel = "モデルURL"
+    override val modelNameLabel = "モデル名"
+    override val categoryLabel = "カテゴリ"
 }

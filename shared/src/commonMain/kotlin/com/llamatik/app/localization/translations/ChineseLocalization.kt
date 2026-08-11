@@ -204,4 +204,9 @@ internal object ChineseLocalization : Localization {
     override val selectOrCreateFolder = "选择或创建文件夹"
     override val noFolderName = "请输入文件夹名称"
     override val chatsInFolder = "文件夹中的聊天"
+
+    override val downloadFromUrl = "从URL下载"
+    override val modelUrlLabel = "模型URL"
+    override val modelNameLabel = "模型名称"
+    override val categoryLabel = "类别"
 }

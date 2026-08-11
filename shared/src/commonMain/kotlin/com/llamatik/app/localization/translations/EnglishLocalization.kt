@@ -204,4 +204,9 @@ internal object EnglishLocalization : Localization {
     override val selectOrCreateFolder = "Select or create a folder"
     override val noFolderName = "Please enter a folder name"
     override val chatsInFolder = "Chats in folder"
+
+    override val downloadFromUrl = "Download from URL"
+    override val modelUrlLabel = "Model URL"
+    override val modelNameLabel = "Model name"
+    override val categoryLabel = "Category"
 }

@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -19,14 +21,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinNavigatorScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.chatbot.model.ModelCategory
 import com.llamatik.app.feature.chatbot.ui.ModelRow
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
+import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import org.koin.core.parameter.ParametersHolder
 
@@ -37,6 +42,7 @@ enum class ModelCatalogType {
 class ModelCatalogScreen(private val type: ModelCatalogType) : Screen {
     @Composable
     override fun Content() {
+        val localization = getCurrentLocalization()
         val navigator = LocalNavigator.currentOrThrow
         val notificationPermissionRequester = rememberNotificationPermissionRequester()
 
@@ -50,6 +56,26 @@ class ModelCatalogScreen(private val type: ModelCatalogType) : Screen {
         val progressMap = downloadStates.mapValues { it.value.progress.coerceIn(0, 100) / 100f }
 
         val loadingModelName = remember { mutableStateOf<String?>(null) }
+        var showDownloadFromUrl by remember { mutableStateOf(false) }
+
+        val catalogCategory = when (type) {
+            ModelCatalogType.Generate -> ModelCategory.Generate
+            ModelCatalogType.Embed -> ModelCategory.Embed
+            ModelCatalogType.Stt -> ModelCategory.Stt
+            ModelCatalogType.StableDiffusion -> ModelCategory.StableDiffusion
+            ModelCatalogType.Vlm -> ModelCategory.Vlm
+        }
+
+        if (showDownloadFromUrl) {
+            DownloadFromUrlDialog(
+                initialCategory = catalogCategory,
+                onDismiss = { showDownloadFromUrl = false },
+                onConfirm = { url, name, category ->
+                    viewModel.onDownloadFromUrl(url, name, category)
+                    showDownloadFromUrl = false
+                },
+            )
+        }
 
         val (models, selectedName) = when (type) {
             ModelCatalogType.Generate -> state.generateModels to state.selectedGenerateModelName
@@ -80,7 +106,15 @@ class ModelCatalogScreen(private val type: ModelCatalogType) : Screen {
                         }
                     }
                 )
-            }
+            },
+            floatingActionButton = {
+                FloatingActionButton(onClick = { showDownloadFromUrl = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = localization.downloadFromUrl,
+                    )
+                }
+            },
         ) { padding ->
             Column(
                 modifier = Modifier

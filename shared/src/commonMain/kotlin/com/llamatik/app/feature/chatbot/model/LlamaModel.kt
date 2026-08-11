@@ -7,6 +7,7 @@ enum class ModelSource {
     BundledCatalog,
     DownloadedCatalog,
     UserImported,
+    CustomUrlDownload,
 }
 
 data class LlamaModel(

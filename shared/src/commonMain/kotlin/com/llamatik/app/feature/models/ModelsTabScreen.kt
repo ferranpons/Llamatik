@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -51,6 +53,18 @@ class ModelsTabScreen : Screen {
 
         val state by viewModel.state.collectAsState()
         var showConfirmClear by remember { mutableStateOf(false) }
+        var showDownloadFromUrl by remember { mutableStateOf(false) }
+
+        if (showDownloadFromUrl) {
+            DownloadFromUrlDialog(
+                initialCategory = null,
+                onDismiss = { showDownloadFromUrl = false },
+                onConfirm = { url, name, category ->
+                    viewModel.onDownloadFromUrl(url, name, category)
+                    showDownloadFromUrl = false
+                },
+            )
+        }
 
         if (showConfirmClear) {
             AlertDialog(
@@ -99,7 +113,15 @@ class ModelsTabScreen : Screen {
                         }
                     }
                 )
-            }
+            },
+            floatingActionButton = {
+                FloatingActionButton(onClick = { showDownloadFromUrl = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = localization.downloadFromUrl,
+                    )
+                }
+            },
         ) { padding ->
             Column(
                 modifier = Modifier

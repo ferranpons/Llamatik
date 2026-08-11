@@ -2,6 +2,7 @@ package com.llamatik.app.feature.chatbot.usecases
 
 import com.llamatik.app.common.usecases.UseCase
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.model.ModelCategory
 import com.llamatik.app.feature.chatbot.repositories.ModelsRepository
 import com.llamatik.app.platform.LlamatikTempFile
 
@@ -156,5 +157,25 @@ class GetModelsUseCase(
             val savedPath = modelsRepository.getSavedModelPath(model.name)
             if (savedPath.isNotEmpty()) model.copy(localPath = savedPath) else model
         }
+    }
+
+    fun getCustomUrlModels(): Result<List<Pair<LlamaModel, ModelCategory>>> = runCatching {
+        modelsRepository.getCustomUrlModels().map { (model, category) ->
+            val savedPath = modelsRepository.getSavedModelPath(model.name)
+            val resolved = if (savedPath.isNotEmpty()) model.copy(localPath = savedPath, fileName = savedPath) else model
+            resolved to category
+        }
+    }
+
+    fun saveCustomUrlModel(model: LlamaModel, category: ModelCategory) {
+        modelsRepository.saveCustomUrlModel(model, category)
+    }
+
+    fun updateCustomUrlModelPath(modelName: String, localPath: String?) {
+        modelsRepository.updateCustomUrlModelPath(modelName, localPath)
+    }
+
+    fun deleteCustomUrlModel(modelName: String) {
+        modelsRepository.deleteCustomUrlModel(modelName)
     }
 }

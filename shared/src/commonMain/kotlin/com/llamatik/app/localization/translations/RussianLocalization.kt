@@ -203,4 +203,9 @@ internal object RussianLocalization : Localization {
     override val selectOrCreateFolder = "Выберите или создайте папку"
     override val noFolderName = "Введите название папки"
     override val chatsInFolder = "Чаты в папке"
+
+    override val downloadFromUrl = "Скачать по URL"
+    override val modelUrlLabel = "URL модели"
+    override val modelNameLabel = "Название модели"
+    override val categoryLabel = "Категория"
 }

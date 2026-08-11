@@ -203,4 +203,9 @@ Tus prioridades:
     override val selectOrCreateFolder = "Selecciona o crea una carpeta"
     override val noFolderName = "Por favor introduce un nombre"
     override val chatsInFolder = "Chats en la carpeta"
+
+    override val downloadFromUrl = "Descargar desde URL"
+    override val modelUrlLabel = "URL del modelo"
+    override val modelNameLabel = "Nombre del modelo"
+    override val categoryLabel = "Categoría"
 }

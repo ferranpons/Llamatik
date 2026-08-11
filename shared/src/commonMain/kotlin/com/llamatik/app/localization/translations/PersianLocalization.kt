@@ -202,4 +202,9 @@ internal object PersianLocalization : Localization {
     override val selectOrCreateFolder = "یک پوشه انتخاب یا ایجاد کنید"
     override val noFolderName = "لطفاً نام پوشه را وارد کنید"
     override val chatsInFolder = "چت‌های پوشه"
+
+    override val downloadFromUrl = "دانلود از URL"
+    override val modelUrlLabel = "URL مدل"
+    override val modelNameLabel = "نام مدل"
+    override val categoryLabel = "دسته‌بندی"
 }

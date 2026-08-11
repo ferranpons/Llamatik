@@ -199,4 +199,9 @@ internal object PortugueseLocalization : Localization {
     override val selectOrCreateFolder = "Selecionar ou criar uma pasta"
     override val noFolderName = "Por favor insira um nome para a pasta"
     override val chatsInFolder = "Chats na pasta"
+
+    override val downloadFromUrl = "Baixar de URL"
+    override val modelUrlLabel = "URL do modelo"
+    override val modelNameLabel = "Nome do modelo"
+    override val categoryLabel = "Categoria"
 }

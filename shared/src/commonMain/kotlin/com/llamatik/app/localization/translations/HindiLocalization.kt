@@ -202,4 +202,9 @@ internal object HindiLocalization : Localization {
     override val selectOrCreateFolder = "फ़ोल्डर चुनें या बनाएं"
     override val noFolderName = "कृपया फ़ोल्डर का नाम दर्ज करें"
     override val chatsInFolder = "फ़ोल्डर में चैट"
+
+    override val downloadFromUrl = "URL से डाउनलोड करें"
+    override val modelUrlLabel = "मॉडल URL"
+    override val modelNameLabel = "मॉडल का नाम"
+    override val categoryLabel = "श्रेणी"
 }

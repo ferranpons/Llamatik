@@ -2,6 +2,7 @@ package com.llamatik.app.feature.chatbot.repositories
 
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.model.ModelCategory
 import com.llamatik.app.feature.chatbot.model.ModelSource
 import com.llamatik.app.feature.chatbot.utils.Gemma3
 import com.llamatik.app.feature.chatbot.utils.Llama3Instruct
@@ -29,6 +30,7 @@ import kotlinx.serialization.json.Json
 
 private const val DEFAULT_BUFFER_SIZE: Int = 64 * 1024
 private const val USER_IMPORTED_MODELS_KEY = "llamatik_user_imported_models_v1"
+private const val USER_CUSTOM_URL_MODELS_KEY = "llamatik_custom_url_models_v1"
 
 @Serializable
 private data class PersistedImportedModel(
@@ -44,6 +46,19 @@ private data class PersistedImportedModel(
 @Serializable
 private data class ImportedModelStore(
     val models: List<PersistedImportedModel> = emptyList(),
+)
+
+@Serializable
+private data class PersistedCustomUrlModel(
+    val name: String,
+    val url: String,
+    val category: String,
+    @SerialName("local_path") val localPath: String? = null,
+)
+
+@Serializable
+private data class CustomUrlModelStore(
+    val models: List<PersistedCustomUrlModel> = emptyList(),
 )
 
 class ModelsRepository(private val service: ServiceClient) {
@@ -352,6 +367,64 @@ class ModelsRepository(private val service: ServiceClient) {
 
     private fun writeImportedStore(store: ImportedModelStore) {
         Settings().putString(USER_IMPORTED_MODELS_KEY, importedJson.encodeToString(ImportedModelStore.serializer(), store))
+    }
+
+    // ---- Custom URL model persistence ----
+
+    fun getCustomUrlModels(): List<Pair<LlamaModel, ModelCategory>> {
+        val raw = Settings().getString(USER_CUSTOM_URL_MODELS_KEY, "")
+        if (raw.isBlank()) return emptyList()
+        return runCatching {
+            importedJson.decodeFromString(CustomUrlModelStore.serializer(), raw).models
+                .mapNotNull { persisted ->
+                    val category = ModelCategory.fromKey(persisted.category) ?: return@mapNotNull null
+                    val model = LlamaModel(
+                        name = persisted.name,
+                        url = persisted.url,
+                        sizeMb = 0,
+                        localPath = persisted.localPath,
+                        source = ModelSource.CustomUrlDownload,
+                    )
+                    model to category
+                }
+        }.getOrElse { emptyList() }
+    }
+
+    fun saveCustomUrlModel(model: LlamaModel, category: ModelCategory) {
+        val store = readCustomUrlStore()
+        val updated = store.models
+            .filterNot { it.name == model.name }
+            .toMutableList()
+            .apply {
+                add(PersistedCustomUrlModel(name = model.name, url = model.url, category = category.key, localPath = model.localPath))
+            }
+        writeCustomUrlStore(CustomUrlModelStore(updated))
+    }
+
+    fun updateCustomUrlModelPath(modelName: String, localPath: String?) {
+        val store = readCustomUrlStore()
+        val updated = store.models.map { persisted ->
+            if (persisted.name == modelName) persisted.copy(localPath = localPath) else persisted
+        }
+        writeCustomUrlStore(CustomUrlModelStore(updated))
+    }
+
+    fun deleteCustomUrlModel(modelName: String) {
+        val store = readCustomUrlStore()
+        writeCustomUrlStore(CustomUrlModelStore(store.models.filterNot { it.name == modelName }))
+        deleteModelPath(modelName)
+    }
+
+    private fun readCustomUrlStore(): CustomUrlModelStore {
+        val raw = Settings().getString(USER_CUSTOM_URL_MODELS_KEY, "")
+        if (raw.isBlank()) return CustomUrlModelStore()
+        return runCatching {
+            importedJson.decodeFromString(CustomUrlModelStore.serializer(), raw)
+        }.getOrElse { CustomUrlModelStore() }
+    }
+
+    private fun writeCustomUrlStore(store: CustomUrlModelStore) {
+        Settings().putString(USER_CUSTOM_URL_MODELS_KEY, importedJson.encodeToString(CustomUrlModelStore.serializer(), store))
     }
 }
 
