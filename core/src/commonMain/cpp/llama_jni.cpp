@@ -409,7 +409,7 @@ Java_com_llamatik_core_platform_LlamaBridge_nativeGenerateContinue(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_llamatik_library_platform_LlamaBridge_nativeGenerateContinueStream(
+Java_com_llamatik_core_platform_LlamaBridge_nativeGenerateContinueStream(
         JNIEnv *env, jobject, jstring jPrompt, jobject jCb) {
     if (!jPrompt || !jCb) return;
 
