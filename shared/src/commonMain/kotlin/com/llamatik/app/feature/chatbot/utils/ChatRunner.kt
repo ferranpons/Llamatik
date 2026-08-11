@@ -10,7 +10,7 @@ import kotlin.math.min
  * High-level chat orchestration:
  * - Renders the prompt using the model’s own embedded chat template when available,
  *   falling back to PromptRenderer for models without one.
- * - Streams tokens from LlamaBridge.generateStream.
+ * - Streams tokens via LlamaBridge.generateContinueStream (KV-cache reuse) or generateStream (fresh).
  * - Enforces client-side stop sequences when the fallback renderer is used.
  */
 object ChatRunner {
@@ -19,8 +19,12 @@ object ChatRunner {
      * Stream a chat turn.
      *
      * @param session When non-null, generation runs in this isolated session (its own KV cache),
-     *   allowing multiple agents to run concurrently. When null, falls back to the legacy global
-     *   [LlamaBridge.generateStream].
+     *   allowing multiple agents to run concurrently. When null, falls back to the global bridge.
+     * @param continueKvCache When true and [session] is null, calls [LlamaBridge.generateContinueStream]
+     *   so the global KV cache is reused across turns. The C++ layer finds the longest common token
+     *   prefix between the new prompt and the cached context, discards only the diverging suffix from
+     *   the KV cache, and decodes just the new tokens — skipping re-encoding of shared history.
+     *   Set to false (the default) when starting a fresh conversation.
      * @param system Optional system prompt (defaults to a safe helper system).
      * @param contexts RAG passages (already ranked/shortened).
      * @param messages Chat history (last one should be the user turn we’re answering).
@@ -31,6 +35,7 @@ object ChatRunner {
      */
     fun stream(
         session: LlamaSession? = null,
+        continueKvCache: Boolean = false,
         system: String? = null,
         contexts: List<String> = emptyList(),
         messages: List<ChatMessage>,
@@ -100,10 +105,10 @@ object ChatRunner {
         }
 
         // Let the engine do its thing; we keep the semantics above it.
-        if (session != null) {
-            session.stream(prompt, guard)
-        } else {
-            LlamaBridge.generateStream(prompt, guard)
+        when {
+            session != null -> session.stream(prompt, guard)
+            continueKvCache -> LlamaBridge.generateContinueStream(prompt, guard)
+            else -> LlamaBridge.generateStream(prompt, guard)
         }
     }
 

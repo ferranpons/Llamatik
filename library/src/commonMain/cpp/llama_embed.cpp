@@ -1336,24 +1336,56 @@ void llama_generate_continue_stream(const char *prompt,
 
     g_cancel_requested.store(false, std::memory_order_relaxed);
 
+    // Tokenize the full new prompt (BOS included so we can find the common prefix).
     const llama_vocab *v = llama_model_get_vocab(gen_model);
     std::vector<llama_token> tokens(2048);
-    int n_tokens = tokenize_with_retry(v, prompt, tokens, false, true);
+    int n_tokens = tokenize_with_retry(v, prompt, tokens, true, true);
     if (n_tokens <= 0) { if (on_error) on_error("tokenize failed", user); return; }
     tokens.resize(n_tokens);
 
     const int n_ctx = (int)llama_n_ctx(gen_ctx);
     const int safety = 16;
-    if (gen_n_past + (int)tokens.size() >= n_ctx - safety) {
+    if (n_tokens > n_ctx - safety) truncate_to_ctx(tokens, n_ctx, safety);
+
+    // Find the longest common prefix between the new prompt tokens and the cached session tokens.
+    // Reuse everything up to that prefix — only decode the diverging suffix.
+    const int n_cached = (int)gen_session_tokens.size();
+    int n_common = 0;
+    const int max_common = std::min((int)tokens.size(), n_cached);
+    while (n_common < max_common && tokens[n_common] == gen_session_tokens[n_common]) {
+        ++n_common;
+    }
+
+    // If there is no common prefix at all, fall back to a fresh stream.
+    if (n_common == 0) {
         llama_generate_stream(prompt, on_delta, on_done, on_error, user);
         return;
     }
 
-    if (!decode_prompt_batched(gen_ctx, tokens, (int)llama_n_batch(gen_ctx), gen_n_past)) {
-        if (on_error) on_error("decode failed", user);
+    // Trim the KV cache to the common prefix position and update bookkeeping.
+    if (n_common < n_cached) {
+        llama_memory_seq_rm(llama_get_memory(gen_ctx), 0, n_common, -1);
+        gen_session_tokens.resize(n_common);
+        gen_n_past = n_common;
+    }
+
+    // Decode only the new suffix (tokens after the common prefix).
+    const int n_new = (int)tokens.size() - n_common;
+    if (n_new > 0) {
+        std::vector<llama_token> suffix(tokens.begin() + n_common, tokens.end());
+        if (!decode_prompt_batched(gen_ctx, suffix, (int)llama_n_batch(gen_ctx), gen_n_past)) {
+            if (on_error) on_error("decode failed", user);
+            return;
+        }
+        gen_session_tokens.insert(gen_session_tokens.end(), suffix.begin(), suffix.end());
+        gen_n_past += n_new;
+    }
+
+    if (gen_n_past >= n_ctx - safety) {
+        // No room left for new tokens — fall back to fresh.
+        llama_generate_stream(prompt, on_delta, on_done, on_error, user);
         return;
     }
-    session_append_prompt_tokens_continue(tokens);
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
