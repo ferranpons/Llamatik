@@ -59,11 +59,13 @@ actual object LlamaBridge {
     private external fun nativeSessionSave(path: String): Boolean
     private external fun nativeSessionLoad(path: String): Boolean
     private external fun nativeGenerateContinue(prompt: String): String
+    private external fun nativeGenerateContinueStream(prompt: String, callback: GenStream)
 
     actual fun sessionReset(): Boolean = nativeSessionReset()
     actual fun sessionSave(path: String): Boolean = nativeSessionSave(path)
     actual fun sessionLoad(path: String): Boolean = nativeSessionLoad(path)
     actual fun generateContinue(prompt: String): String = nativeGenerateContinue(prompt)
+    actual fun generateContinueStream(prompt: String, callback: GenStream) = nativeGenerateContinueStream(prompt, callback)
 
     actual fun updateGenerateParams(
         temperature: Float,

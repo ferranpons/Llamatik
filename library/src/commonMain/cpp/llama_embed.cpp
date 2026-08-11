@@ -1549,6 +1549,7 @@ char *llama_apply_chat_template(
     int32_t needed = llama_chat_apply_template(tmpl, chat.data(), chat.size(),
                                                add_assistant_prefix, nullptr, -1);
     if (needed < 0) {
+        LOGE("llama_apply_chat_template: llama_chat_apply_template failed (n_messages=%d, tmpl=%s)", n_messages, tmpl ? tmpl : "null");
         if (!is_gemma4_template(tmpl)) return nullptr;
         std::string formatted = apply_gemma4_template(chat, add_assistant_prefix);
         char *buf = (char *)std::malloc(formatted.size() + 1);

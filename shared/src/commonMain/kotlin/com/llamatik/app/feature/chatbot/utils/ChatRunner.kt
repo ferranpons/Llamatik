@@ -58,6 +58,7 @@ object ChatRunner {
             stop = template.stopSequences
         }
         Logger.d { "ChatRunner: turns=${messages.size} promptLen=${prompt.length} usedNative=${nativePrompt != null}" }
+        Logger.d { "ChatRunner: prompt head=${prompt.take(200)}..." }
         Logger.d { "ChatRunner: prompt tail=...${prompt.takeLast(200)}" }
 
         var acc = StringBuilder()

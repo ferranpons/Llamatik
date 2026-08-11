@@ -1596,7 +1596,8 @@ class ChatBotViewModel(
                                 val trimmed = trimLoop(acc.toString(), user = question, priorBotTexts = priorBotTextsEmbed)
                                 _conversation.value = _conversation.value.dropLast(1) +
                                         ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
-                                kvCacheValid = true
+                                LlamaBridge.nativeCancelGenerate()
+                                kvCacheValid = false
                                 activeRequestId = null
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
@@ -1719,7 +1720,8 @@ class ChatBotViewModel(
                                     val trimmed = trimLoop(acc.toString(), user = input, priorBotTexts = priorBotTexts)
                                     _conversation.value = _conversation.value.dropLast(1) +
                                             ChatUiModel.Message(trimmed, ChatUiModel.Author.bot)
-                                    kvCacheValid = true
+                                    LlamaBridge.nativeCancelGenerate()
+                                    kvCacheValid = false
                                     completed = true
                                     activeRequestId = null
                                     _state.value = _state.value.copy(isGenerating = false)
@@ -1729,7 +1731,8 @@ class ChatBotViewModel(
                                 }
 
                                 if (looksLikeBabble(acc.toString())) {
-                                    kvCacheValid = true
+                                    LlamaBridge.nativeCancelGenerate()
+                                    kvCacheValid = false
                                     completed = true
                                     activeRequestId = null
                                     val cleaned = acc.toString().trim().trimEnd(',', ' ', '\n')
