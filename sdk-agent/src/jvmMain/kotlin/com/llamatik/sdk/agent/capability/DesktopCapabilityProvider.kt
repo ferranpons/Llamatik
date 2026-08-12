@@ -5,7 +5,7 @@ class DesktopCapabilityProvider : PlatformCapabilityProvider {
         Capability(KnownCapabilities.CLIPBOARD, "Clipboard", true),
         Capability(KnownCapabilities.BROWSER, "Browser", true),
         Capability(KnownCapabilities.OPEN_URL, "Open URL", true),
-        Capability(KnownCapabilities.NOTIFICATIONS, "Notifications", true),
+        Capability(KnownCapabilities.NOTIFICATIONS, "Notifications", false),
         Capability(KnownCapabilities.STORAGE, "Storage", true),
         Capability(KnownCapabilities.NETWORK, "Network", true),
         Capability(KnownCapabilities.CALENDAR, "Calendar", false),

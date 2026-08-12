@@ -47,13 +47,13 @@ class PermissionRepository(private val settings: Settings) {
     fun deny(permissionId: String) = setDecision(permissionId, PermissionState.DENIED)
     fun askEveryTime(permissionId: String) = setDecision(permissionId, PermissionState.ASK_EVERY_TIME)
 
-    fun getAllDecisions(): List<PermissionDecision> =
-        KnownPermissions::class.members
-            .filter { it.returnType.toString() == "kotlin.String" }
-            .mapNotNull {
-                runCatching { it.call(KnownPermissions) as? String }.getOrNull()
-            }
-            .map { getDecision(it) }
+    fun getAllDecisions(): List<PermissionDecision> = listOf(
+        KnownPermissions.CALENDAR, KnownPermissions.CONTACTS, KnownPermissions.REMINDERS,
+        KnownPermissions.CLIPBOARD, KnownPermissions.FILES, KnownPermissions.NOTIFICATIONS,
+        KnownPermissions.OPEN_APPS, KnownPermissions.LOCATION, KnownPermissions.SETTINGS,
+        KnownPermissions.CAMERA, KnownPermissions.PHOTOS, KnownPermissions.NETWORK,
+        KnownPermissions.SHARE, KnownPermissions.OPEN_URL, KnownPermissions.ACCESSIBILITY,
+    ).map { getDecision(it) }
 }
 
 class PermissionManager(

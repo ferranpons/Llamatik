@@ -9,7 +9,7 @@ private const val FLAG_DEVICE_CONTROL = "agent.deviceControl.enabled"
 private const val FLAG_SYSTEM_INTERACTION = "agent.systemInteraction.enabled"
 
 class AgentFeatureFlags(private val settings: Settings) {
-    fun isAgentEnabled(): Boolean = settings.getBoolean(FLAG_AGENT_ENABLED, false)
+    fun isAgentEnabled(): Boolean = settings.getBoolean(FLAG_AGENT_ENABLED, true)
     fun isRemindersEnabled(): Boolean = settings.getBoolean(FLAG_REMINDERS, false)
     fun isOpenAppsEnabled(): Boolean = settings.getBoolean(FLAG_OPEN_APPS, false)
     fun isDeviceControlEnabled(): Boolean = settings.getBoolean(FLAG_DEVICE_CONTROL, false)

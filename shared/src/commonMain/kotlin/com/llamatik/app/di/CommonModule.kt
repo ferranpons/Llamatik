@@ -6,6 +6,7 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import com.llamatik.app.data.repositories.DownloadFileRepository
 import com.llamatik.app.feature.agent.AgentActionLogRepository
 import com.llamatik.app.feature.agent.AgentFeatureFlags
+import com.llamatik.app.feature.agent.ChatAgentCoordinator
 import com.llamatik.app.feature.agent.ToolPermissionRepository
 import com.llamatik.app.feature.agent.ToolRegistry
 import com.llamatik.app.feature.agent.tools.OpenAppTool
@@ -42,6 +43,16 @@ import com.llamatik.app.platform.RootSnackbarHostStateRepository
 import com.llamatik.app.platform.ServiceClient
 import com.llamatik.app.ui.screens.viewmodel.HomeScreenViewModel
 import com.llamatik.app.ui.screens.viewmodel.SettingsViewModel
+import com.llamatik.sdk.agent.action.Action
+import com.llamatik.sdk.agent.action.ActionContext
+import com.llamatik.sdk.agent.action.ActionResult
+import com.llamatik.sdk.agent.capability.PlatformCapabilityProvider
+import com.llamatik.sdk.agent.memory.AgentMemory
+import com.llamatik.sdk.agent.permissions.PermissionManager
+import com.llamatik.sdk.agent.registry.ActionRegistry
+import com.llamatik.sdk.agent.registry.CapabilityRegistry
+import com.llamatik.sdk.agent.registry.WorkflowRegistry
+import com.llamatik.sdk.agent.runtime.AgentRuntime
 import com.llamatik.sdk.assistant.Assistant
 import com.llamatik.sdk.assistant.ModelPathResolver
 import com.llamatik.sdk.assistant.RagStorage
@@ -51,6 +62,8 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import com.llamatik.sdk.agent.audit.AgentAuditRepository as SdkAuditRepository
+import com.llamatik.sdk.agent.permissions.PermissionRepository as SdkPermissionRepository
 
 val commonModule = module {
     factory { (navigator: Navigator) ->
@@ -84,7 +97,8 @@ val commonModule = module {
             modelDownloadOrchestrator = get(),
             reviewRequestManager = get(),
             chatHistoryRepository = get(),
-            ttsEngine = get()
+            ttsEngine = get(),
+            chatAgentCoordinator = get(),
         )
     }
 
@@ -178,5 +192,64 @@ val commonModule = module {
             registry.register(OpenAppTool())
             registry.register(SystemInteractionTool())
         }
+    }
+
+    // === sdk-agent layer ===
+
+    single { SdkPermissionRepository(get()) }
+    single { PermissionManager(repository = get<SdkPermissionRepository>()) }
+    single { AgentMemory(get()) }
+    single { SdkAuditRepository(get()) }
+
+    single {
+        val platformActions = get<List<Action>>(named("platformActions"))
+        ActionRegistry().also { registry ->
+            platformActions.forEach { registry.registerAction(it) }
+        }
+    }
+
+    single {
+        val actionRegistry = get<ActionRegistry>()
+        fun executor(toolId: String): suspend (ActionContext) -> ActionResult = { ctx ->
+            actionRegistry.get(toolId)?.execute(ctx) ?: ActionResult.Unsupported
+        }
+        fun supported(toolId: String): () -> Boolean = {
+            actionRegistry.get(toolId)?.isSupported() ?: false
+        }
+        com.llamatik.sdk.agent.registry.ToolRegistry().also { registry ->
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.CreateCalendarEventTool(executor("calendar.create_event"), supported("calendar.create_event")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.CreateReminderTool(executor("reminder.create"), supported("reminder.create")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.OpenAppTool(executor("apps.open"), supported("apps.open")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.OpenUrlTool(executor("browser.open_url"), supported("browser.open_url")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.ClipboardTool(executor("clipboard.copy"), supported("clipboard.copy")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.ShareTool(executor("share.content"), supported("share.content")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.NotificationTool(executor("notifications.post"), supported("notifications.post")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.SearchContactsTool(executor("contacts.search"), supported("contacts.search")))
+            registry.registerTool(com.llamatik.sdk.agent.builtintools.OpenSettingsTool(executor("settings.open"), supported("settings.open")))
+        }
+    }
+
+    single { CapabilityRegistry() }
+    single { WorkflowRegistry() }
+
+    single {
+        AgentRuntime.Builder()
+            .toolRegistry(get<com.llamatik.sdk.agent.registry.ToolRegistry>())
+            .actionRegistry(get<ActionRegistry>())
+            .capabilityRegistry(get<CapabilityRegistry>())
+            .workflowRegistry(get<WorkflowRegistry>())
+            .permissionManager(get<PermissionManager>())
+            .agentMemory(get<AgentMemory>())
+            .auditRepository(get<SdkAuditRepository>())
+            .capabilityProvider(get<PlatformCapabilityProvider>())
+            .platformId("llamatik")
+            .build()
+    }
+
+    single {
+        ChatAgentCoordinator(
+            agentRuntime = get(),
+            agentFeatureFlags = get(),
+        )
     }
 }

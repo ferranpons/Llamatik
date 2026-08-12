@@ -2,7 +2,7 @@ package com.llamatik.sdk.agent.capability
 
 class WasmCapabilityProvider : PlatformCapabilityProvider {
     override fun discoverCapabilities(): Set<Capability> = setOf(
-        Capability(KnownCapabilities.CLIPBOARD, "Clipboard", true),
+        Capability(KnownCapabilities.CLIPBOARD, "Clipboard", false),
         Capability(KnownCapabilities.BROWSER, "Browser", true),
         Capability(KnownCapabilities.OPEN_URL, "Open URL", true),
         Capability(KnownCapabilities.NETWORK, "Network", true),

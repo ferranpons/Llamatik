@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
+import com.llamatik.app.feature.agent.ChatAgentCoordinator
 import com.llamatik.app.feature.agent.ToolCallParser
 import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
 import com.llamatik.app.feature.chatbot.download.DownloadEvent
@@ -51,6 +52,7 @@ import com.llamatik.core.platform.LlamaSession
 import com.llamatik.core.platform.MultimodalBridge
 import com.llamatik.core.platform.StableDiffusionBridge
 import com.llamatik.core.platform.WhisperBridge
+import com.llamatik.sdk.agent.runtime.AgentRuntimeEvent
 import com.russhwolf.settings.Settings
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.openFilePicker
@@ -95,6 +97,7 @@ class ChatBotViewModel(
     private val reviewRequestManager: ReviewRequestManager,
     private val chatHistoryRepository: ChatHistoryRepository,
     private val ttsEngine: TtsEngine,
+    val chatAgentCoordinator: ChatAgentCoordinator? = null,
     val systemPromptOverride: String? = null,
 ) : ScreenModel {
     val localization = getCurrentLocalization()
@@ -1807,6 +1810,12 @@ class ChatBotViewModel(
 
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
+                    // Agent path: normal chat only (not companion mode)
+                    if (systemPromptOverride == null && chatAgentCoordinator?.isAgentEnabled() == true) {
+                        handleAgentMessage(input)
+                        return@withContext
+                    }
+
                     val chatHistory: List<ChatMessage> =
                         toChatMessages(_conversation.value.dropLast(1)).withLanguageHint()
 
@@ -1959,6 +1968,63 @@ class ChatBotViewModel(
 
         _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+    }
+
+    private suspend fun handleAgentMessage(userMessage: String) {
+        val conversationHistory = toChatMessages(_conversation.value.dropLast(1))
+        val sessionId = currentChatId ?: userMessage.hashCode().toString()
+        val acc = StringBuilder()
+        try {
+            chatAgentCoordinator!!.processMessage(
+                userMessage = userMessage,
+                conversationHistory = conversationHistory,
+                sessionId = sessionId,
+            ).collect { event ->
+                when (event) {
+                    is AgentRuntimeEvent.Planning ->
+                        updateLastBotMessage("⏳ Planning…")
+                    is AgentRuntimeEvent.PlanReady -> {}
+                    is AgentRuntimeEvent.Executing ->
+                        updateLastBotMessage("⚙️ ${event.toolId}…")
+                    is AgentRuntimeEvent.StepCompleted -> {}
+                    is AgentRuntimeEvent.GeneratingResponse ->
+                        updateLastBotMessage("✍️ Generating response…")
+                    is AgentRuntimeEvent.ResponseDelta -> {
+                        acc.append(event.chunk)
+                        updateLastBotMessage(acc.toString())
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                    }
+                    is AgentRuntimeEvent.Completed -> {
+                        _conversation.value = _conversation.value.dropLast(1) +
+                            ChatUiModel.Message(event.response, ChatUiModel.Author.bot)
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        notifyChatCompletedForReview()
+                        persistCurrentConversationIfNeeded()
+                    }
+                    is AgentRuntimeEvent.Failed -> {
+                        updateLastBotMessage("${localization.thereIsAProblemWithAI}: ${event.message}")
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                    }
+                    is AgentRuntimeEvent.ConversationalResponse -> {
+                        _conversation.value = _conversation.value.dropLast(1) +
+                            ChatUiModel.Message(event.text, ChatUiModel.Author.bot)
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        notifyChatCompletedForReview()
+                        persistCurrentConversationIfNeeded()
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            Logger.e(t) { "AgentRuntime error for message: $userMessage" }
+            updateLastBotMessage("${localization.thereIsAProblemWithAI}: ${t.message ?: "Unknown error"}")
+            _state.value = _state.value.copy(isGenerating = false)
+            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+        }
     }
 
     private fun emitBot(text: String) {

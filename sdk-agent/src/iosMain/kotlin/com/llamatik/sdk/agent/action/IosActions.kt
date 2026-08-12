@@ -1,15 +1,14 @@
 package com.llamatik.sdk.agent.action
 
 /**
- * iOS platform action stubs.
- *
- * Real implementations use EventKit, Reminders, UIApplication URL schemes,
- * UIPasteboard, UIActivityViewController, UserNotifications, CNContactStore.
- * Inject via the agent runtime builder on iOS.
+ * iOS platform actions. IDs match BuiltInToolDefinitions tool IDs.
+ * Full implementations require EventKit, UIKit, CNContactStore etc.
+ * Currently stubbed — isSupported() reflects real capability, execute() returns Unsupported
+ * until the EventKit/UIKit bridge is wired.
  */
 class IosCalendarAction : Action {
-    override val id = "ios.calendar.create_event"
-    override fun isSupported() = true
+    override val id = "calendar.create_event"
+    override fun isSupported() = false // EventKit bridge not yet wired
     override fun requiredPermissions() = setOf("NSCalendarsUsageDescription")
     override fun validate(context: ActionContext): ActionValidationResult {
         if (context.arguments["title"].isNullOrBlank())
@@ -20,8 +19,8 @@ class IosCalendarAction : Action {
 }
 
 class IosReminderAction : Action {
-    override val id = "ios.reminder.create"
-    override fun isSupported() = true
+    override val id = "reminder.create"
+    override fun isSupported() = false // EventKit EKReminder bridge not yet wired
     override fun requiredPermissions() = setOf("NSRemindersUsageDescription")
     override fun validate(context: ActionContext): ActionValidationResult {
         if (context.arguments["title"].isNullOrBlank())
@@ -32,7 +31,7 @@ class IosReminderAction : Action {
 }
 
 class IosOpenUrlAction : Action {
-    override val id = "ios.browser.open_url"
+    override val id = "browser.open_url"
     override fun isSupported() = true
     override fun requiredPermissions() = emptySet<String>()
     override fun validate(context: ActionContext): ActionValidationResult {
@@ -44,7 +43,7 @@ class IosOpenUrlAction : Action {
 }
 
 class IosClipboardAction : Action {
-    override val id = "ios.clipboard.copy"
+    override val id = "clipboard.copy"
     override fun isSupported() = true
     override fun requiredPermissions() = emptySet<String>()
     override fun validate(context: ActionContext): ActionValidationResult {
@@ -56,8 +55,8 @@ class IosClipboardAction : Action {
 }
 
 class IosShareAction : Action {
-    override val id = "ios.share.content"
-    override fun isSupported() = true
+    override val id = "share.content"
+    override fun isSupported() = false // Requires UIViewController presentation context
     override fun requiredPermissions() = emptySet<String>()
     override fun validate(context: ActionContext): ActionValidationResult {
         if (context.arguments["text"].isNullOrBlank())
@@ -68,7 +67,7 @@ class IosShareAction : Action {
 }
 
 class IosNotificationAction : Action {
-    override val id = "ios.notifications.post"
+    override val id = "notifications.post"
     override fun isSupported() = true
     override fun requiredPermissions() = setOf("NSUserNotificationsUsageDescription")
     override fun validate(context: ActionContext): ActionValidationResult {
@@ -80,8 +79,8 @@ class IosNotificationAction : Action {
 }
 
 class IosContactsAction : Action {
-    override val id = "ios.contacts.search"
-    override fun isSupported() = true
+    override val id = "contacts.search"
+    override fun isSupported() = false // CNContactStore bridge not yet wired
     override fun requiredPermissions() = setOf("NSContactsUsageDescription")
     override fun validate(context: ActionContext): ActionValidationResult {
         if (context.arguments["query"].isNullOrBlank())
@@ -92,7 +91,7 @@ class IosContactsAction : Action {
 }
 
 class IosSettingsAction : Action {
-    override val id = "ios.settings.open"
+    override val id = "settings.open"
     override fun isSupported() = true
     override fun requiredPermissions() = emptySet<String>()
     override fun validate(context: ActionContext) = ActionValidationResult(true)

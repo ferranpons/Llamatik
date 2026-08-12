@@ -6,9 +6,13 @@ import com.llamatik.app.feature.entitlement.EntitlementRepository
 import com.llamatik.app.feature.entitlement.UnlockedEntitlementRepository
 import com.llamatik.app.platform.tts.JvmTtsEngine
 import com.llamatik.app.platform.tts.TtsEngine
+import com.llamatik.sdk.agent.action.desktopPlatformActions
+import com.llamatik.sdk.agent.capability.DesktopCapabilityProvider
+import com.llamatik.sdk.agent.capability.PlatformCapabilityProvider
 import com.russhwolf.settings.PropertiesSettings
 import com.russhwolf.settings.Settings
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
 import java.util.Properties
@@ -25,5 +29,9 @@ actual fun platformModules(): List<Module> = listOf(
             if (propsFile.exists()) propsFile.inputStream().use { props.load(it) }
             PropertiesSettings(props) { propsFile.outputStream().use { out -> props.store(out, null) } }
         }
+
+        // Agent platform components
+        single<PlatformCapabilityProvider> { DesktopCapabilityProvider() }
+        single(named("platformActions")) { desktopPlatformActions() }
     }
 )
