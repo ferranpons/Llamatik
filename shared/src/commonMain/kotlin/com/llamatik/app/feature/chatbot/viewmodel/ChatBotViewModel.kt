@@ -1971,7 +1971,7 @@ class ChatBotViewModel(
     }
 
     private suspend fun handleAgentMessage(userMessage: String) {
-        val conversationHistory = toChatMessages(_conversation.value.dropLast(1))
+        val conversationHistory = toChatMessages(_conversation.value.dropLast(1)).withLanguageHint()
         val sessionId = currentChatId ?: userMessage.hashCode().toString()
         val acc = StringBuilder()
         try {
@@ -1981,15 +1981,14 @@ class ChatBotViewModel(
                 sessionId = sessionId,
             ).collect { event ->
                 when (event) {
-                    is AgentRuntimeEvent.Planning ->
-                        updateLastBotMessage("⏳ Planning…")
+                    is AgentRuntimeEvent.Planning -> { /* wait silently — no status flash */ }
                     is AgentRuntimeEvent.PlanReady -> {}
                     is AgentRuntimeEvent.Executing ->
                         updateLastBotMessage("⚙️ ${event.toolId}…")
                     is AgentRuntimeEvent.StepCompleted -> {}
-                    is AgentRuntimeEvent.GeneratingResponse ->
-                        updateLastBotMessage("✍️ Generating response…")
+                    is AgentRuntimeEvent.GeneratingResponse -> {}
                     is AgentRuntimeEvent.ResponseDelta -> {
+                        // Conversational tokens streamed in real-time by AgentPlanner
                         acc.append(event.chunk)
                         updateLastBotMessage(acc.toString())
                         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
@@ -2009,8 +2008,12 @@ class ChatBotViewModel(
                         _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
                     }
                     is AgentRuntimeEvent.ConversationalResponse -> {
-                        _conversation.value = _conversation.value.dropLast(1) +
-                            ChatUiModel.Message(event.text, ChatUiModel.Author.bot)
+                        // Tokens already arrived via ResponseDelta; acc has the full text.
+                        // Fallback: if no deltas arrived (e.g. empty response), use event.text.
+                        if (acc.isEmpty() && event.text.isNotBlank()) {
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                ChatUiModel.Message(event.text, ChatUiModel.Author.bot)
+                        }
                         _state.value = _state.value.copy(isGenerating = false)
                         _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)

@@ -2,7 +2,6 @@ package com.llamatik.sdk.agent.runtime
 
 import co.touchlab.kermit.Logger
 import com.llamatik.sdk.agent.audit.AgentAuditRepository
-import com.llamatik.sdk.agent.capability.Capability
 import com.llamatik.sdk.agent.capability.PlatformCapabilityProvider
 import com.llamatik.sdk.agent.companion.CompanionProfile
 import com.llamatik.sdk.agent.companion.CompanionProfiles
@@ -11,7 +10,6 @@ import com.llamatik.sdk.agent.confirmation.ConfirmationPolicy
 import com.llamatik.sdk.agent.memory.AgentMemory
 import com.llamatik.sdk.agent.permissions.PermissionDecision
 import com.llamatik.sdk.agent.permissions.PermissionManager
-import com.llamatik.sdk.agent.permissions.PermissionRepository
 import com.llamatik.sdk.agent.planner.PlannerRequest
 import com.llamatik.sdk.agent.planner.PlannerResult
 import com.llamatik.sdk.agent.registry.ActionRegistry
@@ -22,7 +20,7 @@ import com.llamatik.sdk.chat.ChatMessage
 import com.llamatik.sdk.chat.ChatRunner
 import com.llamatik.sdk.chat.Gemma3
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.channelFlow
 
 sealed interface AgentRuntimeEvent {
     data object Planning : AgentRuntimeEvent
@@ -53,7 +51,7 @@ class AgentRuntime private constructor(
         userMessage: String,
         conversationHistory: List<ChatMessage>,
         sessionId: String,
-    ): Flow<AgentRuntimeEvent> = flow {
+    ): Flow<AgentRuntimeEvent> = channelFlow {
         val capabilities = capabilityRegistry.available()
         val permissionDecisions = mutableMapOf<String, PermissionDecision>()
         val memoryContext = agentMemory.buildContextBlock()
@@ -69,7 +67,7 @@ class AgentRuntime private constructor(
         )
 
         Logger.d("AgentRuntime: processing message for session $sessionId")
-        emit(AgentRuntimeEvent.Planning)
+        send(AgentRuntimeEvent.Planning)
 
         val plannerRequest = PlannerRequest(
             userMessage = userMessage,
@@ -79,20 +77,25 @@ class AgentRuntime private constructor(
             companionSystemPrompt = activeProfile.systemPrompt,
         )
 
-        val plannerResult = planner.plan(plannerRequest)
+        // Pass a non-suspending callback so conversational tokens stream in real-time.
+        // trySend is non-suspending and safe to call from ChatRunner's sync onDelta callback.
+        val plannerResult = planner.plan(plannerRequest) { delta ->
+            trySend(AgentRuntimeEvent.ResponseDelta(delta))
+        }
 
         when (plannerResult) {
             is PlannerResult.ConversationalResponse -> {
-                emit(AgentRuntimeEvent.ConversationalResponse(plannerResult.text))
-                return@flow
+                // Tokens were already delivered via ResponseDelta; signal completion.
+                send(AgentRuntimeEvent.ConversationalResponse(plannerResult.text))
+                return@channelFlow
             }
             is PlannerResult.Failure -> {
-                emit(AgentRuntimeEvent.Failed(plannerResult.message))
-                return@flow
+                send(AgentRuntimeEvent.Failed(plannerResult.message))
+                return@channelFlow
             }
             is PlannerResult.Plan -> {
                 val plan = plannerResult.executionPlan
-                emit(AgentRuntimeEvent.PlanReady(plan))
+                send(AgentRuntimeEvent.PlanReady(plan))
 
                 val executionResults = mutableListOf<ExecutionResult>()
                 val stepOutputs = mutableMapOf<String, String>()
@@ -107,24 +110,24 @@ class AgentRuntime private constructor(
                         continue
                     }
 
-                    emit(AgentRuntimeEvent.Executing(step.stepId, step.toolId))
+                    send(AgentRuntimeEvent.Executing(step.stepId, step.toolId))
                     val result = executionEngine.execute(step, sessionId)
                     executionResults += result
                     if (result.status == ExecutionStatus.SUCCEEDED) {
                         stepOutputs[step.stepId] = result.outputSummary
                     }
-                    emit(AgentRuntimeEvent.StepCompleted(result))
+                    send(AgentRuntimeEvent.StepCompleted(result))
                 }
 
                 // Ask LLM to generate natural-language response
-                emit(AgentRuntimeEvent.GeneratingResponse as AgentRuntimeEvent)
+                send(AgentRuntimeEvent.GeneratingResponse)
                 val finalResponse = generateFinalResponse(
                     userMessage = userMessage,
                     conversationHistory = ctx.conversationHistory,
                     executionResults = executionResults,
                     companionProfile = activeProfile,
                 )
-                emit(AgentRuntimeEvent.Completed(finalResponse, executionResults))
+                send(AgentRuntimeEvent.Completed(finalResponse, executionResults))
             }
         }
     }

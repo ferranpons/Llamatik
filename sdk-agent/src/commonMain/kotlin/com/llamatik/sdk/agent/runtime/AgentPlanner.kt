@@ -14,7 +14,15 @@ class AgentPlanner(
 ) {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    suspend fun plan(request: PlannerRequest): PlannerResult {
+    /**
+     * @param onConversationalDelta Called with each token when the model is producing a
+     * conversational (non-JSON) response. Never called when the model outputs a JSON plan.
+     * The callback is non-suspending so it can be called from ChatRunner's sync callbacks.
+     */
+    suspend fun plan(
+        request: PlannerRequest,
+        onConversationalDelta: (String) -> Unit = {},
+    ): PlannerResult {
         val toolDescriptions = toolRegistry.availableTools().joinToString("\n") {
             "- ${it.id}: ${it.description}"
         }
@@ -27,12 +35,31 @@ class AgentPlanner(
         val accumulated = StringBuilder()
         var planResult: PlannerResult? = null
 
+        // Determined on the first non-whitespace token: true = conversational, false = JSON plan
+        var streamMode: Boolean? = null
+
         ChatRunner.stream(
             system = systemPrompt,
             messages = messages,
             template = Gemma3,
             maxTokens = 512,
-            onDelta = { accumulated.append(it) },
+            onDelta = { chunk ->
+                accumulated.append(chunk)
+                when (streamMode) {
+                    null -> {
+                        val trimmed = accumulated.toString().trimStart()
+                        if (trimmed.isNotEmpty()) {
+                            streamMode = !trimmed.startsWith("{")
+                            if (streamMode == true) {
+                                // Emit everything accumulated so far (leading whitespace stripped)
+                                onConversationalDelta(trimmed)
+                            }
+                        }
+                    }
+                    true -> onConversationalDelta(chunk)
+                    false -> { /* JSON plan — don't stream raw tokens to UI */ }
+                }
+            },
             onComplete = {
                 planResult = parsePlan(accumulated.toString())
             },
