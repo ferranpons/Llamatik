@@ -855,6 +855,20 @@ Llamatik is 100% open-source and actively developed.
 
 All contributions are welcome!
 
+### Building from source
+
+By default, native builds produce CPU-only binaries everywhere except macOS (where Metal is on by default). To enable a GPU backend such as Vulkan or CUDA, pass extra CMake flags via the `llamatik.cmake.args` Gradle property or the `LLAMATIK_CMAKE_ARGS` environment variable:
+
+```bash
+# Vulkan (Android / Desktop Linux)
+./gradlew :core:build -Pllamatik.cmake.args="-DGGML_VULKAN=ON"
+
+# CUDA (Desktop Linux / Windows)
+LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :core:build
+```
+
+These flags are appended to the CMake configure step for Apple (macOS/iOS wrapper), desktop JNI, and Android targets. The WASM build is intentionally excluded. See `CONTRIBUTING.md` for full details.
+
 ---
 
 ## 📜 License

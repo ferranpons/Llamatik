@@ -34,6 +34,20 @@ git clone --recurse-submodules https://github.com/ferranpons/llamatik.git
 
 Each native dependency (`llama.cpp`, `whisper.cpp`, `stable-diffusion.cpp`) is included as a Git submodule. Run `git submodule update --init --recursive` if you cloned without `--recurse-submodules`.
 
+### Extra CMake flags
+
+The native builds (Apple, desktop JNI, Android) accept additional CMake configure flags through the `llamatik.cmake.args` Gradle property, with the `LLAMATIK_CMAKE_ARGS` environment variable as a fallback. Values are split on whitespace and appended to the CMake command line, so flags containing spaces are not supported. This lets you enable GPU backends without editing the build script:
+
+```bash
+# Build with the Vulkan backend enabled
+./gradlew :core:build -Pllamatik.cmake.args="-DGGML_VULKAN=ON"
+
+# Or via the environment
+LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :core:build
+```
+
+The WASM build does not receive these flags since GPU backends do not apply to the Emscripten target.
+
 ## Pull Request Guidelines
 
 1. **Branch from `main`** — use a descriptive branch name, e.g. `fix/session-leak` or `feat/wasm-streaming`
