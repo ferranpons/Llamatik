@@ -217,6 +217,15 @@ kotlin {
                     cmakeBuildDir.mkdirs()
                     environment("PATH", "/opt/homebrew/bin:" + System.getenv("PATH"))
 
+                    if (extraCmakeArgs.isNotEmpty() && sdk != "macosx") {
+                        logger.warn(
+                            "llamatik: extraCmakeArgs {} will be passed to the iOS CMake configure step for sdk={}, " +
+                            "but the mergeLlamaStatic* task merges a hardcoded list of ggml archives. " +
+                            "If your GPU backend produces additional archives they will NOT be linked into the fat static library.",
+                            extraCmakeArgs, sdk
+                        )
+                    }
+
                     commandLine = listOf(
                         cmakePath,
                         "-S", sourceDir.absolutePath,
