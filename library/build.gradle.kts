@@ -30,6 +30,19 @@ fun existingDir(path: String?): String? {
     return if (f.exists() && f.isDirectory) f.absolutePath else null
 }
 
+// Extra flags appended to the native CMake configure steps (Apple, desktop JNI,
+// Android), so backends like Vulkan or CUDA can be enabled without editing this
+// script, e.g.:
+//   ./gradlew :library:build -Pllamatik.cmake.args="-DGGML_VULKAN=ON"
+// Falls back to the LLAMATIK_CMAKE_ARGS environment variable (same precedent as
+// LLAMATIK_SKIP_NATIVE_BUILD). Values are split on whitespace, so flags that
+// contain spaces are not supported.
+val extraCmakeArgs: List<String> =
+    (propString("llamatik.cmake.args") ?: System.getenv("LLAMATIK_CMAKE_ARGS"))
+        ?.split(Regex("\\s+"))
+        ?.filter { it.isNotBlank() }
+        .orEmpty()
+
 // Resolve EMSDK root in a way that works in Android Studio (no shell env needed).
 fun Project.resolveEmsdkRoot(): String? {
     // 1) Gradle properties (IDE-safe)
@@ -220,7 +233,7 @@ kotlin {
                         "-DLLAMA_CURL=OFF",
                         if (sdk == "iphonesimulator") "-DLLAMA_BUILD_BERT=ON" else "-DLLAMA_BUILD_BERT=OFF",
                         if (sdk == "iphonesimulator") "-DLLAMA_BUILD_EMBEDDERS=ON" else "-DLLAMA_BUILD_EMBEDDERS=OFF",
-                    )
+                    ) + extraCmakeArgs
                 }
             }
 
@@ -442,6 +455,8 @@ kotlin {
                 args += listOf("-DCMAKE_SYSTEM_NAME=Darwin")
             }
 
+            args += extraCmakeArgs
+
             commandLine(args)
         }
     }
@@ -608,6 +623,9 @@ kotlin {
                 args += "-DCMAKE_EXE_LINKER_FLAGS=$wasmLinkFlags"
             }
 
+            // extraCmakeArgs is intentionally not applied here: it exists mainly
+            // for GPU backend flags, which do not apply to the Emscripten build.
+
             commandLine(args)
         }
     }
@@ -664,6 +682,11 @@ extensions.configure<LibraryExtension> {
         minSdk = libs.versions.android.minSdk.get().toInt()
         ndk {
             abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        }
+        externalNativeBuild {
+            cmake {
+                arguments += extraCmakeArgs
+            }
         }
         consumerProguardFiles("consumer-rules.pro")
     }
