@@ -579,6 +579,16 @@ float *llama_embed(const char *input) {
     if (n_tokens <= 0 || n_tokens > (int)llama_n_ctx(ctx)) return nullptr;
     tokens.resize(n_tokens);
 
+    // Drop the previous call's cells before decoding this one. Every call
+    // uses sequence 0 and numbers positions from zero (batch.pos below), so
+    // without this the second decode is rejected during batch validation:
+    // the cache still holds positions 0..n-1 for the sequence, and llama.cpp
+    // requires the incoming positions to continue from there.
+    //
+    // llama_generate() clears the cache for the same reason; the embedding
+    // path was missing it.
+    llama_memory_clear(llama_get_memory(ctx), false);
+
     llama_batch batch = llama_batch_init(n_tokens, 0, 1);
     batch.n_tokens = n_tokens;
     for (int i = 0; i < n_tokens; ++i) {
