@@ -4,11 +4,15 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
+import com.llamatik.app.feature.agent.ChatAgentCoordinator
+import com.llamatik.app.feature.agent.ToolCallParser
 import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
 import com.llamatik.app.feature.chatbot.download.DownloadEvent
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.model.ModelCategory
+import com.llamatik.app.feature.chatbot.model.ModelSource
 import com.llamatik.app.feature.chatbot.model.isVlm
 import com.llamatik.app.feature.chatbot.repositories.ChatHistoryRepository
 import com.llamatik.app.feature.chatbot.repositories.ChatSession
@@ -43,11 +47,12 @@ import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.normalizeToJpegBytes
 import com.llamatik.app.platform.tts.TtsEngine
-import com.llamatik.library.platform.LlamaBridge
-import com.llamatik.library.platform.LlamaSession
-import com.llamatik.library.platform.MultimodalBridge
-import com.llamatik.library.platform.StableDiffusionBridge
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.LlamaBridge
+import com.llamatik.core.platform.LlamaSession
+import com.llamatik.core.platform.MultimodalBridge
+import com.llamatik.core.platform.StableDiffusionBridge
+import com.llamatik.core.platform.WhisperBridge
+import com.llamatik.sdk.agent.runtime.AgentRuntimeEvent
 import com.russhwolf.settings.Settings
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.openFilePicker
@@ -92,6 +97,8 @@ class ChatBotViewModel(
     private val reviewRequestManager: ReviewRequestManager,
     private val chatHistoryRepository: ChatHistoryRepository,
     private val ttsEngine: TtsEngine,
+    val chatAgentCoordinator: ChatAgentCoordinator? = null,
+    val systemPromptOverride: String? = null,
 ) : ScreenModel {
     val localization = getCurrentLocalization()
 
@@ -400,6 +407,24 @@ class ChatBotViewModel(
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
                 }
+
+            getModelsUseCase.getCustomUrlModels()
+                .onSuccess { entries ->
+                    var s = _state.value
+                    for ((model, category) in entries) {
+                        val path = resolveAndMigratePath(model)
+                        val resolved = if (!path.isNullOrBlank()) model.copy(localPath = path, fileName = path) else model
+                        s = when (category) {
+                            ModelCategory.Generate -> s.copy(generateModels = s.generateModels + resolved)
+                            ModelCategory.Stt -> s.copy(sttModels = s.sttModels + resolved)
+                            ModelCategory.StableDiffusion -> s.copy(stableDiffusionModels = s.stableDiffusionModels + resolved)
+                            ModelCategory.Vlm -> s.copy(vlmModels = s.vlmModels + resolved)
+                            ModelCategory.Embed -> s.copy(embedModels = s.embedModels + resolved)
+                        }
+                    }
+                    _state.value = s
+                }
+                .onFailure { Logger.e(it) { "LlamaVM - failed to load custom URL models" } }
 
             _state.value = _state.value.copy(
                 greeting = getGreeting(),
@@ -876,7 +901,7 @@ class ChatBotViewModel(
                 MultimodalBridge.analyzeImageBytesStream(
                     imageBytes = imageBytes,
                     prompt     = input,
-                    callback   = object : com.llamatik.library.platform.GenStream {
+                    callback   = object : com.llamatik.core.platform.GenStream {
                         override fun onDelta(text: String) {
                             if (activeRequestId != requestId) return
                             acc.append(text)
@@ -1122,6 +1147,123 @@ class ChatBotViewModel(
         }
     }
 
+    fun onDownloadFromUrl(url: String, name: String, category: ModelCategory) {
+        if (downloadJobs[url]?.isActive == true) return
+
+        val existsInCategory = when (category) {
+            ModelCategory.Generate -> _state.value.generateModels.any { it.url == url }
+            ModelCategory.Stt -> _state.value.sttModels.any { it.url == url }
+            ModelCategory.StableDiffusion -> _state.value.stableDiffusionModels.any { it.url == url }
+            ModelCategory.Vlm -> _state.value.vlmModels.any { it.url == url }
+            ModelCategory.Embed -> _state.value.embedModels.any { it.url == url }
+        }
+        if (existsInCategory) return
+
+        val model = LlamaModel(
+            name = name,
+            url = url,
+            sizeMb = 0,
+            source = ModelSource.CustomUrlDownload,
+        )
+
+        getModelsUseCase.saveCustomUrlModel(model, category)
+
+        _state.update { s ->
+            when (category) {
+                ModelCategory.Generate -> s.copy(generateModels = s.generateModels + model)
+                ModelCategory.Stt -> s.copy(sttModels = s.sttModels + model)
+                ModelCategory.StableDiffusion -> s.copy(stableDiffusionModels = s.stableDiffusionModels + model)
+                ModelCategory.Vlm -> s.copy(vlmModels = s.vlmModels + model)
+                ModelCategory.Embed -> s.copy(embedModels = s.embedModels + model)
+            }
+        }
+
+        val job = screenModelScope.launch(AppDispatchersIO) {
+            updateDownload(url) { it.copy(inProgress = true, progress = 0, done = false, error = null) }
+
+            modelDownloadOrchestrator.download(model).collect { ev ->
+                when (ev) {
+                    is DownloadEvent.Progress -> {
+                        updateDownload(url) { it.copy(inProgress = true, progress = ev.percent) }
+                    }
+
+                    is DownloadEvent.Completed -> {
+                        updateDownload(url) { it.copy(inProgress = false, progress = 100, done = true, error = null) }
+
+                        val rawPath = persistedPathForDownloadedModel(model, ev.localPath)
+                        val persistedPath = migrateModelPathIfNeeded(model.name, rawPath)
+                        getModelsUseCase.saveModelPath(model.name, persistedPath)
+                        runCatching { getModelsUseCase.updateCustomUrlModelPath(model.name, persistedPath) }
+
+                        val updatedModel = model.copy(localPath = persistedPath, fileName = persistedPath)
+                        _state.update { s ->
+                            when (category) {
+                                ModelCategory.Generate -> s.copy(generateModels = s.generateModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.Stt -> s.copy(sttModels = s.sttModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.StableDiffusion -> s.copy(stableDiffusionModels = s.stableDiffusionModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.Vlm -> s.copy(vlmModels = s.vlmModels.map { if (it.url == url) updatedModel else it })
+                                ModelCategory.Embed -> s.copy(embedModels = s.embedModels.map { if (it.url == url) updatedModel else it })
+                            }
+                        }
+
+                        if (persistedPath.isNotBlank()) {
+                            autoLoadCustomModel(updatedModel, persistedPath, category)
+                        }
+                    }
+
+                    is DownloadEvent.Failed -> {
+                        updateDownload(url) { it.copy(inProgress = false, done = false, error = ev.message) }
+                    }
+                }
+            }
+        }
+        downloadJobs[url] = job
+    }
+
+    private suspend fun autoLoadCustomModel(model: LlamaModel, path: String, category: ModelCategory) {
+        when (category) {
+            ModelCategory.Generate -> {
+                val loaded = LlamaBridge.initGenerateModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedGenerateModelName = model.name, isGenerateModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
+                }
+            }
+            ModelCategory.Stt -> {
+                val loaded = WhisperBridge.initModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedSttModelName = model.name, isSttModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnSttModelLoadError)
+                }
+            }
+            ModelCategory.StableDiffusion -> {
+                val loaded = StableDiffusionBridge.initModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedStableDiffusionModelName = model.name, isStableDiffusionModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnStableDiffusionModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnStableDiffusionModelLoadError)
+                }
+            }
+            ModelCategory.Embed -> {
+                val loaded = LlamaBridge.initEmbedModel(path)
+                if (loaded) {
+                    _state.update { s -> s.copy(selectedEmbedModelName = model.name, isEmbedModelLoaded = true) }
+                    _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoaded)
+                } else {
+                    _sideEffects.trySend(ChatBotSideEffects.OnEmbedModelLoadError)
+                }
+            }
+            ModelCategory.Vlm -> {
+                // VLM requires a companion mmproj model — skip auto-load
+            }
+        }
+    }
+
     private fun downloadMmprojIfNeeded(vlmModel: LlamaModel, mmprojUrl: String, modelLocalPath: String) {
         val existingJob = downloadJobs[mmprojUrl]
         if (existingJob?.isActive == true) return
@@ -1197,6 +1339,9 @@ class ChatBotViewModel(
                 }
 
                 getModelsUseCase.deleteModelPath(model)
+                if (model.source == ModelSource.CustomUrlDownload) {
+                    runCatching { getModelsUseCase.deleteCustomUrlModel(model.name) }
+                }
                 // Also delete the mmproj companion if this is a VLM model
                 if (model.isVlm) {
                     runCatching {
@@ -1207,19 +1352,18 @@ class ChatBotViewModel(
                     }
                     getModelsUseCase.deleteModelPath(LlamaModel(name = "${model.name}_mmproj", url = "", sizeMb = 0))
                 }
+                val isCustom = model.source == ModelSource.CustomUrlDownload
                 _state.value = _state.value.copy(
-                    embedModels = _state.value.embedModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
-                    },
-                    generateModels = _state.value.generateModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
-                    },
-                    sttModels = _state.value.sttModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null) else it
-                    },
-                    vlmModels = _state.value.vlmModels.map {
-                        if (it.url == model.url) it.copy(fileName = null, localPath = null, mmprojLocalPath = null) else it
-                    },
+                    embedModels = if (isCustom) _state.value.embedModels.filter { it.url != model.url }
+                        else _state.value.embedModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    generateModels = if (isCustom) _state.value.generateModels.filter { it.url != model.url }
+                        else _state.value.generateModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    sttModels = if (isCustom) _state.value.sttModels.filter { it.url != model.url }
+                        else _state.value.sttModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    stableDiffusionModels = if (isCustom) _state.value.stableDiffusionModels.filter { it.url != model.url }
+                        else _state.value.stableDiffusionModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null) else it },
+                    vlmModels = if (isCustom) _state.value.vlmModels.filter { it.url != model.url }
+                        else _state.value.vlmModels.map { if (it.url == model.url) it.copy(fileName = null, localPath = null, mmprojLocalPath = null) else it },
                     selectedSttModelName = if (_state.value.selectedSttModelName == model.name) null else _state.value.selectedSttModelName,
                     isSttModelLoaded = if (_state.value.selectedSttModelName == model.name) false else _state.value.isSttModelLoaded,
                     selectedStableDiffusionModelName = if (_state.value.selectedStableDiffusionModelName == model.name) null else _state.value.selectedStableDiffusionModelName,
@@ -1601,7 +1745,6 @@ class ChatBotViewModel(
                                 activeRequestId = null
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
-                                notifyChatCompletedForReview()
                             }
                             _state.value = _state.value.copy(isGenerating = false)
                         },
@@ -1667,6 +1810,12 @@ class ChatBotViewModel(
 
                     _conversation.value += ChatUiModel.Message("", ChatUiModel.Author.bot)
 
+                    // Agent path: normal chat only (not companion mode)
+                    if (systemPromptOverride == null && chatAgentCoordinator?.isAgentEnabled() == true) {
+                        handleAgentMessage(input)
+                        return@withContext
+                    }
+
                     val chatHistory: List<ChatMessage> =
                         toChatMessages(_conversation.value.dropLast(1)).withLanguageHint()
 
@@ -1726,7 +1875,6 @@ class ChatBotViewModel(
                                     activeRequestId = null
                                     _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                    notifyChatCompletedForReview()
                                     return@stream
                                 }
 
@@ -1740,7 +1888,6 @@ class ChatBotViewModel(
                                             ChatUiModel.Message(cleaned, ChatUiModel.Author.bot)
                                     _state.value = _state.value.copy(isGenerating = false)
                                     _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
-                                    notifyChatCompletedForReview()
                                 }
                             },
                             onComplete = { final ->
@@ -1753,6 +1900,15 @@ class ChatBotViewModel(
                                 _state.value = _state.value.copy(isGenerating = false)
                                 _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
                                 notifyChatCompletedForReview()
+                                if (systemPromptOverride != null) {
+                                    val rawJson = ToolCallParser.extractFirstJsonBlock(final)
+                                    val call = rawJson?.let { ToolCallParser.parse(it) }
+                                    if (call != null) {
+                                        _sideEffects.trySend(
+                                            ChatBotSideEffects.OnToolCallDetected(call.toolId, rawJson)
+                                        )
+                                    }
+                                }
                             },
                             onError = { err ->
                                 if (activeRequestId != requestId) return@stream
@@ -1812,7 +1968,66 @@ class ChatBotViewModel(
 
         _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
         _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
-        notifyChatCompletedForReview()
+    }
+
+    private suspend fun handleAgentMessage(userMessage: String) {
+        val conversationHistory = toChatMessages(_conversation.value.dropLast(1)).withLanguageHint()
+        val sessionId = currentChatId ?: userMessage.hashCode().toString()
+        val acc = StringBuilder()
+        try {
+            chatAgentCoordinator!!.processMessage(
+                userMessage = userMessage,
+                conversationHistory = conversationHistory,
+                sessionId = sessionId,
+            ).collect { event ->
+                when (event) {
+                    is AgentRuntimeEvent.Planning -> { /* wait silently — no status flash */ }
+                    is AgentRuntimeEvent.PlanReady -> {}
+                    is AgentRuntimeEvent.Executing ->
+                        updateLastBotMessage("⚙️ ${event.toolId}…")
+                    is AgentRuntimeEvent.StepCompleted -> {}
+                    is AgentRuntimeEvent.GeneratingResponse -> {}
+                    is AgentRuntimeEvent.ResponseDelta -> {
+                        // Conversational tokens streamed in real-time by AgentPlanner
+                        acc.append(event.chunk)
+                        updateLastBotMessage(acc.toString())
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                    }
+                    is AgentRuntimeEvent.Completed -> {
+                        _conversation.value = _conversation.value.dropLast(1) +
+                            ChatUiModel.Message(event.response, ChatUiModel.Author.bot)
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        notifyChatCompletedForReview()
+                        persistCurrentConversationIfNeeded()
+                    }
+                    is AgentRuntimeEvent.Failed -> {
+                        updateLastBotMessage("${localization.thereIsAProblemWithAI}: ${event.message}")
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+                    }
+                    is AgentRuntimeEvent.ConversationalResponse -> {
+                        // Tokens already arrived via ResponseDelta; acc has the full text.
+                        // Fallback: if no deltas arrived (e.g. empty response), use event.text.
+                        if (acc.isEmpty() && event.text.isNotBlank()) {
+                            _conversation.value = _conversation.value.dropLast(1) +
+                                ChatUiModel.Message(event.text, ChatUiModel.Author.bot)
+                        }
+                        _state.value = _state.value.copy(isGenerating = false)
+                        _sideEffects.trySend(ChatBotSideEffects.OnMessageLoaded)
+                        _sideEffects.trySend(ChatBotSideEffects.ScrollToBottom)
+                        notifyChatCompletedForReview()
+                        persistCurrentConversationIfNeeded()
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            Logger.e(t) { "AgentRuntime error for message: $userMessage" }
+            updateLastBotMessage("${localization.thereIsAProblemWithAI}: ${t.message ?: "Unknown error"}")
+            _state.value = _state.value.copy(isGenerating = false)
+            _sideEffects.trySend(ChatBotSideEffects.OnLoadError)
+        }
     }
 
     private fun emitBot(text: String) {
@@ -1949,7 +2164,7 @@ class ChatBotViewModel(
     }
 
     private fun currentSystemPrompt(): String {
-        val base = currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
+        val base = systemPromptOverride ?: currentGenerateModel()?.systemPrompt ?: DEFAULT_SYSTEM_PROMPT.trimIndent()
         val langName = getLanguageName()
         return if (langName != null) {
             "$base\nYou MUST reply exclusively in $langName. Do not switch to English or any other language."
@@ -2244,4 +2459,5 @@ sealed class ChatBotSideEffects {
     data object OnVlmModelLoadError : ChatBotSideEffects()
     data class OnCacheCleared(val message: String) : ChatBotSideEffects()
     data class OnCacheClearFailed(val message: String) : ChatBotSideEffects()
+    data class OnToolCallDetected(val toolId: String, val rawJson: String) : ChatBotSideEffects()
 }

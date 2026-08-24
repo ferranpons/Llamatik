@@ -2,6 +2,8 @@ package com.llamatik.app.feature.chatbot.repositories
 
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.chatbot.model.LlamaModel
+import com.llamatik.app.feature.chatbot.model.ModelCategory
+import com.llamatik.app.feature.chatbot.model.ModelSource
 import com.llamatik.app.feature.chatbot.utils.Gemma3
 import com.llamatik.app.feature.chatbot.utils.Llama3Instruct
 import com.llamatik.app.feature.chatbot.utils.Plain
@@ -22,8 +24,42 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.io.readByteArray
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 private const val DEFAULT_BUFFER_SIZE: Int = 64 * 1024
+private const val USER_IMPORTED_MODELS_KEY = "llamatik_user_imported_models_v1"
+private const val USER_CUSTOM_URL_MODELS_KEY = "llamatik_custom_url_models_v1"
+
+@Serializable
+private data class PersistedImportedModel(
+    val name: String,
+    @SerialName("local_path") val localPath: String,
+    @SerialName("display_name") val displayName: String? = null,
+    @SerialName("size_bytes") val sizeBytes: Long? = null,
+    val quantization: String? = null,
+    @SerialName("context_length") val contextLength: Int? = null,
+    @SerialName("created_at") val createdAtEpochMs: Long? = null,
+)
+
+@Serializable
+private data class ImportedModelStore(
+    val models: List<PersistedImportedModel> = emptyList(),
+)
+
+@Serializable
+private data class PersistedCustomUrlModel(
+    val name: String,
+    val url: String,
+    val category: String,
+    @SerialName("local_path") val localPath: String? = null,
+)
+
+@Serializable
+private data class CustomUrlModelStore(
+    val models: List<PersistedCustomUrlModel> = emptyList(),
+)
 
 class ModelsRepository(private val service: ServiceClient) {
     val localization = getCurrentLocalization()
@@ -120,6 +156,20 @@ class ModelsRepository(private val service: ServiceClient) {
                 sizeMb = 292,
                 url = "https://huggingface.co/ggml-org/gemma-3-270m-it-GGUF/resolve/main/gemma-3-270m-it-Q8_0.gguf?download=true",
                 template = Gemma3,
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
+            ),
+            LlamaModel(
+                name = "Gemma 3 1B Instruct Q4 KM",
+                sizeMb = 806,
+                url = "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf?download=true",
+                template = Gemma3,
+                systemPrompt = localization.defaultSystemPrompt.trimIndent()
+            ),
+            LlamaModel(
+                name = "Qwen 3 1.7B Q8",
+                sizeMb = 1830,
+                url = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf?download=true",
+                template = QwenChat,
                 systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
             LlamaModel(
@@ -272,4 +322,131 @@ class ModelsRepository(private val service: ServiceClient) {
     fun deleteModelPath(modelName: String) {
         Settings().remove(modelName)
     }
+
+    // ---- User-imported model persistence ----
+
+    private val importedJson = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
+
+    fun getImportedModels(): List<LlamaModel> {
+        val raw = Settings().getString(USER_IMPORTED_MODELS_KEY, "")
+        if (raw.isBlank()) return emptyList()
+        return runCatching {
+            importedJson.decodeFromString(ImportedModelStore.serializer(), raw).models
+                .map { it.toLlamaModel() }
+        }.getOrElse { emptyList() }
+    }
+
+    fun saveImportedModel(model: LlamaModel) {
+        require(model.source == ModelSource.UserImported) { "Only UserImported models may be saved here." }
+        val store = readImportedStore()
+        val updated = store.models
+            .filterNot { it.name == model.name }
+            .toMutableList()
+            .apply { add(model.toPersistedImportedModel()) }
+        writeImportedStore(ImportedModelStore(updated))
+        saveModelPath(model.name, model.localPath ?: "")
+    }
+
+    fun deleteImportedModel(modelName: String) {
+        val store = readImportedStore()
+        writeImportedStore(ImportedModelStore(store.models.filterNot { it.name == modelName }))
+        deleteModelPath(modelName)
+    }
+
+    private fun readImportedStore(): ImportedModelStore {
+        val raw = Settings().getString(USER_IMPORTED_MODELS_KEY, "")
+        if (raw.isBlank()) return ImportedModelStore()
+        return runCatching {
+            importedJson.decodeFromString(ImportedModelStore.serializer(), raw)
+        }.getOrElse { ImportedModelStore() }
+    }
+
+    private fun writeImportedStore(store: ImportedModelStore) {
+        Settings().putString(USER_IMPORTED_MODELS_KEY, importedJson.encodeToString(ImportedModelStore.serializer(), store))
+    }
+
+    // ---- Custom URL model persistence ----
+
+    fun getCustomUrlModels(): List<Pair<LlamaModel, ModelCategory>> {
+        val raw = Settings().getString(USER_CUSTOM_URL_MODELS_KEY, "")
+        if (raw.isBlank()) return emptyList()
+        return runCatching {
+            importedJson.decodeFromString(CustomUrlModelStore.serializer(), raw).models
+                .mapNotNull { persisted ->
+                    val category = ModelCategory.fromKey(persisted.category) ?: return@mapNotNull null
+                    val model = LlamaModel(
+                        name = persisted.name,
+                        url = persisted.url,
+                        sizeMb = 0,
+                        localPath = persisted.localPath,
+                        source = ModelSource.CustomUrlDownload,
+                    )
+                    model to category
+                }
+        }.getOrElse { emptyList() }
+    }
+
+    fun saveCustomUrlModel(model: LlamaModel, category: ModelCategory) {
+        val store = readCustomUrlStore()
+        val updated = store.models
+            .filterNot { it.name == model.name }
+            .toMutableList()
+            .apply {
+                add(PersistedCustomUrlModel(name = model.name, url = model.url, category = category.key, localPath = model.localPath))
+            }
+        writeCustomUrlStore(CustomUrlModelStore(updated))
+    }
+
+    fun updateCustomUrlModelPath(modelName: String, localPath: String?) {
+        val store = readCustomUrlStore()
+        val updated = store.models.map { persisted ->
+            if (persisted.name == modelName) persisted.copy(localPath = localPath) else persisted
+        }
+        writeCustomUrlStore(CustomUrlModelStore(updated))
+    }
+
+    fun deleteCustomUrlModel(modelName: String) {
+        val store = readCustomUrlStore()
+        writeCustomUrlStore(CustomUrlModelStore(store.models.filterNot { it.name == modelName }))
+        deleteModelPath(modelName)
+    }
+
+    private fun readCustomUrlStore(): CustomUrlModelStore {
+        val raw = Settings().getString(USER_CUSTOM_URL_MODELS_KEY, "")
+        if (raw.isBlank()) return CustomUrlModelStore()
+        return runCatching {
+            importedJson.decodeFromString(CustomUrlModelStore.serializer(), raw)
+        }.getOrElse { CustomUrlModelStore() }
+    }
+
+    private fun writeCustomUrlStore(store: CustomUrlModelStore) {
+        Settings().putString(USER_CUSTOM_URL_MODELS_KEY, importedJson.encodeToString(CustomUrlModelStore.serializer(), store))
+    }
 }
+
+private fun PersistedImportedModel.toLlamaModel() = LlamaModel(
+    name = name,
+    url = "",
+    sizeMb = sizeBytes?.let { (it / 1_048_576).toInt() } ?: 0,
+    localPath = localPath,
+    source = ModelSource.UserImported,
+    displayName = displayName,
+    sizeBytes = sizeBytes,
+    quantization = quantization,
+    importedContextLength = contextLength,
+    createdAtEpochMs = createdAtEpochMs,
+)
+
+private fun LlamaModel.toPersistedImportedModel() = PersistedImportedModel(
+    name = name,
+    localPath = localPath ?: "",
+    displayName = displayName,
+    sizeBytes = sizeBytes,
+    quantization = quantization,
+    contextLength = importedContextLength,
+    createdAtEpochMs = createdAtEpochMs,
+)

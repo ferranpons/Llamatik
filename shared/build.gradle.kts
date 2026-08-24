@@ -22,7 +22,6 @@ kotlin {
     jvm()
 
     // iOS targets
-    iosX64()
     iosArm64()
     iosSimulatorArm64()
 
@@ -33,7 +32,7 @@ kotlin {
         binaries.executable()
     }
 
-    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
         target.binaries.framework {
             baseName = "shared"
             isStatic = false
@@ -54,7 +53,9 @@ kotlin {
         }
 
         commonMain.dependencies {
-            api(project(":library"))
+            api(project(":core"))
+            api(project(":sdk"))
+            implementation(project(":sdk-agent"))
 
             implementation(compose.ui)
             implementation(compose.foundation)
@@ -104,9 +105,9 @@ kotlin {
         }
 /*
         // Native/desktop platforms keep using :library.
-        androidMain.dependencies { api(project(":library")) }
-        iosMain.dependencies { api(project(":library")) }
-        jvmMain.dependencies { api(project(":library")) }
+        androidMain.dependencies { api(project(":core")) }
+        iosMain.dependencies { api(project(":core")) }
+        jvmMain.dependencies { api(project(":core")) }
 
         // wasmJsMain does NOT depend on :library (native/JNI). It uses stubbed APIs.
         val wasmJsMain by getting
@@ -137,9 +138,11 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.common)
             implementation("org.apache.pdfbox:pdfbox:2.0.30")
+            implementation(libs.ktor.client.java)
         }
 
         commonTest.dependencies {
+            implementation(kotlin("test"))
             implementation(libs.junit)
             implementation(libs.koin.test)
             implementation(libs.kotlinx.coroutines.core)
@@ -150,6 +153,7 @@ kotlin {
         val wasmJsMain by getting
         wasmJsMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.ktor.client.js)
         }
     }
 }
