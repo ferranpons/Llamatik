@@ -24,7 +24,9 @@ kotlin {
     iosSimulatorArm64()
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs()
+    wasmJs {
+        browser()
+    }
 
     targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
         binaries.framework {

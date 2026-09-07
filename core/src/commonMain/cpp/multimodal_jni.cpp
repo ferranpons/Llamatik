@@ -153,7 +153,7 @@ static void stream_vlm(
     const int          max_toks = 640;
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(vocab), 128, 1.10f, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.90f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.35f));
@@ -340,7 +340,8 @@ Java_com_llamatik_core_platform_MultimodalBridge_nativeAnalyzeImageBytesStream(
             mm_mtmd,
             reinterpret_cast<const unsigned char *>(bytes),
             static_cast<size_t>(len),
-            false);
+            false,
+            mtmd_helper_init_opt_default());
     mtmd_bitmap *bitmap = bitmap_wrapper.bitmap;
 
     env->ReleaseByteArrayElements(jImageBytes, bytes, JNI_ABORT);

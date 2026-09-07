@@ -87,8 +87,19 @@ add_library(mtmd_sources OBJECT
         ${MTMD_DIR}/models/nemotron-v2-vl.cpp
         ${MTMD_DIR}/models/paddleocr.cpp
         ${MTMD_DIR}/models/pixtral.cpp
+        ${MTMD_DIR}/models/deepseek4v.cpp
+        ${MTMD_DIR}/models/dots3note.cpp
+        ${MTMD_DIR}/models/mimo-audio.cpp
+        ${MTMD_DIR}/models/minimax-m3.cpp
+        ${MTMD_DIR}/models/muse-glimmer.cpp
+        ${MTMD_DIR}/models/parakeet.cpp
+        ${MTMD_DIR}/models/pockettts-gen.cpp
+        ${MTMD_DIR}/models/pockettts-seanet.cpp
+        ${MTMD_DIR}/models/pockettts-spkenc.cpp
         ${MTMD_DIR}/models/qwen2vl.cpp
         ${MTMD_DIR}/models/qwen3a.cpp
+        ${MTMD_DIR}/models/qwen3tts-gen.cpp
+        ${MTMD_DIR}/models/qwen3tts-spkenc.cpp
         ${MTMD_DIR}/models/qwen3vl.cpp
         ${MTMD_DIR}/models/siglip.cpp
         ${MTMD_DIR}/models/step3vl.cpp
@@ -108,6 +119,7 @@ target_include_directories(mtmd_sources PRIVATE
         ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/vendor/stb
         ${LLAMA_CPP_DIR}/vendor/nlohmann
+        ${LLAMA_CPP_DIR}/vendor/hash
 )
 
 target_compile_options(mtmd_sources PRIVATE -Wno-cast-qual)
@@ -149,6 +161,7 @@ target_link_libraries(
         llama_jni
         PRIVATE
         llama
+        vendor-hash
         whisper
         stable-diffusion
         ${log-lib}

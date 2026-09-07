@@ -1,5 +1,5 @@
 #include "common/json-schema-to-grammar.h"
-#include "nlohmann/json.hpp"
+#include "common/json.h"
 
 #include "llama.h"
 #include "llama-ext.h"
@@ -104,7 +104,7 @@ static constexpr uint32_t    MTP_RS_SNAPSHOTS = 16;
 static bool build_json_grammar(const char *json_schema, std::string &out_grammar, std::string &out_err) {
     try {
         const std::string schema_str = (json_schema && json_schema[0]) ? std::string(json_schema) : std::string("{}");
-        nlohmann::ordered_json schema = nlohmann::ordered_json::parse(schema_str);
+        common_json schema = common_json::parse(schema_str);
         out_grammar = json_schema_to_grammar(schema, /*force_gbnf=*/false);
         return !out_grammar.empty();
     } catch (const std::exception &e) {
@@ -189,8 +189,7 @@ static llama_model *load_model_with_fallback(const char *path) {
 
 #if TARGET_OS_SIMULATOR
     // iOS Simulator does not support Metal — force CPU-only loading
-    mp.use_mmap     = false;
-    mp.use_mlock    = false;
+    mp.load_mode    = LLAMA_LOAD_MODE_NONE;
     mp.n_gpu_layers = 0;
     mp.split_mode   = LLAMA_SPLIT_MODE_NONE;
 #endif
@@ -198,8 +197,7 @@ static llama_model *load_model_with_fallback(const char *path) {
     llama_model *m = llama_model_load_from_file(final_path, mp);
     if (m) return m;
 
-    mp.use_mmap     = false;
-    mp.use_mlock    = false;
+    mp.load_mode    = LLAMA_LOAD_MODE_NONE;
     mp.n_gpu_layers = 0;
     mp.split_mode   = LLAMA_SPLIT_MODE_NONE;
     return llama_model_load_from_file(final_path, mp);
@@ -323,10 +321,10 @@ static bool looks_like_chat_formatted_prompt(const std::string &prompt) {
 static bool json_schema_root_is_array(const char *json_schema) {
     if (!json_schema || !json_schema[0]) return false;
     try {
-        nlohmann::ordered_json schema = nlohmann::ordered_json::parse(std::string(json_schema));
-        if (schema.is_object()) {
-            auto it = schema.find("type");
-            if (it != schema.end() && it->is_string()) return it->get<std::string>() == "array";
+        common_json schema = common_json::parse(std::string(json_schema));
+        if (schema.is_object() && schema.contains("type")) {
+            const common_json & t = schema.at("type");
+            if (t.is_string()) return t.get<std::string>() == "array";
         }
     } catch (...) {}
     return false;
@@ -665,7 +663,7 @@ char *llama_generate(const char *prompt) {
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) return nullptr;
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(v), -1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -759,7 +757,7 @@ char *llama_generate_json_schema(const char *prompt, const char *json_schema) {
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) return nullptr;
     llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(v), -1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -855,7 +853,7 @@ void llama_generate_stream(const char *prompt,
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(v), -1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1112,7 +1110,7 @@ void llama_generate_json_schema_stream(const char *prompt,
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
     llama_sampler_chain_add(sampler, llama_sampler_init_grammar(v, grammar.c_str(), "root"));
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(v), -1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1260,7 +1258,7 @@ char *llama_generate_continue(const char *prompt) {
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) return nullptr;
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(v), -1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1389,7 +1387,7 @@ void llama_generate_continue_stream(const char *prompt,
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(v), -1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
@@ -1469,7 +1467,7 @@ bool llama_mtp_init(const char *model_path, int draft_len) {
     if (g_mtp_model) { llama_model_free(g_mtp_model); g_mtp_model = nullptr; }
 
     llama_model_params mparams = llama_model_default_params();
-    mparams.use_mmap     = g_use_mmap.load(std::memory_order_relaxed);
+    mparams.load_mode    = g_use_mmap.load(std::memory_order_relaxed) ? LLAMA_LOAD_MODE_MMAP : LLAMA_LOAD_MODE_NONE;
     mparams.n_gpu_layers = g_gpu_layers.load(std::memory_order_relaxed);
     g_mtp_model = llama_model_load_from_file(model_path, mparams);
     if (!g_mtp_model) return false;
@@ -1668,7 +1666,7 @@ void llama_session_stream(int64_t handle,
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (!sampler) { if (on_error) on_error("sampler init failed", user); return; }
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(-1, repeat_penalty, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(v), -1, repeat_penalty, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));

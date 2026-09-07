@@ -582,7 +582,7 @@ void llamatik_vlm_analyze_stream(const uint8_t * image_bytes, int image_len, con
 
     g_vlm_cancel = false;
 
-    struct mtmd_helper_bitmap_wrapper bitmap_wrapper = mtmd_helper_bitmap_init_from_buf(g_vlm_mtmd, image_bytes, (size_t) image_len, false);
+    struct mtmd_helper_bitmap_wrapper bitmap_wrapper = mtmd_helper_bitmap_init_from_buf(g_vlm_mtmd, image_bytes, (size_t) image_len, false, mtmd_helper_init_opt_default());
     mtmd_bitmap * bitmap = bitmap_wrapper.bitmap;
     if (!bitmap) {
         js_emit_error_utf8("Failed to decode image");

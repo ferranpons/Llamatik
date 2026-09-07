@@ -40,6 +40,7 @@ set(LLAMA_COMMON_CPP           "${LLAMA_CPP_DIR}/common/common.cpp")
 set(LLAMA_SAMPLING_CPP         "${LLAMA_CPP_DIR}/common/sampling.cpp")
 set(LLAMA_LOG_CPP              "${LLAMA_CPP_DIR}/common/log.cpp")
 set(LLAMA_SCHEMA_CPP           "${LLAMA_CPP_DIR}/common/json-schema-to-grammar.cpp")
+set(LLAMA_JSON_CPP             "${LLAMA_CPP_DIR}/common/json.cpp")
 set(LLAMA_REASONING_BUDGET_CPP "${LLAMA_CPP_DIR}/common/reasoning-budget.cpp")
 set(LLAMA_UNICODE_CPP          "${LLAMA_CPP_DIR}/common/unicode.cpp")
 set(LLAMA_FIT_CPP              "${LLAMA_CPP_DIR}/common/fit.cpp")
@@ -137,6 +138,10 @@ add_library(llamatik_llama_common_obj OBJECT
         "${LLAMA_BUILDINFO_CPP}"
 )
 
+if(EXISTS "${LLAMA_JSON_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_JSON_CPP}")
+endif()
+
 if(EXISTS "${LLAMA_LOG_CPP}")
     target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_LOG_CPP}")
 endif()
@@ -221,8 +226,19 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/nemotron-v2-vl.cpp
         ${MTMD_DIR}/models/paddleocr.cpp
         ${MTMD_DIR}/models/pixtral.cpp
+        ${MTMD_DIR}/models/deepseek4v.cpp
+        ${MTMD_DIR}/models/dots3note.cpp
+        ${MTMD_DIR}/models/mimo-audio.cpp
+        ${MTMD_DIR}/models/minimax-m3.cpp
+        ${MTMD_DIR}/models/muse-glimmer.cpp
+        ${MTMD_DIR}/models/parakeet.cpp
+        ${MTMD_DIR}/models/pockettts-gen.cpp
+        ${MTMD_DIR}/models/pockettts-seanet.cpp
+        ${MTMD_DIR}/models/pockettts-spkenc.cpp
         ${MTMD_DIR}/models/qwen2vl.cpp
         ${MTMD_DIR}/models/qwen3a.cpp
+        ${MTMD_DIR}/models/qwen3tts-gen.cpp
+        ${MTMD_DIR}/models/qwen3tts-spkenc.cpp
         ${MTMD_DIR}/models/qwen3vl.cpp
         ${MTMD_DIR}/models/siglip.cpp
         ${MTMD_DIR}/models/step3vl.cpp
@@ -242,6 +258,7 @@ target_include_directories(mtmd_ios_obj PRIVATE
         ${LLAMA_CPP_DIR}/vendor
         ${LLAMA_CPP_DIR}/vendor/stb
         ${LLAMA_CPP_DIR}/vendor/nlohmann
+        ${LLAMA_CPP_DIR}/vendor/hash
 )
 
 target_compile_options(mtmd_ios_obj PRIVATE -Wno-cast-qual)
@@ -285,6 +302,7 @@ target_compile_features(llama_static_wrapper PUBLIC cxx_std_17)
 target_link_libraries(llama_static_wrapper
         PRIVATE
         llama
+        vendor-hash
         whisper
         stable-diffusion
         Threads::Threads

@@ -125,7 +125,9 @@ kotlin {
     jvm()
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs()
+    wasmJs {
+        browser()
+    }
 
     iosX64()
     iosArm64()

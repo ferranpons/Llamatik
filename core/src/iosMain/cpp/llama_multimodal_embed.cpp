@@ -117,7 +117,7 @@ static void stream_vlm_c(
     const int                 max_toks = 640;
 
     llama_sampler *sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
-    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(128, 1.10f, 0.0f, 0.10f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(vocab), 128, 1.10f, 0.0f, 0.10f));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40));
     llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.90f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.35f));
@@ -197,7 +197,7 @@ bool vlm_init(const char *model_path, const char *mmproj_path) {
     llama_model_params mparams = llama_model_default_params();
 
 #if TARGET_OS_SIMULATOR
-    mparams.use_mmap     = false;
+    mparams.load_mode    = LLAMA_LOAD_MODE_NONE;
     mparams.n_gpu_layers = 0;
 #endif
 
@@ -257,7 +257,7 @@ void vlm_analyze_image_bytes_stream(
         return;
     }
 
-    struct mtmd_helper_bitmap_wrapper bitmap_wrapper = mtmd_helper_bitmap_init_from_buf(mm_mtmd, image_bytes, image_len, false);
+    struct mtmd_helper_bitmap_wrapper bitmap_wrapper = mtmd_helper_bitmap_init_from_buf(mm_mtmd, image_bytes, image_len, false, mtmd_helper_init_opt_default());
     mtmd_bitmap *bitmap = bitmap_wrapper.bitmap;
     if (!bitmap) {
         if (on_error) on_error("failed to decode image bytes", user_data);

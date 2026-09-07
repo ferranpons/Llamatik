@@ -1,5 +1,7 @@
 package com.llamatik.sdk.agent.action
 
+private fun jsWindowOpen(url: String): Unit = js("window.open(url, '_blank')")
+
 /** WASM/browser platform actions. IDs match BuiltInToolDefinitions tool IDs. */
 
 class WasmOpenUrlAction : Action {
@@ -17,7 +19,7 @@ class WasmOpenUrlAction : Action {
         var url = context.arguments["url"] ?: return ActionResult.Failure("Missing url")
         if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://$url"
         return runCatching {
-            js("window.open(url, '_blank')")
+            jsWindowOpen(url)
             ActionResult.Success("Opened: $url")
         }.getOrElse { ActionResult.Failure("Failed to open URL: ${it.message}") }
     }

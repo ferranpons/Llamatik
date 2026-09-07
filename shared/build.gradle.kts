@@ -90,8 +90,6 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.kermit)
 
-            implementation(libs.junit)
-
             implementation(libs.xmlutil.core)
             implementation(libs.xmlutil.serialization)
 
@@ -150,10 +148,53 @@ kotlin {
             implementation(libs.multiplatform.settings.test)
         }
 
-        val wasmJsMain by getting
-        wasmJsMain.dependencies {
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.ktor.client.js)
+        val wasmJsMain by getting {
+            dependencies {
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                implementation(compose.components.resources)
+                implementation(compose.animation)
+                implementation(compose.materialIconsExtended)
+
+                implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.kotlinx.datetime)
+                implementation(libs.kotlinx.io)
+
+                implementation(libs.ktor.client.js)
+                implementation(libs.ktor.client.content.negotiation)
+                implementation(libs.ktor.server.serialization.kotlinx.json)
+
+                implementation(libs.koin.core)
+                implementation(libs.kermit)
+
+                implementation(libs.multiplatform.settings.no.arg)
+                implementation(libs.multiplatform.settings.serialization)
+
+                implementation(libs.voyager.navigator)
+                implementation(libs.voyager.bottom.sheet.navigator)
+                implementation(libs.voyager.tab.navigator)
+                implementation(libs.voyager.transitions)
+                implementation(libs.voyager.koin)
+
+                implementation(libs.kamel)
+                implementation(libs.kamel.default)
+
+                implementation(libs.xmlutil.core)
+                implementation(libs.xmlutil.serialization)
+
+                implementation(libs.urlencoder)
+
+                implementation(libs.richeditor.compose)
+                implementation(libs.koalaplot.core)
+
+                implementation(libs.filekit.core)
+                implementation(libs.filekit.dialogs)
+                implementation(libs.filekit.dialogs.compose)
+            }
         }
     }
 }
