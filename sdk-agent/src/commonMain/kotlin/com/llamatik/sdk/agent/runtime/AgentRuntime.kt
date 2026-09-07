@@ -21,11 +21,15 @@ import com.llamatik.sdk.chat.ChatRunner
 import com.llamatik.sdk.chat.Gemma3
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 sealed interface AgentRuntimeEvent {
     data object Planning : AgentRuntimeEvent
     data class PlanReady(val plan: ExecutionPlan) : AgentRuntimeEvent
-    data class Executing(val stepId: String, val toolId: String) : AgentRuntimeEvent
+    data class Executing(val stepId: String, val toolId: String, val displayName: String = toolId) : AgentRuntimeEvent
     data class StepCompleted(val result: ExecutionResult) : AgentRuntimeEvent
     data object GeneratingResponse : AgentRuntimeEvent
     data class ResponseDelta(val chunk: String) : AgentRuntimeEvent
@@ -47,6 +51,7 @@ class AgentRuntime private constructor(
     private val activeProfile: CompanionProfile,
     private val platformId: String,
 ) {
+    @OptIn(ExperimentalTime::class)
     fun processMessage(
         userMessage: String,
         conversationHistory: List<ChatMessage>,
@@ -69,12 +74,16 @@ class AgentRuntime private constructor(
         Logger.d("AgentRuntime: processing message for session $sessionId")
         send(AgentRuntimeEvent.Planning)
 
+        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val currentDateTime = "${now.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}, ${now.date}"
+
         val plannerRequest = PlannerRequest(
             userMessage = userMessage,
             conversationHistory = ctx.conversationHistory,
             availableCapabilities = ctx.availableCapabilities,
             memoryContext = memoryContext,
             companionSystemPrompt = activeProfile.systemPrompt,
+            currentDateTime = currentDateTime,
         )
 
         // Pass a non-suspending callback so conversational tokens stream in real-time.
@@ -110,7 +119,8 @@ class AgentRuntime private constructor(
                         continue
                     }
 
-                    send(AgentRuntimeEvent.Executing(step.stepId, step.toolId))
+                    val toolDisplayName = toolRegistry.get(step.toolId)?.displayName ?: step.toolId
+                    send(AgentRuntimeEvent.Executing(step.stepId, step.toolId, toolDisplayName))
                     val result = executionEngine.execute(step, sessionId)
                     executionResults += result
                     if (result.status == ExecutionStatus.SUCCEEDED) {
@@ -138,36 +148,38 @@ class AgentRuntime private constructor(
         executionResults: List<ExecutionResult>,
         companionProfile: CompanionProfile,
     ): String {
-        val toolSummary = executionResults.joinToString("\n") { result ->
-            val statusStr = if (result.status == ExecutionStatus.SUCCEEDED) "✓" else "✗"
-            "$statusStr ${result.toolId}: ${result.outputSummary.ifBlank { result.errorMessage ?: result.status.name }}"
+        val succeeded = executionResults.filter { it.status == ExecutionStatus.SUCCEEDED }
+        val failed = executionResults.filter { it.status != ExecutionStatus.SUCCEEDED }
+
+        if (succeeded.isEmpty()) {
+            val reason = failed.firstNotNullOfOrNull { it.errorMessage } ?: "unknown error"
+            return "I wasn't able to complete that: $reason"
         }
 
-        val systemPrompt = """${companionProfile.systemPrompt}
+        val resultLines = executionResults.joinToString("\n") { result ->
+            val status = if (result.status == ExecutionStatus.SUCCEEDED) "OK" else "FAILED"
+            "$status — ${result.toolId}: ${result.outputSummary.ifBlank { result.errorMessage ?: result.status.name }}"
+        }
 
-The following tool actions were just executed on behalf of the user. Generate a natural, ${companionProfile.responseStyle} response confirming what was done:
-
-Tool results:
-$toolSummary
-
+        val systemPrompt = """Reply in ONE short sentence confirming what was just done. No bullet points, no headers, no markdown.
+Example: "Done! I've created a reminder for your medical appointment on Thursday."
+Results:
+$resultLines
 User asked: "$userMessage"
-"""
+One sentence:"""
 
         val acc = StringBuilder()
-        var done = false
-
         ChatRunner.stream(
             system = systemPrompt,
-            messages = conversationHistory.takeLast(6),
+            messages = conversationHistory.takeLast(2),
             template = Gemma3,
-            maxTokens = 256,
+            maxTokens = 80,
             onDelta = { acc.append(it) },
-            onComplete = { done = true },
-            onError = { done = true },
+            onComplete = {},
+            onError = {},
         )
 
-        return if (acc.isNotBlank()) acc.toString().trim()
-        else "Done! I've completed the requested action."
+        return acc.toString().trim().ifBlank { "Done!" }
     }
 
     class Builder {

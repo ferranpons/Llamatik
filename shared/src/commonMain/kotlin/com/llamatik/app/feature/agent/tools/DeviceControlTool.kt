@@ -8,7 +8,14 @@ import kotlinx.serialization.json.put
 
 // Triggers safe device control actions: open settings, launch system intents.
 // Does not attempt restricted toggles.
-expect class DeviceControlTool() : AgentTool
+expect class DeviceControlTool() : AgentTool {
+    override val id: String
+    override val displayName: String
+    override val description: String
+    override val schema: kotlinx.serialization.json.JsonObject
+    override fun isSupported(): Boolean
+    override suspend fun execute(input: kotlinx.serialization.json.JsonObject): com.llamatik.app.feature.agent.AgentToolResult
+}
 
 val deviceControlSchema: JsonObject = buildJsonObject {
     put("type", "object")

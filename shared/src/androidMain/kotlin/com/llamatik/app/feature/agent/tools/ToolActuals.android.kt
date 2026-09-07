@@ -13,13 +13,13 @@ import kotlinx.serialization.json.JsonObject
 import org.koin.mp.KoinPlatform
 
 actual class ReminderTool actual constructor() : AgentTool {
-    override val id = "reminder"
-    override val displayName = "Reminder"
-    override val description = "Create a reminder using the system clock/alarm app"
-    override val schema = reminderSchema
-    override fun isSupported() = true
+    actual override val id = "reminder"
+    actual override val displayName = "Reminder"
+    actual override val description = "Create a reminder using the system clock/alarm app"
+    actual override val schema = reminderSchema
+    actual override fun isSupported() = true
 
-    override suspend fun execute(input: JsonObject): AgentToolResult {
+    actual override suspend fun execute(input: JsonObject): AgentToolResult {
         val title = reminderExtractTitle(input) ?: return AgentToolResult.Failure("Missing title")
         return try {
             val context = KoinPlatform.getKoin().get<Context>()
@@ -37,13 +37,13 @@ actual class ReminderTool actual constructor() : AgentTool {
 }
 
 actual class OpenAppTool actual constructor() : AgentTool {
-    override val id = "open_app"
-    override val displayName = "Open App"
-    override val description = "Open an installed app by package name or URI"
-    override val schema = openAppSchema
-    override fun isSupported() = true
+    actual override val id = "open_app"
+    actual override val displayName = "Open App"
+    actual override val description = "Open an installed app by package name or URI"
+    actual override val schema = openAppSchema
+    actual override fun isSupported() = true
 
-    override suspend fun execute(input: JsonObject): AgentToolResult {
+    actual override suspend fun execute(input: JsonObject): AgentToolResult {
         val target = openAppExtractTarget(input) ?: return AgentToolResult.Failure("Missing target")
         return try {
             val context = KoinPlatform.getKoin().get<Context>()
@@ -70,13 +70,13 @@ actual class OpenAppTool actual constructor() : AgentTool {
 }
 
 actual class DeviceControlTool actual constructor() : AgentTool {
-    override val id = "device_control"
-    override val displayName = "Device Control"
-    override val description = "Open system settings panels (no restricted toggles)"
-    override val schema = deviceControlSchema
-    override fun isSupported() = true
+    actual override val id = "device_control"
+    actual override val displayName = "Device Control"
+    actual override val description = "Open system settings panels (no restricted toggles)"
+    actual override val schema = deviceControlSchema
+    actual override fun isSupported() = true
 
-    override suspend fun execute(input: JsonObject): AgentToolResult {
+    actual override suspend fun execute(input: JsonObject): AgentToolResult {
         val action = deviceControlExtractAction(input) ?: return AgentToolResult.Failure("Missing action")
         return try {
             val context = KoinPlatform.getKoin().get<Context>()
@@ -104,13 +104,13 @@ actual class DeviceControlTool actual constructor() : AgentTool {
 }
 
 actual class SystemInteractionTool actual constructor() : AgentTool {
-    override val id = "system_interaction"
-    override val displayName = "System Interaction"
-    override val description = "Copy to clipboard, open URL, or share text"
-    override val schema = systemInteractionSchema
-    override fun isSupported() = true
+    actual override val id = "system_interaction"
+    actual override val displayName = "System Interaction"
+    actual override val description = "Copy to clipboard, open URL, or share text"
+    actual override val schema = systemInteractionSchema
+    actual override fun isSupported() = true
 
-    override suspend fun execute(input: JsonObject): AgentToolResult {
+    actual override suspend fun execute(input: JsonObject): AgentToolResult {
         val action = systemInteractionExtractAction(input) ?: return AgentToolResult.Failure("Missing action")
         val context = KoinPlatform.getKoin().get<Context>()
         return try {

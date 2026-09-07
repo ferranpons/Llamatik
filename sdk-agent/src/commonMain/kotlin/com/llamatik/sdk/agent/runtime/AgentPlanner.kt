@@ -23,11 +23,7 @@ class AgentPlanner(
         request: PlannerRequest,
         onConversationalDelta: (String) -> Unit = {},
     ): PlannerResult {
-        val toolDescriptions = toolRegistry.availableTools().joinToString("\n") {
-            "- ${it.id}: ${it.description}"
-        }
-
-        val systemPrompt = buildSystemPrompt(toolDescriptions, request)
+        val systemPrompt = buildSystemPrompt(request)
 
         val messages = request.conversationHistory.takeLast(10) +
             listOf(ChatMessage(ChatMessage.Role.User, request.userMessage))
@@ -92,46 +88,52 @@ class AgentPlanner(
         }
     }
 
-    private fun buildSystemPrompt(toolDescriptions: String, request: PlannerRequest): String {
-        val capabilityNames = request.availableCapabilities.map { it.id }.joinToString(", ")
+    private fun buildSystemPrompt(request: PlannerRequest): String {
         val memoryBlock = if (request.memoryContext.isNotBlank()) {
-            "\n\n=== User memory ===\n${request.memoryContext}\n=== End user memory ==="
+            "\nUser memory:\n${request.memoryContext}"
         } else ""
 
-        val companionStyle = request.companionSystemPrompt
+        val dateContext = if (request.currentDateTime.isNotBlank()) {
+            "\nToday: ${request.currentDateTime}"
+        } else ""
+
+        val toolsWithParams = toolRegistry.availableTools().joinToString("\n") { tool ->
+            val params = tool.schema.parameters.joinToString(", ") { p ->
+                if (p.required) p.name else "${p.name}(optional)"
+            }
+            "  ${tool.id}: ${tool.description} [params: $params]"
+        }
 
         return """
-$companionStyle
-$memoryBlock
-
-You are a structured planning assistant. Your job is to decide whether the user's request requires tool execution, or if it can be answered conversationally.
-
-Available platform capabilities: $capabilityNames
+You are a task-execution assistant. You decide: execute an action, ask for missing info, or reply conversationally.
+$dateContext$memoryBlock
 
 Available tools:
-$toolDescriptions
+$toolsWithParams
 
-RULES:
-1. If the user asks something conversational (greeting, explanation, question you can answer), respond with plain text only — NO JSON.
-2. If the user wants to DO something (create event, set reminder, open app, etc.), output ONLY a JSON ExecutionPlan in this exact format:
+RULES — apply in order:
+
+RULE 1 — EXECUTE: User wants to DO something (create reminder, add calendar event, open app, copy text, share, send notification, etc.) AND you have all required info → output ONLY the JSON plan below. No other text before or after.
+
+RULE 2 — CLARIFY: User wants to DO something but a required parameter is missing (e.g. "set a reminder" with no title, or "create event" with no title) → ask ONE short question only. No JSON.
+
+RULE 3 — CONVERSE: User is chatting, asking a question, or the request does NOT involve a device action → reply with plain text.
+
+JSON plan format (RULE 1 only — no text outside the JSON):
 {
-  "steps": [
-    {
-      "tool": "<tool_id>",
-      "arguments": {"key": "value"},
-      "stepId": "<unique_id>",
-      "dependsOn": []
-    }
-  ],
-  "confidence": 0.95,
+  "steps": [{"tool": "<tool_id>", "arguments": {"param": "value"}, "stepId": "step_1", "dependsOn": []}],
+  "confidence": 0.9,
   "requiresConfirmation": false,
-  "reasoningSummary": "Brief explanation",
+  "reasoningSummary": "one-line summary",
   "estimatedRisk": "LOW"
 }
-3. estimatedRisk must be one of: LOW, MEDIUM, HIGH, CRITICAL
-4. For HIGH or CRITICAL risk, set requiresConfirmation to true
-5. Do NOT include any text outside the JSON when producing a plan
-6. Do NOT invent tool IDs — use only the tools listed above
+
+Rules for arguments:
+- Use EXACT tool IDs from the list above
+- estimatedRisk must be: LOW, MEDIUM, HIGH, or CRITICAL
+- For dates: use YYYY-MM-DD format. Use the "Today" date above to convert relative days ("Thursday", "tomorrow") to an actual date
+- For times: use HH:MM (24h) format
+- NEVER describe what you would do — either execute (JSON) or ask for missing info
 """.trimIndent()
     }
 

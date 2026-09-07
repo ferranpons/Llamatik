@@ -7,7 +7,14 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 // Creates a reminder on the device. Platform-specific implementation required.
-expect class ReminderTool() : AgentTool
+expect class ReminderTool() : AgentTool {
+    override val id: String
+    override val displayName: String
+    override val description: String
+    override val schema: kotlinx.serialization.json.JsonObject
+    override fun isSupported(): Boolean
+    override suspend fun execute(input: kotlinx.serialization.json.JsonObject): com.llamatik.app.feature.agent.AgentToolResult
+}
 
 val reminderSchema: JsonObject = buildJsonObject {
     put("type", "object")

@@ -8,7 +8,14 @@ import kotlinx.serialization.json.put
 
 // Handles safe system-level interactions: copy to clipboard, open URL, share text.
 // Platform implementations provide the actual capability.
-expect class SystemInteractionTool() : AgentTool
+expect class SystemInteractionTool() : AgentTool {
+    override val id: String
+    override val displayName: String
+    override val description: String
+    override val schema: kotlinx.serialization.json.JsonObject
+    override fun isSupported(): Boolean
+    override suspend fun execute(input: kotlinx.serialization.json.JsonObject): com.llamatik.app.feature.agent.AgentToolResult
+}
 
 val systemInteractionSchema: JsonObject = buildJsonObject {
     put("type", "object")

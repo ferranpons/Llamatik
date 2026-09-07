@@ -10,6 +10,7 @@ data class PlannerRequest(
     val availableCapabilities: Set<Capability>,
     val memoryContext: String,
     val companionSystemPrompt: String,
+    val currentDateTime: String = "",
 )
 
 sealed interface PlannerResult {

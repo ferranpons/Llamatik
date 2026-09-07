@@ -1984,7 +1984,7 @@ class ChatBotViewModel(
                     is AgentRuntimeEvent.Planning -> { /* wait silently — no status flash */ }
                     is AgentRuntimeEvent.PlanReady -> {}
                     is AgentRuntimeEvent.Executing ->
-                        updateLastBotMessage("⚙️ ${event.toolId}…")
+                        updateLastBotMessage("⚙️ ${event.displayName}…")
                     is AgentRuntimeEvent.StepCompleted -> {}
                     is AgentRuntimeEvent.GeneratingResponse -> {}
                     is AgentRuntimeEvent.ResponseDelta -> {
