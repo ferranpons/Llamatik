@@ -94,8 +94,19 @@ if(EXISTS "${MTMD_DIR}/mtmd.cpp")
     "${MTMD_DIR}/models/nemotron-v2-vl.cpp"
     "${MTMD_DIR}/models/paddleocr.cpp"
     "${MTMD_DIR}/models/pixtral.cpp"
+    "${MTMD_DIR}/models/deepseek4v.cpp"
+    "${MTMD_DIR}/models/dots3note.cpp"
+    "${MTMD_DIR}/models/mimo-audio.cpp"
+    "${MTMD_DIR}/models/minimax-m3.cpp"
+    "${MTMD_DIR}/models/muse-glimmer.cpp"
+    "${MTMD_DIR}/models/parakeet.cpp"
+    "${MTMD_DIR}/models/pockettts-gen.cpp"
+    "${MTMD_DIR}/models/pockettts-seanet.cpp"
+    "${MTMD_DIR}/models/pockettts-spkenc.cpp"
     "${MTMD_DIR}/models/qwen2vl.cpp"
     "${MTMD_DIR}/models/qwen3a.cpp"
+    "${MTMD_DIR}/models/qwen3tts-gen.cpp"
+    "${MTMD_DIR}/models/qwen3tts-spkenc.cpp"
     "${MTMD_DIR}/models/qwen3vl.cpp"
     "${MTMD_DIR}/models/siglip.cpp"
     "${MTMD_DIR}/models/step3vl.cpp"
@@ -143,7 +154,7 @@ target_include_directories(llamatik_wasm PRIVATE
   "${MTMD_DIR}"
 )
 
-target_link_libraries(llamatik_wasm PRIVATE llama)
+target_link_libraries(llamatik_wasm PRIVATE llama vendor-hash)
 
 if(HAVE_WHISPER)
   target_include_directories(llamatik_wasm PRIVATE "${WHISPER_CPP_DIR}" "${WHISPER_CPP_DIR}/include")

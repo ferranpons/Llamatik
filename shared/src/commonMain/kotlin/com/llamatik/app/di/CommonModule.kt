@@ -93,7 +93,7 @@ val commonModule = module {
             navigator = navigator,
             settings = get(),
             getAllNewsUseCase = get(),
-            getModelsUseCase = get(),
+            getModelsUseCase = get<GetModelsUseCase>(named("app")),
             modelDownloadOrchestrator = get(),
             reviewRequestManager = get(),
             chatHistoryRepository = get(),
@@ -107,7 +107,7 @@ val commonModule = module {
             navigator = navigator,
             settings = get(),
             getAllNewsUseCase = get(),
-            getModelsUseCase = get(),
+            getModelsUseCase = get<GetModelsUseCase>(named("app")),
             modelDownloadOrchestrator = get(),
             reviewRequestManager = get(),
             chatHistoryRepository = get(),
@@ -133,7 +133,7 @@ val commonModule = module {
 
     singleOf(::NewsRepository)
 
-    factoryOf(::GetModelsUseCase)
+    factory(named("app")) { GetModelsUseCase(get()) }
     factoryOf(::ImportModelUseCase)
     singleOf(::ModelsRepository)
 
@@ -159,7 +159,7 @@ val commonModule = module {
         )
     }
     single { com.llamatik.sdk.download.DefaultModelDownloadOrchestrator(get()) }
-    single { com.llamatik.sdk.model.GetModelsUseCase(get()) }
+    single(named("sdk")) { com.llamatik.sdk.model.GetModelsUseCase(get()) }
     single { com.llamatik.sdk.model.ImportModelUseCase(get()) }
     single { com.llamatik.sdk.chat.ChatHistoryRepository(get()) }
     single<ModelPathResolver> { ModelPathResolverAdapter(get()) }
@@ -168,7 +168,7 @@ val commonModule = module {
         Assistant(
             scope = scope,
             ioDispatcher = AppDispatchersIO,
-            getModelsUseCase = get<com.llamatik.sdk.model.GetModelsUseCase>(),
+            getModelsUseCase = get<com.llamatik.sdk.model.GetModelsUseCase>(named("sdk")),
             modelDownloadOrchestrator = get<com.llamatik.sdk.download.DefaultModelDownloadOrchestrator>(),
             chatHistoryRepository = get<com.llamatik.sdk.chat.ChatHistoryRepository>(),
             pathResolver = get(),
