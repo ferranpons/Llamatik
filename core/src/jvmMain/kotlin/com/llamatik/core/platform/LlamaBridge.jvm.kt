@@ -228,7 +228,7 @@ actual object LlamaBridge {
     }
 
     private fun createTempNativeDir(platform: String): File {
-        val dir = createTempDir(prefix = "llamatik_${platform}_")
+        val dir = kotlin.io.path.createTempDirectory(prefix = "llamatik_${platform}_").toFile()
         dir.deleteOnExit()
         return dir
     }
