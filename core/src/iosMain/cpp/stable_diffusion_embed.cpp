@@ -42,8 +42,6 @@ int32_t sd_init(const char * model_path, int32_t threads) {
 
     // Reasonable defaults (same intent as your JNI wrapper)
     params.enable_mmap = true;
-    params.offload_params_to_cpu = true;
-    params.free_params_immediately = true;
 
     g_sd_ctx = new_sd_ctx(&params);
     if (!g_sd_ctx) {
@@ -119,15 +117,16 @@ uint8_t * sd_txt2img_rgba(
     gen.sample_params.sample_steps = (int) steps;
     gen.sample_params.guidance.txt_cfg = (float) cfg_scale;
 
-    sd_image_t * img = generate_image(g_sd_ctx, &gen);
-    if (!img || !img->data || img->width == 0 || img->height == 0) {
+    sd_image_t * images_out = nullptr;
+    int num_images = 0;
+    bool ok = generate_image(g_sd_ctx, &gen, &images_out, &num_images);
+    if (!ok || num_images == 0 || !images_out || !images_out[0].data ||
+            images_out[0].width == 0 || images_out[0].height == 0) {
         std::fprintf(stderr, "sd_txt2img_rgba: generate_image failed\n");
-        if (img) {
-            if (img->data) std::free(img->data);
-            std::free(img);
-        }
+        free_sd_images(images_out, num_images);
         return nullptr;
     }
+    sd_image_t * img = &images_out[0];
 
     const int w = (int) img->width;
     const int h = (int) img->height;
@@ -143,13 +142,11 @@ uint8_t * sd_txt2img_rgba(
         rgba_from_gray(img->data, pixelCount, rgba);
     } else {
         std::fprintf(stderr, "sd_txt2img_rgba: unknown channel count=%d\n", ch);
-        std::free(img->data);
-        std::free(img);
+        free_sd_images(images_out, num_images);
         return nullptr;
     }
 
-    std::free(img->data);
-    std::free(img);
+    free_sd_images(images_out, num_images);
 
     uint8_t * out = (uint8_t *) std::malloc(rgba.size());
     if (!out) return nullptr;
@@ -219,17 +216,18 @@ uint8_t * sd_img2img_rgba(
     gen.init_image.height  = (uint32_t) init_image_h;
     gen.init_image.channel = 4;
 
-    sd_image_t * img = generate_image(g_sd_ctx, &gen);
+    sd_image_t * images_out = nullptr;
+    int num_images = 0;
+    bool ok = generate_image(g_sd_ctx, &gen, &images_out, &num_images);
     std::free(initCopy);
 
-    if (!img || !img->data || img->width == 0 || img->height == 0) {
+    if (!ok || num_images == 0 || !images_out || !images_out[0].data ||
+            images_out[0].width == 0 || images_out[0].height == 0) {
         std::fprintf(stderr, "sd_img2img_rgba: generate_image failed\n");
-        if (img) {
-            if (img->data) std::free(img->data);
-            std::free(img);
-        }
+        free_sd_images(images_out, num_images);
         return nullptr;
     }
+    sd_image_t * img = &images_out[0];
 
     const int w = (int) img->width;
     const int h = (int) img->height;
@@ -245,13 +243,11 @@ uint8_t * sd_img2img_rgba(
         rgba_from_gray(img->data, outPixelCount, rgba);
     } else {
         std::fprintf(stderr, "sd_img2img_rgba: unknown channel count=%d\n", ch);
-        std::free(img->data);
-        std::free(img);
+        free_sd_images(images_out, num_images);
         return nullptr;
     }
 
-    std::free(img->data);
-    std::free(img);
+    free_sd_images(images_out, num_images);
 
     uint8_t * out = (uint8_t *) std::malloc(rgba.size());
     if (!out) return nullptr;

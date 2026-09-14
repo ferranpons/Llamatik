@@ -53,8 +53,6 @@ Java_com_llamatik_core_platform_StableDiffusionBridge_initModel(
 
     // Reasonable defaults for mobile/desktop
     params.enable_mmap = true;
-    params.offload_params_to_cpu = true;
-    params.free_params_immediately = true;
 
     g_sd_ctx = new_sd_ctx(&params);
     return g_sd_ctx ? JNI_TRUE : JNI_FALSE;
@@ -127,14 +125,15 @@ Java_com_llamatik_core_platform_StableDiffusionBridge_txt2img(
     gen.sample_params.sample_steps = (int) steps;
     gen.sample_params.guidance.txt_cfg = (float) cfgScale;
 
-    sd_image_t * img = generate_image(g_sd_ctx, &gen);
-    if (!img || !img->data || img->width == 0 || img->height == 0) {
-        if (img) {
-            if (img->data) std::free(img->data);
-            std::free(img);
-        }
+    sd_image_t * images_out = nullptr;
+    int num_images = 0;
+    bool ok = generate_image(g_sd_ctx, &gen, &images_out, &num_images);
+    if (!ok || num_images == 0 || !images_out || !images_out[0].data ||
+            images_out[0].width == 0 || images_out[0].height == 0) {
+        free_sd_images(images_out, num_images);
         return env->NewByteArray(0);
     }
+    sd_image_t * img = &images_out[0];
 
     const int w = (int) img->width;
     const int h = (int) img->height;
@@ -149,15 +148,11 @@ Java_com_llamatik_core_platform_StableDiffusionBridge_txt2img(
     } else if (ch == 1) {
         rgba_from_gray(img->data, pixelCount, rgba);
     } else {
-        // unknown format
-        std::free(img->data);
-        std::free(img);
+        free_sd_images(images_out, num_images);
         return env->NewByteArray(0);
     }
 
-    // release image buffers (API allocates via malloc)
-    std::free(img->data);
-    std::free(img);
+    free_sd_images(images_out, num_images);
 
     jbyteArray out = env->NewByteArray((jsize) rgba.size());
     if (!out) return env->NewByteArray(0);
@@ -225,16 +220,17 @@ Java_com_llamatik_core_platform_StableDiffusionBridge_img2img(
     gen.init_image.height  = (uint32_t) initImageH;
     gen.init_image.channel = 4;
 
-    sd_image_t * img = generate_image(g_sd_ctx, &gen);
+    sd_image_t * images_out = nullptr;
+    int num_images = 0;
+    bool ok = generate_image(g_sd_ctx, &gen, &images_out, &num_images);
     std::free(initCopy);
 
-    if (!img || !img->data || img->width == 0 || img->height == 0) {
-        if (img) {
-            if (img->data) std::free(img->data);
-            std::free(img);
-        }
+    if (!ok || num_images == 0 || !images_out || !images_out[0].data ||
+            images_out[0].width == 0 || images_out[0].height == 0) {
+        free_sd_images(images_out, num_images);
         return env->NewByteArray(0);
     }
+    sd_image_t * img = &images_out[0];
 
     const int w = (int) img->width;
     const int h = (int) img->height;
@@ -249,13 +245,11 @@ Java_com_llamatik_core_platform_StableDiffusionBridge_img2img(
     } else if (ch == 1) {
         rgba_from_gray(img->data, outPixelCount, rgba);
     } else {
-        std::free(img->data);
-        std::free(img);
+        free_sd_images(images_out, num_images);
         return env->NewByteArray(0);
     }
 
-    std::free(img->data);
-    std::free(img);
+    free_sd_images(images_out, num_images);
 
     jbyteArray out = env->NewByteArray((jsize) rgba.size());
     if (!out) return env->NewByteArray(0);
