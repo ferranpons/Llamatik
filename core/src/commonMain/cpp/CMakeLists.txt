@@ -52,6 +52,10 @@ set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
 set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
+# Provide SD-specific ggml symbols absent from llama.cpp's ggml (same shim as iOS wrapper).
+set(SD_GGML_SHIM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake/llama-wrapper/sd_ggml_shim")
+target_include_directories(stable-diffusion BEFORE PRIVATE "${SD_GGML_SHIM_DIR}")
+target_sources(stable-diffusion PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake/llama-wrapper/sd_ggml_shim.cpp")
 
 find_library(log-lib log)
 

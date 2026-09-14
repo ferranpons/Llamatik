@@ -126,6 +126,15 @@ if(EXISTS "${STABLE_DIFFUSION_CPP_DIR}/CMakeLists.txt")
     set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
     set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
     add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
+    # Provide SD-specific ggml symbols absent from llama.cpp's ggml.
+    # stable-diffusion.cpp reuses llama.cpp's ggml target (CMake "NOT TARGET ggml"
+    # guard fires first), so its own extended ggml is never built. The shim
+    # wrapper header (sd_ggml_shim/ggml.h) uses #include_next to extend
+    # llama.cpp's ggml.h with the missing FP8 types and function declarations;
+    # sd_ggml_shim.cpp provides stub implementations for the missing ops.
+    set(SD_GGML_SHIM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/sd_ggml_shim")
+    target_include_directories(stable-diffusion BEFORE PRIVATE "${SD_GGML_SHIM_DIR}")
+    target_sources(stable-diffusion PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sd_ggml_shim.cpp")
     set(HAVE_SD ON)
 else()
     message(WARNING "stable-diffusion.cpp not found at: ${STABLE_DIFFUSION_CPP_DIR}. iOS build will not include SD.")
