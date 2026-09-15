@@ -167,6 +167,32 @@ interface Localization {
     val clearCachedModelsDialogMessage: String
     val cancel: String
     val clear: String
+
+    // Onboarding model choice (final page)
+    val onboardingModelChoiceTitle: String
+    val onboardingModelChoiceDescription: String
+    val onboardingDownloadDefaultModel: String
+    val onboardingBrowseCatalog: String
+    val onboardingSkipForNow: String
+    val onboardingNoModelEmptyState: String
+    val onboardingNoModelEmptyStateAction: String
+
+    val configure: String
+    val modelsTitle: String
+
+    val downloadFromUrl: String
+    val modelUrlLabel: String
+    val modelNameLabel: String
+    val categoryLabel: String
+
+    val newFolder: String
+    val folderName: String
+    val createFolder: String
+    val moveToFolder: String
+    val removeFromFolder: String
+    val selectOrCreateFolder: String
+    val noFolderName: String
+    val chatsInFolder: String
 }
 
 enum class AvailableLanguages {
@@ -241,3 +267,19 @@ fun getLanguageName(): String? {
         AvailableLanguages.CA -> "Catalan"
     }
 }
+
+val AvailableLanguages.displayName: String
+    get() = when (this) {
+        AvailableLanguages.EN -> "English"
+        AvailableLanguages.ES -> "Español"
+        AvailableLanguages.IT -> "Italiano"
+        AvailableLanguages.FR -> "Français"
+        AvailableLanguages.DE -> "Deutsch"
+        AvailableLanguages.RU -> "Русский"
+        AvailableLanguages.CN -> "中文"
+        AvailableLanguages.PT -> "Português"
+        AvailableLanguages.HI -> "हिन्दी"
+        AvailableLanguages.FA -> "فارسی"
+        AvailableLanguages.JA -> "日本語"
+        AvailableLanguages.CA -> "Català"
+    }

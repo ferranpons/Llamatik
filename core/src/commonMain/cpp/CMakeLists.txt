@@ -1,0 +1,179 @@
+cmake_minimum_required(VERSION 3.5)
+project(llama_jni)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# DO NOT force CMAKE_BUILD_TYPE here; Android/Gradle controls it.
+
+# Path to vendored llama.cpp inside the repo
+set(LLAMA_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../llama.cpp")
+set(MTMD_DIR "${LLAMA_CPP_DIR}/tools/mtmd")
+
+# Build llama.cpp "common" helpers (needed for json-schema-to-grammar)
+set(LLAMA_BUILD_COMMON ON CACHE BOOL "Build llama.cpp common helpers" FORCE)
+
+# Disable curl on Android builds (NDK doesn't provide libcurl by default)
+set(LLAMA_CURL OFF CACHE BOOL "Disable curl support" FORCE)
+
+# Also disable things that commonly pull in extra deps
+set(LLAMA_SERVER OFF CACHE BOOL "Disable server" FORCE)
+set(LLAMA_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
+set(LLAMA_TESTS OFF CACHE BOOL "Disable tests" FORCE)
+set(LLAMA_BENCHMARK OFF CACHE BOOL "Disable benchmarks" FORCE)
+
+if(ANDROID)
+    message(STATUS "Configuring llama.cpp for Android ABI: ${ANDROID_ABI}")
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(GGML_LLAMAFILE OFF CACHE BOOL "Disable GGML llamafile on armeabi-v7a" FORCE)
+        set(GGML_USE_LLAMAFILE OFF CACHE BOOL "" FORCE)
+    endif()
+endif()
+
+# Add llama.cpp as a subdirectory (builds ggml, llama, common, etc)
+add_subdirectory("${LLAMA_CPP_DIR}" "${CMAKE_BINARY_DIR}/llama")
+
+set(WHISPER_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../whisper.cpp")
+
+# whisper.cpp options
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+
+add_subdirectory("${WHISPER_CPP_DIR}" "${CMAKE_BINARY_DIR}/whisper")
+
+# stable-diffusion.cpp (repo-root submodule)
+set(STABLE_DIFFUSION_CPP_DIR "${CMAKE_SOURCE_DIR}/../../../../stable-diffusion.cpp")
+set(SD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SD_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
+set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
+
+add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
+# Provide SD-specific ggml symbols absent from llama.cpp's ggml (same shim as iOS wrapper).
+set(SD_GGML_SHIM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake/llama-wrapper/sd_ggml_shim")
+target_include_directories(stable-diffusion BEFORE PRIVATE "${SD_GGML_SHIM_DIR}")
+target_sources(stable-diffusion PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake/llama-wrapper/sd_ggml_shim.cpp")
+
+find_library(log-lib log)
+
+# Build mtmd (multimodal) sources as an object library to include in llama_jni
+add_library(mtmd_sources OBJECT
+        ${MTMD_DIR}/mtmd.cpp
+        ${MTMD_DIR}/mtmd-helper.cpp
+        ${MTMD_DIR}/mtmd-audio.cpp
+        ${MTMD_DIR}/mtmd-image.cpp
+        ${MTMD_DIR}/clip.cpp
+        ${MTMD_DIR}/models/cogvlm.cpp
+        ${MTMD_DIR}/models/conformer.cpp
+        ${MTMD_DIR}/models/deepseekocr.cpp
+        ${MTMD_DIR}/models/deepseekocr2.cpp
+        ${MTMD_DIR}/models/dotsocr.cpp
+        ${MTMD_DIR}/models/exaone4_5.cpp
+        ${MTMD_DIR}/models/gemma4a.cpp
+        ${MTMD_DIR}/models/gemma4ua.cpp
+        ${MTMD_DIR}/models/gemma4uv.cpp
+        ${MTMD_DIR}/models/gemma4v.cpp
+        ${MTMD_DIR}/models/glm4v.cpp
+        ${MTMD_DIR}/models/granite-speech.cpp
+        ${MTMD_DIR}/models/granite4-vision.cpp
+        ${MTMD_DIR}/models/hunyuanvl.cpp
+        ${MTMD_DIR}/models/internvl.cpp
+        ${MTMD_DIR}/models/kimik25.cpp
+        ${MTMD_DIR}/models/kimivl.cpp
+        ${MTMD_DIR}/models/llama4.cpp
+        ${MTMD_DIR}/models/llava.cpp
+        ${MTMD_DIR}/models/minicpmv.cpp
+        ${MTMD_DIR}/models/mimovl.cpp
+        ${MTMD_DIR}/models/mobilenetv5.cpp
+        ${MTMD_DIR}/models/nemotron-v2-vl.cpp
+        ${MTMD_DIR}/models/paddleocr.cpp
+        ${MTMD_DIR}/models/pixtral.cpp
+        ${MTMD_DIR}/models/deepseek4v.cpp
+        ${MTMD_DIR}/models/dots3note.cpp
+        ${MTMD_DIR}/models/mimo-audio.cpp
+        ${MTMD_DIR}/models/minimax-m3.cpp
+        ${MTMD_DIR}/models/muse-glimmer.cpp
+        ${MTMD_DIR}/models/parakeet.cpp
+        ${MTMD_DIR}/models/pockettts-gen.cpp
+        ${MTMD_DIR}/models/pockettts-seanet.cpp
+        ${MTMD_DIR}/models/pockettts-spkenc.cpp
+        ${MTMD_DIR}/models/qwen2vl.cpp
+        ${MTMD_DIR}/models/qwen3a.cpp
+        ${MTMD_DIR}/models/qwen3tts-gen.cpp
+        ${MTMD_DIR}/models/qwen3tts-spkenc.cpp
+        ${MTMD_DIR}/models/qwen3vl.cpp
+        ${MTMD_DIR}/models/siglip.cpp
+        ${MTMD_DIR}/models/step3vl.cpp
+        ${MTMD_DIR}/models/whisper-enc.cpp
+        ${MTMD_DIR}/models/yasa2.cpp
+        ${MTMD_DIR}/models/youtuvl.cpp
+        ${MTMD_DIR}/deprecation-warning.cpp
+)
+
+target_include_directories(mtmd_sources PRIVATE
+        ${MTMD_DIR}
+        ${LLAMA_CPP_DIR}/include
+        ${LLAMA_CPP_DIR}/src
+        ${LLAMA_CPP_DIR}/ggml/include
+        ${LLAMA_CPP_DIR}/ggml/src
+        ${LLAMA_CPP_DIR}/common
+        ${LLAMA_CPP_DIR}/vendor
+        ${LLAMA_CPP_DIR}/vendor/stb
+        ${LLAMA_CPP_DIR}/vendor/nlohmann
+        ${LLAMA_CPP_DIR}/vendor/hash
+)
+
+target_compile_options(mtmd_sources PRIVATE -Wno-cast-qual)
+target_compile_features(mtmd_sources PRIVATE cxx_std_17)
+
+add_library(
+        llama_jni
+        SHARED
+        llama_jni.cpp
+        llama_embed.cpp
+        whisper_stt.cpp
+        whisper_jni.cpp
+        stable_diffusion_jni.cpp
+        multimodal_jni.cpp
+        $<TARGET_OBJECTS:mtmd_sources>
+)
+
+target_include_directories(
+        llama_jni
+        PRIVATE
+        ${CMAKE_SOURCE_DIR}/../c_interop/include
+        ${LLAMA_CPP_DIR}
+        ${LLAMA_CPP_DIR}/include
+        ${LLAMA_CPP_DIR}/src
+        ${LLAMA_CPP_DIR}/ggml/include
+        ${LLAMA_CPP_DIR}/ggml/src
+        ${LLAMA_CPP_DIR}/common
+        ${MTMD_DIR}
+        # nlohmann headers live under llama.cpp/vendor in many revisions
+        ${LLAMA_CPP_DIR}/vendor
+        ${LLAMA_CPP_DIR}/vendor/nlohmann
+        ${LLAMA_CPP_DIR}/vendor/stb
+        ${WHISPER_CPP_DIR}
+        ${WHISPER_CPP_DIR}/include
+        ${STABLE_DIFFUSION_CPP_DIR}/include
+)
+
+target_link_libraries(
+        llama_jni
+        PRIVATE
+        llama
+        vendor-hash
+        whisper
+        stable-diffusion
+        ${log-lib}
+)
+
+# Target renamed from 'common' to 'llama-common' in llama.cpp b9102 (commit 6990e2f1f)
+if(TARGET common)
+    target_link_libraries(llama_jni PRIVATE common)
+elseif(TARGET llama-common)
+    target_link_libraries(llama_jni PRIVATE llama-common)
+endif()

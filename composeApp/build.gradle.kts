@@ -34,7 +34,7 @@ val desktopPlatform: String = when {
     else -> "linux"
 }
 
-val libraryNativeResourcesDir = project(":library")
+val libraryNativeResourcesDir = project(":core")
     .layout.buildDirectory
     .dir("generated/native-resources/native/$desktopPlatform")
 val generatedNativeResources = layout.buildDirectory.dir("generated/nativeResources")
@@ -62,7 +62,6 @@ kotlin {
     }
 
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64(),
     ).forEach { iosTarget ->
@@ -160,6 +159,17 @@ kotlin {
     }
 }
 
+// ktor-client-java leaks into the Android classpath from the compose.desktop dependencies block.
+// java.net.http.HttpClient does not exist on Android — exclude it from all Android configurations.
+configurations.configureEach {
+    if (name.contains("debug", ignoreCase = true) || name.contains("release", ignoreCase = true) ||
+        name.contains("android", ignoreCase = true)
+    ) {
+        exclude(group = "io.ktor", module = "ktor-client-java")
+        exclude(group = "io.ktor", module = "ktor-client-java-jvm")
+    }
+}
+
 android {
     namespace = "com.llamatik.app.android"
     compileSdk =
@@ -254,7 +264,7 @@ compose.desktop {
         mainClass = "MainKt"
 
         run {
-            dependsOn(":library:compileLlamaJniDesktop")
+            dependsOn(":core:compileLlamaJniDesktop")
 
             if (hostOsName.contains("mac")) {
                 jvmArgs("-Dapple.awt.application.name=Llamatik")
@@ -323,7 +333,7 @@ compose.desktop {
     }
 }
 
-val nativeDir = project(":library")
+val nativeDir = project(":core")
     .layout
     .buildDirectory
     .dir("llama-jni/$desktopPlatform")
@@ -332,12 +342,12 @@ val nativeDir = project(":library")
     .absolutePath
 
 tasks.matching { it.name == "run" || it.name.endsWith("Run") }.configureEach {
-    dependsOn(":library:compileLlamaJniDesktop")
+    dependsOn(":core:compileLlamaJniDesktop")
 }
 
 tasks.withType(org.gradle.api.tasks.JavaExec::class.java).configureEach {
     if (name == "run" || name.endsWith("Run")) {
-        dependsOn(":library:compileLlamaJniDesktop")
+        dependsOn(":core:compileLlamaJniDesktop")
         if (hostOsName.contains("mac")) {
             jvmArgs("-Dapple.awt.application.name=Llamatik")
         }
@@ -353,7 +363,7 @@ val nativeLibPattern = when (desktopPlatform) {
 }
 
 val copyDesktopNativeLib by tasks.registering(Copy::class) {
-    dependsOn(":library:copyDesktopJniToResources")
+    dependsOn(":core:copyDesktopJniToResources")
     from(libraryNativeResourcesDir)
     include(nativeLibPattern, "native-libs.txt")
     into(generatedNativeResources.map { it.dir("native/$desktopPlatform") })
@@ -365,7 +375,7 @@ tasks.matching { it.name == "desktopProcessResources" || it.name == "processDesk
         dependsOn(copyDesktopNativeLib)
     }
 
-val wasmEngineFromLibrary = project(":library")
+val wasmEngineFromLibrary = project(":core")
     .layout.buildDirectory
     .dir("llamatik-wasm")
 
@@ -373,7 +383,7 @@ val wasmEngineTargetDir = project.layout.projectDirectory
     .dir("src/wasmJsMain/resources/kotlin/llamatik_wasm")
 
 val copyLlamatikEngineToWasmResources by tasks.registering(Copy::class) {
-    dependsOn(":library:buildLlamatikWasm")
+    dependsOn(":core:buildLlamatikWasm")
 
     from(wasmEngineFromLibrary)
     include("llamatik_wasm.mjs", "llamatik_wasm.wasm")

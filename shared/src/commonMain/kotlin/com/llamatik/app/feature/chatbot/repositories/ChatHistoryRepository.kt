@@ -17,6 +17,7 @@ data class ChatSessionSummary(
     val title: String,
     @SerialName("updated_at") val updatedAtEpochMs: Long,
     @SerialName("message_count") val messageCount: Int,
+    @SerialName("group_id") val groupId: String? = null,
 )
 
 @Serializable
@@ -35,6 +36,7 @@ data class ChatSession(
     @SerialName("created_at") val createdAtEpochMs: Long,
     @SerialName("updated_at") val updatedAtEpochMs: Long,
     val messages: List<PersistedChatMessage>,
+    @SerialName("group_id") val groupId: String? = null,
 )
 
 @Serializable
@@ -61,9 +63,18 @@ class ChatHistoryRepository(
                     id = it.id,
                     title = it.title,
                     updatedAtEpochMs = it.updatedAtEpochMs,
-                    messageCount = it.messages.size
+                    messageCount = it.messages.size,
+                    groupId = it.groupId,
                 )
             }
+    }
+
+    suspend fun moveToGroup(sessionId: String, groupId: String?) = mutex.withLock {
+        val store = readStore()
+        val updated = store.sessions.map { session ->
+            if (session.id == sessionId) session.copy(groupId = groupId) else session
+        }
+        writeStore(ChatHistoryStore(updated))
     }
 
     suspend fun getSession(id: String): ChatSession? = mutex.withLock {

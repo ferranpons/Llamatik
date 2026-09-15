@@ -56,19 +56,16 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.llamatik.app.feature.chatbot.ui.ChatHistoryBottomSheet
 import com.llamatik.app.feature.chatbot.ui.ChatInputBox
-import com.llamatik.app.feature.chatbot.ui.ModelSelectorBottomSheet
-import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
+import com.llamatik.app.feature.chathistory.PendingSessionRepository
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.localization.getLanguageCode
 import com.llamatik.app.permissions.rememberAudioPermissionRequester
-import com.llamatik.app.permissions.rememberNotificationPermissionRequester
 import com.llamatik.app.platform.AudioPaths
 import com.llamatik.app.platform.AudioRecorder
 import com.llamatik.app.platform.decodeImageBytesToImageBitmap
@@ -80,12 +77,13 @@ import com.llamatik.app.ui.components.NewsCardSmall
 import com.llamatik.app.ui.icon.LlamatikIcons
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.WhisperBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.parameter.ParametersHolder
+import org.koin.mp.KoinPlatform
 
 private const val CHAT_BUBBLE_MAX_WIDTH_DP = 800
 
@@ -97,23 +95,10 @@ class ChatBotTabScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val isLoading = remember { mutableStateOf(false) }
         val showSuggestions = remember { mutableStateOf(true) }
-        val showSettingsSheet = remember { mutableStateOf(false) }
-        val showModelSelectorSheet = remember { mutableStateOf(false) }
-        val notificationPermissionRequester = rememberNotificationPermissionRequester()
-
-        val loadingEmbedModelName = remember { mutableStateOf<String?>(null) }
-        val loadingGenerateModelName = remember { mutableStateOf<String?>(null) }
-        val loadingSttModelName = remember { mutableStateOf<String?>(null) }
-        val loadingStableDiffusionModelName = remember { mutableStateOf<String?>(null) }
-        val loadingVlmModelName = remember { mutableStateOf<String?>(null) }
 
         val viewModel = koinScreenModel<ChatBotViewModel>(
             parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
         )
-
-        val downloadStates by viewModel.downloadStates.collectAsState()
-        val downloadingMap = downloadStates.mapValues { it.value.inProgress }
-        val progressMap = downloadStates.mapValues { it.value.progress.coerceIn(0, 100) / 100f }
 
         // Dialog state (stable UI state rendered from Content)
         val isDialogOpen = remember { mutableStateOf(false) }
@@ -121,6 +106,17 @@ class ChatBotTabScreen : Screen {
 
         LaunchedEffect(Unit) {
             viewModel.onStarted(navigator)
+        }
+
+        val pendingSessionRepository = remember { KoinPlatform.getKoin().get<PendingSessionRepository>() }
+        LaunchedEffect(Unit) {
+            pendingSessionRepository.pendingId.collect { id ->
+                if (id != null) {
+                    viewModel.onLoadChatSession(id)
+                    showSuggestions.value = false
+                    pendingSessionRepository.consume()
+                }
+            }
         }
 
         LaunchedEffect(Unit) {
@@ -138,13 +134,6 @@ class ChatBotTabScreen : Screen {
         SetupSideEffects(
             viewModel = viewModel,
             isLoading = isLoading,
-            showSettingsSheet = showSettingsSheet,
-            showModelSelectorSheet = showModelSelectorSheet,
-            loadingEmbedModelName = loadingEmbedModelName,
-            loadingGenerateModelName = loadingGenerateModelName,
-            loadingSttModelName = loadingSttModelName,
-            loadingStableDiffusionModelName = loadingStableDiffusionModelName,
-            loadingVlmModelName = loadingVlmModelName,
             isDialogOpen = isDialogOpen,
             dialogMessage = dialogMessage,
         )
@@ -158,8 +147,6 @@ class ChatBotTabScreen : Screen {
                     isLoading,
                     state,
                     showSuggestions,
-                    showSettingsSheet,
-                    showModelSelectorSheet
                 )
 
                 if (state.isInitialSetup) {
@@ -204,77 +191,6 @@ class ChatBotTabScreen : Screen {
                 }
             }
 
-            if (showSettingsSheet.value) {
-                ModelSettingsBottomSheet(
-                    current = state.generateSettings,
-                    onApply = { viewModel.onGenerateSettingsApplied(it) },
-                    onDismiss = { showSettingsSheet.value = false }
-                )
-            }
-
-            if (showModelSelectorSheet.value) {
-                ModelSelectorBottomSheet(
-                    downloadingMap = downloadingMap,
-                    progressMap = progressMap,
-
-                    selectedEmbedModelName = state.selectedEmbedModelName,
-                    selectedGenerateModelName = state.selectedGenerateModelName,
-                    selectedSttModelName = state.selectedSttModelName,
-                    selectedStableDiffusionModelName = state.selectedStableDiffusionModelName,
-                    selectedVlmModelName = state.selectedVlmModelName,
-
-                    embedModels = state.embedModels,
-                    generateModels = state.generateModels,
-                    sttModels = state.sttModels,
-                    stableDiffusionModels = state.stableDiffusionModels,
-                    vlmModels = state.vlmModels,
-
-                    loadingEmbedModelName = loadingEmbedModelName.value,
-                    loadingGenerateModelName = loadingGenerateModelName.value,
-                    loadingSttModelName = loadingSttModelName.value,
-                    loadingStableDiffusionModelName = loadingStableDiffusionModelName.value,
-                    loadingVlmModelName = loadingVlmModelName.value,
-
-                    onEmbedModelSelectedClicked = { model ->
-                        loadingEmbedModelName.value = model.name
-                        viewModel.onEmbedModelSelected(model)
-                    },
-                    onGenerateModelSelectedClicked = { model ->
-                        loadingGenerateModelName.value = model.name
-                        viewModel.onGenerateModelSelected(model)
-                    },
-                    onSttModelSelectedClicked = { model ->
-                        loadingSttModelName.value = model.name
-                        viewModel.onSttModelSelected(model)
-                    },
-                    onStableDiffusionModelSelectedClicked = { model ->
-                        loadingStableDiffusionModelName.value = model.name
-                        viewModel.onStableDiffusionModelSelected(model)
-                    },
-                    onVlmModelSelectedClicked = { model ->
-                        loadingVlmModelName.value = model.name
-                        viewModel.onVlmModelSelected(model)
-                    },
-
-                    onDownloadModelClicked = { model ->
-                        notificationPermissionRequester.requestAndRun(
-                            onGranted = { viewModel.onDownloadModel(model) },
-                        )
-                    },
-                    onDeleteModelClicked = { model ->
-                        viewModel.onDeleteModel(model)
-                    },
-                    onCancelDownloadClicked = { model ->
-                        viewModel.onCancelDownload(model)
-                    },
-                    onClearAllCachedModelsClicked = {
-                        viewModel.onClearAllCachedModels()
-                    },
-                ) {
-                    showModelSelectorSheet.value = false
-                }
-            }
-
             if (isDialogOpen.value) {
                 LlamatikDialog(
                     message = dialogMessage.value,
@@ -291,13 +207,6 @@ class ChatBotTabScreen : Screen {
     private fun SetupSideEffects(
         viewModel: ChatBotViewModel,
         isLoading: MutableState<Boolean>,
-        showModelSelectorSheet: MutableState<Boolean>,
-        showSettingsSheet: MutableState<Boolean>,
-        loadingEmbedModelName: MutableState<String?>,
-        loadingGenerateModelName: MutableState<String?>,
-        loadingSttModelName: MutableState<String?>,
-        loadingStableDiffusionModelName: MutableState<String?>,
-        loadingVlmModelName: MutableState<String?>,
         isDialogOpen: MutableState<Boolean>,
         dialogMessage: MutableState<String>,
     ) {
@@ -307,82 +216,32 @@ class ChatBotTabScreen : Screen {
                     ChatBotSideEffects.Initial -> {}
                     ChatBotSideEffects.OnLoadError -> {}
                     is ChatBotSideEffects.OnLoaded -> {}
-
-                    ChatBotSideEffects.OnMessageLoaded -> {
-                        isLoading.value = false
-                    }
-
-                    ChatBotSideEffects.OnMessageLoading -> {
-                        isLoading.value = true
-                    }
-
-                    ChatBotSideEffects.OnNoResults -> {
-                        isLoading.value = false
-                    }
-
+                    ChatBotSideEffects.OnMessageLoaded -> { isLoading.value = false }
+                    ChatBotSideEffects.OnMessageLoading -> { isLoading.value = true }
+                    ChatBotSideEffects.OnNoResults -> { isLoading.value = false }
                     ChatBotSideEffects.ScrollToBottom -> {}
-
-                    ChatBotSideEffects.OnEmbedModelLoaded -> {
-                        loadingEmbedModelName.value = null
-                        showModelSelectorSheet.value = false
-                    }
-
-                    ChatBotSideEffects.OnGenerateModelLoaded -> {
-                        loadingGenerateModelName.value = null
-                        showModelSelectorSheet.value = false
-                    }
-
-                    ChatBotSideEffects.OnSttModelLoaded -> {
-                        loadingSttModelName.value = null
-                        showModelSelectorSheet.value = false
-                    }
-
-                    ChatBotSideEffects.OnStableDiffusionModelLoaded -> {
-                        loadingStableDiffusionModelName.value = null
-                        showModelSelectorSheet.value = false
-                    }
-
-                    ChatBotSideEffects.OnSettingsChanged -> {
-                        showSettingsSheet.value = false
-                    }
-
-                    ChatBotSideEffects.OnEmbedModelLoadError -> {
-                        loadingEmbedModelName.value = null
-                    }
-
-                    ChatBotSideEffects.OnGenerateModelLoadError -> {
-                        loadingGenerateModelName.value = null
-                    }
-
-                    ChatBotSideEffects.OnSttModelLoadError -> {
-                        loadingSttModelName.value = null
-                    }
-
-                    ChatBotSideEffects.OnStableDiffusionModelLoadError -> {
-                        loadingStableDiffusionModelName.value = null
-                    }
-
-                    ChatBotSideEffects.OnVlmModelLoaded -> {
-                        loadingVlmModelName.value = null
-                        showModelSelectorSheet.value = false
-                    }
-
-                    ChatBotSideEffects.OnVlmModelLoadError -> {
-                        loadingVlmModelName.value = null
-                    }
-
+                    ChatBotSideEffects.OnEmbedModelLoaded -> {}
+                    ChatBotSideEffects.OnGenerateModelLoaded -> {}
+                    ChatBotSideEffects.OnSttModelLoaded -> {}
+                    ChatBotSideEffects.OnStableDiffusionModelLoaded -> {}
+                    ChatBotSideEffects.OnSettingsChanged -> {}
+                    ChatBotSideEffects.OnEmbedModelLoadError -> {}
+                    ChatBotSideEffects.OnGenerateModelLoadError -> {}
+                    ChatBotSideEffects.OnSttModelLoadError -> {}
+                    ChatBotSideEffects.OnStableDiffusionModelLoadError -> {}
+                    ChatBotSideEffects.OnVlmModelLoaded -> {}
+                    ChatBotSideEffects.OnVlmModelLoadError -> {}
                     is ChatBotSideEffects.OnCacheCleared -> {
-                        showModelSelectorSheet.value = false
                         isLoading.value = false
                         viewModel.stopGeneration("cache_cleared")
                         dialogMessage.value = effect.message
                         isDialogOpen.value = true
                     }
-
                     is ChatBotSideEffects.OnCacheClearFailed -> {
                         dialogMessage.value = effect.message
                         isDialogOpen.value = true
                     }
+                    is ChatBotSideEffects.OnToolCallDetected -> {}  // companion only
                 }
             }
         }
@@ -396,8 +255,6 @@ class ChatBotTabScreen : Screen {
         isLoading: MutableState<Boolean>,
         state: ChatBotState,
         showSuggestions: MutableState<Boolean>,
-        showSettingsSheet: MutableState<Boolean>,
-        showModelSelectorSheet: MutableState<Boolean>,
     ) {
         BoxWithConstraints(Modifier.fillMaxSize(), propagateMinConstraints = true) {
             Scaffold(
@@ -422,16 +279,6 @@ class ChatBotTabScreen : Screen {
                             containerColor = MaterialTheme.colorScheme.background
                         ),
                         actions = {
-                            IconButton(
-                                onClick = {
-                                    viewModel.onShowPrivacyScreen()
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = LlamatikIcons.Info,
-                                    contentDescription = "Info about Llamatik AI"
-                                )
-                            }
                             IconButton(
                                 onClick = {
                                     showSuggestions.value = false
@@ -486,8 +333,6 @@ class ChatBotTabScreen : Screen {
                         isLoading,
                         state,
                         showSuggestions,
-                        showSettingsSheet,
-                        showModelSelectorSheet
                     )
                 }
             }
@@ -530,10 +375,7 @@ class ChatBotTabScreen : Screen {
         isLoading: MutableState<Boolean>,
         state: ChatBotState,
         showSuggestions: MutableState<Boolean>,
-        showSettingsSheet: MutableState<Boolean>,
-        showModelSelectorSheet: MutableState<Boolean>,
     ) {
-        val showChatHistorySheet = remember { mutableStateOf(false) }
         val audioPermissionRequester = rememberAudioPermissionRequester()
         var input by rememberSaveable(stateSaver = TextFieldValue.Saver) {
             mutableStateOf(TextFieldValue())
@@ -611,9 +453,6 @@ class ChatBotTabScreen : Screen {
                 showSuggestions = showSuggestions,
                 input = input,
                 onInputChange = { input = it },
-                onOpenChatHistory = { showChatHistorySheet.value = true },
-                onOpenModelSelector = { showModelSelectorSheet.value = true },
-                onOpenSettings = { showSettingsSheet.value = true },
                 isListening = isListening,
                 isTranscribing = isTranscribing,
                 onMicClick = {
@@ -661,21 +500,6 @@ class ChatBotTabScreen : Screen {
                 }
             )
 
-            if (showChatHistorySheet.value) {
-                ChatHistoryBottomSheet(
-                    localization = localization,
-                    sessions = state.chatSessions,
-                    onLoad = { id ->
-                        viewModel.onLoadChatSession(id)
-                        showSuggestions.value = false
-                        showChatHistorySheet.value = false
-                    },
-                    onDelete = { id ->
-                        viewModel.onDeleteChatSession(id)
-                    },
-                    onDismiss = { showChatHistorySheet.value = false }
-                )
-            }
         }
     }
 

@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
 import com.llamatik.app.localization.getCurrentLocalization
+import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import kotlin.math.roundToInt
 
@@ -75,18 +76,20 @@ fun ModelSettingsBottomSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .verticalScroll(rememberScrollState())
-        ) {
-            ParamsView(
-                initial = current,
-                onApply = onApply,
-                onDismiss = onDismiss
-            )
+        LlamatikTheme {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .verticalScroll(rememberScrollState())
+            ) {
+                ParamsView(
+                    initial = current,
+                    onApply = onApply,
+                    onDismiss = onDismiss
+                )
+            }
         }
     }
 }

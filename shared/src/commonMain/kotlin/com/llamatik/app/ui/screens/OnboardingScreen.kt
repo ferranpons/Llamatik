@@ -141,8 +141,8 @@ class OnboardingScreen : Screen {
                         Res.drawable.flying_around_the_world_cuate,
                         onboardingPromoTitle4,
                         onboardingPromoLine4,
-                        localization.close
-                    ) { navigator.pop() }
+                        localization.next
+                    ) { navigator.push(ModelChoiceOnboardingScreen()) }
                 )
             val onboardingComponent = OnboardingComponent(carouselItems)
             onboardingComponent.DrawCarousel()

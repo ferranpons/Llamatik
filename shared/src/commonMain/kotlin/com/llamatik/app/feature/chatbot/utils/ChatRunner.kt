@@ -1,9 +1,9 @@
 package com.llamatik.app.feature.chatbot.utils
 
 import co.touchlab.kermit.Logger
-import com.llamatik.library.platform.GenStream
-import com.llamatik.library.platform.LlamaBridge
-import com.llamatik.library.platform.LlamaSession
+import com.llamatik.core.platform.GenStream
+import com.llamatik.core.platform.LlamaBridge
+import com.llamatik.core.platform.LlamaSession
 import kotlin.math.min
 
 /**
