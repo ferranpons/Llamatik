@@ -5,6 +5,7 @@ import com.llamatik.app.feature.agent.AgentToolResult
 import kotlinx.serialization.json.JsonObject
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
+import platform.UIKit.UIApplicationOpenSettingsURLString
 
 actual class ReminderTool actual constructor() : AgentTool {
     actual override val id = "reminder"
@@ -55,7 +56,7 @@ actual class DeviceControlTool actual constructor() : AgentTool {
     actual override suspend fun execute(input: JsonObject): AgentToolResult {
         val action = deviceControlExtractAction(input) ?: return AgentToolResult.Failure("Missing action")
         val urlString = when (action.lowercase()) {
-            "settings" -> UIApplication.openSettingsURLString
+            "settings" -> UIApplicationOpenSettingsURLString
             "wifi" -> "App-Prefs:root=WIFI"
             "bluetooth" -> "App-Prefs:root=Bluetooth"
             else -> return AgentToolResult.Failure("Unsupported action: $action")

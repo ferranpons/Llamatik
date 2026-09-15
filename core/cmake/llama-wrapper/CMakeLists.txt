@@ -51,6 +51,22 @@ set(LLAMA_NGRAM_MAP_CPP        "${LLAMA_CPP_DIR}/common/ngram-map.cpp")
 set(LLAMA_NGRAM_MOD_CPP        "${LLAMA_CPP_DIR}/common/ngram-mod.cpp")
 set(LLAMA_BUILDINFO_IN    "${LLAMA_CPP_DIR}/common/build-info.cpp.in")
 
+# New in llama.cpp v0.4.1
+set(LLAMA_TRIE_CPP                     "${LLAMA_CPP_DIR}/common/trie.cpp")
+set(LLAMA_PEG_PARSER_CPP               "${LLAMA_CPP_DIR}/common/peg-parser.cpp")
+set(LLAMA_JSON_SCHEMA_CPP              "${LLAMA_CPP_DIR}/common/json-schema.cpp")
+set(LLAMA_CHAT_CPP                     "${LLAMA_CPP_DIR}/common/chat.cpp")
+set(LLAMA_CHAT_AUTO_HELPERS_CPP        "${LLAMA_CPP_DIR}/common/chat-auto-parser-helpers.cpp")
+set(LLAMA_CHAT_AUTO_GEN_CPP            "${LLAMA_CPP_DIR}/common/chat-auto-parser-generator.cpp")
+set(LLAMA_CHAT_DIFF_CPP                "${LLAMA_CPP_DIR}/common/chat-diff-analyzer.cpp")
+set(LLAMA_CHAT_PEG_CPP                 "${LLAMA_CPP_DIR}/common/chat-peg-parser.cpp")
+set(LLAMA_JINJA_DIR                    "${LLAMA_CPP_DIR}/common/jinja")
+set(LLAMA_PARSERS_DIR                  "${LLAMA_CPP_DIR}/common/parsers")
+set(LLAMA_VENDOR_HASH_CPP              "${LLAMA_CPP_DIR}/vendor/hash/hash.cpp")
+set(LLAMA_VENDOR_SHA256_C              "${LLAMA_CPP_DIR}/vendor/hash/sha256/sha256.c")
+set(LLAMA_VENDOR_SHA1_C               "${LLAMA_CPP_DIR}/vendor/hash/sha1/sha1.c")
+set(LLAMA_VENDOR_XXHASH_C             "${LLAMA_CPP_DIR}/vendor/hash/xxhash/xxhash.c")
+
 if(NOT EXISTS "${LLAMA_COMMON_CPP}")
     message(FATAL_ERROR "Expected llama common source not found: ${LLAMA_COMMON_CPP}")
 endif()
@@ -187,12 +203,69 @@ if(EXISTS "${LLAMA_NGRAM_MOD_CPP}")
     target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_NGRAM_MOD_CPP}")
 endif()
 
+# New common sources added in llama.cpp v0.4.1
+if(EXISTS "${LLAMA_TRIE_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_TRIE_CPP}")
+endif()
+if(EXISTS "${LLAMA_PEG_PARSER_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_PEG_PARSER_CPP}")
+endif()
+if(EXISTS "${LLAMA_JSON_SCHEMA_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_JSON_SCHEMA_CPP}")
+endif()
+if(EXISTS "${LLAMA_CHAT_AUTO_HELPERS_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_CHAT_AUTO_HELPERS_CPP}")
+endif()
+if(EXISTS "${LLAMA_CHAT_AUTO_GEN_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_CHAT_AUTO_GEN_CPP}")
+endif()
+if(EXISTS "${LLAMA_CHAT_DIFF_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_CHAT_DIFF_CPP}")
+endif()
+if(EXISTS "${LLAMA_CHAT_PEG_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_CHAT_PEG_CPP}")
+endif()
+if(EXISTS "${LLAMA_CHAT_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_CHAT_CPP}")
+endif()
+# Jinja template engine (required by chat.cpp)
+foreach(_jinja_src IN ITEMS caps.cpp lexer.cpp parser.cpp runtime.cpp string.cpp value.cpp)
+    if(EXISTS "${LLAMA_JINJA_DIR}/${_jinja_src}")
+        target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_JINJA_DIR}/${_jinja_src}")
+    endif()
+endforeach()
+# Chat-template parsers (required by chat.cpp via parsers/parsers.h)
+foreach(_parser_src IN ITEMS
+        parsers.cpp cohere2moe.cpp deepseek.cpp functionary-v3-2.cpp gemma4.cpp
+        gigachat-v3.cpp gpt-oss.cpp kimi-k2.cpp kimi-k3.cpp lfm2.cpp minicpm5.cpp
+        minimax-m3.cpp ministral3.cpp muse-glimmer.cpp qwen3-coder.cpp)
+    if(EXISTS "${LLAMA_PARSERS_DIR}/${_parser_src}")
+        target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_PARSERS_DIR}/${_parser_src}")
+    endif()
+endforeach()
+# vendor/hash (hash_sha256_hex used by mtmd-helper)
+if(EXISTS "${LLAMA_VENDOR_HASH_CPP}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_VENDOR_HASH_CPP}")
+endif()
+if(EXISTS "${LLAMA_VENDOR_SHA256_C}")
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_VENDOR_SHA256_C}")
+endif()
+if(EXISTS "${LLAMA_VENDOR_SHA1_C}")
+    set_source_files_properties("${LLAMA_VENDOR_SHA1_C}" PROPERTIES LANGUAGE CXX)
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_VENDOR_SHA1_C}")
+endif()
+if(EXISTS "${LLAMA_VENDOR_XXHASH_C}")
+    set_source_files_properties("${LLAMA_VENDOR_XXHASH_C}" PROPERTIES LANGUAGE CXX)
+    target_sources(llamatik_llama_common_obj PRIVATE "${LLAMA_VENDOR_XXHASH_C}")
+endif()
+
 target_include_directories(llamatik_llama_common_obj PRIVATE
+        ${LLAMA_CPP_DIR}/common
         ${LLAMA_CPP_DIR}
         ${LLAMA_CPP_DIR}/include
         ${LLAMA_CPP_DIR}/src
-        ${LLAMA_CPP_DIR}/common
         ${LLAMA_CPP_DIR}/vendor
+        ${LLAMA_CPP_DIR}/vendor/hash
         ${LLAMA_CPP_DIR}/ggml/include
         ${LLAMA_CPP_DIR}/ggml/src
         ${WHISPER_CPP_DIR}
