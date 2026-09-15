@@ -148,7 +148,7 @@ val commonModule = module {
     // SDK layer — UI-agnostic business logic
     single<LlamatikFileAccess> { LlamatikFileAccessAdapter() }
     single { LlamatikHttpClient(ServiceClient.httpClient) }
-    single {
+    single(named("sdk")) {
         val loc = getCurrentLocalization()
         com.llamatik.sdk.model.ModelsRepository(
             fileAccess = get(),
@@ -158,9 +158,9 @@ val commonModule = module {
             smolVlm500SystemPrompt = loc.smolVLM500SystemPrompt,
         )
     }
-    single { com.llamatik.sdk.download.DefaultModelDownloadOrchestrator(get()) }
-    single(named("sdk")) { com.llamatik.sdk.model.GetModelsUseCase(get()) }
-    single { com.llamatik.sdk.model.ImportModelUseCase(get()) }
+    single { com.llamatik.sdk.download.DefaultModelDownloadOrchestrator(get(named("sdk"))) }
+    single(named("sdk")) { com.llamatik.sdk.model.GetModelsUseCase(get(named("sdk"))) }
+    single { com.llamatik.sdk.model.ImportModelUseCase(get(named("sdk"))) }
     single { com.llamatik.sdk.chat.ChatHistoryRepository(get()) }
     single<ModelPathResolver> { ModelPathResolverAdapter(get()) }
     single<RagStorage> { RagStorageAdapter() }
