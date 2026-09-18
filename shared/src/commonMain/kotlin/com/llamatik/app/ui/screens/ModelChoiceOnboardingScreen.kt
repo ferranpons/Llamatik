@@ -25,12 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
+import com.russhwolf.settings.Settings
 import org.koin.mp.KoinPlatform
 
 // Final onboarding page: lets the user pick how to get a model, or skip.
@@ -38,12 +37,16 @@ class ModelChoiceOnboardingScreen : Screen {
     @Composable
     override fun Content() {
         val localization = getCurrentLocalization()
-        val navigator = LocalNavigator.currentOrThrow
         val rootNavigatorRepo: RootNavigatorRepository =
             KoinPlatform.getKoin().get()
+        val settings: Settings = KoinPlatform.getKoin().get()
 
-        fun finishOnboarding() {
-            // Pop back to root — MainScreen / ChatBotTabScreen is the base.
+        fun finishOnboarding(downloadConfirmed: Boolean) {
+            if (downloadConfirmed) {
+                settings.putBoolean("initial_download_requested_key", true)
+            } else {
+                settings.putBoolean("user_skipped_setup_key", true)
+            }
             rootNavigatorRepo.navigator.popUntilRoot()
         }
 
@@ -78,12 +81,7 @@ class ModelChoiceOnboardingScreen : Screen {
                 Spacer(modifier = Modifier.size(32.dp))
 
                 Button(
-                    onClick = {
-                        finishOnboarding()
-                        // The model download will be triggered from within the chat screen
-                        // via the existing download flow. We signal intent via a nav extra.
-                        // For now we navigate to root and the empty state will prompt download.
-                    },
+                    onClick = { finishOnboarding(downloadConfirmed = true) },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     ),
@@ -104,7 +102,7 @@ class ModelChoiceOnboardingScreen : Screen {
                 Spacer(modifier = Modifier.size(12.dp))
 
                 OutlinedButton(
-                    onClick = { finishOnboarding() },
+                    onClick = { finishOnboarding(downloadConfirmed = false) },
                     modifier = Modifier
                         .widthIn(max = 350.dp)
                         .fillMaxWidth()
@@ -120,7 +118,7 @@ class ModelChoiceOnboardingScreen : Screen {
                 Spacer(modifier = Modifier.size(8.dp))
 
                 TextButton(
-                    onClick = { finishOnboarding() },
+                    onClick = { finishOnboarding(downloadConfirmed = false) },
                     modifier = Modifier
                         .widthIn(max = 350.dp)
                         .fillMaxWidth(),

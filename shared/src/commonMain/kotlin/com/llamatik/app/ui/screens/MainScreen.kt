@@ -22,7 +22,6 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.transitions.SlideTransition
 import com.llamatik.app.navigation.ChatBotTab
 import com.llamatik.app.navigation.ChatHistoryTab
-import com.llamatik.app.navigation.CompanionTab
 import com.llamatik.app.navigation.SettingsTab
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.platform.RootSnackbarHostStateRepository
@@ -62,7 +61,7 @@ fun MainScreenView() {
                 LLamatikNavigationBar {
                     TabNavigationItem(ChatBotTab, rootNavigatorRepository)
                     TabNavigationItem(ChatHistoryTab, rootNavigatorRepository)
-                    TabNavigationItem(CompanionTab, rootNavigatorRepository)
+                    //TabNavigationItem(CompanionTab, rootNavigatorRepository)
                     TabNavigationItem(SettingsTab, rootNavigatorRepository)
                 }
             },

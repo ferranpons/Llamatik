@@ -99,6 +99,7 @@ val commonModule = module {
             chatHistoryRepository = get(),
             ttsEngine = get(),
             chatAgentCoordinator = get(),
+            rootNavigatorRepository = get(),
         )
     }
 

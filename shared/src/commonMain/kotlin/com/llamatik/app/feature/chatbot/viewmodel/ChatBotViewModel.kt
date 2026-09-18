@@ -6,7 +6,6 @@ import cafe.adriel.voyager.navigator.Navigator
 import co.touchlab.kermit.Logger
 import com.llamatik.app.feature.agent.ChatAgentCoordinator
 import com.llamatik.app.feature.agent.ToolCallParser
-import com.llamatik.app.feature.chatbot.ChatBotOnboardingScreen
 import com.llamatik.app.feature.chatbot.download.DownloadEvent
 import com.llamatik.app.feature.chatbot.download.ModelDownloadOrchestrator
 import com.llamatik.app.feature.chatbot.model.GenerateSettings
@@ -42,11 +41,13 @@ import com.llamatik.app.platform.AppDispatchersIO
 import com.llamatik.app.platform.AppStorage
 import com.llamatik.app.platform.LlamatikTempFile
 import com.llamatik.app.platform.PlatformInfo
+import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.platform.decodeImageBytesToRgba
 import com.llamatik.app.platform.extractPdfText
 import com.llamatik.app.platform.migrateModelPathIfNeeded
 import com.llamatik.app.platform.normalizeToJpegBytes
 import com.llamatik.app.platform.tts.TtsEngine
+import com.llamatik.app.ui.screens.OnboardingScreen
 import com.llamatik.core.platform.LlamaBridge
 import com.llamatik.core.platform.LlamaSession
 import com.llamatik.core.platform.MultimodalBridge
@@ -79,6 +80,8 @@ import kotlin.time.Clock.System
 import kotlin.time.ExperimentalTime
 
 private const val PRIVACY_CHATBOT_VIEWED_KEY = "privacy_chatbot_viewed_key"
+private const val INITIAL_DOWNLOAD_REQUESTED_KEY = "initial_download_requested_key"
+private const val USER_SKIPPED_SETUP_KEY = "user_skipped_setup_key"
 private const val DEFAULT_SYSTEM_PROMPT = """
 You are Llamatik, a privacy-first local AI assistant running fully on-device.
 Be clear, honest, and concise. Always reply in the same language the user is writing in. Never switch languages mid-response.
@@ -99,6 +102,7 @@ class ChatBotViewModel(
     private val ttsEngine: TtsEngine,
     val chatAgentCoordinator: ChatAgentCoordinator? = null,
     val systemPromptOverride: String? = null,
+    private val rootNavigatorRepository: RootNavigatorRepository? = null,
 ) : ScreenModel {
     val localization = getCurrentLocalization()
 
@@ -165,9 +169,8 @@ class ChatBotViewModel(
         settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
 
     init {
-        // If privacy not accepted yet → show onboarding first.
         if (!hasAcceptedPrivacy) {
-            navigator.push(ChatBotOnboardingScreen())
+            rootNavigatorRepository?.navigator?.push(OnboardingScreen())
         }
     }
 
@@ -400,7 +403,8 @@ class ChatBotViewModel(
 
                     _state.value = _state.value.copy(generateModels = normalized)
 
-                    if (hasAcceptedPrivacy) {
+                    val userSkipped = settings.getBoolean(USER_SKIPPED_SETUP_KEY, false)
+                    if (hasAcceptedPrivacy && !userSkipped) {
                         startInitialSetupIfNeeded(normalized)
                     }
                 }
@@ -2069,7 +2073,7 @@ class ChatBotViewModel(
     }
 
     fun onShowPrivacyScreen() {
-        navigator.push(ChatBotOnboardingScreen())
+        (rootNavigatorRepository?.navigator ?: navigator).push(OnboardingScreen())
     }
 
     fun onOpenFeedItemDetail(link: String) {
@@ -2124,6 +2128,10 @@ class ChatBotViewModel(
         settings.putBoolean(PRIVACY_CHATBOT_VIEWED_KEY, true)
         hasAcceptedPrivacy = true
 
+        val downloadRequested = settings.getBoolean(INITIAL_DOWNLOAD_REQUESTED_KEY, false)
+        if (!downloadRequested) return
+
+        settings.putBoolean(INITIAL_DOWNLOAD_REQUESTED_KEY, false)
         screenModelScope.launch(AppDispatchersIO) {
             val genModels = _state.value.generateModels.ifEmpty {
                 getModelsUseCase.getDefaultGenerateModels().getOrElse { emptyList() }
