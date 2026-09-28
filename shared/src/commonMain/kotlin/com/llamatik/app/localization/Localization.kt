@@ -193,6 +193,41 @@ interface Localization {
     val selectOrCreateFolder: String
     val noFolderName: String
     val chatsInFolder: String
+
+    // Onboarding v2 — English defaults; individual translations can override
+    val onboardingWelcomeSubtitle: String get() = "Local AI for a more independent future"
+    val onboardingPrivateLabel: String get() = "Private"
+    val onboardingOfflineLabel: String get() = "Offline"
+    val onboardingOpenSourceLabel: String get() = "Open Source"
+    val onboardingRunLLMsDescription: String get() = "Chat, create, and explore with powerful AI models directly on your device — no cloud, no limits."
+    val onboardingAIToolkitTitle: String get() = "Your All-in-One AI Toolkit"
+    val onboardingAIToolkitDescription: String get() = "Text generation, image creation, speech-to-text, text-to-speech and more — all in one app."
+    val onboardingFeatureChat: String get() = "Chat"
+    val onboardingFeatureImages: String get() = "Images"
+    val onboardingFeatureSpeech: String get() = "Speech"
+    val onboardingFeatureDocuments: String get() = "Documents"
+    val onboardingBuiltForDevsTitle: String get() = "Built for Developers"
+    val onboardingBuiltForDevsDescription: String get() = "Open source, Kotlin Multiplatform and powered by llama.cpp. Customize, extend and build your own AI apps."
+    val onboardingPrivacyControlTitle: String get() = "Private & In Your Control"
+    val onboardingPrivacyControlDescription: String get() = "Your data stays on your device. No cloud dependencies, no tracking, no network latency."
+    val onboardingPrivacyBullet1: String get() = "100% offline"
+    val onboardingPrivacyBullet2: String get() = "Your data, your rules"
+    val onboardingPrivacyBullet3: String get() = "Works anywhere"
+    val onboardingPrivacyBullet4: String get() = "No subscriptions required"
+    val onboardingDownloadAIModelsTitle: String get() = "Download AI Models"
+    val onboardingDownloadAIModelsDescription: String get() = "To get the best experience, you can download recommended models now or do it later."
+    val onboardingDownloadSizeInfo: String get() = "Large files (1–8 GB)"
+    val onboardingDownloadSizeGuide: String get() = "We'll guide you through the download and you can always add more models later from Settings."
+    val onboardingDownloadModelsButton: String get() = "Download Models"
+    val onboardingDoItLaterButton: String get() = "Do It Later"
+    val onboardingReadyTitle: String get() = "You're Ready!"
+    val onboardingReadySubtitle: String get() = "Let's build a more open and independent AI future together."
+    val onboardingReadyBullet1: String get() = "Run LLMs offline"
+    val onboardingReadyBullet2: String get() = "Create and explore"
+    val onboardingReadyBullet3: String get() = "Keep your data private"
+    val onboardingReadyBullet4: String get() = "Open source and for everyone"
+    val onboardingGetStartedButton: String get() = "Get Started"
+    val onboardingSkip: String get() = "Skip"
 }
 
 enum class AvailableLanguages {

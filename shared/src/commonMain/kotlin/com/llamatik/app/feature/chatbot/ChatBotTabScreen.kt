@@ -38,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,7 +67,6 @@ import com.llamatik.app.localization.getLanguageCode
 import com.llamatik.app.permissions.rememberAudioPermissionRequester
 import com.llamatik.app.platform.AudioPaths
 import com.llamatik.app.platform.AudioRecorder
-import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.platform.decodeImageBytesToImageBitmap
 import com.llamatik.app.platform.rgbaToImageBitmap
 import com.llamatik.app.resources.Res
@@ -106,6 +104,7 @@ class ChatBotTabScreen : Screen {
         val dialogMessage = remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
+            viewModel.showOnboardingIfNeeded()
             viewModel.onStarted(navigator)
         }
 
@@ -120,29 +119,6 @@ class ChatBotTabScreen : Screen {
             }
         }
 
-        LaunchedEffect(Unit) {
-            val rootNav = KoinPlatform.getKoin()
-                .getOrNull<RootNavigatorRepository>()?.navigator
-            if (rootNav != null) {
-                // For first-launch onboarding: wait until root nav returns to just MainScreen
-                var wasAboveOne = false
-                snapshotFlow { rootNav.items.size }
-                    .collect { size ->
-                        if (size > 1) wasAboveOne = true
-                        if (size == 1 && wasAboveOne) {
-                            viewModel.onPrivacyAccepted()
-                        }
-                    }
-            } else {
-                // Fallback: local navigator path (e.g. deep-link or non-root push)
-                snapshotFlow { navigator.items.size }
-                    .collect { size ->
-                        if (size == 1 && navigator.lastItem is ChatBotTabScreen) {
-                            viewModel.onPrivacyAccepted()
-                        }
-                    }
-            }
-        }
 
         val state by viewModel.state.collectAsState()
         val conversation = viewModel.conversation.collectAsState()

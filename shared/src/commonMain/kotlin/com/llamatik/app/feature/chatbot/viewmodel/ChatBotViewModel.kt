@@ -168,9 +168,14 @@ class ChatBotViewModel(
     private var hasAcceptedPrivacy: Boolean =
         settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
 
-    init {
-        if (!hasAcceptedPrivacy) {
+    fun showOnboardingIfNeeded() {
+        val privacyAccepted = settings.getBoolean(PRIVACY_CHATBOT_VIEWED_KEY, false)
+        if (!privacyAccepted) {
             rootNavigatorRepository?.navigator?.push(OnboardingScreen())
+        } else if (!hasAcceptedPrivacy) {
+            // Privacy was accepted via OnboardingScreen; sync in-memory flag and
+            // trigger any pending post-onboarding setup (e.g. initial download).
+            onPrivacyAccepted()
         }
     }
 
@@ -365,7 +370,8 @@ class ChatBotViewModel(
 
                     _state.value = _state.value.copy(sttModels = normalized)
 
-                    if (hasAcceptedPrivacy) {
+                    val sttUserSkipped = settings.getBoolean(USER_SKIPPED_SETUP_KEY, false)
+                    if (hasAcceptedPrivacy && !sttUserSkipped) {
                         startSttInitialSetupIfNeeded(normalized)
                     }
                 }
