@@ -184,4 +184,28 @@ internal object CatalanLocalization : Localization {
     override val clearCachedModelsDialogMessage = "Això eliminarà tots els models."
     override val cancel = "Cancel·lar"
     override val clear = "Eliminar"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
+    override val configure = "Configura"
+    override val modelsTitle = "Models"
+
+    override val newFolder = "Nova carpeta"
+    override val folderName = "Nom de la carpeta"
+    override val createFolder = "Crea carpeta"
+    override val moveToFolder = "Mou a la carpeta"
+    override val removeFromFolder = "Treu de la carpeta"
+    override val selectOrCreateFolder = "Selecciona o crea una carpeta"
+    override val noFolderName = "Si us plau, introdueix un nom"
+    override val chatsInFolder = "Xats a la carpeta"
+
+    override val downloadFromUrl = "Descarregar des d'URL"
+    override val modelUrlLabel = "URL del model"
+    override val modelNameLabel = "Nom del model"
+    override val categoryLabel = "Categoria"
 }

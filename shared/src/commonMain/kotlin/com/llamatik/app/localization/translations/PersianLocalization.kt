@@ -183,4 +183,28 @@ internal object PersianLocalization : Localization {
     override val clearCachedModelsDialogMessage = "این کار تمام فایل‌های مدل دانلودشده و ایندکس ذخیره‌شده PDF RAG را حذف می‌کند. این عمل قابل بازگشت نیست."
     override val cancel = "لغو"
     override val clear = "حذف"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
+    override val configure = "پیکربندی"
+    override val modelsTitle = "مدل‌ها"
+
+    override val newFolder = "پوشه جدید"
+    override val folderName = "نام پوشه"
+    override val createFolder = "ایجاد پوشه"
+    override val moveToFolder = "انتقال به پوشه"
+    override val removeFromFolder = "حذف از پوشه"
+    override val selectOrCreateFolder = "یک پوشه انتخاب یا ایجاد کنید"
+    override val noFolderName = "لطفاً نام پوشه را وارد کنید"
+    override val chatsInFolder = "چت‌های پوشه"
+
+    override val downloadFromUrl = "دانلود از URL"
+    override val modelUrlLabel = "URL مدل"
+    override val modelNameLabel = "نام مدل"
+    override val categoryLabel = "دسته‌بندی"
 }

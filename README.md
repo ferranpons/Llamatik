@@ -152,9 +152,9 @@ only configuration.
 
 ## 📦 Current Versions
 
-- llama.cpp version: [b9574](https://github.com/ggml-org/llama.cpp/releases/tag/b9574)
-- whisper.cpp version [v1.8.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.4)
-- stablediffusion.cpp version [master-596-90e87bc](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-596-90e87bc)
+- llama.cpp version: [v0.4.1](https://github.com/ggml-org/llama.cpp/releases/tag/v0.4.1)
+- whisper.cpp version [v1.9.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.4)
+- stablediffusion.cpp version [master-866-42d6c0a](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-866-42d6c0a)
 
 ---
 
@@ -563,7 +563,7 @@ object WhisperBridge {
 #### Example
 
 ```kotlin
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.WhisperBridge
 
 val modelPath = WhisperBridge.getModelPath("ggml-tiny-q8_0.bin")
 
@@ -588,7 +588,7 @@ WhisperBridge.release()
 `transcribeWavSegments` returns a JSON document that exposes everything `transcribeWav` discards — per-segment timestamps, the auto-detected language, and (with a `-tdrz` model) speaker-turn boundaries.
 
 ```kotlin
-import com.llamatik.library.platform.WhisperBridge
+import com.llamatik.core.platform.WhisperBridge
 import kotlinx.serialization.json.*
 
 WhisperBridge.initModel(modelPath)
@@ -693,7 +693,7 @@ object StableDiffusionBridge {
 #### txt2img example
 
 ```kotlin
-import com.llamatik.library.platform.StableDiffusionBridge
+import com.llamatik.core.platform.StableDiffusionBridge
 
 val modelPath = StableDiffusionBridge.getModelPath("dreamshaper.safetensors")
 StableDiffusionBridge.initModel(modelPath, threads = 4)
@@ -768,7 +768,7 @@ object MultimodalBridge {
 #### Example
 
 ```kotlin
-import com.llamatik.library.platform.MultimodalBridge
+import com.llamatik.core.platform.MultimodalBridge
 
 // 1) Init once — both model and mmproj must be downloaded first
 val loaded = MultimodalBridge.initModel(
@@ -861,10 +861,10 @@ By default, native builds produce CPU-only binaries everywhere except macOS (whe
 
 ```bash
 # Vulkan (Android / Desktop Linux)
-./gradlew :library:build -Pllamatik.cmake.args="-DGGML_VULKAN=ON"
+./gradlew :core:build -Pllamatik.cmake.args="-DGGML_VULKAN=ON"
 
 # CUDA (Desktop Linux / Windows)
-LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :library:build
+LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :core:build
 ```
 
 These flags are appended to the CMake configure step for Apple (macOS/iOS wrapper), desktop JNI, and Android targets. The WASM build is intentionally excluded. See `CONTRIBUTING.md` for full details.

@@ -25,7 +25,27 @@ nexusPublishing {
     }
 }
 
+val kotlinVersion: String = libs.versions.kotlin.get()
+
 subprojects {
+    configurations.all {
+        resolutionStrategy {
+            // Prevent transitive deps from upgrading kotlin-stdlib beyond the compiler version.
+            // A stdlib newer than the Kotlin compiler causes "Symbol for Any not found" when
+            // compiling wasm targets because the Gradle plugin stops injecting the correct klib.
+            force(
+                "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion",
+                "org.jetbrains.kotlin:kotlin-stdlib-wasm-js:$kotlinVersion",
+                "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlinVersion",
+                // kotlinx-serialization 1.11.0 was compiled with Kotlin 2.3.20 (ABI 2.3.0),
+                // which is incompatible with the 2.2.21 Kotlin/Native compiler (ABI max 2.2.0).
+                // Force to 1.8.1 which was compiled with Kotlin 2.2 and is the latest compatible version.
+                "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
+                "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1",
+            )
+        }
+    }
+
     if (name != "desktopApp") {
         apply(plugin = "org.jlleitschuh.gradle.ktlint")
         apply(plugin = "io.gitlab.arturbosch.detekt")
