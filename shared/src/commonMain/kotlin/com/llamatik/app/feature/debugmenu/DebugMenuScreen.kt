@@ -34,7 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,21 +64,21 @@ import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 
 class DebugMenuScreen : Screen {
-    private lateinit var showingModal: MutableState<Boolean>
 
     @Composable
     override fun Content() {
         LlamatikTheme {
             val currentNavigator = LocalNavigator.currentOrThrow
             val snackbarHostState = remember { SnackbarHostState() }
-            showingModal = remember { mutableStateOf(false) }
 
             val viewModel = koinScreenModel<DebugMenuViewModel>()
 
             SetupSideEffects(viewModel)
-            DebugMenuView(viewModel, snackbarHostState) {
-                currentNavigator.pop()
-            }
+            DebugMenuView(
+                viewModel = viewModel,
+                snackbarHostState = snackbarHostState,
+                onClose = { currentNavigator.pop() },
+            )
         }
     }
 
@@ -101,10 +100,12 @@ class DebugMenuScreen : Screen {
     fun DebugMenuView(
         viewModel: DebugMenuViewModel,
         snackbarHostState: SnackbarHostState,
-        onClose: () -> Unit
+        onClose: () -> Unit,
+        onOpenModelSettings: (() -> Unit)? = null,
     ) {
         val localization = getCurrentLocalization()
         val state by viewModel.state.collectAsState()
+        val showingModal = remember { mutableStateOf(false) }
 
         if (state.currentLanguage != getCurrentLanguage()) {
             SetLanguage(state.currentLanguage)
@@ -265,6 +266,20 @@ class DebugMenuScreen : Screen {
                         checked = state.isMockedUserChecked
                     ) {
 
+                    }
+
+                    if (onOpenModelSettings != null) {
+                        Spacer(Modifier.size(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Generation Settings")
+                            Button(onClick = onOpenModelSettings) {
+                                Text("Configure")
+                            }
+                        }
                     }
                 }
             }

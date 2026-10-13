@@ -64,7 +64,7 @@ jobs:
           chmod +x ./gradlew
 
           # 1) Build the native wasm engine and copy it into library wasm resources
-          ./gradlew :library:copyLlamatikWasmToResources
+          ./gradlew :core:copyLlamatikWasmToResources
 
           # 2) Build the browser distribution (Compose WASM output)
           ./gradlew :composeApp:wasmJsBrowserDistribution

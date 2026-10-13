@@ -184,4 +184,28 @@ Le tue priorità:
     override val clearCachedModelsDialogMessage = "Questo eliminerà tutti i file modello scaricati e l'indice PDF RAG salvato. L'operazione non può essere annullata."
     override val cancel = "Annulla"
     override val clear = "Cancella"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
+    override val configure = "Configura"
+    override val modelsTitle = "Modelli"
+
+    override val newFolder = "Nuova cartella"
+    override val folderName = "Nome cartella"
+    override val createFolder = "Crea cartella"
+    override val moveToFolder = "Sposta nella cartella"
+    override val removeFromFolder = "Rimuovi dalla cartella"
+    override val selectOrCreateFolder = "Seleziona o crea una cartella"
+    override val noFolderName = "Inserisci un nome per la cartella"
+    override val chatsInFolder = "Chat nella cartella"
+
+    override val downloadFromUrl = "Scarica da URL"
+    override val modelUrlLabel = "URL del modello"
+    override val modelNameLabel = "Nome del modello"
+    override val categoryLabel = "Categoria"
 }

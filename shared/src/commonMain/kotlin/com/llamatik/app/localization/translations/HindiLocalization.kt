@@ -183,4 +183,28 @@ internal object HindiLocalization : Localization {
     override val clearCachedModelsDialogMessage = "यह सभी डाउनलोड किए गए मॉडल फ़ाइलों और सहेजे गए PDF RAG इंडेक्स को हटा देगा। इसे वापस नहीं किया जा सकता।"
     override val cancel = "रद्द करें"
     override val clear = "साफ़ करें"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
+    override val configure = "कॉन्फ़िगर करें"
+    override val modelsTitle = "मॉडल"
+
+    override val newFolder = "नया फ़ोल्डर"
+    override val folderName = "फ़ोल्डर का नाम"
+    override val createFolder = "फ़ोल्डर बनाएं"
+    override val moveToFolder = "फ़ोल्डर में ले जाएं"
+    override val removeFromFolder = "फ़ोल्डर से हटाएं"
+    override val selectOrCreateFolder = "फ़ोल्डर चुनें या बनाएं"
+    override val noFolderName = "कृपया फ़ोल्डर का नाम दर्ज करें"
+    override val chatsInFolder = "फ़ोल्डर में चैट"
+
+    override val downloadFromUrl = "URL से डाउनलोड करें"
+    override val modelUrlLabel = "मॉडल URL"
+    override val modelNameLabel = "मॉडल का नाम"
+    override val categoryLabel = "श्रेणी"
 }

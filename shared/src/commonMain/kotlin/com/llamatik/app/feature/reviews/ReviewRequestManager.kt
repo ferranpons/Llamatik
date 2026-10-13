@@ -70,7 +70,6 @@ class ReviewRequestManager(
         val firstLaunch = settings.getLong(KEY_FIRST_LAUNCH_MS, 0L)
         val launches = settings.getInt(KEY_LAUNCH_COUNT, 0)
         val chats = settings.getInt(KEY_CHAT_SUCCESS_COUNT, 0)
-        val modelReady = settings.getInt(KEY_MODEL_READY_COUNT, 0)
         val askedCount = settings.getInt(KEY_ASKED_COUNT, 0)
         val lastRequest = settings.getLong(KEY_LAST_REQUEST_MS, 0L)
 
@@ -83,7 +82,7 @@ class ReviewRequestManager(
 
         // Engagement thresholds.
         if (launches < MIN_LAUNCHES) return false
-        if (chats < MIN_SUCCESSFUL_CHATS && modelReady < 1) return false
+        if (chats < MIN_SUCCESSFUL_CHATS) return false
 
         return true
     }
@@ -101,11 +100,11 @@ class ReviewRequestManager(
         const val KEY_LAST_REASON = "review.last_reason"
 
         // Heuristics
-        const val MIN_LAUNCHES = 5
-        const val MIN_SUCCESSFUL_CHATS = 3
+        const val MIN_LAUNCHES = 8
+        const val MIN_SUCCESSFUL_CHATS = 5
 
-        // Wait at least 2 days after first launch.
-        const val MIN_FIRST_LAUNCH_AGE_MS = 2L * 24L * 60L * 60L * 1000L
+        // Wait at least 7 days after first launch.
+        const val MIN_FIRST_LAUNCH_AGE_MS = 7L * 24L * 60L * 60L * 1000L
 
         // Ask at most once every 60 days.
         const val MIN_INTERVAL_MS = 60L * 24L * 60L * 60L * 1000L

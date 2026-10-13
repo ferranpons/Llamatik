@@ -79,9 +79,6 @@ fun ChatInputBox(
         localization.suggestion5,
         localization.suggestion6
     ),
-    onOpenChatHistory: () -> Unit,
-    onOpenModelSelector: () -> Unit,
-    onOpenSettings: () -> Unit,
     isListening: Boolean,
     isTranscribing: Boolean,
     onMicClick: () -> Unit,
@@ -645,12 +642,6 @@ fun ChatInputBox(
                 }
             }
 
-            GenerateModelSelector(
-                selectedModelName = state.selectedGenerateModelName,
-                onOpenModelSelector = onOpenModelSelector,
-                onOpenSettings = onOpenSettings,
-                onOpenChatHistory = onOpenChatHistory
-            )
         }
     }
 }

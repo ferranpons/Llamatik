@@ -40,10 +40,10 @@ The native builds (Apple, desktop JNI, Android) accept additional CMake configur
 
 ```bash
 # Build with the Vulkan backend enabled
-./gradlew :library:build -Pllamatik.cmake.args="-DGGML_VULKAN=ON"
+./gradlew :core:build -Pllamatik.cmake.args="-DGGML_VULKAN=ON"
 
 # Or via the environment
-LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :library:build
+LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :core:build
 ```
 
 The WASM build does not receive these flags since GPU backends do not apply to the Emscripten target.

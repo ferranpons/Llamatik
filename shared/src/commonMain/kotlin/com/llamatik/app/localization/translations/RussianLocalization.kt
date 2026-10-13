@@ -184,4 +184,28 @@ internal object RussianLocalization : Localization {
     override val clearCachedModelsDialogMessage = "Это удалит все загруженные файлы моделей и сохранённый индекс PDF RAG. Это действие нельзя отменить."
     override val cancel = "Отмена"
     override val clear = "Очистить"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
+    override val configure = "Настроить"
+    override val modelsTitle = "Модели"
+
+    override val newFolder = "Новая папка"
+    override val folderName = "Название папки"
+    override val createFolder = "Создать папку"
+    override val moveToFolder = "Переместить в папку"
+    override val removeFromFolder = "Убрать из папки"
+    override val selectOrCreateFolder = "Выберите или создайте папку"
+    override val noFolderName = "Введите название папки"
+    override val chatsInFolder = "Чаты в папке"
+
+    override val downloadFromUrl = "Скачать по URL"
+    override val modelUrlLabel = "URL модели"
+    override val modelNameLabel = "Название модели"
+    override val categoryLabel = "Категория"
 }

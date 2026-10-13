@@ -180,4 +180,28 @@ internal object PortugueseLocalization : Localization {
     override val clearCachedModelsDialogMessage = "Isso excluirá todos os arquivos de modelo baixados e o índice PDF RAG persistido. Esta ação não pode ser desfeita."
     override val cancel = "Cancelar"
     override val clear = "Limpar"
+
+    override val onboardingModelChoiceTitle = "Get Started with a Model"
+    override val onboardingModelChoiceDescription = "To start chatting you'll need a local model. Download the recommended default, browse the catalog, or skip and add one later."
+    override val onboardingDownloadDefaultModel = "Download default model"
+    override val onboardingBrowseCatalog = "Browse model catalog"
+    override val onboardingSkipForNow = "Skip for now"
+    override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
+    override val onboardingNoModelEmptyStateAction = "Get a model"
+    override val configure = "Configurar"
+    override val modelsTitle = "Modelos"
+
+    override val newFolder = "Nova pasta"
+    override val folderName = "Nome da pasta"
+    override val createFolder = "Criar pasta"
+    override val moveToFolder = "Mover para pasta"
+    override val removeFromFolder = "Remover da pasta"
+    override val selectOrCreateFolder = "Selecionar ou criar uma pasta"
+    override val noFolderName = "Por favor insira um nome para a pasta"
+    override val chatsInFolder = "Chats na pasta"
+
+    override val downloadFromUrl = "Baixar de URL"
+    override val modelUrlLabel = "URL do modelo"
+    override val modelNameLabel = "Nome do modelo"
+    override val categoryLabel = "Categoria"
 }

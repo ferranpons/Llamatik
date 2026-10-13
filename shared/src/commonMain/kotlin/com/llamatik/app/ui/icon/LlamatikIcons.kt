@@ -6,7 +6,6 @@ import androidx.compose.material.icons.automirrored.rounded.AirplaneTicket
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.Help
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.automirrored.rounded.TextSnippet
@@ -23,6 +22,7 @@ import androidx.compose.material.icons.rounded.ConnectingAirports
 import androidx.compose.material.icons.rounded.Construction
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.Dns
@@ -33,17 +33,23 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Flight
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Password
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PersonAddAlt
+import androidx.compose.material.icons.rounded.PersonPin
 import androidx.compose.material.icons.rounded.Pets
+import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Send
@@ -55,6 +61,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.Surfing
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -68,6 +75,8 @@ object LlamatikIcons {
     val Check = Icons.Rounded.Check
     val Close = Icons.Rounded.Close
     val Person = Icons.Rounded.Person
+
+    val PersonPin = Icons.Rounded.PersonPin
     val Settings = Icons.Rounded.Settings
     val Info = Icons.Outlined.Info
     val Home = Icons.Rounded.Home
@@ -113,13 +122,19 @@ object LlamatikIcons {
     val Delete = Icons.Rounded.Delete
     val Copy = Icons.Rounded.ContentCopy
     val Paste = Icons.Rounded.ContentPaste
-    val ChatHistory = Icons.AutoMirrored.Rounded.List
+    val ChatHistory = Icons.Rounded.History
     val TemporaryChat = Icons.Rounded.HistoryToggleOff
     val NewConversation = Icons.Outlined.AddComment
     val Sound = Icons.AutoMirrored.Rounded.VolumeUp
     val Stop = Icons.Rounded.StopCircle
     val Image = Icons.Rounded.Image
     val Text = Icons.AutoMirrored.Rounded.TextSnippet
+    val Models = Icons.Rounded.Psychology
+    val Language = Icons.Rounded.Language
+    val Tune = Icons.Rounded.Tune
+    val Folder = Icons.Rounded.Folder
+    val CreateNewFolder = Icons.Rounded.CreateNewFolder
+    val MoreVert = Icons.Rounded.MoreVert
 }
 
 /**

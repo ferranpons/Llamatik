@@ -82,13 +82,13 @@ jobs:
 
       - name: Build desktop JNI library
         shell: bash
-        run: ./gradlew :library:copyDesktopJniToResources --no-daemon --stacktrace
+        run: ./gradlew :core:copyDesktopJniToResources --no-daemon --stacktrace
 
       - name: Upload native artifact
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.platform }}
-          path: library/build/generated/native-resources/native/${{ matrix.platform }}/
+          path: core/build/generated/native-resources/native/${{ matrix.platform }}/
           if-no-files-found: error
 
   # ── Step 2: publish — macOS runner assembles all three natives into the JAR ─
@@ -130,25 +130,25 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: native-macos
-          path: library/build/generated/native-resources/native/macos/
+          path: core/build/generated/native-resources/native/macos/
 
       - name: Download Linux native
         uses: actions/download-artifact@v4
         with:
           name: native-linux
-          path: library/build/generated/native-resources/native/linux/
+          path: core/build/generated/native-resources/native/linux/
 
       - name: Download Windows native
         uses: actions/download-artifact@v4
         with:
           name: native-windows
-          path: library/build/generated/native-resources/native/windows/
+          path: core/build/generated/native-resources/native/windows/
 
       # Regenerate native-libs.txt for each platform from the downloaded files
       - name: Regenerate native-libs.txt for all platforms
         run: |
           for platform in macos linux windows; do
-            dir="library/build/generated/native-resources/native/$platform"
+            dir="core/build/generated/native-resources/native/$platform"
             if [ -d "$dir" ]; then
               ls "$dir" | grep -v native-libs.txt | sort > "$dir/native-libs.txt"
               echo "=== $platform ==="
@@ -159,7 +159,7 @@ jobs:
       - name: Verify all three platforms are present
         run: |
           for platform in macos linux windows; do
-            dir="library/build/generated/native-resources/native/$platform"
+            dir="core/build/generated/native-resources/native/$platform"
             count=$(find "$dir" -type f ! -name native-libs.txt 2>/dev/null | wc -l | tr -d ' ')
             if [ "$count" -eq 0 ]; then
               echo "ERROR: No native library found for $platform in $dir"
@@ -234,19 +234,19 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # ---------- Build Android release AAR and inspect it BEFORE publishing ----------
-      - name: Assemble Android Release (:library)
-        run: ./gradlew :library:assembleRelease
+      - name: Assemble Android Release (:core)
+        run: ./gradlew :core:assembleRelease
 
-      - name: Inspect :library AAR (classes / JNI / assets)
+      - name: Inspect :core AAR (classes / JNI / assets)
         run: |
           echo "Listing AAR outputs:"
-          ls -la library/build/outputs/aar || true
+          ls -la core/build/outputs/aar || true
 
-          AAR=$(ls -1 library/build/outputs/aar/*-release.aar | head -n1 || true)
+          AAR=$(ls -1 core/build/outputs/aar/*-release.aar | head -n1 || true)
           echo "AAR=$AAR"
 
           if [ -z "$AAR" ] || [ ! -f "$AAR" ]; then
-            echo "ERROR: AAR not found for :library"
+            echo "ERROR: AAR not found for :core"
             exit 1
           fi
 
@@ -263,7 +263,7 @@ jobs:
           find /tmp/aar/jni -maxdepth 3 -type f || true
 
           echo "== Sanity checks =="
-          jar tf /tmp/aar/classes.jar | grep -E "com/llamatik/.*(platform|library)" >/dev/null \
+          jar tf /tmp/aar/classes.jar | grep -E "com/llamatik/.*(platform|core)" >/dev/null \
             || (echo "ERROR: Android classes missing in AAR (androidMain not published)" && exit 1)
 
           if [ -d /tmp/aar/jni ]; then
@@ -276,8 +276,8 @@ jobs:
       # the generatedNativeResourcesDir source set.
       - name: Verify JVM JAR includes all three platform natives
         run: |
-          ./gradlew :library:jvmJar --no-daemon --stacktrace
-          JAR=$(find library/build/libs -name "library-jvm-*.jar" ! -name "*sources*" ! -name "*javadoc*" | head -1)
+          ./gradlew :core:jvmJar --no-daemon --stacktrace
+          JAR=$(find core/build/libs -name "core-jvm-*.jar" ! -name "*sources*" ! -name "*javadoc*" | head -1)
           echo "Inspecting $JAR"
           unzip -l "$JAR" | grep "native/" || true
           for platform in macos linux windows; do
