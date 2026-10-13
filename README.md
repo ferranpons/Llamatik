@@ -25,6 +25,69 @@
 
 ---
 
+## 🆕 What's New in v2.0.0
+
+Llamatik 2.0 is a major architectural release that extracts all reusable business logic into a clean, UI-agnostic, publishable SDK — and adds a full Agent Framework for building agentic AI applications in Kotlin.
+
+### SDK Module (`com.llamatik:sdk`)
+
+All business logic has been extracted from the application layer into a new `:sdk` module with zero UI or Compose dependencies — making it directly publishable and usable in any Kotlin Multiplatform project.
+
+- **Chat & Prompts** — `ChatMessage`, `PromptTemplate` (Plain/Gemma3/Llama3Instruct/QwenChat), `PromptRenderer`, `ChatRunner`, `ChatHistoryRepository`
+- **Model Management** — `LlamaModel`, `ModelSource`, `GenerateSettings`, `ModelsRepository`, `GetModelsUseCase`, `ImportModelUseCase`
+- **Download Orchestration** — `ModelDownloadOrchestrator`, `DownloadEvent`
+- **RAG / Vector Store** — `VectorStoreItem`, `PersistedRagStore`, `retrieveContext()`, `cosineD()`, `mmr()`
+- **HTTP Client** — `LlamatikHttpClient`
+- **Entitlement** — `EntitlementRepository` interface
+
+### Assistant Facade
+
+A new `Assistant` class (`com.llamatik.sdk.assistant`) owns all inference orchestration — chat, RAG, image generation, VLM, STT, model download, and session persistence — in a single, injectable facade.
+
+### Agent Framework (`com.llamatik.sdk.framework`)
+
+A complete Kotlin DSL for building agentic AI applications:
+
+- **`Agent { }` DSL** — declarative agent creation with name, system prompt, temperature, memory, and tools
+- **Memory** — `ConversationMemory`, `SlidingWindowMemory(windowSize)`, `PersistentMemory`, `SummaryMemory`
+- **Tool Support** — built-in tools (Calculator, DateTime, UUID, Random) + custom tool registration
+- **Streaming** — `agent.stream()` returns a `Flow<AgentStreamChunk>` for token-by-token output
+- **Workflows** — sequential `Step` execution with `WorkflowContext`, approval gates, and `continueOnError()`
+- **Observable Events** — `agent.events: SharedFlow<AgentEvent>` for turn lifecycle hooks
+
+```kotlin
+val agent = Agent {
+    name("Kotlin Assistant")
+    systemPrompt("You are an expert Kotlin developer.")
+    temperature(0.7f)
+    memory(SlidingWindowMemory(windowSize = 20))
+    tools { builtIns() }
+}
+
+agent.stream("Explain coroutines.").collect { chunk ->
+    when (chunk) {
+        is AgentStreamChunk.Delta -> print(chunk.text)
+        is AgentStreamChunk.Done  -> println("\nDone.")
+        else -> Unit
+    }
+}
+```
+
+### Agent Platform Module (`com.llamatik:sdk-agent`)
+
+A production-ready agentic runtime for host-app integration:
+
+- **`AgentRuntime`** — LLM-backed planner + execution engine with permission → confirmation → action → audit pipeline
+- **Permission Management** — `PermissionManager`, `KnownPermissions`, grant/deny/ask-every-time policies
+- **Tool & Action Registries** — dynamic registration, no hardcoded switch statements
+- **9 Built-in Platform Tools** — Calendar, Reminder, OpenApp, OpenUrl, Clipboard, Share, Notification, SearchContacts, OpenSettings
+- **Companion Profiles** — Assistant, Professional, Friendly, Companion, Pet personas with configurable style and planning aggression
+- **Persistent Memory** — `AgentMemory` (Settings-backed, tag + type search, 200 entries)
+- **Audit Log** — `AgentAuditRepository` (Settings-backed, 1000 entries cap)
+- **Workflow Engine** — `AgentWorkflowEngine` (Flow-based, conditional/retry, `WorkflowRepository`)
+
+---
+
 ## ✨ What is Llamatik?
 
 **Llamatik** is a true Kotlin Multiplatform AI library that lets you run:
@@ -125,21 +188,45 @@ The **Llamatik App** showcases:
 
 ---
 
-## 🧱 Architecture (WIP)
+## 🧱 Architecture
 
 ```
 Your App
 │
 ▼
-LlamaBridge (shared Kotlin API)
+:composeApp / your app entry point
 │
-├─ llamatik-core     → Native llama.cpp, whisper.cpp and stablediffusion.cpp (on-device)
-├─ llamatik-client   → Remote HTTP inference
-└─ llamatik-backend  → llama.cpp-compatible server
+▼
+:shared  (Compose UI, ViewModels, DI, Navigation)
+│
+├─ :sdk              → com.llamatik:sdk
+│    ├─ chat/        → ChatMessage, PromptTemplate, ChatRunner, ChatHistoryRepository
+│    ├─ model/       → LlamaModel, ModelsRepository, GetModelsUseCase, ImportModelUseCase
+│    ├─ download/    → ModelDownloadOrchestrator
+│    ├─ rag/         → VectorStoreItem, PersistedRagStore, retrieveContext(), cosineD(), mmr()
+│    ├─ agent/       → AgentTool, AgentExecutor, ToolRegistry, ToolCallParser
+│    ├─ framework/   → Agent DSL, Memory, Workflow, AgentEvent, PromptPipeline
+│    ├─ assistant/   → Assistant facade (chat, RAG, VLM, STT, download)
+│    └─ http/        → LlamatikHttpClient
+│
+├─ :sdk-agent        → com.llamatik:sdk-agent
+│    ├─ runtime/     → AgentRuntime, AgentPlanner, AgentExecutionEngine
+│    ├─ registry/    → ToolRegistry, ActionRegistry, CapabilityRegistry
+│    ├─ permissions/ → PermissionManager, KnownPermissions
+│    ├─ companion/   → CompanionProfile, CompanionProfiles
+│    ├─ memory/      → AgentMemory (persistent, tag+type search)
+│    ├─ audit/       → AgentAuditRepository
+│    ├─ workflow/    → AgentWorkflowEngine (Flow-based, conditional/retry)
+│    └─ builtintools/→ Calendar, Reminder, OpenApp, OpenUrl, Clipboard, Share…
+│
+└─ :core             → com.llamatik:core
+     ├─ LlamaBridge         (llama.cpp JNI — LLM inference)
+     ├─ WhisperBridge       (whisper.cpp JNI — STT)
+     ├─ StableDiffusionBridge (stable-diffusion.cpp JNI)
+     └─ MultimodalBridge    (VLM / llama.cpp multimodal)
 ```
 
-Switching between **local and remote inference requires no API changes** —
-only configuration.
+Switching between **local and remote inference requires no API changes** — only configuration.
 
 ---
 
@@ -175,17 +262,36 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+```
 
+### Module selection
+
+Llamatik 2.0 is split into focused modules — add only what you need:
+
+```kotlin
 commonMain.dependencies {
-    implementation("com.llamatik:library:1.7.0")
+    // Core inference layer — LlamaBridge, WhisperBridge, StableDiffusionBridge, MultimodalBridge
+    implementation("com.llamatik:core:<version>")
+
+    // Business logic SDK — chat, models, RAG, agent framework, Assistant facade
+    implementation("com.llamatik:sdk:<version>")
+
+    // Agent Platform runtime — AgentRuntime, permissions, companion profiles, audit, workflows
+    implementation("com.llamatik:sdk-agent:<version>")
 }
 ```
+
+> **Upgrading from 1.x?** See the [Migration Guide](#-migration-guide-1x--20) below.
 
 ---
 
 ## ⚡ Quick Start
 
+> The low-level `LlamaBridge` API lives in `com.llamatik:core`. For higher-level chat, agents, and RAG, use `com.llamatik:sdk` (see the Agent Framework section above).
+
 ```kotlin
+import com.llamatik.core.platform.LlamaBridge
+
 // Resolve model path (place GGUF in assets / bundle)
 val modelPath = LlamaBridge.getModelPath("phi-2.Q4_0.gguf")
 
@@ -842,6 +948,85 @@ Llamatik is already used in production apps.
 
 Want to showcase your app here?
 Open a PR and add it to the list 🚀
+
+---
+
+## 📋 Migration Guide (1.x → 2.0)
+
+Llamatik 2.0 moves all business logic out of the application layer into a dedicated `:sdk` module. The low-level C++ bridges (`LlamaBridge`, `WhisperBridge`, etc.) are unchanged — you only need to update imports and Gradle dependencies.
+
+### Step 1 — Update Gradle dependencies
+
+```kotlin
+// Before (1.x)
+implementation("com.llamatik:library:<version>")
+
+// After (2.0)
+implementation("com.llamatik:core:<version>")    // JNI bridges (unchanged API)
+implementation("com.llamatik:sdk:<version>")     // chat, models, RAG, agents
+// Optional — only if you use the Agent Platform runtime
+implementation("com.llamatik:sdk-agent:<version>")
+```
+
+### Step 2 — Update package imports
+
+| 1.x Package | 2.0 Package |
+|---|---|
+| `com.llamatik.library.*` | `com.llamatik.core.*` or `com.llamatik.sdk.*` |
+| `com.llamatik.app.feature.chatbot.model.*` | `com.llamatik.sdk.model.*` |
+| `com.llamatik.app.feature.chatbot.utils.*` | `com.llamatik.sdk.chat.*` |
+| `com.llamatik.app.feature.chatbot.repositories.*` | `com.llamatik.sdk.model.*` or `com.llamatik.sdk.chat.*` |
+| `com.llamatik.app.feature.chatbot.download.*` | `com.llamatik.sdk.download.*` |
+| `com.llamatik.app.feature.agent.*` | `com.llamatik.sdk.agent.*` |
+| `com.llamatik.app.feature.entitlement.*` | `com.llamatik.sdk.entitlement.*` |
+| `com.llamatik.app.common.usecases.*` | `com.llamatik.sdk.usecase.*` |
+| `com.llamatik.app.platform.ServiceClient` | `com.llamatik.sdk.http.LlamatikHttpClient` |
+
+### Step 3 — Fix breaking changes
+
+#### `PromptRenderer` — explicit `Labels` required
+
+The renderer no longer depends on the app's `getCurrentLocalization()`. Pass a `Labels` object instead:
+
+```kotlin
+// 1.x
+PromptRenderer.render(system, contexts, messages, template)
+
+// 2.0
+val labels = PromptRenderer.Labels(
+    system         = getString(R.string.system),
+    user           = getString(R.string.user),
+    assistant      = getString(R.string.assistant),
+    relevantContext = getString(R.string.relevant_context),
+)
+PromptRenderer.render(system, contexts, messages, template, labels)
+```
+
+#### `ModelsRepository` — now requires `LlamatikFileAccess`
+
+```kotlin
+// 1.x
+val repo = ModelsRepository(serviceClient)
+
+// 2.0
+val repo = ModelsRepository(
+    fileAccess = myFileAccess,       // implement LlamatikFileAccess for your platform
+    httpClient = LlamatikHttpClient(),
+)
+```
+
+#### `ChatRunner` — `Labels` injected, not hardcoded
+
+```kotlin
+// 1.x
+ChatRunner.stream(session, system, contexts, messages, template, ...) { ... }
+
+// 2.0
+val labels = PromptRenderer.Labels(/* localised strings */)
+ChatRunner.stream(session, system, contexts, messages, template, labels = labels) { ... }
+```
+
+> For the full type-by-type mapping table and detailed examples, see [MIGRATION.md](./MIGRATION.md).
 
 ---
 
