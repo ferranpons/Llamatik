@@ -193,42 +193,40 @@ The **Llamatik App** showcases:
 ## 🧱 Architecture
 
 ```
-Your App
+:composeApp                         (App entry point — Android / iOS / Desktop / WASM)
 │
-▼
-:composeApp / your app entry point
-│
-▼
-:shared  (Compose UI, ViewModels, DI, Navigation)
-│
-├─ :sdk              → com.llamatik:sdk
-│    ├─ chat/        → ChatMessage, PromptTemplate, ChatRunner, ChatHistoryRepository
-│    ├─ model/       → LlamaModel, ModelsRepository, GetModelsUseCase, ImportModelUseCase
-│    ├─ download/    → ModelDownloadOrchestrator
-│    ├─ rag/         → VectorStoreItem, PersistedRagStore, retrieveContext(), cosineD(), mmr()
-│    ├─ agent/       → AgentTool, AgentExecutor, ToolRegistry, ToolCallParser
-│    ├─ framework/   → Agent DSL, Memory, Workflow, AgentEvent, PromptPipeline
-│    ├─ assistant/   → Assistant facade (chat, RAG, VLM, STT, download)
-│    └─ http/        → LlamatikHttpClient
-│
-├─ :sdk-agent        → com.llamatik:sdk-agent
-│    ├─ runtime/     → AgentRuntime, AgentPlanner, AgentExecutionEngine
-│    ├─ registry/    → ToolRegistry, ActionRegistry, CapabilityRegistry
-│    ├─ permissions/ → PermissionManager, KnownPermissions
-│    ├─ companion/   → CompanionProfile, CompanionProfiles
-│    ├─ memory/      → AgentMemory (persistent, tag+type search)
-│    ├─ audit/       → AgentAuditRepository
-│    ├─ workflow/    → AgentWorkflowEngine (Flow-based, conditional/retry)
-│    └─ builtintools/→ Calendar, Reminder, OpenApp, OpenUrl, Clipboard, Share…
-│
-└─ :core             → com.llamatik:core
-     ├─ LlamaBridge         (llama.cpp JNI — LLM inference)
-     ├─ WhisperBridge       (whisper.cpp JNI — STT)
-     ├─ StableDiffusionBridge (stable-diffusion.cpp JNI)
-     └─ MultimodalBridge    (VLM / llama.cpp multimodal)
+└── :shared                         (Compose UI, ViewModels, Navigation, DI)
+     ├── api  ──────────────────► :sdk-agent        → com.llamatik:sdk-agent
+     │                                 │               AgentRuntime, AgentPlanner,
+     │                                 │               AgentExecutionEngine,
+     │                                 │               PermissionManager, ToolRegistry,
+     │                                 │               CompanionProfiles, AgentMemory,
+     │                                 │               AgentAuditRepository,
+     │                                 │               AgentWorkflowEngine,
+     │                                 │               9 built-in platform tools
+     │                                 │
+     │                                 └── api ──► :sdk              → com.llamatik:sdk
+     │                                                 │               chat/, model/,
+     │                                                 │               download/, rag/,
+     │                                                 │               agent/, framework/,
+     │                                                 │               assistant/, http/
+     │                                                 │
+     └── api  ──────────────────────────────────────── └── api ──► :core     → com.llamatik:core
+                                                                        LlamaBridge     (llama.cpp)
+                                                                        WhisperBridge   (whisper.cpp)
+                                                                        StableDiffusionBridge
+                                                                        MultimodalBridge
 ```
 
-Switching between **local and remote inference requires no API changes** — only configuration.
+The dependency chain is strictly layered — each module only depends on modules below it:
+
+| Module | Depends on | Published as |
+|---|---|---|
+| `:composeApp` | `:shared` | — (app) |
+| `:shared` | `:core` (api), `:sdk` (api), `:sdk-agent` (impl) | — (app) |
+| `:sdk-agent` | `:sdk` (api), `:core` (api) | `com.llamatik:sdk-agent` |
+| `:sdk` | `:core` (api) | `com.llamatik:sdk` |
+| `:core` | — | `com.llamatik:core` |
 
 ---
 
