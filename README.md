@@ -27,6 +27,8 @@
 
 ## 🆕 What's New in v2.0.0
 
+> **⚠️ Work in Progress** — v2.0.0 is under active development and has not been released yet. APIs and package names may still change before the final release. Do not use in production.
+
 Llamatik 2.0 is a major architectural release that extracts all reusable business logic into a clean, UI-agnostic, publishable SDK — and adds a full Agent Framework for building agentic AI applications in Kotlin.
 
 ### SDK Module (`com.llamatik:sdk`)
@@ -239,9 +241,13 @@ Switching between **local and remote inference requires no API changes** — onl
 
 ## 📦 Current Versions
 
-- llama.cpp version: [v0.4.1](https://github.com/ggml-org/llama.cpp/releases/tag/v0.4.1)
-- whisper.cpp version [v1.9.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.4)
-- stablediffusion.cpp version [master-866-42d6c0a](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-866-42d6c0a)
+| Library | Version | Versioning |
+|---|---|---|
+| llama.cpp | [v0.4.1](https://github.com/ggml-org/llama.cpp/releases/tag/v0.4.1) | Semantic versioning (`vMAJOR.MINOR.PATCH`) |
+| whisper.cpp | [v1.9.4](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.4) | Semantic versioning (`vMAJOR.MINOR.PATCH`) |
+| stable-diffusion.cpp | [master-866-42d6c0a](https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-866-42d6c0a) | Git tag (no semver) |
+
+> **Note:** Both llama.cpp and whisper.cpp now follow **semantic versioning**. Previously llama.cpp used build-number tags (e.g. `b4812`). Llamatik tracks these semver releases directly, so you can rely on stable API guarantees across patch and minor upgrades of the underlying libraries.
 
 ---
 
