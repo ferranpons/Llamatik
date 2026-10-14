@@ -1,5 +1,6 @@
 #include <jni.h>
 #include "llama_embed.h"
+#include "android_cpu_backend.h"
 
 #include <cstring>
 #include <cstdlib>
@@ -47,7 +48,8 @@ static void log_stderr(const char *level, const char *fmt, ...) {
 #endif
 
 // =============================================================================
-//  JNI_OnLoad — On macOS, disable bf16 Metal pipelines before backend init.
+//  JNI_OnLoad — On macOS, disable bf16 Metal pipelines before backend init; on Android,
+//  register the best ggml CPU backend variant when built with LLAMATIK_ANDROID_CPU_VARIANTS.
 // =============================================================================
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * /*vm*/, void * /*reserved*/) {
 #if defined(__APPLE__) && !defined(__ANDROID__)
@@ -55,6 +57,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * /*vm*/, void * /*reserved*/) {
         setenv("GGML_METAL_BF16_DISABLE", "1", /*overwrite=*/0);
     }
 #endif
+    // Every bridge loads this library before its first native call, so the CPU backend is
+    // registered before any model is created.
+    llamatik_load_android_cpu_backend();
     return JNI_VERSION_1_6;
 }
 
