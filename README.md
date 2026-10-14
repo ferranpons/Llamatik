@@ -27,7 +27,14 @@
 
 ## 🆕 What's New in v2.0.0
 
-> **⚠️ Work in Progress** — v2.0.0 is under active development and has not been released yet. APIs and package names may still change before the final release. Do not use in production.
+> **Already using Llamatik?** The inference library you know is now published as **`com.llamatik:core`**. All existing APIs — `LlamaBridge`, `WhisperBridge`, `StableDiffusionBridge`, `MultimodalBridge` — are **unchanged**. The only required change is the artifact name:
+> ```kotlin
+> // Before (1.x)
+> implementation("com.llamatik:library:<version>")
+> // After (2.0)
+> implementation("com.llamatik:core:<version>")
+> ```
+> Everything else in this section is new and additive.
 
 Llamatik 2.0 is a major architectural release that extracts all reusable business logic into a clean, UI-agnostic, publishable SDK — and adds a full Agent Framework for building agentic AI applications in Kotlin.
 
@@ -274,18 +281,19 @@ Llamatik 2.0 is split into focused modules — add only what you need:
 
 ```kotlin
 commonMain.dependencies {
-    // Core inference layer — LlamaBridge, WhisperBridge, StableDiffusionBridge, MultimodalBridge
+    // Core inference layer — replaces com.llamatik:library from 1.x (same API, new artifact name)
+    // LlamaBridge, WhisperBridge, StableDiffusionBridge, MultimodalBridge
     implementation("com.llamatik:core:<version>")
 
-    // Business logic SDK — chat, models, RAG, agent framework, Assistant facade
+    // Business logic SDK — chat, models, RAG, agent framework, Assistant facade (new in 2.0)
     implementation("com.llamatik:sdk:<version>")
 
-    // Agent Platform runtime — AgentRuntime, permissions, companion profiles, audit, workflows
+    // Agent Platform runtime — AgentRuntime, permissions, companion profiles, audit, workflows (new in 2.0)
     implementation("com.llamatik:sdk-agent:<version>")
 }
 ```
 
-> **Upgrading from 1.x?** See the [Migration Guide](#-migration-guide-1x--20) below.
+> **Upgrading from 1.x?** See the [Migration Guide](https://docs.llamatik.com/migration/) on the docs site.
 
 ---
 
@@ -957,80 +965,9 @@ Open a PR and add it to the list 🚀
 
 ## 📋 Migration Guide (1.x → 2.0)
 
-Llamatik 2.0 moves all business logic out of the application layer into a dedicated `:sdk` module. The low-level C++ bridges (`LlamaBridge`, `WhisperBridge`, etc.) are unchanged — you only need to update imports and Gradle dependencies.
+The full migration guide — including package mapping tables, Gradle dependency changes, and step-by-step breaking-change fixes — is available on the documentation site:
 
-### Step 1 — Update Gradle dependencies
-
-```kotlin
-// Before (1.x)
-implementation("com.llamatik:library:<version>")
-
-// After (2.0)
-implementation("com.llamatik:core:<version>")    // JNI bridges (unchanged API)
-implementation("com.llamatik:sdk:<version>")     // chat, models, RAG, agents
-// Optional — only if you use the Agent Platform runtime
-implementation("com.llamatik:sdk-agent:<version>")
-```
-
-### Step 2 — Update package imports
-
-| 1.x Package | 2.0 Package |
-|---|---|
-| `com.llamatik.library.*` | `com.llamatik.core.*` or `com.llamatik.sdk.*` |
-| `com.llamatik.app.feature.chatbot.model.*` | `com.llamatik.sdk.model.*` |
-| `com.llamatik.app.feature.chatbot.utils.*` | `com.llamatik.sdk.chat.*` |
-| `com.llamatik.app.feature.chatbot.repositories.*` | `com.llamatik.sdk.model.*` or `com.llamatik.sdk.chat.*` |
-| `com.llamatik.app.feature.chatbot.download.*` | `com.llamatik.sdk.download.*` |
-| `com.llamatik.app.feature.agent.*` | `com.llamatik.sdk.agent.*` |
-| `com.llamatik.app.feature.entitlement.*` | `com.llamatik.sdk.entitlement.*` |
-| `com.llamatik.app.common.usecases.*` | `com.llamatik.sdk.usecase.*` |
-| `com.llamatik.app.platform.ServiceClient` | `com.llamatik.sdk.http.LlamatikHttpClient` |
-
-### Step 3 — Fix breaking changes
-
-#### `PromptRenderer` — explicit `Labels` required
-
-The renderer no longer depends on the app's `getCurrentLocalization()`. Pass a `Labels` object instead:
-
-```kotlin
-// 1.x
-PromptRenderer.render(system, contexts, messages, template)
-
-// 2.0
-val labels = PromptRenderer.Labels(
-    system         = getString(R.string.system),
-    user           = getString(R.string.user),
-    assistant      = getString(R.string.assistant),
-    relevantContext = getString(R.string.relevant_context),
-)
-PromptRenderer.render(system, contexts, messages, template, labels)
-```
-
-#### `ModelsRepository` — now requires `LlamatikFileAccess`
-
-```kotlin
-// 1.x
-val repo = ModelsRepository(serviceClient)
-
-// 2.0
-val repo = ModelsRepository(
-    fileAccess = myFileAccess,       // implement LlamatikFileAccess for your platform
-    httpClient = LlamatikHttpClient(),
-)
-```
-
-#### `ChatRunner` — `Labels` injected, not hardcoded
-
-```kotlin
-// 1.x
-ChatRunner.stream(session, system, contexts, messages, template, ...) { ... }
-
-// 2.0
-val labels = PromptRenderer.Labels(/* localised strings */)
-ChatRunner.stream(session, system, contexts, messages, template, labels = labels) { ... }
-```
-
-> For the full type-by-type mapping table and detailed examples, see [MIGRATION.md](./MIGRATION.md).
+**👉 [docs.llamatik.com/migration/](https://docs.llamatik.com/migration/)**
 
 ---
 
