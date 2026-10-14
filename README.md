@@ -99,11 +99,14 @@ A production-ready agentic runtime for host-app integration:
 
 ## ✨ What is Llamatik?
 
-**Llamatik** is a true Kotlin Multiplatform AI library that lets you run:
+**Llamatik** is a Kotlin Multiplatform AI SDK that covers the full stack — from low-level on-device inference to high-level agent orchestration:
 
-- 🧠 **Large Language Models (LLMs)** via `llama.cpp`
-- 🎙 **Speech-to-Text (STT)** via `whisper.cpp`
-- 🎨 **Image Generation** via `stable-diffusion.cpp`
+- 🧩 **AI SDK** (`com.llamatik:sdk`) — chat, model management, RAG, Agent Framework DSL, and an `Assistant` facade that wires everything together
+- 🤖 **Agent Platform** (`com.llamatik:sdk-agent`) — a production-ready `AgentRuntime` with permissions, companion profiles, 9 built-in tools, audit, and a workflow engine
+- 🔬 **Inference Library** (`com.llamatik:core`) — direct Kotlin bindings to the best open-source native inference engines:
+  - 🧠 **LLMs** via `llama.cpp`
+  - 🎙 **Speech-to-Text** via `whisper.cpp`
+  - 🎨 **Image Generation** via `stable-diffusion.cpp`
 
 Fully **on-device**, optionally remote — all behind a **unified Kotlin API**.
 
@@ -111,7 +114,7 @@ No Python.
 No required servers.  
 Your models, your data, your device.
 
-Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI applications.
+Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI applications on Android, iOS, Desktop, and WASM.
 
 ---
 
