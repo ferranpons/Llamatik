@@ -123,55 +123,61 @@ Designed for **privacy-first**, **offline-capable**, and **cross-platform** AI a
 <img align="right" width="0" height="368px" hspace="20"/>
 <img src="assets/androidScreenshots/phoneScreenshot3.png" height="368px" align="right" />
 
-### 🔐 On-device & Private
-- ✅ Fully offline inference via **llama.cpp**
-- ✅ On-device speech recognition via **whisper.cpp**
-- ✅ No network required
-- ✅ No data exfiltration
-- ✅ Works with **GGUF** (LLMs) and **BIN** (Whisper) models
+### 🧩 AI SDK (`com.llamatik:sdk`)
+- ✅ **Agent Framework DSL** — `Agent { }` builder with streaming, memory, tools, and workflows
+- ✅ **5 memory types** — `ConversationMemory`, `SlidingWindowMemory`, `PersistentMemory`, `SummaryMemory`, `NoMemory`
+- ✅ **Built-in tools** — Calculator, DateTime, UUID, Random + custom tool registration
+- ✅ **Workflows** — sequential steps, `WorkflowContext`, approval gates, `continueOnError()`
+- ✅ **Assistant facade** — single injectable class for chat, RAG, image gen, VLM, STT, and model downloads
+- ✅ **Chat & prompts** — `ChatMessage`, `PromptTemplate`, `PromptRenderer`, `ChatRunner`
+- ✅ **RAG / Vector Store** — `PersistedRagStore`, cosine similarity, MMR, `retrieveContext()`
+- ✅ **Model management** — `LlamaModel`, `ModelSource`, `GenerateSettings`, download orchestration
+- ✅ **Observable events** — `agent.events: SharedFlow<AgentEvent>` for turn lifecycle hooks
 
-### 🧠 LLM (llama.cpp)
-- ✅ Text generation (non-streaming & streaming)
-- ✅ Context-aware generation (system + history)
+### 🤖 Agent Platform (`com.llamatik:sdk-agent`)
+- ✅ **`AgentRuntime`** — LLM-backed planner + execution engine with a permission → confirmation → action → audit pipeline
+- ✅ **Permission management** — grant / deny / ask-every-time policies per tool
+- ✅ **9 built-in platform tools** — Calendar, Reminder, OpenApp, OpenUrl, Clipboard, Share, Notification, SearchContacts, OpenSettings
+- ✅ **Companion profiles** — Assistant, Professional, Friendly, Companion, Pet personas with configurable style
+- ✅ **Persistent memory** — `AgentMemory` (Settings-backed, tag + type search, 200 entries)
+- ✅ **Audit log** — `AgentAuditRepository` (Settings-backed, 1 000 entries cap)
+- ✅ **Workflow engine** — `AgentWorkflowEngine` (Flow-based, conditional, retry, `WorkflowRepository`)
+
+### 🧠 LLM Inference (`com.llamatik:core` · llama.cpp)
+- ✅ Text generation — non-streaming & streaming
+- ✅ Context-aware generation (system prompt + history)
 - ✅ **Schema-constrained JSON generation**
 - ✅ Embeddings for vector search & RAG
-- ✅ Configurable context length, threads, mmap, Flash Attention
+- ✅ Configurable context length, threads, mmap, Flash Attention, batch size
 - ✅ KV cache session save / load / continue
-- ✅ **Concurrent sessions** — run multiple independent inference contexts simultaneously via `LlamaSession`
-- ✅ Model metadata introspection (`getModelFinetuneType` — detect base vs instruction-tuned)
-- ✅ Chat template introspection and rendering (`getModelChatTemplate` / `applyChatTemplate`)
+- ✅ **Concurrent sessions** — multiple independent inference contexts via `LlamaSession`
+- ✅ Model metadata introspection (`getModelFinetuneType` — base vs instruction-tuned)
+- ✅ Chat template introspection & rendering (`getModelChatTemplate` / `applyChatTemplate`)
 - ✅ Fine-grained sampling controls (temperature, top-k, top-p, repeat penalty, max tokens)
-- ✅ **Multi-Token Prediction (MTP)** — speculative drafting for faster generation on supported models (Qwen3.5, GLM-4)
+- ✅ **Multi-Token Prediction (MTP)** — speculative drafting for faster generation (Qwen3.5, GLM-4)
+- ✅ **Vision / Multimodal (VLM)** — on-device image analysis via `MultimodalBridge` (SmolVLM, LLaVA, and more)
 
-### 🎙 Speech-to-Text (whisper.cpp)
-- ✅ On-device transcription
-- ✅ Works fully offline
-- ✅ 16kHz mono WAV support
-- ✅ Selectable Whisper models
-- ✅ Integrated model download + management
-- ✅ **Segment-aware transcription** — per-segment text, timestamps, detected language, and speaker-turn boundaries (`transcribeWavSegments`)
+### 🎙 Speech-to-Text (`com.llamatik:core` · whisper.cpp)
+- ✅ On-device transcription, fully offline
+- ✅ 16 kHz mono WAV support
+- ✅ **Segment-aware transcription** — per-segment text, timestamps, and detected language (`transcribeWavSegments`)
 - ✅ Optional **translation to English** (whisper's built-in translate task)
 - ✅ Optional **tinydiarize speaker-turn detection** (`…-tdrz` models)
 
-### 🎨 Image Generation (stable-diffusion.cpp)
+### 🎨 Image Generation (`com.llamatik:core` · stable-diffusion.cpp)
+- ✅ Text-to-image (`txt2img`) and image-to-image (`img2img`)
+- ✅ On-device, fully offline
+- ✅ Configurable steps, CFG scale, seed, and `img2img` strength
 
-- ✅ On-device Stable Diffusion inference
-- ✅ Text-to-image generation (`txt2img`)
-- ✅ Image-to-image generation (`img2img`) with configurable `strength`
-- ✅ Fully offline
-- ✅ Works with optimized SD models
-- ✅ Native C++ integration
+### 🔐 On-device & Private
+- ✅ Fully offline by default — no network required
+- ✅ No data exfiltration — models and data never leave the device
+- ✅ Optional remote inference via the built-in HTTP client for hybrid deployments
 
 ### 🧩 Kotlin Multiplatform
-- ✅ Shared API across **Android, iOS, Desktop**
-- ✅ Native C++ integration via Kotlin/Native
-- ✅ Static frameworks for iOS
-- ✅ JNI for Desktop
-
-### 🌐 Hybrid & Remote
-- ✅ Optional HTTP client for remote inference
-- ✅ Drop-in backend server (`llamatik-backend`)
-- ✅ Seamlessly switch between local and remote inference
+- ✅ Shared API across **Android, iOS, Desktop (JVM), and WASM**
+- ✅ Native C++ via Kotlin/Native (iOS) and JNI (Desktop)
+- ✅ Static frameworks for iOS; dynamic library for Desktop
 
 ---
 
@@ -957,6 +963,18 @@ Llamatik is already used in production apps.
     <td>
       <b><a href="https://plugins.jetbrains.com/plugin/31304">Llamatik Code</a></b><br/>
       Local-first AI coding assistant for IntelliJ-based IDEs. Project-aware chat, on-device inference, AI agent with diff previews, and MCP server support — your code never leaves your machine.
+    </td>
+  </tr>
+  <tr>
+    <td width="80" align="center">
+      <a href="https://play.google.com/store/apps/details?id=com.dcshub.app.android">
+        <img src="https://raw.githubusercontent.com/ferranpons/DCS-Hub/main/androidApp/src/main/ic_launcher-playstore.png" width="64" alt="Unofficial DCS Companion icon"/>
+      </a>
+    </td>
+    <td>
+      <b><a href="https://play.google.com/store/apps/details?id=com.dcshub.app.android">Unofficial DCS Companion</a></b><br/>
+      Kotlin Multiplatform companion app for DCS World pilots. On-device AI assistant powered by Llamatik — mission briefings, aircraft references, tactical data, and flight planning, all available offline.<br/>
+      <a href="https://play.google.com/store/apps/details?id=com.dcshub.app.android">Google Play</a> · <a href="https://apps.apple.com/es/app/unofficial-dcs-companion/id6741212386">App Store</a>
     </td>
   </tr>
 </table>
