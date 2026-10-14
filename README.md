@@ -968,7 +968,7 @@ Llamatik is already used in production apps.
   <tr>
     <td width="80" align="center">
       <a href="https://play.google.com/store/apps/details?id=com.dcshub.app.android">
-        <img src="https://raw.githubusercontent.com/ferranpons/DCS-Hub/main/androidApp/src/main/ic_launcher-playstore.png" width="64" alt="Unofficial DCS Companion icon"/>
+        <img src="assets/dcs-companion-icon.png" width="64" alt="Unofficial DCS Companion icon"/>
       </a>
     </td>
     <td>
