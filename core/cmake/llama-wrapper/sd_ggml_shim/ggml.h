@@ -3,7 +3,15 @@
 // bundled ggml but absent from llama.cpp's ggml. When the KMP project forces
 // stable-diffusion.cpp to use llama.cpp's ggml (via the CMake target guard),
 // this shim restores the missing declarations so SD sources compile.
-#include_next "ggml.h"
+//
+// #include_next is a GCC/Clang extension not supported by MSVC. On MSVC,
+// CMakeLists.txt generates a thin forwarding header (ggml_next.h) with the
+// full path to the real ggml.h and adds its directory to the include path.
+#ifdef _MSC_VER
+#  include "ggml_next.h"
+#else
+#  include_next "ggml.h"
+#endif
 
 #ifndef GGML_TYPE_F8_E4M3
 #  define GGML_TYPE_F8_E4M3 ((ggml_type)43)

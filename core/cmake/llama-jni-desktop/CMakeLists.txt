@@ -100,6 +100,14 @@ if(EXISTS "${STABLE_DIFFUSION_CPP_DIR}/CMakeLists.txt")
     set(SD_GGML_SHIM_DIR "${REPO_ROOT}/core/cmake/llama-wrapper/sd_ggml_shim")
     target_include_directories(stable-diffusion BEFORE PRIVATE "${SD_GGML_SHIM_DIR}")
     target_sources(stable-diffusion PRIVATE "${REPO_ROOT}/core/cmake/llama-wrapper/sd_ggml_shim.cpp")
+    if(MSVC)
+        # MSVC does not support #include_next (GCC/Clang extension). Generate a thin
+        # forwarding header in the build tree that the shim's ggml.h can #include directly.
+        set(_ggml_next_dir "${CMAKE_BINARY_DIR}/sd_ggml_shim_msvc")
+        file(WRITE "${_ggml_next_dir}/ggml_next.h"
+            "#include \"${LLAMA_CPP_DIR}/ggml/include/ggml.h\"\n")
+        target_include_directories(stable-diffusion PRIVATE "${_ggml_next_dir}")
+    endif()
     set(HAVE_SD ON)
 else()
     message(WARNING "stable-diffusion.cpp not found at ${STABLE_DIFFUSION_CPP_DIR}. Desktop will build without SD.")

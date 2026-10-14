@@ -478,7 +478,8 @@ kotlin {
         commandLine(
             cmakePath,
             "--build", desktopJniBuildDir.absolutePath,
-            "--config", "Release"
+            "--config", "Release",
+            "--verbose"
         )
     }
 
