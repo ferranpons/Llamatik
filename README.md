@@ -1016,6 +1016,8 @@ LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :core:build
 
 These flags are appended to the CMake configure step for Apple (macOS/iOS wrapper), desktop JNI, and Android targets. The WASM build is intentionally excluded. See `CONTRIBUTING.md` for full details.
 
+On Android `arm64-v8a`, the CPU backend is built for several ARM feature levels and the best one the device supports is selected at load time; pass `-Pllamatik.android.cpuVariants=false` for a single baseline build. See `CONTRIBUTING.md` for details.
+
 ---
 
 ## 📜 License
