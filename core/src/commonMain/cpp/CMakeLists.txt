@@ -50,6 +50,9 @@ set(SD_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
 set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
+# Tell SD to skip patched ggml extensions (sage-attn, rope_apply, INT8
+# convrot, FP8 types) that are absent from llama.cpp's upstream ggml.
+set(SD_USE_UPSTREAM_GGML ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
 # Provide SD-specific ggml symbols absent from llama.cpp's ggml (same shim as iOS wrapper).

@@ -50,6 +50,8 @@ if(EXISTS "${SD_CPP_DIR}/CMakeLists.txt")
   set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
   set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
   set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
+  # Tell SD to skip patched ggml extensions absent from llama.cpp's upstream ggml.
+  set(SD_USE_UPSTREAM_GGML ON CACHE BOOL "" FORCE)
   add_subdirectory("${SD_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
   # Provide SD-specific ggml symbols absent from llama.cpp's ggml (same shim as iOS/Android/Desktop).
   set(SD_GGML_SHIM_DIR "${REPO_ROOT}/core/cmake/llama-wrapper/sd_ggml_shim")
