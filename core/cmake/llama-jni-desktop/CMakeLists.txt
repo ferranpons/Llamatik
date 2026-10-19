@@ -191,6 +191,8 @@ add_library(mtmd_sources OBJECT
     "${MTMD_DIR}/models/minicpmv.cpp"
     "${MTMD_DIR}/models/mimovl.cpp"
     "${MTMD_DIR}/models/mobilenetv5.cpp"
+    "${MTMD_DIR}/models/ling3vl.cpp"
+    "${MTMD_DIR}/models/nemotron-omni.cpp"
     "${MTMD_DIR}/models/nemotron-v2-vl.cpp"
     "${MTMD_DIR}/models/paddleocr.cpp"
     "${MTMD_DIR}/models/pixtral.cpp"
