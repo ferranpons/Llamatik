@@ -156,7 +156,7 @@ add_library(
         whisper_jni.cpp
         stable_diffusion_jni.cpp
         multimodal_jni.cpp
-        android_cpu_backend.cpp
+        $<$<BOOL:${ANDROID}>:android_cpu_backend.cpp>
         $<TARGET_OBJECTS:mtmd_sources>
 )
 
