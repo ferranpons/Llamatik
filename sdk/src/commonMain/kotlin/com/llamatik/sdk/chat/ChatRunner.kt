@@ -2,6 +2,7 @@ package com.llamatik.sdk.chat
 
 import co.touchlab.kermit.Logger
 import com.llamatik.core.platform.GenStream
+import com.llamatik.core.platform.InferenceBackend
 import com.llamatik.core.platform.LlamaBridge
 import com.llamatik.core.platform.LlamaSession
 import kotlin.math.min
@@ -17,6 +18,7 @@ object ChatRunner {
         maxTokens: Int = 1024,
         contextTokens: Int = 4096,
         labels: PromptRenderer.Labels = PromptRenderer.Labels(),
+        backend: InferenceBackend? = null,
         onDelta: (String) -> Unit,
         onComplete: (final: String) -> Unit,
         onError: (String) -> Unit,
@@ -75,10 +77,10 @@ object ChatRunner {
             }
         }
 
-        if (session != null) {
-            session.stream(prompt, guard)
-        } else {
-            LlamaBridge.generateStream(prompt, guard)
+        when {
+            session != null -> session.stream(prompt, guard)
+            backend != null -> backend.generateStream(prompt, guard)
+            else -> LlamaBridge.generateStream(prompt, guard)
         }
     }
 
