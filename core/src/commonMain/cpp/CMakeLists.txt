@@ -23,11 +23,24 @@ set(LLAMA_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
 set(LLAMA_TESTS OFF CACHE BOOL "Disable tests" FORCE)
 set(LLAMA_BENCHMARK OFF CACHE BOOL "Disable benchmarks" FORCE)
 
+# Build every ggml Android CPU variant (baseline ARMv8.0 up to ARMv9.2 with dot product, fp16,
+# i8mm, SVE, SME) and pick the best one the device supports at runtime, instead of compiling a
+# single library for the ARMv8.0 baseline that leaves those instructions unused on modern phones.
+option(LLAMATIK_ANDROID_CPU_VARIANTS "Build all ggml CPU variants for arm64-v8a and select one at runtime" OFF)
+set(LLAMATIK_USE_CPU_VARIANTS OFF)
+
 if(ANDROID)
     message(STATUS "Configuring llama.cpp for Android ABI: ${ANDROID_ABI}")
     if(ANDROID_ABI STREQUAL "armeabi-v7a")
         set(GGML_LLAMAFILE OFF CACHE BOOL "Disable GGML llamafile on armeabi-v7a" FORCE)
         set(GGML_USE_LLAMAFILE OFF CACHE BOOL "" FORCE)
+    endif()
+    if(LLAMATIK_ANDROID_CPU_VARIANTS AND ANDROID_ABI STREQUAL "arm64-v8a")
+        set(LLAMATIK_USE_CPU_VARIANTS ON)
+        set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+        set(GGML_BACKEND_DL ON CACHE BOOL "" FORCE)
+        set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
+        message(STATUS "Llamatik: building runtime-selected ggml CPU variants for ${ANDROID_ABI}")
     endif()
 endif()
 
@@ -143,6 +156,7 @@ add_library(
         whisper_jni.cpp
         stable_diffusion_jni.cpp
         multimodal_jni.cpp
+        android_cpu_backend.cpp
         $<TARGET_OBJECTS:mtmd_sources>
 )
 
@@ -181,4 +195,37 @@ if(TARGET common)
     target_link_libraries(llama_jni PRIVATE common)
 elseif(TARGET llama-common)
     target_link_libraries(llama_jni PRIVATE llama-common)
+endif()
+
+if(LLAMATIK_USE_CPU_VARIANTS)
+    # The variant modules are ggml's own targets; list their file names for the runtime loader
+    # rather than hard-coding ggml's variant naming.
+    get_filename_component(LLAMATIK_GGML_SRC_DIR "${LLAMA_CPP_DIR}/ggml/src" ABSOLUTE)
+    get_property(LLAMATIK_GGML_TARGETS DIRECTORY "${LLAMATIK_GGML_SRC_DIR}" PROPERTY BUILDSYSTEM_TARGETS)
+    set(LLAMATIK_CPU_VARIANT_TARGETS "")
+    foreach(target IN LISTS LLAMATIK_GGML_TARGETS)
+        if(target MATCHES "^ggml-cpu-android_")
+            # Skip ggml's per-variant helper targets (e.g. the "-feats" object library).
+            get_target_property(target_type ${target} TYPE)
+            if(target_type STREQUAL "MODULE_LIBRARY" OR target_type STREQUAL "SHARED_LIBRARY")
+                list(APPEND LLAMATIK_CPU_VARIANT_TARGETS ${target})
+            endif()
+        endif()
+    endforeach()
+    if(NOT LLAMATIK_CPU_VARIANT_TARGETS)
+        message(FATAL_ERROR "LLAMATIK_ANDROID_CPU_VARIANTS is on but ggml defined no Android CPU variants")
+    endif()
+    set(LLAMATIK_CPU_VARIANT_NAMES "")
+    foreach(target IN LISTS LLAMATIK_CPU_VARIANT_TARGETS)
+        list(APPEND LLAMATIK_CPU_VARIANT_NAMES "\"$<TARGET_FILE_NAME:${target}>\"")
+    endforeach()
+    list(JOIN LLAMATIK_CPU_VARIANT_NAMES ", " LLAMATIK_CPU_VARIANT_LIST)
+    set(LLAMATIK_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/llamatik_generated")
+    file(GENERATE
+            OUTPUT "${LLAMATIK_GENERATED_DIR}/llamatik_cpu_variants.h"
+            CONTENT "#pragma once\n#define LLAMATIK_CPU_VARIANT_LIBS ${LLAMATIK_CPU_VARIANT_LIST}\n")
+    target_include_directories(llama_jni PRIVATE "${LLAMATIK_GENERATED_DIR}")
+    target_compile_definitions(llama_jni PRIVATE LLAMATIK_ANDROID_CPU_VARIANTS=1)
+    # Variants are loaded at runtime, not linked, so make sure the build produces them.
+    add_dependencies(llama_jni ${LLAMATIK_CPU_VARIANT_TARGETS})
 endif()

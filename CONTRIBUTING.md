@@ -48,6 +48,16 @@ LLAMATIK_CMAKE_ARGS="-DGGML_CUDA=ON" ./gradlew :core:build
 
 The WASM build does not receive these flags since GPU backends do not apply to the Emscripten target.
 
+### Android CPU variants
+
+On `arm64-v8a`, ggml's CPU backend is built once per ARM feature level (`android_armv8.0_1` through `android_armv9.2_2`, adding dot product, fp16, i8mm, SVE and SME), and `llama_jni`'s `JNI_OnLoad` registers the highest one the device supports. Devices without those features load `android_armv8.0_1`, the same baseline as a single build. The other ABIs are unaffected. To build a single ARMv8.0 CPU backend instead:
+
+```bash
+./gradlew :core:assembleRelease -Pllamatik.android.cpuVariants=false
+```
+
+To pin one variant at runtime, for testing or benchmarking, set `LLAMATIK_CPU_VARIANT` in the process environment before the first bridge call (from Kotlin, `android.system.Os.setenv("LLAMATIK_CPU_VARIANT", "android_armv8.0_1", true)`). A pinned variant the device does not support is ignored, and the selection is logged under the `LlamatikCpu` tag either way.
+
 ## Pull Request Guidelines
 
 1. **Branch from `main`** — use a descriptive branch name, e.g. `fix/session-leak` or `feat/wasm-streaming`
