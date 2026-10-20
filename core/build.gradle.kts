@@ -43,6 +43,14 @@ val extraCmakeArgs: List<String> =
         ?.filter { it.isNotBlank() }
         .orEmpty()
 
+// Android arm64-v8a ships every ggml CPU variant (ARMv8.0 baseline through ARMv9.2 with dot
+// product, fp16, i8mm, SVE, SME) and selects the best one the device supports at runtime, so
+// modern phones use their faster int8/fp16 instructions while baseline devices keep working.
+// Opt out (single ARMv8.0 build) with:
+//   ./gradlew :core:assembleRelease -Pllamatik.android.cpuVariants=false
+val androidCpuVariants: Boolean =
+    propString("llamatik.android.cpuVariants")?.toBooleanStrictOrNull() ?: true
+
 // Resolve EMSDK root in a way that works in Android Studio (no shell env needed).
 fun Project.resolveEmsdkRoot(): String? {
     // 1) Gradle properties (IDE-safe)
@@ -693,6 +701,7 @@ extensions.configure<LibraryExtension> {
         }
         externalNativeBuild {
             cmake {
+                arguments += "-DLLAMATIK_ANDROID_CPU_VARIANTS=${if (androidCpuVariants) "ON" else "OFF"}"
                 arguments += extraCmakeArgs
             }
         }
