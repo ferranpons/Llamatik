@@ -141,6 +141,9 @@ if(EXISTS "${STABLE_DIFFUSION_CPP_DIR}/CMakeLists.txt")
     set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
     set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
+    # Tell SD to skip patched ggml extensions (sage-attn, INT8 convrot, FP8
+    # types) that are CUDA-only and absent from llama.cpp's upstream ggml.
+    set(SD_USE_UPSTREAM_GGML ON CACHE BOOL "" FORCE)
     add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
     # Provide SD-specific ggml symbols absent from llama.cpp's ggml.
     # stable-diffusion.cpp reuses llama.cpp's ggml target (CMake "NOT TARGET ggml"
@@ -305,6 +308,8 @@ add_library(mtmd_ios_obj OBJECT
         ${MTMD_DIR}/models/minicpmv.cpp
         ${MTMD_DIR}/models/mimovl.cpp
         ${MTMD_DIR}/models/mobilenetv5.cpp
+        ${MTMD_DIR}/models/ling3vl.cpp
+        ${MTMD_DIR}/models/nemotron-omni.cpp
         ${MTMD_DIR}/models/nemotron-v2-vl.cpp
         ${MTMD_DIR}/models/paddleocr.cpp
         ${MTMD_DIR}/models/pixtral.cpp

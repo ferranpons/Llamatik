@@ -63,6 +63,9 @@ set(SD_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SD_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(SD_BUILD_SHARED_GGML_LIB OFF CACHE BOOL "" FORCE)
 set(SD_USE_SYSTEM_GGML OFF CACHE BOOL "" FORCE)
+# Tell SD to skip patched ggml extensions (sage-attn, rope_apply, INT8
+# convrot, FP8 types) that are absent from llama.cpp's upstream ggml.
+set(SD_USE_UPSTREAM_GGML ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${STABLE_DIFFUSION_CPP_DIR}" "${CMAKE_BINARY_DIR}/stable-diffusion")
 # Provide SD-specific ggml symbols absent from llama.cpp's ggml (same shim as iOS wrapper).
@@ -101,6 +104,8 @@ add_library(mtmd_sources OBJECT
         ${MTMD_DIR}/models/minicpmv.cpp
         ${MTMD_DIR}/models/mimovl.cpp
         ${MTMD_DIR}/models/mobilenetv5.cpp
+        ${MTMD_DIR}/models/ling3vl.cpp
+        ${MTMD_DIR}/models/nemotron-omni.cpp
         ${MTMD_DIR}/models/nemotron-v2-vl.cpp
         ${MTMD_DIR}/models/paddleocr.cpp
         ${MTMD_DIR}/models/pixtral.cpp
@@ -151,7 +156,7 @@ add_library(
         whisper_jni.cpp
         stable_diffusion_jni.cpp
         multimodal_jni.cpp
-        android_cpu_backend.cpp
+        $<$<BOOL:${ANDROID}>:android_cpu_backend.cpp>
         $<TARGET_OBJECTS:mtmd_sources>
 )
 
