@@ -214,16 +214,17 @@ private fun BottomNav(
 ) {
     when (currentPage) {
         0 -> {
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Spacer(modifier = Modifier.weight(1f))
                 PrimaryPillButton(
                     text = localization.next,
                     onClick = onNext,
-                    modifier = Modifier.widthIn(min = 160.dp)
+                    modifier = Modifier.widthIn(min = 120.dp)
                 )
             }
         }
