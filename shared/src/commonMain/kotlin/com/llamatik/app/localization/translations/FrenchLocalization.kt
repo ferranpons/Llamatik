@@ -194,6 +194,7 @@ Vos priorités :
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configurer"
+    override val open = "Ouvrir"
     override val modelsTitle = "Modèles"
 
     override val newFolder = "Nouveau dossier"
@@ -209,4 +210,14 @@ Vos priorités :
     override val modelUrlLabel = "URL du modèle"
     override val modelNameLabel = "Nom du modèle"
     override val categoryLabel = "Catégorie"
+
+    override val aboutDescription = "Llamatik est une application IA Kotlin Multiplatform construite sur la bibliothèque open source Llamatik. Elle apporte une IA puissante sur l'appareil pour Android, iOS, Desktop et WASM — entièrement hors ligne, respectueuse de la vie privée, via une API Kotlin unifiée."
+    override val aboutPoweredByTitle = "Propulsé par"
+    override val aboutLibraryTitle = "Construit sur la bibliothèque Llamatik"
+    override val aboutLicenseLabel = "Licence MIT · Open Source"
+    override val aboutLlmEngine = "Inférence LLM"
+    override val aboutSttEngine = "Reconnaissance vocale"
+    override val aboutImageEngine = "Génération d'images"
+    override val aboutCorePkg = "Liaisons d'inférence natives"
+    override val aboutSdkPkg = "AI SDK · Agent Framework · Assistant"
 }

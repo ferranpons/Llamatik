@@ -193,6 +193,7 @@ internal object RussianLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Настроить"
+    override val open = "Открыть"
     override val modelsTitle = "Модели"
 
     override val newFolder = "Новая папка"
@@ -208,4 +209,14 @@ internal object RussianLocalization : Localization {
     override val modelUrlLabel = "URL модели"
     override val modelNameLabel = "Название модели"
     override val categoryLabel = "Категория"
+
+    override val aboutDescription = "Llamatik — это приложение на Kotlin Multiplatform, созданное на основе библиотеки с открытым исходным кодом Llamatik. Оно обеспечивает мощный локальный ИИ на Android, iOS, Desktop и WASM — полностью офлайн, с защитой конфиденциальности, через единый Kotlin API."
+    override val aboutPoweredByTitle = "На основе"
+    override val aboutLibraryTitle = "Построено на библиотеке Llamatik"
+    override val aboutLicenseLabel = "Лицензия MIT · Открытый исходный код"
+    override val aboutLlmEngine = "LLM-инференс"
+    override val aboutSttEngine = "Распознавание речи"
+    override val aboutImageEngine = "Генерация изображений"
+    override val aboutCorePkg = "Нативные биндинги вывода"
+    override val aboutSdkPkg = "AI SDK · Agent Framework · Assistant"
 }

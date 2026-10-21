@@ -194,6 +194,7 @@ internal object ChineseLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "配置"
+    override val open = "打开"
     override val modelsTitle = "模型"
 
     override val newFolder = "新建文件夹"
@@ -209,4 +210,14 @@ internal object ChineseLocalization : Localization {
     override val modelUrlLabel = "模型URL"
     override val modelNameLabel = "模型名称"
     override val categoryLabel = "类别"
+
+    override val aboutDescription = "Llamatik 是一款基于开源 Llamatik 库构建的 Kotlin 多平台 AI 应用。它在 Android、iOS、桌面端和 WASM 上提供强大的端侧 AI — 完全离线、保护隐私，使用统一的 Kotlin API。"
+    override val aboutPoweredByTitle = "技术支持"
+    override val aboutLibraryTitle = "基于 Llamatik 库构建"
+    override val aboutLicenseLabel = "MIT 许可证 · 开源"
+    override val aboutLlmEngine = "LLM 推理"
+    override val aboutSttEngine = "语音转文字"
+    override val aboutImageEngine = "图像生成"
+    override val aboutCorePkg = "原生推理绑定"
+    override val aboutSdkPkg = "AI SDK · Agent Framework · Assistant"
 }

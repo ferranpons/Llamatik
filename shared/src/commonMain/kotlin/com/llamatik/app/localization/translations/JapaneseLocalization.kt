@@ -192,6 +192,7 @@ internal object JapaneseLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "設定する"
+    override val open = "開く"
     override val modelsTitle = "モデル"
 
     override val newFolder = "新しいフォルダ"
@@ -207,4 +208,14 @@ internal object JapaneseLocalization : Localization {
     override val modelUrlLabel = "モデルURL"
     override val modelNameLabel = "モデル名"
     override val categoryLabel = "カテゴリ"
+
+    override val aboutDescription = "LlamatikはオープンソースのLlamatikライブラリを基盤としたKotlin Multiplatform AIアプリです。Android、iOS、Desktop、WASMで強力なオンデバイスAIを提供します — 完全オフライン、プライバシー保護、統一されたKotlin APIで動作します。"
+    override val aboutPoweredByTitle = "搭載エンジン"
+    override val aboutLibraryTitle = "Llamatikライブラリで構築"
+    override val aboutLicenseLabel = "MITライセンス · オープンソース"
+    override val aboutLlmEngine = "LLM推論"
+    override val aboutSttEngine = "音声テキスト変換"
+    override val aboutImageEngine = "画像生成"
+    override val aboutCorePkg = "ネイティブ推論バインディング"
+    override val aboutSdkPkg = "AI SDK · Agent Framework · Assistant"
 }

@@ -192,6 +192,7 @@ internal object PersianLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "پیکربندی"
+    override val open = "باز کن"
     override val modelsTitle = "مدل‌ها"
 
     override val newFolder = "پوشه جدید"
@@ -207,4 +208,14 @@ internal object PersianLocalization : Localization {
     override val modelUrlLabel = "URL مدل"
     override val modelNameLabel = "نام مدل"
     override val categoryLabel = "دسته‌بندی"
+
+    override val aboutDescription = "Llamatik یک اپلیکیشن هوش مصنوعی Kotlin Multiplatform است که بر پایه کتابخانه متن‌باز Llamatik ساخته شده است. هوش مصنوعی قدرتمند روی دستگاه را برای Android، iOS، Desktop و WASM فراهم می‌کند — کاملاً آفلاین، حافظ حریم خصوصی، با یک API یکپارچه Kotlin."
+    override val aboutPoweredByTitle = "مبتنی بر"
+    override val aboutLibraryTitle = "ساخته‌شده بر کتابخانه Llamatik"
+    override val aboutLicenseLabel = "مجوز MIT · متن‌باز"
+    override val aboutLlmEngine = "استنتاج LLM"
+    override val aboutSttEngine = "تبدیل گفتار به متن"
+    override val aboutImageEngine = "تولید تصویر"
+    override val aboutCorePkg = "اتصالات استنتاج بومی"
+    override val aboutSdkPkg = "AI SDK · Agent Framework · Assistant"
 }

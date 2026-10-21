@@ -58,6 +58,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.resources.Res
@@ -80,6 +82,7 @@ class OnboardingScreen : Screen {
         val localization = getCurrentLocalization()
         var currentPage by remember { mutableStateOf(0) }
 
+        val localNavigator = LocalNavigator.currentOrThrow
         val rootNavigatorRepo: RootNavigatorRepository = remember {
             KoinPlatform.getKoin().get()
         }
@@ -87,21 +90,26 @@ class OnboardingScreen : Screen {
             KoinPlatform.getKoin().get()
         }
 
+        fun dismiss() {
+            if (localNavigator.canPop) localNavigator.pop()
+            else rootNavigatorRepo.navigator.popUntilRoot()
+        }
+
         fun skipToEnd() {
             settings.putBoolean("privacy_chatbot_viewed_key", true)
             settings.putBoolean("user_skipped_setup_key", true)
-            rootNavigatorRepo.navigator.popUntilRoot()
+            dismiss()
         }
 
         fun finishSkipDownload() {
             settings.putBoolean("privacy_chatbot_viewed_key", true)
             settings.putBoolean("user_skipped_setup_key", true)
-            rootNavigatorRepo.navigator.popUntilRoot()
+            dismiss()
         }
 
         fun finishGetStarted() {
             settings.putBoolean("privacy_chatbot_viewed_key", true)
-            rootNavigatorRepo.navigator.popUntilRoot()
+            dismiss()
         }
 
         LlamatikTheme {

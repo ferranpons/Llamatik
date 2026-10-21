@@ -56,6 +56,8 @@ import com.llamatik.app.localization.getCurrentLanguage
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.ui.components.ColoredSnackBarHost
 import com.llamatik.app.ui.icon.LlamatikIcons
+import com.llamatik.app.ui.screens.AboutScreen
+import com.llamatik.app.ui.screens.OnboardingScreen
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
 import org.koin.core.parameter.ParametersHolder
@@ -80,6 +82,8 @@ class SettingsTabScreen : Screen {
                 onClose = { navigator.pop() },
                 onOpenModels = { navigator.push(ModelsTabScreen()) },
                 onOpenModelSettings = { showModelSettings.value = true },
+                onShowOnboarding = { navigator.push(OnboardingScreen()) },
+                onAbout = { navigator.push(AboutScreen()) },
             )
 
             if (showModelSettings.value) {
@@ -99,6 +103,8 @@ class SettingsTabScreen : Screen {
         onClose: () -> Unit,
         onOpenModelSettings: (() -> Unit)? = null,
         onOpenModels: (() -> Unit)? = null,
+        onShowOnboarding: (() -> Unit)? = null,
+        onAbout: (() -> Unit)? = null,
     ) {
         val localization = getCurrentLocalization()
         val state by viewModel.state.collectAsState()
@@ -186,6 +192,26 @@ class SettingsTabScreen : Screen {
                         Button(onClick = { showLanguagePicker.value = true }) {
                             Text(text = localization.change)
                         }
+                    }
+
+                    if (onShowOnboarding != null) {
+                        Spacer(Modifier.size(16.dp))
+                        SettingsRow(
+                            icon = LlamatikIcons.Boarding,
+                            label = localization.onboarding,
+                            buttonLabel = localization.open,
+                            onClick = onShowOnboarding
+                        )
+                    }
+
+                    if (onAbout != null) {
+                        Spacer(Modifier.size(16.dp))
+                        SettingsRow(
+                            icon = LlamatikIcons.About,
+                            label = localization.about,
+                            buttonLabel = localization.open,
+                            onClick = onAbout
+                        )
                     }
                 }
             }

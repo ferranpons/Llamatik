@@ -189,6 +189,7 @@ internal object PortugueseLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "Configurar"
+    override val open = "Abrir"
     override val modelsTitle = "Modelos"
 
     override val newFolder = "Nova pasta"
@@ -204,4 +205,14 @@ internal object PortugueseLocalization : Localization {
     override val modelUrlLabel = "URL do modelo"
     override val modelNameLabel = "Nome do modelo"
     override val categoryLabel = "Categoria"
+
+    override val aboutDescription = "Llamatik é um app de IA Kotlin Multiplatform construído sobre a biblioteca open source Llamatik. Oferece IA poderosa no dispositivo para Android, iOS, Desktop e WASM — totalmente offline e com privacidade garantida, usando uma API Kotlin unificada."
+    override val aboutPoweredByTitle = "Desenvolvido com"
+    override val aboutLibraryTitle = "Construído sobre a Biblioteca Llamatik"
+    override val aboutLicenseLabel = "Licença MIT · Open Source"
+    override val aboutLlmEngine = "Inferência LLM"
+    override val aboutSttEngine = "Fala para texto"
+    override val aboutImageEngine = "Geração de imagens"
+    override val aboutCorePkg = "Bindings de inferência nativa"
+    override val aboutSdkPkg = "AI SDK · Agent Framework · Assistant"
 }

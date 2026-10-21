@@ -192,6 +192,7 @@ internal object HindiLocalization : Localization {
     override val onboardingNoModelEmptyState = "No model loaded yet. Download or import a model to start chatting."
     override val onboardingNoModelEmptyStateAction = "Get a model"
     override val configure = "कॉन्फ़िगर करें"
+    override val open = "खोलें"
     override val modelsTitle = "मॉडल"
 
     override val newFolder = "नया फ़ोल्डर"
@@ -207,4 +208,14 @@ internal object HindiLocalization : Localization {
     override val modelUrlLabel = "मॉडल URL"
     override val modelNameLabel = "मॉडल का नाम"
     override val categoryLabel = "श्रेणी"
+
+    override val aboutDescription = "Llamatik एक Kotlin Multiplatform AI ऐप है जो ओपन-सोर्स Llamatik लाइब्रेरी पर बना है। यह Android, iOS, Desktop और WASM पर शक्तिशाली ऑन-डिवाइस AI लाता है — पूरी तरह ऑफलाइन, गोपनीयता-संरक्षित, एकीकृत Kotlin API के साथ।"
+    override val aboutPoweredByTitle = "संचालित"
+    override val aboutLibraryTitle = "Llamatik लाइब्रेरी पर निर्मित"
+    override val aboutLicenseLabel = "MIT लाइसेंस · ओपन सोर्स"
+    override val aboutLlmEngine = "LLM इन्फेरेंस"
+    override val aboutSttEngine = "वाक् से पाठ"
+    override val aboutImageEngine = "छवि निर्माण"
+    override val aboutCorePkg = "नेटिव इन्फेरेंस बाइंडिंग"
+    override val aboutSdkPkg = "AI SDK · Agent Framework · Assistant"
 }

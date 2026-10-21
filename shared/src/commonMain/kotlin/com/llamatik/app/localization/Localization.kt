@@ -178,6 +178,7 @@ interface Localization {
     val onboardingNoModelEmptyStateAction: String
 
     val configure: String
+    val open: String
     val modelsTitle: String
 
     val downloadFromUrl: String
@@ -228,6 +229,16 @@ interface Localization {
     val onboardingReadyBullet4: String get() = "Open source and for everyone"
     val onboardingGetStartedButton: String get() = "Get Started"
     val onboardingSkip: String get() = "Skip"
+
+    val aboutDescription: String get() = "Llamatik is a Kotlin Multiplatform AI app built on top of the open-source Llamatik library. It brings powerful on-device AI to Android, iOS, Desktop and WASM — fully offline, privacy-preserving, using a unified Kotlin API."
+    val aboutPoweredByTitle: String get() = "Powered by"
+    val aboutLibraryTitle: String get() = "Built on the Llamatik Library"
+    val aboutLicenseLabel: String get() = "MIT License · Open Source"
+    val aboutLlmEngine: String get() = "LLM inference"
+    val aboutSttEngine: String get() = "Speech-to-Text"
+    val aboutImageEngine: String get() = "Image Generation"
+    val aboutCorePkg: String get() = "Native inference bindings"
+    val aboutSdkPkg: String get() = "AI SDK · Agent Framework · Assistant"
 }
 
 enum class AvailableLanguages {
