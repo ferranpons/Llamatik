@@ -63,11 +63,11 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.resources.Res
-import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
 import com.llamatik.app.resources.llamatik_icon_logo
 import com.llamatik.app.resources.onboarding_head_2
 import com.llamatik.app.resources.onboarding_head_4
 import com.llamatik.app.resources.onboarding_head_5
+import com.llamatik.app.resources.onboarding_head_6
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.russhwolf.settings.Settings
 import org.jetbrains.compose.resources.painterResource
@@ -425,7 +425,7 @@ private fun RunLLMsPage(localization: com.llamatik.app.localization.Localization
 
 @Composable
 private fun AIToolkitPage(localization: com.llamatik.app.localization.Localization) {
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(24.dp))
     OnboardingTitle(text = localization.onboardingAIToolkitTitle)
     Spacer(modifier = Modifier.height(12.dp))
     OnboardingDescription(text = localization.onboardingAIToolkitDescription)
@@ -516,7 +516,8 @@ private fun PrivacyControlPage(localization: com.llamatik.app.localization.Local
         painter = painterResource(Res.drawable.onboarding_head_5),
         contentDescription = null,
         modifier = Modifier
-            .size(200.dp),
+            .fillMaxWidth()
+            .height(240.dp),
         contentScale = ContentScale.Fit
     )
     Spacer(modifier = Modifier.height(20.dp))
@@ -551,9 +552,9 @@ private fun DownloadModelsPage(localization: com.llamatik.app.localization.Local
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        ModelChip(name = "Llama", color = Color(0xFF5B6BF8))
-        ModelChip(name = "Gemma", color = Color(0xFF4CAF50))
-        ModelChip(name = "Phi", color = Color(0xFF9E9E9E))
+        ModelCard(name = "Llama")
+        ModelCard(name = "Gemma")
+        ModelCard(name = "Phi")
     }
     Spacer(modifier = Modifier.height(24.dp))
     // Download size info
@@ -592,20 +593,19 @@ private fun DownloadModelsPage(localization: com.llamatik.app.localization.Local
 }
 
 @Composable
-private fun ModelChip(name: String, color: Color) {
-    Box(
-        modifier = Modifier
-            .widthIn(min = 200.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(color)
-            .padding(horizontal = 32.dp, vertical = 14.dp),
-        contentAlignment = Alignment.Center
+private fun ModelCard(name: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Text(
             text = name,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -616,7 +616,7 @@ private fun ModelChip(name: String, color: Color) {
 private fun YoureReadyPage(localization: com.llamatik.app.localization.Localization) {
     Spacer(modifier = Modifier.height(8.dp))
     Image(
-        painter = painterResource(Res.drawable.a_pair_of_llamas_in_a_field_with_clouds_and_mounta),
+        painter = painterResource(Res.drawable.onboarding_head_6),
         contentDescription = null,
         modifier = Modifier
             .fillMaxWidth()
