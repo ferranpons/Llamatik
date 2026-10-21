@@ -64,10 +64,10 @@ import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.resources.Res
 import com.llamatik.app.resources.a_pair_of_llamas_in_a_field_with_clouds_and_mounta
-import com.llamatik.app.resources.authentication_rafiki
-import com.llamatik.app.resources.features_overview_cuate
-import com.llamatik.app.resources.instruction_manual_pana
 import com.llamatik.app.resources.llamatik_icon_logo
+import com.llamatik.app.resources.onboarding_head_2
+import com.llamatik.app.resources.onboarding_head_4
+import com.llamatik.app.resources.onboarding_head_5
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.russhwolf.settings.Settings
 import org.jetbrains.compose.resources.painterResource
@@ -406,7 +406,7 @@ private fun FeatureBadge(icon: ImageVector, label: String) {
 private fun RunLLMsPage(localization: com.llamatik.app.localization.Localization) {
     Spacer(modifier = Modifier.height(8.dp))
     Image(
-        painter = painterResource(Res.drawable.features_overview_cuate),
+        painter = painterResource(Res.drawable.onboarding_head_2),
         contentDescription = null,
         modifier = Modifier
             .fillMaxWidth()
@@ -492,7 +492,7 @@ private fun FeatureCard(icon: ImageVector, label: String, modifier: Modifier = M
 private fun BuiltForDevsPage(localization: com.llamatik.app.localization.Localization) {
     Spacer(modifier = Modifier.height(8.dp))
     Image(
-        painter = painterResource(Res.drawable.instruction_manual_pana),
+        painter = painterResource(Res.drawable.onboarding_head_4),
         contentDescription = null,
         modifier = Modifier
             .fillMaxWidth()
@@ -512,7 +512,7 @@ private fun BuiltForDevsPage(localization: com.llamatik.app.localization.Localiz
 private fun PrivacyControlPage(localization: com.llamatik.app.localization.Localization) {
     Spacer(modifier = Modifier.height(8.dp))
     Image(
-        painter = painterResource(Res.drawable.authentication_rafiki),
+        painter = painterResource(Res.drawable.onboarding_head_5),
         contentDescription = null,
         modifier = Modifier
             .size(200.dp),

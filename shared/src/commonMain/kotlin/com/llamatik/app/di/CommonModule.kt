@@ -34,7 +34,6 @@ import com.llamatik.app.feature.reviews.createReviewService
 import com.llamatik.app.feature.webview.viewmodel.WebViewModel
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.AppDispatchersIO
-import com.llamatik.app.platform.LlamatikEventTracker
 import com.llamatik.app.platform.LlamatikFileAccessAdapter
 import com.llamatik.app.platform.ModelPathResolverAdapter
 import com.llamatik.app.platform.RagStorageAdapter
@@ -123,10 +122,6 @@ val commonModule = module {
 
     single { (snackbarHostState: SnackbarHostState) ->
         RootSnackbarHostStateRepository(snackbarHostState)
-    }
-
-    single {
-        LlamatikEventTracker()
     }
 
     singleOf(::GlobalAppSettingsRepository)
