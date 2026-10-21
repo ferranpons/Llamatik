@@ -57,6 +57,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import com.llamatik.app.feature.chatbot.ui.ChatInputBox
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
@@ -109,6 +110,11 @@ class ChatBotTabScreen : Screen {
         LaunchedEffect(Unit) {
             viewModel.showOnboardingIfNeeded()
             viewModel.onStarted(navigator)
+        }
+
+        val tabNavigator = LocalTabNavigator.current
+        LaunchedEffect(tabNavigator.current.key) {
+            viewModel.refreshModelState()
         }
 
         val pendingSessionRepository = remember { KoinPlatform.getKoin().get<PendingSessionRepository>() }
