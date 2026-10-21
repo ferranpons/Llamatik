@@ -210,7 +210,7 @@ internal object CatalanLocalization : Localization {
     override val modelNameLabel = "Nom del model"
     override val categoryLabel = "Categoria"
 
-    override val aboutDescription = "Llamatik és una aplicació d'IA Kotlin Multiplatform construïda sobre la biblioteca de codi obert Llamatik. Ofereix IA potent al dispositiu per a Android, iOS, Desktop i WASM — completament offline i respectuosa amb la privadesa, amb una API Kotlin unificada."
+    override val aboutDescription = "Llamatik és una aplicació d'IA Kotlin Multiplatform construïda sobre la biblioteca de codi obert Llamatik. Ofereix IA potent al dispositiu en totes les plataformes compatibles — completament offline i respectuosa amb la privadesa, amb una API Kotlin unificada."
     override val aboutPoweredByTitle = "Desenvolupat amb"
     override val aboutLibraryTitle = "Construït sobre la Biblioteca Llamatik"
     override val aboutLicenseLabel = "Llicència MIT · Codi obert"

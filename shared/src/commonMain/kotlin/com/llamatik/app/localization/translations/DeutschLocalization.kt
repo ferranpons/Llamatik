@@ -212,7 +212,7 @@ Deine Prioritäten:
     override val modelNameLabel = "Modellname"
     override val categoryLabel = "Kategorie"
 
-    override val aboutDescription = "Llamatik ist eine Kotlin Multiplatform KI-App, die auf der Open-Source Llamatik-Bibliothek aufbaut. Sie bringt leistungsstarke KI direkt auf das Gerät für Android, iOS, Desktop und WASM — vollständig offline, datenschutzfreundlich, mit einer einheitlichen Kotlin API."
+    override val aboutDescription = "Llamatik ist eine Kotlin Multiplatform KI-App, die auf der Open-Source Llamatik-Bibliothek aufbaut. Sie bringt leistungsstarke KI direkt auf das Gerät für alle unterstützten Plattformen — vollständig offline, datenschutzfreundlich, mit einer einheitlichen Kotlin API."
     override val aboutPoweredByTitle = "Angetrieben von"
     override val aboutLibraryTitle = "Aufgebaut auf der Llamatik-Bibliothek"
     override val aboutLicenseLabel = "MIT-Lizenz · Open Source"

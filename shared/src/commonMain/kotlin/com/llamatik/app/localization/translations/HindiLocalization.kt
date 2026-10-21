@@ -209,7 +209,7 @@ internal object HindiLocalization : Localization {
     override val modelNameLabel = "मॉडल का नाम"
     override val categoryLabel = "श्रेणी"
 
-    override val aboutDescription = "Llamatik एक Kotlin Multiplatform AI ऐप है जो ओपन-सोर्स Llamatik लाइब्रेरी पर बना है। यह Android, iOS, Desktop और WASM पर शक्तिशाली ऑन-डिवाइस AI लाता है — पूरी तरह ऑफलाइन, गोपनीयता-संरक्षित, एकीकृत Kotlin API के साथ।"
+    override val aboutDescription = "Llamatik एक Kotlin Multiplatform AI ऐप है जो ओपन-सोर्स Llamatik लाइब्रेरी पर बना है। यह सभी समर्थित प्लेटफ़ॉर्म पर शक्तिशाली ऑन-डिवाइस AI प्रदान करता है — पूरी तरह ऑफलाइन, गोपनीयता-संरक्षित, एकीकृत Kotlin API के साथ।"
     override val aboutPoweredByTitle = "संचालित"
     override val aboutLibraryTitle = "Llamatik लाइब्रेरी पर निर्मित"
     override val aboutLicenseLabel = "MIT लाइसेंस · ओपन सोर्स"

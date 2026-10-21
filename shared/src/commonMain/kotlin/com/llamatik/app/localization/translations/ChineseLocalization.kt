@@ -211,7 +211,7 @@ internal object ChineseLocalization : Localization {
     override val modelNameLabel = "模型名称"
     override val categoryLabel = "类别"
 
-    override val aboutDescription = "Llamatik 是一款基于开源 Llamatik 库构建的 Kotlin 多平台 AI 应用。它在 Android、iOS、桌面端和 WASM 上提供强大的端侧 AI — 完全离线、保护隐私，使用统一的 Kotlin API。"
+    override val aboutDescription = "Llamatik 是一款基于开源 Llamatik 库构建的 Kotlin 多平台 AI 应用。它在所有受支持的平台上提供强大的端侧 AI — 完全离线、保护隐私，使用统一的 Kotlin API。"
     override val aboutPoweredByTitle = "技术支持"
     override val aboutLibraryTitle = "基于 Llamatik 库构建"
     override val aboutLicenseLabel = "MIT 许可证 · 开源"

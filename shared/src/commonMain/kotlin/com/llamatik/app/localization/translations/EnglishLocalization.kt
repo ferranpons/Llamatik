@@ -245,7 +245,7 @@ internal object EnglishLocalization : Localization {
     override val onboardingGetStartedButton = "Get Started"
     override val onboardingSkip = "Skip"
 
-    override val aboutDescription = "Llamatik is a Kotlin Multiplatform AI app built on top of the open-source Llamatik library. It brings powerful on-device AI to Android, iOS, Desktop and WASM — fully offline, privacy-preserving, using a unified Kotlin API."
+    override val aboutDescription = "Llamatik is a Kotlin Multiplatform AI app built on top of the open-source Llamatik library. It delivers powerful on-device AI across all supported platforms — fully offline, privacy-preserving, through a unified Kotlin API."
     override val aboutPoweredByTitle = "Powered by"
     override val aboutLibraryTitle = "Built on the Llamatik Library"
     override val aboutLicenseLabel = "MIT License · Open Source"

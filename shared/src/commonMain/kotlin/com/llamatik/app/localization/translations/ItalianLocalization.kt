@@ -210,7 +210,7 @@ Le tue priorità:
     override val modelNameLabel = "Nome del modello"
     override val categoryLabel = "Categoria"
 
-    override val aboutDescription = "Llamatik è un'app AI Kotlin Multiplatform basata sulla libreria open source Llamatik. Porta una potente IA on-device su Android, iOS, Desktop e WASM — completamente offline e rispettosa della privacy, tramite un'API Kotlin unificata."
+    override val aboutDescription = "Llamatik è un'app AI Kotlin Multiplatform basata sulla libreria open source Llamatik. Porta una potente IA on-device su tutte le piattaforme supportate — completamente offline e rispettosa della privacy, tramite un'API Kotlin unificata."
     override val aboutPoweredByTitle = "Sviluppato con"
     override val aboutLibraryTitle = "Costruito sulla Libreria Llamatik"
     override val aboutLicenseLabel = "Licenza MIT · Open Source"

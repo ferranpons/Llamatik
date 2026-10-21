@@ -209,7 +209,7 @@ internal object PersianLocalization : Localization {
     override val modelNameLabel = "نام مدل"
     override val categoryLabel = "دسته‌بندی"
 
-    override val aboutDescription = "Llamatik یک اپلیکیشن هوش مصنوعی Kotlin Multiplatform است که بر پایه کتابخانه متن‌باز Llamatik ساخته شده است. هوش مصنوعی قدرتمند روی دستگاه را برای Android، iOS، Desktop و WASM فراهم می‌کند — کاملاً آفلاین، حافظ حریم خصوصی، با یک API یکپارچه Kotlin."
+    override val aboutDescription = "Llamatik یک اپلیکیشن هوش مصنوعی Kotlin Multiplatform است که بر پایه کتابخانه متن‌باز Llamatik ساخته شده است. هوش مصنوعی قدرتمند روی دستگاه را برای همه پلتفرم‌های پشتیبانی‌شده فراهم می‌کند — کاملاً آفلاین، حافظ حریم خصوصی، با یک API یکپارچه Kotlin."
     override val aboutPoweredByTitle = "مبتنی بر"
     override val aboutLibraryTitle = "ساخته‌شده بر کتابخانه Llamatik"
     override val aboutLicenseLabel = "مجوز MIT · متن‌باز"

@@ -210,7 +210,7 @@ internal object RussianLocalization : Localization {
     override val modelNameLabel = "Название модели"
     override val categoryLabel = "Категория"
 
-    override val aboutDescription = "Llamatik — это приложение на Kotlin Multiplatform, созданное на основе библиотеки с открытым исходным кодом Llamatik. Оно обеспечивает мощный локальный ИИ на Android, iOS, Desktop и WASM — полностью офлайн, с защитой конфиденциальности, через единый Kotlin API."
+    override val aboutDescription = "Llamatik — это приложение на Kotlin Multiplatform, созданное на основе библиотеки с открытым исходным кодом Llamatik. Оно обеспечивает мощный локальный ИИ на всех поддерживаемых платформах — полностью офлайн, с защитой конфиденциальности, через единый Kotlin API."
     override val aboutPoweredByTitle = "На основе"
     override val aboutLibraryTitle = "Построено на библиотеке Llamatik"
     override val aboutLicenseLabel = "Лицензия MIT · Открытый исходный код"

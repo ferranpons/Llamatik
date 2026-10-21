@@ -209,7 +209,7 @@ internal object JapaneseLocalization : Localization {
     override val modelNameLabel = "モデル名"
     override val categoryLabel = "カテゴリ"
 
-    override val aboutDescription = "LlamatikはオープンソースのLlamatikライブラリを基盤としたKotlin Multiplatform AIアプリです。Android、iOS、Desktop、WASMで強力なオンデバイスAIを提供します — 完全オフライン、プライバシー保護、統一されたKotlin APIで動作します。"
+    override val aboutDescription = "LlamatikはオープンソースのLlamatikライブラリを基盤としたKotlin Multiplatform AIアプリです。すべての対応プラットフォームで強力なオンデバイスAIを提供します — 完全オフライン、プライバシー保護、統一されたKotlin APIで動作します。"
     override val aboutPoweredByTitle = "搭載エンジン"
     override val aboutLibraryTitle = "Llamatikライブラリで構築"
     override val aboutLicenseLabel = "MITライセンス · オープンソース"
