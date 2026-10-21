@@ -1070,6 +1070,16 @@ class ChatBotViewModel(
         }
     }
 
+    fun downloadDefaultModel() {
+        val models = _state.value.generateModels
+        if (models.isEmpty()) return
+        val default = models.firstOrNull {
+            it.name.contains("gemma 3", ignoreCase = true) ||
+                    it.name.contains("gemma3", ignoreCase = true)
+        } ?: models.first()
+        onDownloadModel(default)
+    }
+
     fun onDownloadModel(model: LlamaModel) {
         val url = model.url
         val existingJob = downloadJobs[url]
