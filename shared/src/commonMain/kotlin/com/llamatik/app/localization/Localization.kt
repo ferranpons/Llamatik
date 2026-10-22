@@ -215,6 +215,9 @@ interface Localization {
     val onboardingPrivacyBullet2: String get() = "Your data never leaves your device"
     val onboardingPrivacyBullet3: String get() = "Works without Wi-Fi or mobile data"
     val onboardingPrivacyBullet4: String get() = "No subscriptions, no sign-ups"
+    val loadingModel: String get() = "Loading model…"
+    val loadingModelDescription: String get() = "The AI model is initialising, it will be ready in a moment."
+
     val onboardingDownloadAIModelsTitle: String get() = "Almost There!"
     val onboardingDownloadAIModelsDescription: String get() = "To start chatting you need to download an AI model. It runs fully offline on your device. The default model is about 800MB — you can explore others in Settings later."
     val onboardingDownloadSizeInfo: String get() = "One-time download (~800MB)"

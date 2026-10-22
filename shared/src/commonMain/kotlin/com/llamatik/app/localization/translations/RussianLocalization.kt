@@ -239,6 +239,8 @@ internal object RussianLocalization : Localization {
     override val onboardingPrivacyBullet2 = "Ваши данные никогда не покидают устройство"
     override val onboardingPrivacyBullet3 = "Работает без Wi-Fi и мобильного интернета"
     override val onboardingPrivacyBullet4 = "Без подписок и регистрации"
+    override val loadingModel = "Загрузка модели…"
+    override val loadingModelDescription = "Модель ИИ инициализируется, она будет готова через мгновение."
     override val onboardingDownloadAIModelsTitle = "Почти готово!"
     override val onboardingDownloadAIModelsDescription = "Чтобы начать общение, нужно загрузить модель ИИ. Она работает полностью офлайн на вашем устройстве. Модель по умолчанию занимает около 800 МБ — другие можно найти в Настройках."
     override val onboardingDownloadSizeInfo = "Однократная загрузка (~800 МБ)"

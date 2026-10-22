@@ -238,6 +238,8 @@ internal object JapaneseLocalization : Localization {
     override val onboardingPrivacyBullet2 = "データがデバイスを離れることはない"
     override val onboardingPrivacyBullet3 = "Wi-Fiやモバイルデータなしで動作"
     override val onboardingPrivacyBullet4 = "サブスクリプションも登録も不要"
+    override val loadingModel = "モデルを読み込み中…"
+    override val loadingModelDescription = "AIモデルを初期化しています。もうすぐ準備できます。"
     override val onboardingDownloadAIModelsTitle = "もう少しで完了！"
     override val onboardingDownloadAIModelsDescription = "チャットを始めるには、AIモデルをダウンロードする必要があります。デバイス上で完全にオフラインで動作します。デフォルトモデルは約800MB — 後で設定から他のモデルも探せます。"
     override val onboardingDownloadSizeInfo = "一回限りのダウンロード（約800MB）"

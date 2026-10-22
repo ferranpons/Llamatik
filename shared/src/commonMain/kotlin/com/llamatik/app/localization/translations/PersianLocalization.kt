@@ -238,6 +238,8 @@ internal object PersianLocalization : Localization {
     override val onboardingPrivacyBullet2 = "داده‌های شما هرگز دستگاه را ترک نمی‌کنند"
     override val onboardingPrivacyBullet3 = "بدون Wi-Fi یا اینترنت موبایل کار می‌کند"
     override val onboardingPrivacyBullet4 = "بدون اشتراک، بدون ثبت‌نام"
+    override val loadingModel = "در حال بارگذاری مدل…"
+    override val loadingModelDescription = "مدل هوش مصنوعی در حال راه‌اندازی است، به زودی آماده خواهد شد."
     override val onboardingDownloadAIModelsTitle = "تقریباً آماده!"
     override val onboardingDownloadAIModelsDescription = "برای شروع گفتگو باید یک مدل هوش مصنوعی دانلود کنید. این مدل کاملاً آفلاین روی دستگاه شما اجرا می‌شود. مدل پیش‌فرض حدود ۸۰۰ مگابایت است — بعداً می‌توانید از تنظیمات، مدل‌های دیگر را بررسی کنید."
     override val onboardingDownloadSizeInfo = "دانلود یک‌باره (~۸۰۰ مگابایت)"

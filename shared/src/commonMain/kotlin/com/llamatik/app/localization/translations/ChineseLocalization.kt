@@ -240,6 +240,8 @@ internal object ChineseLocalization : Localization {
     override val onboardingPrivacyBullet2 = "您的数据永不离开您的设备"
     override val onboardingPrivacyBullet3 = "无需 Wi-Fi 或移动数据"
     override val onboardingPrivacyBullet4 = "无需订阅，无需注册"
+    override val loadingModel = "正在加载模型…"
+    override val loadingModelDescription = "AI 模型正在初始化，稍后即可使用。"
     override val onboardingDownloadAIModelsTitle = "即将完成！"
     override val onboardingDownloadAIModelsDescription = "开始聊天前，您需要下载一个 AI 模型。它在您的设备上完全离线运行。默认模型约为 800MB — 您可以稍后在设置中探索其他模型。"
     override val onboardingDownloadSizeInfo = "一次性下载（约 800MB）"

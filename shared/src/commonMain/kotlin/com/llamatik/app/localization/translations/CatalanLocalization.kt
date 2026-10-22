@@ -239,6 +239,8 @@ internal object CatalanLocalization : Localization {
     override val onboardingPrivacyBullet2 = "Les teves dades mai surten del dispositiu"
     override val onboardingPrivacyBullet3 = "Funciona sense Wi-Fi ni dades mòbils"
     override val onboardingPrivacyBullet4 = "Sense subscripcions ni registre"
+    override val loadingModel = "Carregant el model…"
+    override val loadingModelDescription = "El model d'IA s'està inicialitzant, estarà llest en un moment."
     override val onboardingDownloadAIModelsTitle = "Gairebé llest!"
     override val onboardingDownloadAIModelsDescription = "Per començar a xatejar has de descarregar un model d'IA. S'executa completament sense connexió al teu dispositiu. El model predeterminat pesa uns 800 MB — pots explorar-ne d'altres a Configuració."
     override val onboardingDownloadSizeInfo = "Descàrrega única (~800 MB)"

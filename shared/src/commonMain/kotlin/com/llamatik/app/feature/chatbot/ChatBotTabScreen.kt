@@ -323,7 +323,9 @@ class ChatBotTabScreen : Screen {
                             .background(MaterialTheme.colorScheme.surfaceDim)
                     )
 
-                    if (!state.isGenerateModelLoaded && !state.isInitialSetup) {
+                    if (state.isGenerateModelLoading && !state.isGenerateModelLoaded) {
+                        ModelLoadingEmptyState(localization = localization)
+                    } else if (!state.isGenerateModelLoaded && !state.isInitialSetup) {
                         NoModelEmptyState(
                             localization = localization,
                             onDownloadDefault = { viewModel.downloadDefaultModel() }
@@ -681,6 +683,40 @@ class ChatBotTabScreen : Screen {
                     }
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun ModelLoadingEmptyState(localization: Localization) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(72.dp),
+                strokeWidth = 4.dp
+            )
+
+            Spacer(Modifier.size(24.dp))
+
+            Text(
+                text = localization.loadingModel,
+                style = Typography.get().titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.size(8.dp))
+
+            Text(
+                text = localization.loadingModelDescription,
+                style = Typography.get().bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
         }
     }
 

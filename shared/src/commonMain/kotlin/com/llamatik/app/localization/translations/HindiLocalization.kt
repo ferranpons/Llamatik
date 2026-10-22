@@ -238,6 +238,8 @@ internal object HindiLocalization : Localization {
     override val onboardingPrivacyBullet2 = "आपका डेटा कभी डिवाइस नहीं छोड़ता"
     override val onboardingPrivacyBullet3 = "Wi-Fi या मोबाइल डेटा के बिना काम करता है"
     override val onboardingPrivacyBullet4 = "कोई सब्सक्रिप्शन नहीं, कोई साइनअप नहीं"
+    override val loadingModel = "मॉडल लोड हो रहा है…"
+    override val loadingModelDescription = "AI मॉडल इनिशियलाइज़ हो रहा है, यह एक पल में तैयार हो जाएगा।"
     override val onboardingDownloadAIModelsTitle = "लगभग हो गया!"
     override val onboardingDownloadAIModelsDescription = "चैट शुरू करने के लिए आपको एक AI मॉडल डाउनलोड करना होगा। यह आपके डिवाइस पर पूरी तरह ऑफलाइन चलता है। डिफ़ॉल्ट मॉडल लगभग 800MB का है — बाद में Settings में अन्य मॉडल देख सकते हैं।"
     override val onboardingDownloadSizeInfo = "एकबारगी डाउनलोड (~800MB)"

@@ -239,6 +239,8 @@ Le tue priorità:
     override val onboardingPrivacyBullet2 = "I tuoi dati non lasciano mai il dispositivo"
     override val onboardingPrivacyBullet3 = "Funziona senza Wi-Fi o dati mobili"
     override val onboardingPrivacyBullet4 = "Nessun abbonamento, nessuna registrazione"
+    override val loadingModel = "Caricamento modello…"
+    override val loadingModelDescription = "Il modello di IA si sta avviando, sarà pronto tra poco."
     override val onboardingDownloadAIModelsTitle = "Ci siamo quasi!"
     override val onboardingDownloadAIModelsDescription = "Per iniziare a chattare devi scaricare un modello di IA. Funziona completamente offline sul tuo dispositivo. Il modello predefinito pesa circa 800 MB — puoi esplorarne altri nelle Impostazioni."
     override val onboardingDownloadSizeInfo = "Download una tantum (~800 MB)"

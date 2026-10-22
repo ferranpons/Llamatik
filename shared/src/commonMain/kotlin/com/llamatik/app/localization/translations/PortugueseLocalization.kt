@@ -235,6 +235,8 @@ internal object PortugueseLocalization : Localization {
     override val onboardingPrivacyBullet2 = "Seus dados nunca saem do seu dispositivo"
     override val onboardingPrivacyBullet3 = "Funciona sem Wi-Fi ou dados móveis"
     override val onboardingPrivacyBullet4 = "Sem assinaturas, sem cadastro"
+    override val loadingModel = "Carregando modelo…"
+    override val loadingModelDescription = "O modelo de IA está a inicializar, estará pronto em breve."
     override val onboardingDownloadAIModelsTitle = "Quase lá!"
     override val onboardingDownloadAIModelsDescription = "Para começar a conversar, você precisa baixar um modelo de IA. Ele funciona completamente offline no seu dispositivo. O modelo padrão tem cerca de 800 MB — você pode explorar outros nas Configurações."
     override val onboardingDownloadSizeInfo = "Download único (~800 MB)"
