@@ -132,7 +132,8 @@ class ModelsTabScreen : Screen {
                 ModelCategoryRow(
                     title = localization.generateModels,
                     selectedName = state.selectedGenerateModelName,
-                    onClick = { navigator.push(ModelCatalogScreen(ModelCatalogType.Generate)) }
+                    onClick = { navigator.push(ModelCatalogScreen(ModelCatalogType.Generate)) },
+                    isLoading = state.isGenerateModelLoading
                 )
                 Spacer(Modifier.height(8.dp))
                 ModelCategoryRow(
