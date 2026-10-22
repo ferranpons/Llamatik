@@ -470,7 +470,7 @@ class ChatBotViewModel(
                                     isGenerateModelLoaded = false
                                 )
                             }
-                        } else if (!_state.value.isGenerateModelLoaded) {
+                        } else if (!_state.value.isGenerateModelLoaded && !_state.value.isGenerating) {
                             val path = resolveAndMigratePath(validModel) ?: return@onSuccess
                             val isLoaded = LlamaBridge.initGenerateModel(path)
                             if (isLoaded) {
