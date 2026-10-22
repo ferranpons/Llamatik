@@ -36,12 +36,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,8 +61,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.platform.RootNavigatorRepository
 import com.llamatik.app.resources.Res
@@ -71,6 +76,7 @@ import com.llamatik.app.resources.onboarding_head_6
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.russhwolf.settings.Settings
 import org.jetbrains.compose.resources.painterResource
+import org.koin.core.parameter.ParametersHolder
 import org.koin.mp.KoinPlatform
 
 private const val TOTAL_PAGES = 7
@@ -88,6 +94,19 @@ class OnboardingScreen : Screen {
         }
         val settings: Settings = remember {
             KoinPlatform.getKoin().get()
+        }
+
+        val viewModel = koinScreenModel<ChatBotViewModel>(
+            parameters = { ParametersHolder(listOf(localNavigator).toMutableList(), false) }
+        )
+        val vmState by viewModel.state.collectAsState()
+        var downloadRequested by remember { mutableStateOf(false) }
+
+        // Auto-advance to page 6 when the download completes
+        LaunchedEffect(vmState.isInitialSetup, vmState.isGenerateModelLoaded) {
+            if (downloadRequested && !vmState.isInitialSetup && vmState.isGenerateModelLoaded && currentPage == 5) {
+                currentPage = 6
+            }
         }
 
         fun dismiss() {
@@ -154,7 +173,11 @@ class OnboardingScreen : Screen {
                     2 -> AIToolkitPage(localization)
                     3 -> BuiltForDevsPage(localization)
                     4 -> PrivacyControlPage(localization)
-                    5 -> DownloadModelsPage(localization)
+                    5 -> DownloadModelsPage(
+                        localization = localization,
+                        isDownloading = vmState.isInitialSetup && downloadRequested,
+                        progress = vmState.initialSetupProgress,
+                    )
                     6 -> YoureReadyPage(localization)
                 }
             }
@@ -162,12 +185,14 @@ class OnboardingScreen : Screen {
             // Bottom navigation
             BottomNav(
                 currentPage = currentPage,
+                isDownloading = vmState.isInitialSetup && downloadRequested,
                 onBack = { if (currentPage > 0) currentPage-- },
                 onNext = { if (currentPage < TOTAL_PAGES - 1) currentPage++ },
                 onDownload = {
                     settings.putBoolean("privacy_chatbot_viewed_key", true)
                     settings.putBoolean("initial_download_requested_key", true)
-                    if (currentPage < TOTAL_PAGES - 1) currentPage++
+                    downloadRequested = true
+                    viewModel.onPrivacyAccepted()
                 },
                 onDoItLater = { finishSkipDownload() },
                 onGetStarted = { finishGetStarted() },
@@ -205,6 +230,7 @@ class OnboardingScreen : Screen {
 @Composable
 private fun BottomNav(
     currentPage: Int,
+    isDownloading: Boolean = false,
     onBack: () -> Unit,
     onNext: () -> Unit,
     onDownload: () -> Unit,
@@ -235,22 +261,24 @@ private fun BottomNav(
                     .padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
-                BackTextButton(text = localization.backLabel, onClick = onBack)
-                Spacer(modifier = Modifier.weight(1f))
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    PrimaryPillButton(
-                        text = localization.onboardingDownloadModelsButton,
-                        onClick = onDownload,
-                        modifier = Modifier.widthIn(min = 180.dp)
-                    )
-                    OutlinedPillButton(
-                        text = localization.onboardingDoItLaterButton,
-                        onClick = onDoItLater,
-                        modifier = Modifier.widthIn(min = 180.dp)
-                    )
+                if (!isDownloading) {
+                    BackTextButton(text = localization.backLabel, onClick = onBack)
+                    Spacer(modifier = Modifier.weight(1f))
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        OutlinedPillButton(
+                            text = localization.onboardingDoItLaterButton,
+                            onClick = onDoItLater,
+                            modifier = Modifier.widthIn(min = 180.dp)
+                        )
+                        PrimaryPillButton(
+                            text = localization.onboardingDownloadModelsButton,
+                            onClick = onDownload,
+                            modifier = Modifier.widthIn(min = 180.dp)
+                        )
+                    }
                 }
             }
         }
@@ -540,74 +568,85 @@ private fun PrivacyControlPage(localization: com.llamatik.app.localization.Local
 // ─── Page 5: Download AI Models ──────────────────────────────────────────────
 
 @Composable
-private fun DownloadModelsPage(localization: com.llamatik.app.localization.Localization) {
+private fun DownloadModelsPage(
+    localization: com.llamatik.app.localization.Localization,
+    isDownloading: Boolean = false,
+    progress: Int = 0,
+) {
     Spacer(modifier = Modifier.height(8.dp))
     OnboardingTitle(text = localization.onboardingDownloadAIModelsTitle)
     Spacer(modifier = Modifier.height(12.dp))
     OnboardingDescription(text = localization.onboardingDownloadAIModelsDescription)
     Spacer(modifier = Modifier.height(28.dp))
-    // Stacked model chips
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        ModelCard(name = "Llama")
-        ModelCard(name = "Gemma")
-        ModelCard(name = "Phi")
-    }
-    Spacer(modifier = Modifier.height(24.dp))
-    // Download size info
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+
+    if (isDownloading) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
         ) {
-            Icon(
-                imageVector = Icons.Default.WifiOff,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = localization.onboardingDownloadSizeInfo,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = localization.downloading,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "$progress%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { progress / 100f },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                Text(
-                    text = localization.onboardingDownloadSizeGuide,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            }
+        }
+    } else {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = localization.onboardingDownloadSizeInfo,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = localization.onboardingDownloadSizeGuide,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
     }
     Spacer(modifier = Modifier.height(16.dp))
-}
-
-@Composable
-private fun ModelCard(name: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Text(
-            text = name,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
 }
 
 // ─── Page 6: You're Ready! ────────────────────────────────────────────────────

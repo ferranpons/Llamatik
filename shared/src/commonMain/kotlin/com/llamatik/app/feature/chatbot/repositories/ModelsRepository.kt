@@ -152,16 +152,16 @@ class ModelsRepository(private val service: ServiceClient) {
     fun getDefaultGenerateModels(): List<LlamaModel> {
         return listOf(
             LlamaModel(
-                name = "Gemma 3 270M Instruct Q8_0",
-                sizeMb = 292,
-                url = "https://huggingface.co/ggml-org/gemma-3-270m-it-GGUF/resolve/main/gemma-3-270m-it-Q8_0.gguf?download=true",
+                name = "Gemma 3 1B Instruct Q4 KM",
+                sizeMb = 806,
+                url = "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf?download=true",
                 template = Gemma3,
                 systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
             LlamaModel(
-                name = "Gemma 3 1B Instruct Q4 KM",
-                sizeMb = 806,
-                url = "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf?download=true",
+                name = "Gemma 3 270M Instruct Q8_0",
+                sizeMb = 292,
+                url = "https://huggingface.co/ggml-org/gemma-3-270m-it-GGUF/resolve/main/gemma-3-270m-it-Q8_0.gguf?download=true",
                 template = Gemma3,
                 systemPrompt = localization.defaultSystemPrompt.trimIndent()
             ),
