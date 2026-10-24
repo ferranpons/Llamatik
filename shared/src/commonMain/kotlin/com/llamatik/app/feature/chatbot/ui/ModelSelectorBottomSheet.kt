@@ -40,6 +40,7 @@ fun ModelCategoryRow(
     title: String,
     selectedName: String?,
     onClick: () -> Unit,
+    isLoading: Boolean = false,
 ) {
     val localization = getCurrentLocalization()
     val subtitle = selectedName?.takeIf { it.isNotBlank() } ?: localization.noModelSelected
@@ -66,13 +67,20 @@ fun ModelCategoryRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    style = Typography.get().labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (isLoading && selectedName == null) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = subtitle,
+                        style = Typography.get().labelMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,

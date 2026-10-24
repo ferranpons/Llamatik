@@ -19,10 +19,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -55,12 +57,14 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import com.llamatik.app.feature.chatbot.ui.ChatInputBox
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotSideEffects
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotState
 import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.chatbot.viewmodel.ChatUiModel
 import com.llamatik.app.feature.chathistory.PendingSessionRepository
+import com.llamatik.app.feature.models.ModelsTabScreen
 import com.llamatik.app.localization.Localization
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.localization.getLanguageCode
@@ -106,6 +110,11 @@ class ChatBotTabScreen : Screen {
         LaunchedEffect(Unit) {
             viewModel.showOnboardingIfNeeded()
             viewModel.onStarted(navigator)
+        }
+
+        val tabNavigator = LocalTabNavigator.current
+        LaunchedEffect(tabNavigator.current.key) {
+            viewModel.refreshModelState()
         }
 
         val pendingSessionRepository = remember { KoinPlatform.getKoin().get<PendingSessionRepository>() }
@@ -314,18 +323,27 @@ class ChatBotTabScreen : Screen {
                             .background(MaterialTheme.colorScheme.surfaceDim)
                     )
 
-                    val chatUiModel = ChatUiModel(
-                        messages = conversation,
-                        addressee = ChatUiModel.Author.bot
-                    )
-                    ChatView(
-                        localization,
-                        viewModel,
-                        chatUiModel,
-                        isLoading,
-                        state,
-                        showSuggestions,
-                    )
+                    if (state.isGenerateModelLoading && !state.isGenerateModelLoaded) {
+                        ModelLoadingEmptyState(localization = localization)
+                    } else if (!state.isGenerateModelLoaded && !state.isInitialSetup) {
+                        NoModelEmptyState(
+                            localization = localization,
+                            onDownloadDefault = { viewModel.downloadDefaultModel() }
+                        )
+                    } else {
+                        val chatUiModel = ChatUiModel(
+                            messages = conversation,
+                            addressee = ChatUiModel.Author.bot
+                        )
+                        ChatView(
+                            localization,
+                            viewModel,
+                            chatUiModel,
+                            isLoading,
+                            state,
+                            showSuggestions,
+                        )
+                    }
                 }
             }
         }
@@ -664,6 +682,100 @@ class ChatBotTabScreen : Screen {
                         Spacer(modifier = Modifier.size(16.dp))
                     }
                 }
+            }
+        }
+    }
+
+    @Composable
+    private fun ModelLoadingEmptyState(localization: Localization) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(72.dp),
+                strokeWidth = 4.dp
+            )
+
+            Spacer(Modifier.size(24.dp))
+
+            Text(
+                text = localization.loadingModel,
+                style = Typography.get().titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.size(8.dp))
+
+            Text(
+                text = localization.loadingModelDescription,
+                style = Typography.get().bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+
+    @Composable
+    private fun NoModelEmptyState(
+        localization: Localization,
+        onDownloadDefault: () -> Unit,
+    ) {
+        val navigator = LocalNavigator.currentOrThrow
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = LlamatikIcons.Models,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                modifier = Modifier.size(72.dp)
+            )
+
+            Spacer(Modifier.size(24.dp))
+
+            Text(
+                text = localization.noModelSelected,
+                style = Typography.get().titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.size(8.dp))
+
+            Text(
+                text = localization.onboardingNoModelEmptyState,
+                style = Typography.get().bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.size(32.dp))
+
+            Button(
+                onClick = onDownloadDefault,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(50)
+            ) {
+                Text(text = localization.onboardingDownloadDefaultModel)
+            }
+
+            Spacer(Modifier.size(12.dp))
+
+            OutlinedButton(
+                onClick = { navigator.push(ModelsTabScreen()) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(50)
+            ) {
+                Text(text = localization.onboardingBrowseCatalog)
             }
         }
     }

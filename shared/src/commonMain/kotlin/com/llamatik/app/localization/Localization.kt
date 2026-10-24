@@ -178,6 +178,7 @@ interface Localization {
     val onboardingNoModelEmptyStateAction: String
 
     val configure: String
+    val open: String
     val modelsTitle: String
 
     val downloadFromUrl: String
@@ -195,39 +196,52 @@ interface Localization {
     val chatsInFolder: String
 
     // Onboarding v2 — English defaults; individual translations can override
-    val onboardingWelcomeSubtitle: String get() = "Local AI for a more independent future"
+    val onboardingWelcomeSubtitle: String get() = "AI on your device. Private. Offline. Free."
     val onboardingPrivateLabel: String get() = "Private"
     val onboardingOfflineLabel: String get() = "Offline"
     val onboardingOpenSourceLabel: String get() = "Open Source"
-    val onboardingRunLLMsDescription: String get() = "Chat, create, and explore with powerful AI models directly on your device — no cloud, no limits."
-    val onboardingAIToolkitTitle: String get() = "Your All-in-One AI Toolkit"
-    val onboardingAIToolkitDescription: String get() = "Text generation, image creation, speech-to-text, text-to-speech and more — all in one app."
+    val onboardingRunLLMsDescription: String get() = "Run powerful AI models entirely on your device — no internet required, no data sent anywhere."
+    val onboardingAIToolkitTitle: String get() = "Everything You Need"
+    val onboardingAIToolkitDescription: String get() = "Chat, analyze images, transcribe audio, and process documents — all powered by local AI."
     val onboardingFeatureChat: String get() = "Chat"
     val onboardingFeatureImages: String get() = "Images"
     val onboardingFeatureSpeech: String get() = "Speech"
     val onboardingFeatureDocuments: String get() = "Documents"
-    val onboardingBuiltForDevsTitle: String get() = "Built for Developers"
-    val onboardingBuiltForDevsDescription: String get() = "Open source, Kotlin Multiplatform and powered by llama.cpp. Customize, extend and build your own AI apps."
-    val onboardingPrivacyControlTitle: String get() = "Private & In Your Control"
-    val onboardingPrivacyControlDescription: String get() = "Your data stays on your device. No cloud dependencies, no tracking, no network latency."
-    val onboardingPrivacyBullet1: String get() = "100% offline"
-    val onboardingPrivacyBullet2: String get() = "Your data, your rules"
-    val onboardingPrivacyBullet3: String get() = "Works anywhere"
-    val onboardingPrivacyBullet4: String get() = "No subscriptions required"
-    val onboardingDownloadAIModelsTitle: String get() = "Download AI Models"
-    val onboardingDownloadAIModelsDescription: String get() = "To get the best experience, you can download recommended models now or do it later."
-    val onboardingDownloadSizeInfo: String get() = "Large files (1–8 GB)"
-    val onboardingDownloadSizeGuide: String get() = "We'll guide you through the download and you can always add more models later from Settings."
-    val onboardingDownloadModelsButton: String get() = "Download Models"
+    val onboardingBuiltForDevsTitle: String get() = "Transparent & Trustworthy"
+    val onboardingBuiltForDevsDescription: String get() = "Llamatik is fully open source — anyone can see exactly how it works. No hidden code, no secret data collection."
+    val onboardingPrivacyControlTitle: String get() = "Your Data, Your Rules"
+    val onboardingPrivacyControlDescription: String get() = "Everything stays on your device. No accounts, no cloud, no tracking."
+    val onboardingPrivacyBullet1: String get() = "Offline after setup"
+    val onboardingPrivacyBullet2: String get() = "Your data never leaves your device"
+    val onboardingPrivacyBullet3: String get() = "Works without Wi-Fi or mobile data"
+    val onboardingPrivacyBullet4: String get() = "No subscriptions, no sign-ups"
+    val loadingModel: String get() = "Loading model…"
+    val loadingModelDescription: String get() = "The AI model is initialising, it will be ready in a moment."
+
+    val onboardingDownloadAIModelsTitle: String get() = "Almost There!"
+    val onboardingDownloadAIModelsDescription: String get() = "To start chatting you need to download an AI model. It runs fully offline on your device. The default model is about 800MB — you can explore others in Settings later."
+    val onboardingDownloadSizeInfo: String get() = "One-time download (~800MB)"
+    val onboardingDownloadSizeGuide: String get() = "Once downloaded, the model runs entirely on your device with no internet required."
+    val onboardingDownloadModelsButton: String get() = "Download Default Model"
     val onboardingDoItLaterButton: String get() = "Do It Later"
     val onboardingReadyTitle: String get() = "You're Ready!"
-    val onboardingReadySubtitle: String get() = "Let's build a more open and independent AI future together."
-    val onboardingReadyBullet1: String get() = "Run LLMs offline"
-    val onboardingReadyBullet2: String get() = "Create and explore"
-    val onboardingReadyBullet3: String get() = "Keep your data private"
-    val onboardingReadyBullet4: String get() = "Open source and for everyone"
+    val onboardingReadySubtitle: String get() = "Start exploring what local AI can do — everything runs on your device."
+    val onboardingReadyBullet1: String get() = "Run AI offline, anytime"
+    val onboardingReadyBullet2: String get() = "Chat, create, and explore"
+    val onboardingReadyBullet3: String get() = "Your data stays private"
+    val onboardingReadyBullet4: String get() = "Free and open source"
     val onboardingGetStartedButton: String get() = "Get Started"
     val onboardingSkip: String get() = "Skip"
+
+    val aboutDescription: String get() = "Llamatik is a Kotlin Multiplatform AI app built on top of the open-source Llamatik library. It delivers powerful on-device AI across all supported platforms — fully offline, privacy-preserving, through a unified Kotlin API."
+    val aboutPoweredByTitle: String get() = "Powered by"
+    val aboutLibraryTitle: String get() = "Built on the Llamatik Library"
+    val aboutLicenseLabel: String get() = "MIT License · Open Source"
+    val aboutLlmEngine: String get() = "LLM inference"
+    val aboutSttEngine: String get() = "Speech-to-Text"
+    val aboutImageEngine: String get() = "Image Generation"
+    val aboutCorePkg: String get() = "Native inference bindings"
+    val aboutSdkPkg: String get() = "AI SDK · Agent Framework · Assistant"
 }
 
 enum class AvailableLanguages {

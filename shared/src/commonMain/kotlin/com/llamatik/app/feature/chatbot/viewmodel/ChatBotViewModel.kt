@@ -160,6 +160,9 @@ class ChatBotViewModel(
     @Volatile
     private var started = false
 
+    @Volatile
+    private var isRefreshingModelState = false
+
     private val downloadJobs = mutableMapOf<String, Job>()
 
     private var currentChatId: String? = null
@@ -380,6 +383,7 @@ class ChatBotViewModel(
             val summaries = chatHistoryRepository.getSummaries()
             _state.value = _state.value.copy(chatSessions = summaries)
 
+            _state.value = _state.value.copy(isGenerateModelLoading = true)
             getModelsUseCase.getDefaultGenerateModels()
                 .onSuccess { models ->
                     for (model in models) {
@@ -391,7 +395,8 @@ class ChatBotViewModel(
                             _state.value =
                                 _state.value.copy(
                                     selectedGenerateModelName = model.name,
-                                    isGenerateModelLoaded = true
+                                    isGenerateModelLoaded = true,
+                                    isGenerateModelLoading = false
                                 )
                             _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
                             notifyGenerateModelLoadedForReview()
@@ -407,7 +412,7 @@ class ChatBotViewModel(
                         if (!path.isNullOrBlank()) m.copy(localPath = path, fileName = path) else m
                     }
 
-                    _state.value = _state.value.copy(generateModels = normalized)
+                    _state.value = _state.value.copy(generateModels = normalized, isGenerateModelLoading = false)
 
                     val userSkipped = settings.getBoolean(USER_SKIPPED_SETUP_KEY, false)
                     if (hasAcceptedPrivacy && !userSkipped) {
@@ -416,6 +421,7 @@ class ChatBotViewModel(
                 }
                 .onFailure { error ->
                     Logger.e(error.message ?: "Unknown error")
+                    _state.value = _state.value.copy(isGenerateModelLoading = false)
                 }
 
             getModelsUseCase.getCustomUrlModels()
@@ -448,6 +454,46 @@ class ChatBotViewModel(
 
         onGenerateSettingsApplied(_state.value.generateSettings)
         _sideEffects.trySend(ChatBotSideEffects.OnLoaded)
+    }
+
+    fun refreshModelState() {
+        if (isRefreshingModelState) return
+        isRefreshingModelState = true
+        screenModelScope.launch(AppDispatchersIO) {
+            try {
+                getModelsUseCase.getDefaultGenerateModels()
+                    .onSuccess { models ->
+                        val validModel = models.firstOrNull { model ->
+                            !resolveAndMigratePath(model).isNullOrBlank()
+                        }
+                        if (validModel == null) {
+                            if (_state.value.isGenerateModelLoaded) {
+                                _state.value = _state.value.copy(
+                                    selectedGenerateModelName = null,
+                                    isGenerateModelLoaded = false
+                                )
+                            }
+                        } else if (!_state.value.isGenerateModelLoaded && !_state.value.isGenerating) {
+                            val path = resolveAndMigratePath(validModel) ?: return@onSuccess
+                            _state.value = _state.value.copy(isGenerateModelLoading = true)
+                            val isLoaded = LlamaBridge.initGenerateModel(path)
+                            if (isLoaded) {
+                                _state.value = _state.value.copy(
+                                    selectedGenerateModelName = validModel.name,
+                                    isGenerateModelLoaded = true,
+                                    isGenerateModelLoading = false
+                                )
+                                _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
+                                notifyGenerateModelLoadedForReview()
+                            } else {
+                                _state.value = _state.value.copy(isGenerateModelLoading = false)
+                            }
+                        }
+                    }
+            } finally {
+                isRefreshingModelState = false
+            }
+        }
     }
 
     private suspend fun startInitialSetupIfNeeded(models: List<LlamaModel>) {
@@ -1070,6 +1116,21 @@ class ChatBotViewModel(
         }
     }
 
+    fun downloadDefaultModel() {
+        val models = _state.value.generateModels
+        if (models.isEmpty()) return
+        val default = models.firstOrNull {
+            it.name.contains("gemma 3", ignoreCase = true) ||
+                    it.name.contains("gemma3", ignoreCase = true)
+        } ?: models.first()
+        _state.value = _state.value.copy(
+            isInitialSetup = true,
+            initialSetupModelName = default.name,
+            initialSetupProgress = 0
+        )
+        onDownloadModel(default)
+    }
+
     fun onDownloadModel(model: LlamaModel) {
         val url = model.url
         val existingJob = downloadJobs[url]
@@ -1082,6 +1143,10 @@ class ChatBotViewModel(
                 when (ev) {
                     is DownloadEvent.Progress -> {
                         updateDownload(url) { it.copy(inProgress = true, progress = ev.percent) }
+                        val isGenerateModel = _state.value.generateModels.any { it.url == url }
+                        if (_state.value.isInitialSetup && isGenerateModel) {
+                            _state.value = _state.value.copy(initialSetupProgress = ev.percent)
+                        }
                     }
 
                     is DownloadEvent.Completed -> {
@@ -1118,12 +1183,18 @@ class ChatBotViewModel(
                             if (loaded) {
                                 _state.value = _state.value.copy(
                                     selectedGenerateModelName = model.name,
-                                    isGenerateModelLoaded = true
+                                    isGenerateModelLoaded = true,
+                                    isInitialSetup = false
                                 )
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoaded)
                             } else {
+                                if (_state.value.isInitialSetup) {
+                                    _state.value = _state.value.copy(isInitialSetup = false)
+                                }
                                 _sideEffects.trySend(ChatBotSideEffects.OnGenerateModelLoadError)
                             }
+                        } else if (isGenerateModel && _state.value.isInitialSetup) {
+                            _state.value = _state.value.copy(isInitialSetup = false)
                         }
 
                         // If this is a VLM model with an mmproj companion, download the mmproj too
@@ -1136,6 +1207,10 @@ class ChatBotViewModel(
                     is DownloadEvent.Failed -> {
                         updateDownload(url) {
                             it.copy(inProgress = false, done = false, error = ev.message)
+                        }
+                        val isGenerateModel = _state.value.generateModels.any { it.url == url }
+                        if (_state.value.isInitialSetup && isGenerateModel) {
+                            _state.value = _state.value.copy(isInitialSetup = false)
                         }
                     }
                 }
@@ -2426,6 +2501,7 @@ data class ChatBotState(
     val vlmModels: List<LlamaModel> = emptyList(),
     val isEmbedModelLoaded: Boolean = false,
     val isGenerateModelLoaded: Boolean = false,
+    val isGenerateModelLoading: Boolean = false,
     val isSttModelLoaded: Boolean = false,
     val isStableDiffusionModelLoaded: Boolean = false,
     val isVlmModelLoaded: Boolean = false,

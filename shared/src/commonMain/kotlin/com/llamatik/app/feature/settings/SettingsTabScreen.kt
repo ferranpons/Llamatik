@@ -45,8 +45,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.llamatik.app.feature.chatbot.ui.ModelSettingsBottomSheet
-import com.llamatik.app.feature.chatbot.viewmodel.ChatBotViewModel
 import com.llamatik.app.feature.debugmenu.viewmodel.DebugMenuViewModel
 import com.llamatik.app.feature.models.ModelsTabScreen
 import com.llamatik.app.localization.AvailableLanguages
@@ -56,20 +54,15 @@ import com.llamatik.app.localization.getCurrentLanguage
 import com.llamatik.app.localization.getCurrentLocalization
 import com.llamatik.app.ui.components.ColoredSnackBarHost
 import com.llamatik.app.ui.icon.LlamatikIcons
+import com.llamatik.app.ui.screens.AboutScreen
+import com.llamatik.app.ui.screens.OnboardingScreen
 import com.llamatik.app.ui.theme.LlamatikTheme
 import com.llamatik.app.ui.theme.Typography
-import org.koin.core.parameter.ParametersHolder
 
 class SettingsTabScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val chatViewModel = koinScreenModel<ChatBotViewModel>(
-            parameters = { ParametersHolder(listOf(navigator).toMutableList(), false) }
-        )
-        val state by chatViewModel.state.collectAsState()
-        val showModelSettings = remember { mutableStateOf(false) }
-
         val debugViewModel = koinScreenModel<DebugMenuViewModel>()
         val snackbarHostState = remember { SnackbarHostState() }
 
@@ -79,16 +72,10 @@ class SettingsTabScreen : Screen {
                 snackbarHostState = snackbarHostState,
                 onClose = { navigator.pop() },
                 onOpenModels = { navigator.push(ModelsTabScreen()) },
-                onOpenModelSettings = { showModelSettings.value = true },
+                onOpenModelSettings = { navigator.push(GenerationSettingsScreen()) },
+                onShowOnboarding = { navigator.push(OnboardingScreen()) },
+                onAbout = { navigator.push(AboutScreen()) },
             )
-
-            if (showModelSettings.value) {
-                ModelSettingsBottomSheet(
-                    current = state.generateSettings,
-                    onApply = { chatViewModel.onGenerateSettingsApplied(it) },
-                    onDismiss = { showModelSettings.value = false }
-                )
-            }
         }
     }
 
@@ -99,6 +86,8 @@ class SettingsTabScreen : Screen {
         onClose: () -> Unit,
         onOpenModelSettings: (() -> Unit)? = null,
         onOpenModels: (() -> Unit)? = null,
+        onShowOnboarding: (() -> Unit)? = null,
+        onAbout: (() -> Unit)? = null,
     ) {
         val localization = getCurrentLocalization()
         val state by viewModel.state.collectAsState()
@@ -186,6 +175,26 @@ class SettingsTabScreen : Screen {
                         Button(onClick = { showLanguagePicker.value = true }) {
                             Text(text = localization.change)
                         }
+                    }
+
+                    if (onShowOnboarding != null) {
+                        Spacer(Modifier.size(16.dp))
+                        SettingsRow(
+                            icon = LlamatikIcons.Boarding,
+                            label = localization.onboarding,
+                            buttonLabel = localization.open,
+                            onClick = onShowOnboarding
+                        )
+                    }
+
+                    if (onAbout != null) {
+                        Spacer(Modifier.size(16.dp))
+                        SettingsRow(
+                            icon = LlamatikIcons.About,
+                            label = localization.about,
+                            buttonLabel = localization.open,
+                            onClick = onAbout
+                        )
                     }
                 }
             }
